@@ -4,7 +4,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 
@@ -12,6 +11,7 @@ import 'package:collection/collection.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/android_conversation_notifications.dart';
 import 'package:fluffychat/utils/call_kit_params.dart';
 import 'package:fluffychat/utils/client_manager.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
@@ -21,11 +21,9 @@ import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/start_push_foreground_service.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_new_badger/flutter_new_badger.dart';
-import 'package:flutter_shortcuts_new/flutter_shortcuts_new.dart';
 import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart' hide Result;
@@ -258,26 +256,26 @@ Future<void> _tryPushHelper(
     notificationGroupId,
     groupName,
   );
-  final roomsChannel = AndroidNotificationChannel(
-    event.room.id,
-    roomName,
-    groupId: notificationGroupId,
-  );
 
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin
       >()
       ?.createNotificationChannelGroup(messageRooms);
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin
-      >()
-      ?.createNotificationChannel(roomsChannel);
+
+  if (PlatformInfos.isAndroid) {
+    await AndroidConversationNotifications.createConversationChannel(
+      id: event.room.id,
+      name: roomName,
+      groupId: notificationGroupId,
+      parentChannelId: AppConfig.pushNotificationsChannelId,
+      shortcutId: event.room.id,
+    );
+  }
 
   final androidPlatformChannelSpecifics = AndroidNotificationDetails(
-    AppConfig.pushNotificationsChannelId,
-    l10n.incomingMessages,
+    event.room.id,
+    roomName,
     number: notification.counts?.unread,
     category: AndroidNotificationCategory.message,
     shortcutId: event.room.id,
@@ -359,8 +357,14 @@ Future<void> _tryPushHelper(
 
   final title = event.room.getLocalizedDisplayname(MatrixLocals(l10n));
 
-  if (PlatformInfos.isAndroid && messagingStyleInformation == null) {
-    await _setShortcut(event, l10n, title, roomAvatarFile);
+  if (PlatformInfos.isAndroid) {
+    await AndroidConversationNotifications.publishShortcut(
+      id: event.room.id,
+      name: roomName,
+      roomUrl: AppConfig.inviteLinkPrefix + event.room.id,
+      avatar: roomAvatarFile,
+      isImportant: event.room.isFavourite,
+    );
   }
 
   final needsTitleAndBody = !PlatformInfos.isAndroid;
@@ -454,32 +458,6 @@ class FluffyChatPushPayload {
 
   @override
   String toString() => '$clientName|$roomId|$eventId';
-}
-
-/// Creates a shortcut for Android platform but does not block displaying the
-/// notification. This is optional but provides a nicer view of the
-/// notification popup.
-Future<void> _setShortcut(
-  Event event,
-  L10n l10n,
-  String title,
-  Uint8List? avatarFile,
-) async {
-  final flutterShortcuts = FlutterShortcuts();
-  await flutterShortcuts.initialize(debug: !kReleaseMode);
-  await flutterShortcuts.pushShortcutItem(
-    shortcut: ShortcutItem(
-      id: event.room.id,
-      action: AppConfig.inviteLinkPrefix + event.room.id,
-      shortLabel: title,
-      conversationShortcut: true,
-      icon: avatarFile == null ? null : base64Encode(avatarFile),
-      shortcutIconAsset: avatarFile == null
-          ? ShortcutIconAsset.androidAsset
-          : ShortcutIconAsset.memoryAsset,
-      isImportant: event.room.isFavourite,
-    ),
-  );
 }
 
 extension on PushNotification {
