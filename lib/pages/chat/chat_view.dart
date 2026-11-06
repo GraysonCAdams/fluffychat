@@ -15,6 +15,7 @@ import 'package:fluffychat/pages/chat/chat_event_list.dart';
 import 'package:fluffychat/pages/chat/pinned_events.dart';
 import 'package:fluffychat/pages/chat/reply_display.dart';
 import 'package:fluffychat/utils/account_config.dart';
+import 'package:fluffychat/utils/android_bubble.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
 import 'package:fluffychat/widgets/chat_settings_popup_menu.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -112,7 +113,10 @@ class ChatView extends StatelessWidget {
                         tooltip: L10n.of(context).backToMainChat,
                         color: theme.colorScheme.onSecondaryContainer,
                       )
-                    : FluffyThemes.isColumnMode(context)
+                    // A chat bubble shows only this chat, so there is
+                    // nothing to go back to.
+                    : FluffyThemes.isColumnMode(context) ||
+                          AndroidBubble.isActive.value
                     ? null
                     : const Center(child: BackButton()),
                 titleSpacing: FluffyThemes.isColumnMode(context) ? 24 : 0,

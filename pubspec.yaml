@@ -152,3 +152,7 @@ dependency_overrides:
   # once upstream menus animate this way or the menus move to MenuAnchor.
   material_ui:
     path: third_party/material_ui
+  # Local fork: adds an Android chat bubble option to notifications (see
+  # third_party/flutter_local_notifications/FLUFFYCHAT.md).
+  flutter_local_notifications:
+    path: third_party/flutter_local_notifications

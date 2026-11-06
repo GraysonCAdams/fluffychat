@@ -28,13 +28,27 @@
     <uses-sdk
             tools:overrideLibrary="io.wazo.callkeep, net.touchcapture.qr.flutterqr, com.cloudwebrtc.webrtc, org.webrtc, com.it_nomads.fluttersecurestorage, com.pichillilorenzo.flutter_inappwebview, com.example.video_compress, com.otaliastudios.transcoder, com.otaliastudios.opengl, com.kineapps.flutter_file_dialog, com.llfbandit.record, com.pravera.flutter_foreground_task"/>
     <application
-        android:label="FluffyChat"
+        android:label="${appLabel}"
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:localeConfig="@xml/locale_config"
+        android:enableOnBackInvokedCallback="true"
     >
+        <!-- Shows one conversation inside an Android chat bubble. Bubbles
+             require a resizeable, embeddable activity. -->
+        <activity
+            android:name=".BubbleActivity"
+            android:theme="@style/LaunchTheme"
+            android:allowEmbedded="true"
+            android:resizeableActivity="true"
+            android:documentLaunchMode="always"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="false" />
+
         <activity
             android:name=".MainActivity"
             android:launchMode="singleTask"
@@ -45,6 +59,10 @@
             android:turnScreenOn="true"
             android:windowSoftInputMode="adjustResize"
             android:exported="true">
+            <!-- Direct Share targets for conversation shortcuts. -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

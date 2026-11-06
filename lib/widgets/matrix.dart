@@ -8,6 +8,7 @@ import 'dart:convert';
 
 import 'package:collection/collection.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/android_bubble.dart';
 import 'package:fluffychat/utils/client_manager.dart';
 import 'package:fluffychat/utils/init_with_restore.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_file_extension.dart';
@@ -210,6 +211,7 @@ class MatrixState extends State<Matrix> {
     super.initState();
     _listener = AppLifecycleListener(onStateChange: didChangeAppLifecycleState);
     initMatrix();
+    AndroidBubble.init(FluffyChatApp.router);
   }
 
   AppLifecycleListener? _listener;

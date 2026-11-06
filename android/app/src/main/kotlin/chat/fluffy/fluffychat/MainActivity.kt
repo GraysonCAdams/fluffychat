@@ -7,6 +7,8 @@ import io.flutter.embedding.engine.dart.DartExecutor.DartEntrypoint
 import io.flutter.plugin.common.MethodChannel
 
 import android.content.Context
+import android.content.Intent
+import android.os.Bundle
 
 class MainActivity : FlutterFragmentActivity() {
 
@@ -17,6 +19,39 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun provideFlutterEngine(context: Context): FlutterEngine? {
         return provideEngine(getApplicationContext())
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        rememberShareTarget(intent)
+        super.onCreate(savedInstanceState)
+        EngineHandoff.holder = this
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        // Before super, which hands the share to receive_sharing_intent.
+        rememberShareTarget(intent)
+        super.onNewIntent(intent)
+    }
+
+    /** A Direct Share names the chosen conversation's shortcut, i.e. room ID. */
+    private fun rememberShareTarget(intent: Intent?) {
+        if (intent == null) return
+        if (intent.action != Intent.ACTION_SEND && intent.action != Intent.ACTION_SEND_MULTIPLE) return
+        pendingShareRoomId = intent.getStringExtra(Intent.EXTRA_SHORTCUT_ID)
+    }
+
+    override fun onRestart() {
+        super.onRestart()
+        // A chat bubble took the shared engine; recreate to take it back.
+        if (EngineHandoff.holder !== this) recreate()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        engine?.let {
+            MethodChannel(it.dartExecutor.binaryMessenger, BubbleActivity.CHANNEL_NAME)
+                .invokeMethod("leaveBubble", null)
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -35,9 +70,37 @@ class MainActivity : FlutterFragmentActivity() {
 
     companion object {
         var engine: FlutterEngine? = null
+
+        const val SHARE_CHANNEL_NAME = "chat.fluffy.fluffychat/share"
+
+        /** The room a Direct Share picked, until Dart takes it. */
+        var pendingShareRoomId: String? = null
         fun provideEngine(context: Context): FlutterEngine {
-            val eng = engine ?: FlutterEngine(context, emptyArray(), true, false)
+            engine?.let { return it }
+            val eng = FlutterEngine(context, emptyArray(), true, false)
             engine = eng
+            // Registered with the engine rather than an activity, so a bubble
+            // started while the app is closed can hand Dart its room too.
+            MethodChannel(eng.dartExecutor.binaryMessenger, BubbleActivity.CHANNEL_NAME)
+                .setMethodCallHandler { call, result ->
+                    when (call.method) {
+                        "takePendingRoom" -> {
+                            result.success(BubbleActivity.pendingRoomId)
+                            BubbleActivity.pendingRoomId = null
+                        }
+                        else -> result.notImplemented()
+                    }
+                }
+            MethodChannel(eng.dartExecutor.binaryMessenger, SHARE_CHANNEL_NAME)
+                .setMethodCallHandler { call, result ->
+                    when (call.method) {
+                        "takeShareTargetRoom" -> {
+                            result.success(pendingShareRoomId)
+                            pendingShareRoomId = null
+                        }
+                        else -> result.notImplemented()
+                    }
+                }
             return eng
         }
 

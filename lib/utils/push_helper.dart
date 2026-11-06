@@ -11,6 +11,7 @@ import 'package:collection/collection.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/android_bubble.dart';
 import 'package:fluffychat/utils/android_conversation_notifications.dart';
 import 'package:fluffychat/utils/call_kit_params.dart';
 import 'package:fluffychat/utils/client_manager.dart';
@@ -279,6 +280,8 @@ Future<void> _tryPushHelper(
     number: notification.counts?.unread,
     category: AndroidNotificationCategory.message,
     shortcutId: event.room.id,
+    // The system only bubbles chats the user allows bubbles for.
+    bubbleActivity: AndroidBubble.activityClass,
     styleInformation:
         messagingStyleInformation ??
         MessagingStyleInformation(
