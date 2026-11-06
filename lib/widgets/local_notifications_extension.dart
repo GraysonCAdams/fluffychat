@@ -11,6 +11,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/client_download_content_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
+import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/push_helper.dart';
 import 'package:fluffychat/widgets/fluffy_chat_app.dart';
@@ -44,6 +45,8 @@ extension LocalNotificationsExtension on MatrixState {
         FluffyChatApp.router.go('/rooms/${event.room.id}?action=call');
       });
     }
+
+    if (notificationsSnoozedUntil != null) return;
 
     if (kIsWeb &&
         WebFlutterLocalNotificationsPlugin().permissionStatus != .granted) {
@@ -147,12 +150,12 @@ extension LocalNotificationsExtension on MatrixState {
         windows: WindowsNotificationDetails(
           timestamp: event.originServerTs,
           images: [
-            if (windowsAvatar != null)
+            if (PlatformInfos.isWindows)
               WindowsImage(
-                windowsAvatar,
+                windowsAvatar ?? _windowsAppLogo,
                 altText: title,
                 placement: WindowsImagePlacement.appLogoOverride,
-                crop: WindowsImageCrop.circle,
+                crop: windowsAvatar == null ? null : WindowsImageCrop.circle,
               ),
           ],
           inputs: [
@@ -203,6 +206,13 @@ extension LocalNotificationsExtension on MatrixState {
     );
   }
 
+  /// Shown in place of an avatar for chats without one, such as most bridged
+  /// SMS contacts.
+  static Uri get _windowsAppLogo => Uri.file(
+    '${File(Platform.resolvedExecutable).parent.path}'
+    r'\data\flutter_assets\assets\logo\mini\logo_mini.png',
+  );
+
   /// Windows toasts of unpackaged apps can only show local image files, so
   /// the room avatar is cached as one under the temp directory.
   Future<Uri?> _windowsAvatarFile(
@@ -238,7 +248,7 @@ extension LocalNotificationsExtension on MatrixState {
       await file.writeAsBytes(bytes);
       return file.uri;
     } catch (e, s) {
-      Logs().d('Unable to cache avatar for Windows notification', e, s);
+      Logs().w('Unable to cache avatar for Windows notification', e, s);
       return null;
     }
   }

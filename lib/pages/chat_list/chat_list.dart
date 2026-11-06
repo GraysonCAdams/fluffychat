@@ -16,6 +16,7 @@ import 'package:fluffychat/pages/chat_list/chat_list_view.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/show_scaffold_dialog.dart';
 import 'package:fluffychat/utils/show_update_snackbar.dart';
@@ -30,6 +31,7 @@ import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_shortcuts_new/flutter_shortcuts_new.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart' as sdk;
@@ -905,6 +907,80 @@ class ChatListController extends State<ChatList>
         activeFilter = ActiveFilter.allChats;
       }
     });
+  }
+
+  /// Moves the read marker to the newest event of every unread chat of the
+  /// active account, in small batches so large accounts are not rate limited.
+  Future<void> markAllAsRead() async {
+    final client = Matrix.of(context).client;
+    final rooms = client.rooms
+        .where(
+          (room) =>
+              room.membership == Membership.join &&
+              (room.isUnread || room.markedUnread),
+        )
+        .toList();
+    if (rooms.isEmpty) return;
+    await showFutureLoadingDialog(
+      context: context,
+      future: () async {
+        for (var i = 0; i < rooms.length; i += 10) {
+          await Future.wait(
+            rooms.skip(i).take(10).map((room) async {
+              if (room.markedUnread) await room.markUnread(false);
+              final eventId = room.lastEvent?.eventId;
+              if (eventId == null) return;
+              await room.setReadMarker(
+                eventId,
+                mRead: eventId,
+                public: AppSettings.sendPublicReadReceipts.value,
+              );
+            }),
+          );
+        }
+      },
+    );
+  }
+
+  /// Resumes notifications when snoozed, and otherwise asks for how long to
+  /// snooze them.
+  Future<void> toggleNotificationSnooze() async {
+    final l10n = L10n.of(context);
+    if (notificationsSnoozedUntil != null) {
+      await snoozeNotificationsUntil(null);
+      return;
+    }
+    final now = DateTime.now();
+    final until = await showModalActionPopup<DateTime>(
+      context: context,
+      title: l10n.snoozeNotifications,
+      actions: [
+        AdaptiveModalAction(
+          value: now.add(const Duration(hours: 1)),
+          label: l10n.snoozeForOneHour,
+        ),
+        AdaptiveModalAction(
+          value: now.add(const Duration(hours: 8)),
+          label: l10n.snoozeForEightHours,
+        ),
+        AdaptiveModalAction(
+          value: nextMorning,
+          label: l10n.snoozeUntilTomorrow,
+        ),
+      ],
+    );
+    if (until == null || !mounted) return;
+    await snoozeNotificationsUntil(until);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          l10n.notificationsSnoozedUntil(
+            DateFormat.MMMd().add_jm().format(until),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> setStatus() async {

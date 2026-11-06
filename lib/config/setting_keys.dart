@@ -47,6 +47,9 @@ enum AppSettings<T> {
   closeToTray<bool>('chat.fluffy.close_to_tray', true),
   launchAtStartup<bool>('chat.fluffy.launch_at_startup', false),
   windowBounds<String>('chat.fluffy.window_bounds', ''),
+
+  /// Milliseconds since epoch until which no notifications are shown; 0 = off.
+  snoozeNotificationsUntil<int>('chat.fluffy.snooze_notifications_until', 0),
   displayNavigationRail<bool>('chat.fluffy.display_navigation_rail', false),
   shareKeysWith<String>('chat.fluffy.share_keys_with_2', 'all'),
   noEncryptionWarningShown<bool>(

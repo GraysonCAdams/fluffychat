@@ -5,6 +5,7 @@
 
 import 'package:async/async.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:go_router/go_router.dart';
@@ -48,6 +49,34 @@ class ClientChooserButton extends StatelessWidget {
             const Icon(Icons.edit_outlined),
             const SizedBox(width: 18),
             Text(L10n.of(context).setStatus),
+          ],
+        ),
+      ),
+      PopupMenuItem(
+        value: SettingsAction.markAllAsRead,
+        child: Row(
+          children: [
+            const Icon(Icons.mark_chat_read_outlined),
+            const SizedBox(width: 18),
+            Text(L10n.of(context).markAllAsRead),
+          ],
+        ),
+      ),
+      PopupMenuItem(
+        value: SettingsAction.snooze,
+        child: Row(
+          children: [
+            Icon(
+              notificationsSnoozedUntil == null
+                  ? Icons.notifications_paused_outlined
+                  : Icons.notifications_active_outlined,
+            ),
+            const SizedBox(width: 18),
+            Text(
+              notificationsSnoozedUntil == null
+                  ? L10n.of(context).snoozeNotifications
+                  : L10n.of(context).resumeNotifications,
+            ),
           ],
         ),
       ),
@@ -225,6 +254,12 @@ class ClientChooserButton extends StatelessWidget {
         case SettingsAction.setStatus:
           controller.setStatus();
           break;
+        case SettingsAction.markAllAsRead:
+          controller.markAllAsRead();
+          break;
+        case SettingsAction.snooze:
+          controller.toggleNotificationSnooze();
+          break;
       }
     }
   }
@@ -234,6 +269,8 @@ enum SettingsAction {
   addAccount,
   newGroup,
   setStatus,
+  markAllAsRead,
+  snooze,
   invite,
   support,
   settings,
