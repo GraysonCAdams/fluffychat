@@ -83,7 +83,7 @@ class ChatListItem extends StatelessWidget {
         child: FutureBuilder(
           future: room.name.isEmpty ? room.loadHeroUsers() : null,
           builder: (context, _) => HoverBuilder(
-            builder: (context, listTileHovered) => ListTile(
+            builder: (context, _) => ListTile(
               minVerticalPadding: 16,
               contentPadding: const EdgeInsets.symmetric(horizontal: 8),
               onLongPress: () => onLongPress?.call(context),
@@ -162,28 +162,6 @@ class ChatListItem extends StatelessWidget {
                             presenceUserId: directChatMatrixId,
                             presenceBackgroundColor: backgroundColor,
                             onTap: () => onLongPress?.call(context),
-                          ),
-                        ),
-                        Positioned(
-                          top: 0,
-                          right: 0,
-                          child: Builder(
-                            builder: (arrowContext) => GestureDetector(
-                              onTap: () => onLongPress?.call(arrowContext),
-                              child: AnimatedScale(
-                                duration: FluffyThemes.animationDuration,
-                                curve: FluffyThemes.animationCurve,
-                                scale: listTileHovered ? 1.0 : 0.0,
-                                child: Material(
-                                  color: backgroundColor,
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: const Icon(
-                                    Icons.arrow_drop_down_circle_outlined,
-                                    size: 18,
-                                  ),
-                                ),
-                              ),
-                            ),
                           ),
                         ),
                       ],
