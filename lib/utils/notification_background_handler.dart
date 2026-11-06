@@ -10,7 +10,9 @@ import 'dart:ui';
 import 'package:collection/collection.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/client_manager.dart';
+import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/push_helper.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_vodozemac/flutter_vodozemac.dart' as vod;
 import 'package:go_router/go_router.dart';
@@ -108,12 +110,48 @@ Future<void> notificationTapBackground(
   return;
 }
 
+/// Packs a notification action with its payload into a Windows toast
+/// button's arguments, which is the only value Windows hands back on click.
+String windowsNotificationActionArguments(
+  FluffyChatNotificationActions action,
+  String payload,
+) => '${action.name}#$payload';
+
+/// The input id of the reply box on Windows toasts.
+const windowsReplyInputId = 'reply';
+
+/// Windows reports a toast button's arguments as both the action ID and the
+/// payload, and typed text in [NotificationResponse.data], so unpack them into
+/// the shape the other platforms report.
+@visibleForTesting
+NotificationResponse unpackWindowsResponse(NotificationResponse response) {
+  final arguments = response.actionId;
+  if (response.notificationResponseType !=
+          NotificationResponseType.selectedNotificationAction ||
+      arguments == null ||
+      !arguments.contains('#')) {
+    return response;
+  }
+  final separator = arguments.indexOf('#');
+  return NotificationResponse(
+    notificationResponseType: response.notificationResponseType,
+    id: response.id,
+    actionId: arguments.substring(0, separator),
+    payload: arguments.substring(separator + 1),
+    input: response.data[windowsReplyInputId] as String? ?? response.input,
+    data: response.data,
+  );
+}
+
 Future<void> notificationTap(
-  NotificationResponse notificationResponse, {
+  NotificationResponse response, {
   GoRouter? router,
   required List<Client> clients,
   L10n? l10n,
 }) async {
+  final notificationResponse = PlatformInfos.isWindows
+      ? unpackWindowsResponse(response)
+      : response;
   Logs().d(
     'Notification action handler started',
     notificationResponse.notificationResponseType.name,

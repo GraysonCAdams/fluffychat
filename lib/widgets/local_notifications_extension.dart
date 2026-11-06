@@ -3,6 +3,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:io';
+
+import 'package:collection/collection.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/client_download_content_extension.dart';
@@ -17,6 +20,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:universal_html/html.dart' as html;
 
 extension LocalNotificationsExtension on MatrixState {
@@ -97,6 +101,20 @@ extension LocalNotificationsExtension on MatrixState {
 
     if (kIsWeb && AppSettings.webNotificationSound.value) _audioPlayer.play();
 
+    final payload = FluffyChatPushPayload(
+      client.clientName,
+      event.room.id,
+      event.eventId,
+    ).toString();
+    final windowsAvatar = PlatformInfos.isWindows && avatarUrl != null
+        ? await _windowsAvatarFile(avatarUrl, size, thumbnailMethod)
+        : null;
+    final isMessage = {
+      EventTypes.Message,
+      EventTypes.Encrypted,
+      EventTypes.Sticker,
+    }.contains(event.type);
+
     await FlutterLocalNotificationsPlugin().show(
       id: id,
       title: title,
@@ -126,7 +144,44 @@ extension LocalNotificationsExtension on MatrixState {
             _ => [],
           },
         ),
-        windows: WindowsNotificationDetails(timestamp: event.originServerTs),
+        windows: WindowsNotificationDetails(
+          timestamp: event.originServerTs,
+          images: [
+            if (windowsAvatar != null)
+              WindowsImage(
+                windowsAvatar,
+                altText: title,
+                placement: WindowsImagePlacement.appLogoOverride,
+                crop: WindowsImageCrop.circle,
+              ),
+          ],
+          inputs: [
+            if (isMessage)
+              WindowsTextInput(
+                id: windowsReplyInputId,
+                placeHolderContent: l10n.writeAMessage,
+              ),
+          ],
+          actions: [
+            if (isMessage) ...[
+              WindowsAction(
+                content: l10n.reply,
+                arguments: windowsNotificationActionArguments(
+                  FluffyChatNotificationActions.reply,
+                  payload,
+                ),
+                inputId: windowsReplyInputId,
+              ),
+              WindowsAction(
+                content: l10n.markAsRead,
+                arguments: windowsNotificationActionArguments(
+                  FluffyChatNotificationActions.markAsRead,
+                  payload,
+                ),
+              ),
+            ],
+          ],
+        ),
         macOS: DarwinNotificationDetails(
           badgeNumber: unreadRooms,
           threadIdentifier: '${client.clientName}_$roomId',
@@ -144,11 +199,47 @@ extension LocalNotificationsExtension on MatrixState {
           timestamp: event.originServerTs,
         ),
       ),
-      payload: FluffyChatPushPayload(
-        client.clientName,
-        event.room.id,
-        event.eventId,
-      ).toString(),
+      payload: payload,
     );
+  }
+
+  /// Windows toasts of unpackaged apps can only show local image files, so
+  /// the room avatar is cached as one under the temp directory.
+  Future<Uri?> _windowsAvatarFile(
+    Uri avatarUrl,
+    int size,
+    ThumbnailMethod thumbnailMethod,
+  ) async {
+    try {
+      final directory = Directory(
+        '${(await getTemporaryDirectory()).path}'
+        '${Platform.pathSeparator}notification_avatars',
+      );
+      final name = avatarUrl.toString().hashCode.toUnsigned(32);
+      if (directory.existsSync()) {
+        final cached = directory.listSync().whereType<File>().firstWhereOrNull(
+          (f) => f.uri.pathSegments.last.startsWith('$name.'),
+        );
+        if (cached != null) return cached.uri;
+      }
+
+      final bytes = await client.downloadMxcCached(
+        avatarUrl,
+        width: size,
+        height: size,
+        thumbnailMethod: thumbnailMethod,
+        isThumbnail: true,
+      );
+      final isPng = bytes.length > 3 && bytes[0] == 0x89 && bytes[1] == 0x50;
+      final file = File(
+        '${directory.path}${Platform.pathSeparator}$name.${isPng ? 'png' : 'jpg'}',
+      );
+      await file.create(recursive: true);
+      await file.writeAsBytes(bytes);
+      return file.uri;
+    } catch (e, s) {
+      Logs().d('Unable to cache avatar for Windows notification', e, s);
+      return null;
+    }
   }
 }
