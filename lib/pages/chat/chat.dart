@@ -196,6 +196,10 @@ class ChatController extends State<ChatPageWithRoom>
 
   bool showEmojiPicker = false;
 
+  int emojiPickerInitialTab = 0;
+
+  final UndoHistoryController undoController = UndoHistoryController();
+
   String? get threadLastEventId {
     final threadId = activeThreadId;
     if (threadId == null) return null;
@@ -372,6 +376,45 @@ class ChatController extends State<ChatPageWithRoom>
     );
   }
 
+  void _toggleEmojiPickerTab(int tab) {
+    if (showEmojiPicker && emojiPickerInitialTab == tab) {
+      emojiPickerAction();
+    } else if (showEmojiPicker) {
+      // Already open on a different tab — close and reopen on the new tab
+      setState(() {
+        showEmojiPicker = false;
+        emojiPickerInitialTab = tab;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        emojiPickerAction();
+      });
+    } else {
+      emojiPickerInitialTab = tab;
+      emojiPickerAction();
+    }
+  }
+
+  void _wrapSelectedText(String prefix, String suffix) {
+    final selection = sendController.selection;
+    final text = sendController.text;
+    final selectedText = selection.textInside(text);
+
+    final replacement = '$prefix$selectedText$suffix';
+    final newText = text.replaceRange(
+      selection.start,
+      selection.end,
+      replacement,
+    );
+    final cursorOffset = selectedText.isEmpty
+        ? selection.start + prefix.length
+        : selection.start + replacement.length;
+
+    sendController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: cursorOffset),
+    );
+  }
+
   KeyEventResult _customEnterKeyHandling(FocusNode node, KeyEvent evt) {
     if (evt is KeyDownEvent &&
         evt.logicalKey == LogicalKeyboardKey.arrowUp &&
@@ -384,10 +427,40 @@ class ChatController extends State<ChatPageWithRoom>
     }
 
     if (evt is KeyDownEvent &&
-        evt.logicalKey == LogicalKeyboardKey.escape &&
-        editEvent != null) {
-      _cancelEditWithConfirmation();
-      return KeyEventResult.handled;
+        (HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed)) {
+      if (evt.logicalKey == LogicalKeyboardKey.keyB) {
+        _wrapSelectedText('**', '**');
+        return KeyEventResult.handled;
+      }
+      if (evt.logicalKey == LogicalKeyboardKey.keyI) {
+        _wrapSelectedText('*', '*');
+        return KeyEventResult.handled;
+      }
+      if (evt.logicalKey == LogicalKeyboardKey.keyE) {
+        _toggleEmojiPickerTab(0);
+        return KeyEventResult.handled;
+      }
+      if (evt.logicalKey == LogicalKeyboardKey.keyS) {
+        _toggleEmojiPickerTab(1);
+        return KeyEventResult.handled;
+      }
+      if (evt.logicalKey == LogicalKeyboardKey.keyY) {
+        undoController.redo();
+        return KeyEventResult.handled;
+      }
+    }
+
+    if (evt is KeyDownEvent && evt.logicalKey == LogicalKeyboardKey.escape) {
+      if (showEmojiPicker) {
+        hideEmojiPicker();
+        inputFocus.requestFocus();
+        return KeyEventResult.handled;
+      }
+      if (editEvent != null) {
+        _cancelEditWithConfirmation();
+        return KeyEventResult.handled;
+      }
     }
 
     if (!HardwareKeyboard.instance.isShiftPressed &&
@@ -719,6 +792,7 @@ class ChatController extends State<ChatPageWithRoom>
     inputFocus.dispose();
     _displayChatDetailsColumn.dispose();
     web.window.removeEventListener('paste', _handleClipboardFilePasteWeb);
+    undoController.dispose();
     if (currentlyTyping) room.setTyping(false);
     MxcImage.clearCache(widget.room.id);
     super.dispose();
