@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: 2019-Present Contributors to FluffyChat
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Build windows/runner/resources/app_icon.ico from assets/logo/vector/logo.svg.
+"""Build the Windows app and tray icons from assets/logo/vector/logo.svg.
 
 The logo artwork is clipped to a rounded square inset on Microsoft's 48x48
 icon grid, with transparent corners, and rendered separately at every size
@@ -23,6 +23,8 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 LOGO = ROOT / 'assets' / 'logo' / 'vector' / 'logo.svg'
 ICO = ROOT / 'windows' / 'runner' / 'resources' / 'app_icon.ico'
+# The same icon as a Flutter asset, for the tray.
+TRAY_ICO = ROOT / 'assets' / 'logo' / 'tray_icon.ico'
 
 # The minimum set from Microsoft's app icon construction guide (16, 24, 32,
 # 48, 256) plus every other scale-factor size its table lists.
@@ -53,8 +55,9 @@ def main() -> None:
         for s in SIZES
     ]
     largest = images[-1]
-    largest.save(ICO, format='ICO', sizes=[(s, s) for s in SIZES], append_images=images[:-1])
-    print(f'Wrote {ICO.relative_to(ROOT)} with sizes {SIZES}')
+    for path in (ICO, TRAY_ICO):
+        largest.save(path, format='ICO', sizes=[(s, s) for s in SIZES], append_images=images[:-1])
+        print(f'Wrote {path.relative_to(ROOT)} with sizes {SIZES}')
 
 
 if __name__ == '__main__':

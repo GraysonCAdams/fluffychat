@@ -13,6 +13,19 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     CreateAndAttachConsole();
   }
 
+  // Only one instance may open the database. A second launch, for example
+  // from the Start menu while the app sits in the tray, brings the running
+  // window to the front instead.
+  ::CreateMutexW(nullptr, TRUE, L"Local\\im.fluffychat.app");
+  if (::GetLastError() == ERROR_ALREADY_EXISTS) {
+    HWND running = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"FluffyChat");
+    if (running) {
+      ::ShowWindow(running, ::IsIconic(running) ? SW_RESTORE : SW_SHOW);
+      ::SetForegroundWindow(running);
+    }
+    return EXIT_SUCCESS;
+  }
+
   // Initialize COM, so that it is available for use in the library and/or
   // plugins.
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);

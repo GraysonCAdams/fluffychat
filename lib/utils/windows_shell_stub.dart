@@ -19,3 +19,11 @@ Future<void> updateWindowsTaskbarBadge(
   BuildContext context,
   int unreadChats,
 ) async {}
+
+abstract final class WindowsDesktop {
+  static const startHiddenArgument = '--hidden';
+
+  static Future<void> init(List<String> args, Object l10n) async {}
+
+  static void setLaunchAtStartup(bool enabled) {}
+}

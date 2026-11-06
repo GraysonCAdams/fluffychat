@@ -4,11 +4,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:ffi';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:ffi/ffi.dart';
+import 'package:fluffychat/config/setting_keys.dart';
+import 'package:fluffychat/l10n/l10n.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
+import 'package:screen_retriever/screen_retriever.dart';
+import 'package:tray_manager/tray_manager.dart' as tray;
+import 'package:window_manager/window_manager.dart';
 
 /// Title bar colours and the taskbar unread badge, set through Win32 over FFI
 /// so that the runner in `windows/` can stay a stock Flutter template.
@@ -418,4 +424,200 @@ Future<void> updateWindowsTaskbarBadge(BuildContext context, int unreadChats) {
     background: colors.primary,
     foreground: colors.onPrimary,
   );
+}
+
+/// Window placement, the tray icon, close to tray and launch at login.
+abstract final class WindowsDesktop {
+  /// Passed by the login entry so the app starts in the tray.
+  static const startHiddenArgument = '--hidden';
+
+  static const _runKey = r'Software\Microsoft\Windows\CurrentVersion\Run';
+  static const _runValueName = 'FluffyChat';
+  static const _trayIcon = 'assets/logo/tray_icon.ico';
+
+  static final _advapi32 = DynamicLibrary.open('advapi32.dll');
+  static final _regSetKeyValue = _advapi32
+      .lookupFunction<
+        Int32 Function(
+          IntPtr,
+          Pointer<Utf16>,
+          Pointer<Utf16>,
+          Uint32,
+          Pointer,
+          Uint32,
+        ),
+        int Function(int, Pointer<Utf16>, Pointer<Utf16>, int, Pointer, int)
+      >('RegSetKeyValueW');
+  static final _regDeleteKeyValue = _advapi32
+      .lookupFunction<
+        Int32 Function(IntPtr, Pointer<Utf16>, Pointer<Utf16>),
+        int Function(int, Pointer<Utf16>, Pointer<Utf16>)
+      >('RegDeleteKeyValueW');
+  static const _hkeyCurrentUser = 0x80000001;
+  static const _regSz = 1;
+
+  /// Restores the window, sets up the tray and shows the window unless the
+  /// app was launched at login. The runner creates the window hidden, so
+  /// nothing appears before its saved bounds are applied.
+  static Future<void> init(List<String> args, L10n l10n) async {
+    try {
+      await windowManager.ensureInitialized();
+      await _restoreBounds();
+      windowManager.addListener(_WindowEvents());
+      await windowManager.setPreventClose(true);
+      await _initTray(l10n);
+      setLaunchAtStartup(AppSettings.launchAtStartup.value);
+    } catch (e, s) {
+      Logs().w('Unable to set up the desktop window', e, s);
+    } finally {
+      if (!args.contains(startHiddenArgument)) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => windowManager.show(),
+        );
+      }
+    }
+  }
+
+  /// Adds or removes the per-user login entry that starts the app hidden.
+  static void setLaunchAtStartup(bool enabled) {
+    final key = _runKey.toNativeUtf16();
+    final name = _runValueName.toNativeUtf16();
+    try {
+      if (!enabled) {
+        _regDeleteKeyValue(_hkeyCurrentUser, key, name);
+        return;
+      }
+      final command = '"${Platform.resolvedExecutable}" $startHiddenArgument'
+          .toNativeUtf16();
+      try {
+        _regSetKeyValue(
+          _hkeyCurrentUser,
+          key,
+          name,
+          _regSz,
+          command,
+          (command.length + 1) * 2,
+        );
+      } finally {
+        calloc.free(command);
+      }
+    } finally {
+      calloc.free(key);
+      calloc.free(name);
+    }
+  }
+
+  static Future<void> showWindow() async {
+    await windowManager.show();
+    await windowManager.focus();
+  }
+
+  static Future<void> quit() async {
+    _tray?.dispose();
+    _tray = null;
+    await windowManager.setPreventClose(false);
+    await windowManager.destroy();
+  }
+
+  static tray.TrayIcon? _tray;
+
+  static Future<void> _initTray(L10n l10n) async {
+    final trayIcon = tray.TrayIcon.create();
+    final menu = tray.Menu.create();
+    final open = tray.MenuItem.createWithLabelAndType(
+      l10n.open,
+      tray.MenuItemType.normal,
+    );
+    final quit = tray.MenuItem.createWithLabelAndType(
+      l10n.quit,
+      tray.MenuItemType.normal,
+    );
+    if (trayIcon == null || menu == null || open == null || quit == null) {
+      Logs().w('Unable to create the tray icon');
+      return;
+    }
+    open.addListener((event) {
+      if (event is tray.MenuItemClickedEvent) showWindow();
+    });
+    quit.addListener((event) {
+      if (event is tray.MenuItemClickedEvent) WindowsDesktop.quit();
+    });
+    menu
+      ..addItem(open)
+      ..addSeparator()
+      ..addItem(quit);
+    trayIcon
+      ..icon = tray.ImageAsset.fromAsset(_trayIcon)
+      ..setTooltip(AppSettings.applicationName.value)
+      ..setContextMenu(menu)
+      ..setContextMenuTrigger(tray.ContextMenuTrigger.rightClicked)
+      ..addListener((event) {
+        if (event is tray.TrayIconClickedEvent) showWindow();
+      })
+      ..setVisible(true);
+    _tray = trayIcon;
+  }
+
+  static Future<void> _restoreBounds() async {
+    final saved = AppSettings.windowBounds.value.split(',');
+    if (saved.length != 5) return;
+    final values = saved.take(4).map(double.tryParse).toList();
+    if (values.any((v) => v == null)) return;
+    final bounds = Rect.fromLTWH(
+      values[0]!,
+      values[1]!,
+      values[2]!,
+      values[3]!,
+    );
+
+    // A monitor that has since been unplugged would leave the window
+    // off screen, so only restore bounds that overlap a current display.
+    final displays = await screenRetriever.getAllDisplays();
+    final onScreen = displays.any((display) {
+      final origin = display.visiblePosition ?? Offset.zero;
+      final size = display.visibleSize ?? display.size;
+      final overlap = (origin & size).intersect(bounds);
+      return overlap.width >= 100 && overlap.height >= 100;
+    });
+    if (!onScreen) return;
+
+    await windowManager.setBounds(bounds);
+    if (saved[4] == '1') await windowManager.maximize();
+  }
+
+  static Future<void> _saveBounds() async {
+    final maximized = await windowManager.isMaximized();
+    // While maximized, keep the last normal bounds so unmaximizing after a
+    // restart returns to them.
+    final previous = AppSettings.windowBounds.value.split(',');
+    final bounds = maximized && previous.length == 5
+        ? previous.take(4).join(',')
+        : await windowManager.getBounds().then(
+            (b) => [b.left, b.top, b.width, b.height].join(','),
+          );
+    await AppSettings.windowBounds.setItem('$bounds,${maximized ? 1 : 0}');
+  }
+}
+
+class _WindowEvents with WindowListener {
+  @override
+  void onWindowClose() {
+    if (AppSettings.closeToTray.value) {
+      windowManager.hide();
+      return;
+    }
+    WindowsDesktop.quit();
+  }
+
+  @override
+  void onWindowMoved() => WindowsDesktop._saveBounds();
+
+  @override
+  void onWindowResized() => WindowsDesktop._saveBounds();
+
+  @override
+  void onWindowMaximize() => WindowsDesktop._saveBounds();
+
+  @override
+  void onWindowUnmaximize() => WindowsDesktop._saveBounds();
 }

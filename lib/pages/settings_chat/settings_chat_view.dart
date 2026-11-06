@@ -9,6 +9,7 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/windows_shell.dart';
 import 'package:fluffychat/widgets/layouts/max_width_body.dart';
 import 'package:fluffychat/widgets/settings_switch_list_tile.dart';
 import 'package:go_router/go_router.dart';
@@ -53,6 +54,17 @@ class SettingsChatView extends StatelessWidget {
                 title: L10n.of(context).hideInvalidOrUnknownMessageFormats,
                 setting: AppSettings.hideUnknownEvents,
               ),
+              if (PlatformInfos.isWindows) ...[
+                SettingsSwitchListTile.adaptive(
+                  title: L10n.of(context).closeToTray,
+                  setting: AppSettings.closeToTray,
+                ),
+                SettingsSwitchListTile.adaptive(
+                  title: L10n.of(context).launchAtStartup,
+                  setting: AppSettings.launchAtStartup,
+                  onChanged: WindowsDesktop.setLaunchAtStartup,
+                ),
+              ],
               if (PlatformInfos.isMobile)
                 SettingsSwitchListTile.adaptive(
                   title: L10n.of(context).autoplayImages,

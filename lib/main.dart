@@ -9,11 +9,13 @@ import 'dart:ui';
 
 import 'package:collection/collection.dart';
 import 'package:fluffychat/config/app_config.dart';
+import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/client_manager.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/start_push_foreground_service.dart';
+import 'package:fluffychat/utils/windows_shell.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_vodozemac/flutter_vodozemac.dart' as vod;
@@ -110,11 +112,15 @@ void main(List<String> args) => runZonedGuarded(() async {
   Logs().i(
     '${AppSettings.applicationName.value} started in foreground mode. Rendering GUI...',
   );
-  await startGui(clients, store);
+  await startGui(clients, store, args: args);
 }, ErrorReporter.onFlutterError);
 
 /// Fetch the pincode for the applock and start the flutter engine.
-Future<void> startGui(List<Client> clients, SharedPreferences store) async {
+Future<void> startGui(
+  List<Client> clients,
+  SharedPreferences store, {
+  List<String> args = const [],
+}) async {
   // Fetch the pin for the applock if existing for mobile applications.
   String? pin;
   var useBiometrics = false;
@@ -135,6 +141,13 @@ Future<void> startGui(List<Client> clients, SharedPreferences store) async {
 
   if (PlatformInfos.isLinux || PlatformInfos.isWindows) {
     JustAudioMediaKit.ensureInitialized();
+  }
+
+  if (PlatformInfos.isWindows) {
+    final l10n = await lookupL10n(
+      PlatformDispatcher.instance.locale,
+    ).catchError((_) => lookupL10n(const Locale('en')));
+    await WindowsDesktop.init(args, l10n);
   }
 
   // Preload first client

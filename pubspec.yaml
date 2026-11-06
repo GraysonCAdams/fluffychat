@@ -81,12 +81,14 @@ dependencies:
   qr_image: ^1.0.0
   receive_sharing_intent: ^1.9.0
   record: ^7.1.2
+  screen_retriever: ^0.2.2
   scroll_to_index: ^3.0.1
   share_plus: ^13.3.1
   shared_preferences: ^2.5.6
   slugify: ^2.0.0
   sqflite_common_ffi: ^2.4.5
   synchronized: ^3.5.0
+  tray_manager: ^0.8.3
   unifiedpush: ^6.2.0
   unifiedpush_ui: ^0.2.0
   universal_html: ^2.3.0
@@ -94,6 +96,7 @@ dependencies:
   uuid: ^4.6.0
   video_player: ^2.14.1
   wakelock_plus: ^1.8.0
+  window_manager: ^0.5.2
 
 dev_dependencies:
   dart_code_linter: ^4.4.4
@@ -113,6 +116,7 @@ flutter:
   assets:
     - assets/
     - assets/logo/mini/
+    - assets/logo/tray_icon.ico
     - assets/sounds/
     - assets/vodozemac/0.8.1/
 
