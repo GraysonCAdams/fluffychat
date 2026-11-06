@@ -142,3 +142,8 @@ flutter_launcher_icons:
 # 2. Always link an (upstream?) issue
 # 3. Explain how and when this can be removed (overrides must be temporarily)
 dependency_overrides:
+  # Local fork: popup menus and dropdowns open in one eased motion instead of
+  # revealing item by item (see third_party/material_ui/FLUFFYCHAT.md). Drop it
+  # once upstream menus animate this way or the menus move to MenuAnchor.
+  material_ui:
+    path: third_party/material_ui
