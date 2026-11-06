@@ -71,12 +71,19 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appLabel"] = "FluffyChat"
         ndk { // Workaround for https://github.com/flutter/flutter/issues/162153#issuecomment-2612443642
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64", "x86")
         }
     }
 
     buildTypes {
+        // Installs next to a store-signed FluffyChat instead of failing on
+        // its signature, so test builds keep the real app's data intact.
+        debug {
+            applicationIdSuffix = ".fork"
+            manifestPlaceholders["appLabel"] = "FluffyChat Fork"
+        }
         release {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
