@@ -15,6 +15,7 @@ import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/push_helper.dart';
 import 'package:fluffychat/utils/uia_request_manager.dart';
+import 'package:fluffychat/utils/windows_shell.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/fluffy_chat_app.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
@@ -178,6 +179,7 @@ class MatrixState extends State<Matrix> {
   final onKeyVerificationRequestSub = <String, StreamSubscription>{};
   final onNotification = <String, StreamSubscription>{};
   final onReceipts = <String, StreamSubscription>{};
+  final onTaskbarBadge = <String, StreamSubscription>{};
   final onLogoutSub = <String, StreamSubscription<LoginState>>{};
   final onUiaRequest = <String, StreamSubscription<UiaRequest>>{};
 
@@ -304,6 +306,19 @@ class MatrixState extends State<Matrix> {
         flutterLocalNotificationsPlugin,
       ),
     );
+    if (PlatformInfos.isWindows) {
+      onTaskbarBadge[name] ??= c.onSync.stream.listen(
+        (_) => _updateTaskbarBadge(),
+      );
+    }
+  }
+
+  void _updateTaskbarBadge() {
+    if (!mounted) return;
+    final unreadChats = widget.clients
+        .map((c) => c.rooms.where((r) => r.isUnreadOrInvited).length)
+        .sum;
+    updateWindowsTaskbarBadge(context, unreadChats);
   }
 
   void _cancelSubs(String name) {
@@ -317,6 +332,8 @@ class MatrixState extends State<Matrix> {
     onNotification.remove(name);
     onReceipts[name]?.cancel();
     onReceipts.remove(name);
+    onTaskbarBadge[name]?.cancel();
+    onTaskbarBadge.remove(name);
   }
 
   Future<void> initMatrix() async {
@@ -415,6 +432,10 @@ class MatrixState extends State<Matrix> {
     for (final sub in onReceipts.values) {
       sub.cancel();
     }
+    for (final sub in onTaskbarBadge.values) {
+      sub.cancel();
+    }
+    onTaskbarBadge.clear();
     onRoomKeyRequestSub.clear();
     onKeyVerificationRequestSub.clear();
     onLogoutSub.clear();
