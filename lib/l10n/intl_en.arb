@@ -2508,6 +2508,35 @@
     "quit": "Quit",
     "closeToTray": "Keep running in the tray when the window is closed",
     "launchAtStartup": "Start with Windows",
+    "markAllAsRead": "Mark all as read",
+    "snoozeNotifications": "Snooze notifications",
+    "snoozeForOneHour": "For 1 hour",
+    "snoozeForEightHours": "For 8 hours",
+    "snoozeUntilTomorrow": "Until tomorrow morning",
+    "resumeNotifications": "Resume notifications",
+    "notificationsSnoozedUntil": "Notifications snoozed until {time}",
+    "@notificationsSnoozedUntil": {
+        "type": "String",
+        "placeholders": {
+            "time": {
+                "type": "String"
+            }
+        }
+    },
+    "scheduleMessage": "Schedule message…",
+    "scheduledMessages": "Scheduled messages",
+    "messageScheduledFor": "Message scheduled for {time}",
+    "@messageScheduledFor": {
+        "type": "String",
+        "placeholders": {
+            "time": {
+                "type": "String"
+            }
+        }
+    },
+    "noScheduledMessages": "No scheduled messages in this chat",
+    "scheduledMessagesUnsupported": "Your homeserver does not support scheduled messages",
+    "sendNow": "Send now",
     "saveChanges": "Save changes",
     "createSticker": "Create sticker or emoji",
     "useAsSticker": "Use as sticker",

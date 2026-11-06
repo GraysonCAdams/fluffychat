@@ -29,7 +29,9 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/ogg_opus_remuxer.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/scheduled_messages.dart';
 import 'package:fluffychat/utils/show_scaffold_dialog.dart';
+import 'package:fluffychat/widgets/adaptive_dialogs/show_modal_action_popup.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_text_input_dialog.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
@@ -40,6 +42,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 import 'package:mime/mime.dart';
@@ -825,6 +828,135 @@ class ChatController extends State<ChatPageWithRoom>
   void setActiveClient(Client c) => setState(() {
     Matrix.of(context).setActiveClient(c);
   });
+
+  /// Offers scheduling for the typed message and the list of scheduled ones.
+  Future<void> openSendOptions() async {
+    final l10n = L10n.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    if (!await room.client.canScheduleMessages) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(l10n.scheduledMessagesUnsupported)),
+      );
+      return;
+    }
+    if (!mounted) return;
+    final action = await showModalActionPopup<bool>(
+      context: context,
+      actions: [
+        if (sendController.text.trim().isNotEmpty)
+          AdaptiveModalAction(
+            value: true,
+            label: l10n.scheduleMessage,
+            icon: const Icon(Icons.schedule_send_outlined),
+          ),
+        AdaptiveModalAction(
+          value: false,
+          label: l10n.scheduledMessages,
+          icon: const Icon(Icons.pending_actions_outlined),
+        ),
+      ],
+    );
+    if (!mounted || action == null) return;
+    if (action) {
+      await _scheduleTypedMessage();
+    } else {
+      await _showScheduledMessages();
+    }
+  }
+
+  Future<void> _scheduleTypedMessage() async {
+    final l10n = L10n.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      initialDate: now,
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))),
+    );
+    if (time == null || !mounted) return;
+    final sendAt = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    final text = sendController.text;
+    final store = Matrix.of(context).store;
+    final result = await showFutureLoadingDialog(
+      context: context,
+      future: () => room.scheduleTextMessage(store, text, sendAt),
+    );
+    if (result.error != null || !mounted) return;
+    store.remove('draft_$roomId');
+    setState(() {
+      sendController.clear();
+      _inputTextIsEmpty = true;
+    });
+    scaffoldMessenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          l10n.messageScheduledFor(DateFormat.yMMMd().add_jm().format(sendAt)),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showScheduledMessages() async {
+    final l10n = L10n.of(context);
+    final store = Matrix.of(context).store;
+    final result = await showFutureLoadingDialog(
+      context: context,
+      future: () => room.client.scheduledMessages(store, roomId: roomId),
+    );
+    final messages = result.result;
+    if (messages == null || !mounted) return;
+    if (messages.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.noScheduledMessages)));
+      return;
+    }
+    final picked = await showModalActionPopup<ScheduledMessage>(
+      context: context,
+      title: l10n.scheduledMessages,
+      actions: [
+        for (final message in messages)
+          AdaptiveModalAction(
+            value: message,
+            label:
+                '${DateFormat.MMMd().add_jm().format(message.sendAt)}: '
+                '${message.text}',
+          ),
+      ],
+    );
+    if (picked == null || !mounted) return;
+    final sendNow = await showModalActionPopup<bool>(
+      context: context,
+      title: picked.text,
+      actions: [
+        AdaptiveModalAction(value: true, label: l10n.sendNow),
+        AdaptiveModalAction(
+          value: false,
+          label: l10n.cancel,
+          isDestructive: true,
+        ),
+      ],
+    );
+    if (sendNow == null || !mounted) return;
+    await showFutureLoadingDialog(
+      context: context,
+      future: () => sendNow
+          ? room.client.sendScheduledMessageNow(store, picked.delayId)
+          : room.client.cancelScheduledMessage(store, picked.delayId),
+    );
+  }
 
   Future<void> send() async {
     final proceed = await showTrustUserInRoomDialog(context, room);
