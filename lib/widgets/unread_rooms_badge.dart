@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:badges/badges.dart' as b;
+import 'package:fluffychat/l10n/l10n.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -31,13 +32,23 @@ class UnreadRoomsBadge extends StatelessWidget {
         .length;
     return b.Badge(
       badgeStyle: b.BadgeStyle(
+        padding: const EdgeInsetsGeometry.all(1),
         badgeColor: theme.colorScheme.primary,
         elevation: 4,
         borderSide: BorderSide(color: theme.colorScheme.surface, width: 2),
       ),
-      badgeContent: Text(
-        unreadCount.toString(),
-        style: TextStyle(color: theme.colorScheme.onPrimary, fontSize: 12),
+      badgeContent: SizedBox(
+        width: 15,
+        height: 15,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            unreadCount < 100
+                ? unreadCount.toString()
+                : L10n.of(context).unreadPlus,
+            style: TextStyle(color: theme.colorScheme.onPrimary, fontSize: 12),
+          ),
+        ),
       ),
       showBadge: unreadCount != 0,
       badgeAnimation: const b.BadgeAnimation.scale(),
