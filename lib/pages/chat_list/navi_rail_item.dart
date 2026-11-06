@@ -34,6 +34,11 @@ class NaviRailItem extends StatelessWidget {
     final theme = Theme.of(context);
 
     final borderRadius = BorderRadius.circular(AppConfig.borderRadius);
+    final indicatorWidth = isSelected
+        ? FluffyThemes.isColumnMode(context)
+              ? 8.0
+              : 4.0
+        : 0.0;
     final icon = isSelected ? selectedIcon ?? this.icon : this.icon;
     final unreadBadgeFilter = this.unreadBadgeFilter;
     return HoverBuilder(
@@ -43,24 +48,23 @@ class NaviRailItem extends StatelessWidget {
           width: FluffyThemes.navRailWidth,
           child: Stack(
             children: [
-              Positioned(
+              // A full pill twice the indicator's width with its left half
+              // clipped off by the Stack. Impeller caps a corner radius at
+              // half the box width, so rounding only the right corners of a
+              // narrow bar leaves its left half square at both ends.
+              AnimatedPositioned(
                 top: 8,
                 bottom: 8,
-                left: 0,
+                left: -indicatorWidth,
+                duration: FluffyThemes.animationDuration,
+                curve: FluffyThemes.animationCurve,
                 child: AnimatedContainer(
-                  width: isSelected
-                      ? FluffyThemes.isColumnMode(context)
-                            ? 8
-                            : 4
-                      : 0,
+                  width: indicatorWidth * 2,
                   duration: FluffyThemes.animationDuration,
                   curve: FluffyThemes.animationCurve,
                   decoration: BoxDecoration(
                     color: theme.colorScheme.primary,
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(90),
-                      bottomRight: Radius.circular(90),
-                    ),
+                    borderRadius: BorderRadius.circular(indicatorWidth),
                   ),
                 ),
               ),
