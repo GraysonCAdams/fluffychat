@@ -66,6 +66,11 @@ abstract class FluffyThemes {
           disabledIconColor: colorScheme.onSurface,
         ),
       ),
+      // Menus hang below the button that opened them rather than covering
+      // it. Without room underneath, a menu shifts up to stay on screen.
+      popupMenuTheme: const PopupMenuThemeData(
+        position: PopupMenuPosition.under,
+      ),
       textSelectionTheme: TextSelectionThemeData(
         selectionColor: colorScheme.onSurface.withAlpha(128),
         selectionHandleColor: colorScheme.secondary,

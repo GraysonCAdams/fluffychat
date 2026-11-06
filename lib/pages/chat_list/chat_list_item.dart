@@ -23,7 +23,11 @@ class ChatListItem extends StatelessWidget {
   final Room room;
   final Room? space;
   final bool activeChat;
-  final void Function(BuildContext context)? onLongPress;
+
+  /// Opens the context menu below [context]'s widget, or at [globalPosition]
+  /// when the item was right-clicked.
+  final void Function(BuildContext context, [Offset? globalPosition])?
+  onLongPress;
   final void Function()? onForget;
   final void Function() onTap;
   final String? filter;
@@ -64,9 +68,13 @@ class ChatListItem extends StatelessWidget {
     final needLastEventSender =
         lastEvent != null &&
         room.getState(EventTypes.RoomMember, lastEvent.senderId) == null;
+    final previewLocals =
+        isDirectChat && lastEvent?.senderId == directChatMatrixId
+        ? DirectChatMatrixLocals(L10n.of(context), displayname)
+        : MatrixLocals(L10n.of(context));
     final space = this.space;
 
-    return Padding(
+    final tile = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Material(
         borderRadius: BorderRadius.circular(AppConfig.borderRadius),
@@ -159,18 +167,20 @@ class ChatListItem extends StatelessWidget {
                         Positioned(
                           top: 0,
                           right: 0,
-                          child: GestureDetector(
-                            onTap: () => onLongPress?.call(context),
-                            child: AnimatedScale(
-                              duration: FluffyThemes.animationDuration,
-                              curve: FluffyThemes.animationCurve,
-                              scale: listTileHovered ? 1.0 : 0.0,
-                              child: Material(
-                                color: backgroundColor,
-                                borderRadius: BorderRadius.circular(16),
-                                child: const Icon(
-                                  Icons.arrow_drop_down_circle_outlined,
-                                  size: 18,
+                          child: Builder(
+                            builder: (arrowContext) => GestureDetector(
+                              onTap: () => onLongPress?.call(arrowContext),
+                              child: AnimatedScale(
+                                duration: FluffyThemes.animationDuration,
+                                curve: FluffyThemes.animationCurve,
+                                scale: listTileHovered ? 1.0 : 0.0,
+                                child: Material(
+                                  color: backgroundColor,
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: const Icon(
+                                    Icons.arrow_drop_down_circle_outlined,
+                                    size: 18,
+                                  ),
                                 ),
                               ),
                             ),
@@ -319,7 +329,7 @@ class ChatListItem extends StatelessWidget {
                             ),
                             future: needLastEventSender
                                 ? lastEvent.calcLocalizedBody(
-                                    MatrixLocals(L10n.of(context)),
+                                    previewLocals,
                                     hideReply: true,
                                     hideEdit: true,
                                     plaintextBody: true,
@@ -331,7 +341,7 @@ class ChatListItem extends StatelessWidget {
                                   )
                                 : null,
                             initialData: lastEvent?.calcLocalizedBodyFallback(
-                              MatrixLocals(L10n.of(context)),
+                              previewLocals,
                               hideReply: true,
                               hideEdit: true,
                               plaintextBody: true,
@@ -384,6 +394,11 @@ class ChatListItem extends StatelessWidget {
           ),
         ),
       ),
+    );
+    return GestureDetector(
+      onSecondaryTapUp: (details) =>
+          onLongPress?.call(context, details.globalPosition),
+      child: tile,
     );
   }
 }

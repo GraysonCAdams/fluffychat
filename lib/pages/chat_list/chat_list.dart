@@ -506,26 +506,30 @@ class ChatListController extends State<ChatList>
     ).onErrorCallback(report.first, StackTrace.fromString(report.last));
   }
 
+  /// Opens the chat's context menu at [globalPosition] (a right-click) or,
+  /// without one, hanging below the widget that [posContext] belongs to.
   Future<void> chatContextAction(
     Room room,
     BuildContext posContext, [
     Room? space,
+    Offset? globalPosition,
   ]) async {
     final overlay =
         Overlay.of(posContext).context.findRenderObject() as RenderBox;
 
-    final button = posContext.findRenderObject() as RenderBox;
-
-    final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        button.localToGlobal(const Offset(0, -65), ancestor: overlay),
-        button.localToGlobal(
-          button.size.bottomRight(Offset.zero) + const Offset(-50, 0),
-          ancestor: overlay,
-        ),
-      ),
-      Offset.zero & overlay.size,
-    );
+    final Rect anchor;
+    if (globalPosition != null) {
+      anchor = overlay.globalToLocal(globalPosition) & Size.zero;
+    } else {
+      final button = posContext.findRenderObject() as RenderBox;
+      anchor =
+          button.localToGlobal(
+            button.size.bottomLeft(Offset.zero),
+            ancestor: overlay,
+          ) &
+          Size(button.size.width, 0);
+    }
+    final position = RelativeRect.fromRect(anchor, Offset.zero & overlay.size);
 
     final spacesWithPowerLevels = room.client.rooms
         .where(
@@ -540,24 +544,48 @@ class ChatListController extends State<ChatList>
       context: posContext,
       position: position,
       items: [
-        if (space != null)
+        if (space != null) ...[
+          // The space labels the menu as a small, muted section header. It
+          // still opens the space when clicked, which the trailing icon hints.
           PopupMenuItem(
             value: ChatContextAction.goToSpace,
-            child: Row(
-              mainAxisSize: .min,
-              children: [
-                Avatar(
-                  mxContent: space.avatar,
-                  size: Avatar.defaultSize / 2,
-                  name: space.getLocalizedDisplayname(),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  L10n.of(context).goToSpace(space.getLocalizedDisplayname()),
-                ),
-              ],
+            height: 32,
+            child: Semantics(
+              label: L10n.of(
+                context,
+              ).goToSpace(space.getLocalizedDisplayname()),
+              excludeSemantics: true,
+              child: Row(
+                mainAxisSize: .min,
+                children: [
+                  Avatar(
+                    mxContent: space.avatar,
+                    size: 16,
+                    name: space.getLocalizedDisplayname(),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      space.getLocalizedDisplayname(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.open_in_new,
+                    size: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
             ),
           ),
+          const PopupMenuDivider(),
+        ],
         if (room.membership == Membership.join) ...[
           PopupMenuItem(
             value: ChatContextAction.mute,

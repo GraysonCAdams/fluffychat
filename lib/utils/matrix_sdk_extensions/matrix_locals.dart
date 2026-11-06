@@ -377,3 +377,28 @@ class MatrixLocals extends MatrixLocalizations {
   String incomingCallFrom(String senderName) =>
       l10n.incomingCallFrom(senderName);
 }
+
+/// For a direct chat whose partner sent the event: names the partner by the
+/// chat's display name in "sent a picture"-style previews. Bridged contacts
+/// often have no profile name, so their own name falls back to a formatted
+/// Matrix ID such as "Gmessages 4.42".
+class DirectChatMatrixLocals extends MatrixLocals {
+  final String partnerName;
+
+  DirectChatMatrixLocals(super.l10n, this.partnerName);
+
+  @override
+  String sentAFile(String senderName) => super.sentAFile(partnerName);
+
+  @override
+  String sentAPicture(String senderName) => super.sentAPicture(partnerName);
+
+  @override
+  String sentASticker(String senderName) => super.sentASticker(partnerName);
+
+  @override
+  String sentAVideo(String senderName) => super.sentAVideo(partnerName);
+
+  @override
+  String sentAnAudio(String senderName) => super.sentAnAudio(partnerName);
+}
