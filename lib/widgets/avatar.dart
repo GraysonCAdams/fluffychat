@@ -82,6 +82,12 @@ class Avatar extends StatelessWidget {
         mxContent.toString() == 'null';
     final borderRadius = this.borderRadius ?? BorderRadius.circular(size / 2);
     final presenceUserId = this.presenceUserId;
+    final shape =
+        shapeBorder ??
+        RoundedSuperellipseBorder(
+          borderRadius: borderRadius,
+          side: BorderSide.none,
+        );
     final container = Stack(
       children: [
         SizedBox(
@@ -91,65 +97,65 @@ class Avatar extends StatelessWidget {
             color: theme.brightness == Brightness.light
                 ? Colors.white
                 : Colors.black,
-            shape:
-                shapeBorder ??
-                RoundedSuperellipseBorder(
-                  borderRadius: borderRadius,
-                  side: BorderSide.none,
-                ),
-            clipBehavior: Clip.antiAlias,
-            child: MxcImage(
-              client: client,
-              borderRadius: borderRadius,
-              key: ValueKey(mxContent.toString()),
-              cacheKey:
-                  '${mxContent}_${size}_${animated ? 'animated' : 'static'}',
-              uri: mxContent,
-              isThumbnail: !animated,
-              animated: animated,
-              fit: BoxFit.cover,
-              width: size,
-              height: size,
-              placeholder: (_) => noPic
-                  ? Container(
-                      decoration: BoxDecoration(
-                        color:
-                            backgroundColor ??
-                            fallbackLetters.colorScheme.primaryContainer,
-                      ),
-                      alignment: Alignment.center,
-                      child: numberIcon != null
-                          ? Icon(
-                              numberIcon,
-                              color:
-                                  textColor ??
-                                  fallbackLetters
-                                      .colorScheme
-                                      .onPrimaryContainer,
-                              size: (size / 2).roundToDouble(),
-                            )
-                          : Text(
-                              fallbackLetters,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'RobotoMono',
+            shape: shape,
+            // Clipping to the outer path would let the picture show through
+            // the anti-aliased outer edge of the border as a light fringe, so
+            // clip to the area inside the border instead.
+            child: ClipPath(
+              clipper: _InnerShapeClipper(shape, Directionality.of(context)),
+              child: MxcImage(
+                client: client,
+                borderRadius: borderRadius,
+                key: ValueKey(mxContent.toString()),
+                cacheKey:
+                    '${mxContent}_${size}_${animated ? 'animated' : 'static'}',
+                uri: mxContent,
+                isThumbnail: !animated,
+                animated: animated,
+                fit: BoxFit.cover,
+                width: size,
+                height: size,
+                placeholder: (_) => noPic
+                    ? Container(
+                        decoration: BoxDecoration(
+                          color:
+                              backgroundColor ??
+                              fallbackLetters.colorScheme.primaryContainer,
+                        ),
+                        alignment: Alignment.center,
+                        child: numberIcon != null
+                            ? Icon(
+                                numberIcon,
                                 color:
                                     textColor ??
                                     fallbackLetters
                                         .colorScheme
                                         .onPrimaryContainer,
-                                fontWeight: FontWeight.bold,
-                                fontSize: (size / 2.5).roundToDouble(),
+                                size: (size / 2).roundToDouble(),
+                              )
+                            : Text(
+                                fallbackLetters,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'RobotoMono',
+                                  color:
+                                      textColor ??
+                                      fallbackLetters
+                                          .colorScheme
+                                          .onPrimaryContainer,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: (size / 2.5).roundToDouble(),
+                                ),
                               ),
-                            ),
-                    )
-                  : Center(
-                      child: Icon(
-                        Icons.person_2,
-                        color: theme.colorScheme.tertiary,
-                        size: size / 1.5,
+                      )
+                    : Center(
+                        child: Icon(
+                          Icons.person_2,
+                          color: theme.colorScheme.tertiary,
+                          size: size / 1.5,
+                        ),
                       ),
-                    ),
+              ),
             ),
           ),
         ),
@@ -203,4 +209,19 @@ class Avatar extends StatelessWidget {
       child: GestureDetector(onTap: onTap, child: container),
     );
   }
+}
+
+class _InnerShapeClipper extends CustomClipper<Path> {
+  final ShapeBorder shape;
+  final TextDirection textDirection;
+
+  const _InnerShapeClipper(this.shape, this.textDirection);
+
+  @override
+  Path getClip(Size size) =>
+      shape.getInnerPath(Offset.zero & size, textDirection: textDirection);
+
+  @override
+  bool shouldReclip(_InnerShapeClipper oldClipper) =>
+      oldClipper.shape != shape || oldClipper.textDirection != textDirection;
 }
