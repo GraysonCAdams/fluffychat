@@ -28,6 +28,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extensi
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/ogg_opus_remuxer.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
+import 'package:fluffychat/utils/pasted_file_type.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/scheduled_messages.dart';
 import 'package:fluffychat/utils/show_scaffold_dialog.dart';
@@ -1122,13 +1123,14 @@ class ChatController extends State<ChatPageWithRoom>
   }
 
   Future<void> _handleClipboardImagePaste() async {
-    final files = await Pasteboard.files();
-    if (files.isNotEmpty) {
+    final paths = await Pasteboard.files();
+    if (paths.isNotEmpty) {
+      final files = await Future.wait(paths.map(pastedFile));
       if (!mounted) return;
       await showAdaptiveDialog(
         context: context,
         builder: (c) => SendFileDialog(
-          files: files.map(XFile.new).toList(),
+          files: files,
           room: room,
           outerContext: context,
           threadRootEventId: activeThreadId,
