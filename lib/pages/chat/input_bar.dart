@@ -10,6 +10,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
 import 'package:fluffychat/utils/markdown_context_builder.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/spell_check.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -406,6 +407,7 @@ class InputBar extends StatelessWidget {
           controller: controller,
           focusNode: focusNode,
           undoController: undoController,
+          spellCheckConfiguration: messageSpellCheckConfiguration(),
           readOnly: readOnly,
           onEditingComplete: () {
             // To not lose focus on iOS:

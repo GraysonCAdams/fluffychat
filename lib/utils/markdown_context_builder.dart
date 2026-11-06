@@ -24,11 +24,27 @@ class MarkdownContextBuilder extends StatelessWidget {
     final value = editableTextState.textEditingValue;
     final selectedText = value.selection.textInside(value.text);
     final buttonItems = editableTextState.contextMenuButtonItems;
+    // Right-clicking a misspelled word offers its spelling suggestions first.
+    final suggestionSpan = editableTextState.findSuggestionSpanAtCursorIndex(
+      value.selection.baseOffset,
+    );
     final l10n = L10n.of(context);
 
     return AdaptiveTextSelectionToolbar.buttonItems(
       anchors: editableTextState.contextMenuAnchors,
       buttonItems: [
+        if (suggestionSpan != null)
+          for (final suggestion in suggestionSpan.suggestions)
+            ContextMenuButtonItem(
+              label: suggestion,
+              onPressed: () {
+                ContextMenuController.removeAny();
+                editableTextState.userUpdateTextEditingValue(
+                  value.replaced(suggestionSpan.range, suggestion),
+                  SelectionChangedCause.toolbar,
+                );
+              },
+            ),
         ...buttonItems,
         if (onPasteImage != null)
           ContextMenuButtonItem(
