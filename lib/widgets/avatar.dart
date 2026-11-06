@@ -42,19 +42,39 @@ class Avatar extends StatelessWidget {
     super.key,
   });
 
-  String _calcFallbackLetters() {
-    final name = this.name?.trim();
+  static final _phoneCharacters = RegExp(r'^\+?[\d\s().\-]+$');
+  static final _parenthesized = RegExp(r'\([^)]*\)?');
+
+  @visibleForTesting
+  static String calcFallbackLetters(String? rawName) {
+    final name = rawName?.replaceAll(_parenthesized, ' ').trim();
     if (name == null || name.isEmpty) return '@';
-    final words = name.split(' ');
+    final words = name.split(' ').where((word) => word.isNotEmpty).toList();
     if (words.length <= 1) return name.characters.first;
     return '${words.first.characters.first}${words.last.characters.first}';
+  }
+
+  /// Bridged SMS chats are often named after a bare number: a short code
+  /// (a business sender) or the phone number of an unsaved contact. Initials
+  /// of digits say nothing, so those get an icon instead.
+  @visibleForTesting
+  static IconData? numberIcon(String? rawName) {
+    final name = rawName?.trim();
+    if (name == null || !_phoneCharacters.hasMatch(name)) return null;
+    final digits = name.replaceAll(RegExp(r'\D'), '').length;
+    if (!name.startsWith('+') && digits >= 3 && digits <= 6) {
+      return Icons.storefront_outlined;
+    }
+    if (digits >= 7) return Icons.person_outline;
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final fallbackLetters = _calcFallbackLetters();
+    final fallbackLetters = calcFallbackLetters(name);
+    final numberIcon = icon == null ? Avatar.numberIcon(name) : null;
 
     final noPic =
         mxContent == null ||
@@ -98,18 +118,30 @@ class Avatar extends StatelessWidget {
                             fallbackLetters.colorScheme.primaryContainer,
                       ),
                       alignment: Alignment.center,
-                      child: Text(
-                        fallbackLetters,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'RobotoMono',
-                          color:
-                              textColor ??
-                              fallbackLetters.colorScheme.onPrimaryContainer,
-                          fontWeight: FontWeight.bold,
-                          fontSize: (size / 2.5).roundToDouble(),
-                        ),
-                      ),
+                      child: numberIcon != null
+                          ? Icon(
+                              numberIcon,
+                              color:
+                                  textColor ??
+                                  fallbackLetters
+                                      .colorScheme
+                                      .onPrimaryContainer,
+                              size: (size / 2).roundToDouble(),
+                            )
+                          : Text(
+                              fallbackLetters,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'RobotoMono',
+                                color:
+                                    textColor ??
+                                    fallbackLetters
+                                        .colorScheme
+                                        .onPrimaryContainer,
+                                fontWeight: FontWeight.bold,
+                                fontSize: (size / 2.5).roundToDouble(),
+                              ),
+                            ),
                     )
                   : Center(
                       child: Icon(
