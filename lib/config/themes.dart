@@ -66,6 +66,12 @@ abstract class FluffyThemes {
           disabledIconColor: colorScheme.onSurface,
         ),
       ),
+      // Android 14+ previews the previous page during the back gesture.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+        },
+      ),
       // Menus hang below the button that opened them rather than covering
       // it. Without room underneath, a menu shifts up to stay on screen.
       popupMenuTheme: const PopupMenuThemeData(

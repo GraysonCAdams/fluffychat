@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-FileCopyrightText: 2019-Present Contributors to FluffyChat
+
+     SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Direct Share: conversation shortcuts in this category show up as
+     targets in the Android share sheet. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <share-target android:targetClass="chat.fluffy.fluffychat.MainActivity">
+        <data android:mimeType="text/*" />
+        <data android:mimeType="image/*" />
+        <data android:mimeType="video/*" />
+        <data android:mimeType="*/*" />
+        <category android:name="chat.fluffy.fluffychat.SHARE_TARGET" />
+    </share-target>
+</shortcuts>

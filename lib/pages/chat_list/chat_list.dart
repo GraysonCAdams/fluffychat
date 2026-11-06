@@ -13,6 +13,7 @@ import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_view.dart';
+import 'package:fluffychat/utils/android_direct_share.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
@@ -341,7 +342,7 @@ class ChatListController extends State<ChatList>
 
   String? get activeChat => widget.activeChat;
 
-  void _processIncomingSharedMedia(List<SharedMediaFile> files) {
+  Future<void> _processIncomingSharedMedia(List<SharedMediaFile> files) async {
     files.removeWhere(
       (file) =>
           file.path.startsWith(AppConfig.deepLinkPrefix) ||
@@ -349,21 +350,38 @@ class ChatListController extends State<ChatList>
     );
     if (files.isEmpty) return;
 
+    final items = files.map<ShareItem>((file) {
+      if ({SharedMediaType.text, SharedMediaType.url}.contains(file.type)) {
+        return TextShareItem(file.path);
+      }
+      return FileShareItem(
+        XFile(file.path.replaceFirst('file://', ''), mimeType: file.mimeType),
+      );
+    }).toList();
+
+    // A chat picked in the Android share sheet skips the chat picker.
+    final targetRoomId = await AndroidDirectShare.takeTargetRoomId();
+    if (!mounted) return;
+    if (targetRoomId != null &&
+        Matrix.of(context).client.getRoomById(targetRoomId) != null) {
+      // Text is sent as soon as the chat opens, so confirm it like the
+      // chat picker does.
+      if (items.any((item) => item is! FileShareItem)) {
+        final consent = await showOkCancelAlertDialog(
+          context: context,
+          title: L10n.of(context).forwardCountMessages(items.length),
+          okLabel: L10n.of(context).forward,
+          cancelLabel: L10n.of(context).cancel,
+        );
+        if (consent != OkCancelResult.ok || !mounted) return;
+      }
+      context.go('/rooms/$targetRoomId', extra: items);
+      return;
+    }
+
     showScaffoldDialog(
       context: context,
-      builder: (context) => ShareScaffoldDialog(
-        items: files.map((file) {
-          if ({SharedMediaType.text, SharedMediaType.url}.contains(file.type)) {
-            return TextShareItem(file.path);
-          }
-          return FileShareItem(
-            XFile(
-              file.path.replaceFirst('file://', ''),
-              mimeType: file.mimeType,
-            ),
-          );
-        }).toList(),
-      ),
+      builder: (context) => ShareScaffoldDialog(items: items),
     );
   }
 

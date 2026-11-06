@@ -35,6 +35,9 @@ class ConversationNotifications(private val context: Context) : MethodChannel.Me
 
         // Must match MethodCallImplementation.EXTRA_ACTION in flutter_shortcuts_new
         private const val SHORTCUT_EXTRA_ACTION = "flutter_shortcuts_new"
+
+        // Must match the share-target category in res/xml/shortcuts.xml.
+        private const val SHARE_TARGET_CATEGORY = "chat.fluffy.fluffychat.SHARE_TARGET"
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -95,7 +98,8 @@ class ConversationNotifications(private val context: Context) : MethodChannel.Me
                 .setIntent(intent)
                 .setPerson(person)
                 .setLongLived(true)
-                .setCategories(setOf("android.shortcut.conversation"))
+                // The second category is the Direct Share target in res/xml/shortcuts.xml.
+                .setCategories(setOf("android.shortcut.conversation", SHARE_TARGET_CATEGORY))
                 .setLocusId(LocusIdCompat(id))
                 .apply { icon?.let { setIcon(it) } }
                 .build()
