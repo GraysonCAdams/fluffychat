@@ -3,6 +3,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:io';
+
 import 'package:collection/collection.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
@@ -160,6 +162,12 @@ abstract class ClientManager {
         appName: AppSettings.applicationName.value,
         appUserModelId: AppConfig.appId,
         guid: AppConfig.windowsNotificationGuid,
+        // Windows reads the toast icon from the IconUri registered for the
+        // AUMID, which the plugin only writes when given an absolute path.
+        iconPath: PlatformInfos.isWindows
+            ? '${File(Platform.resolvedExecutable).parent.path}'
+                  r'\data\flutter_assets\assets\logo\mini\logo_mini.png'
+            : null,
       );
 
   static Future<void> sendInitNotification(String title, String body) async {
