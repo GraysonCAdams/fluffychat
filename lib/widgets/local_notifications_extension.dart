@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:collection/collection.dart';
 import 'package:fluffychat/config/setting_keys.dart';
@@ -14,6 +15,8 @@ import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/push_helper.dart';
+import 'package:fluffychat/utils/string_color.dart';
+import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/fluffy_chat_app.dart';
 import 'package:fluffychat/widgets/incoming_call_dialog.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -109,9 +112,11 @@ extension LocalNotificationsExtension on MatrixState {
       event.room.id,
       event.eventId,
     ).toString();
-    final windowsAvatar = PlatformInfos.isWindows && avatarUrl != null
+    final windowsAvatar = !PlatformInfos.isWindows
+        ? null
+        : avatarUrl != null
         ? await _windowsAvatarFile(avatarUrl, size, thumbnailMethod)
-        : null;
+        : await _windowsFallbackAvatarFile(title, size);
     final isMessage = {
       EventTypes.Message,
       EventTypes.Encrypted,
@@ -206,8 +211,73 @@ extension LocalNotificationsExtension on MatrixState {
     );
   }
 
-  /// Shown in place of an avatar for chats without one, such as most bridged
-  /// SMS contacts.
+  /// Draws the same fallback avatar the app shows for a chat without one:
+  /// initials, or an icon for number-named chats, in the name's colours.
+  Future<Uri?> _windowsFallbackAvatarFile(String name, int size) async {
+    try {
+      final letters = Avatar.calcFallbackLetters(name);
+      final icon = Avatar.numberIcon(name);
+      final colors = letters.colorScheme;
+      final key =
+          '$letters ${icon?.codePoint} '
+                  '${colors.primaryContainer.toARGB32()}'
+              .hashCode
+              .toUnsigned(32);
+      final file = File(
+        '${(await getTemporaryDirectory()).path}'
+        '${Platform.pathSeparator}notification_avatars'
+        '${Platform.pathSeparator}fallback_$key.png',
+      );
+      if (file.existsSync()) return file.uri;
+
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.toDouble(), size.toDouble()),
+        Paint()..color = colors.primaryContainer,
+      );
+      // Same text styles as the Avatar widget, scaled to the image size.
+      final painter = TextPainter(
+        textDirection: TextDirection.ltr,
+        text: icon != null
+            ? TextSpan(
+                text: String.fromCharCode(icon.codePoint),
+                style: TextStyle(
+                  fontFamily: icon.fontFamily,
+                  package: icon.fontPackage,
+                  fontSize: size / 2,
+                  color: colors.onPrimaryContainer,
+                ),
+              )
+            : TextSpan(
+                text: letters,
+                style: TextStyle(
+                  fontFamily: 'RobotoMono',
+                  fontWeight: FontWeight.bold,
+                  fontSize: size / 2.5,
+                  color: colors.onPrimaryContainer,
+                ),
+              ),
+      )..layout();
+      painter.paint(
+        canvas,
+        Offset((size - painter.width) / 2, (size - painter.height) / 2),
+      );
+      painter.dispose();
+      final image = await recorder.endRecording().toImage(size, size);
+      final png = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      if (png == null) return null;
+      await file.create(recursive: true);
+      await file.writeAsBytes(png.buffer.asUint8List());
+      return file.uri;
+    } catch (e, s) {
+      Logs().w('Unable to draw a fallback avatar for a notification', e, s);
+      return null;
+    }
+  }
+
+  /// Shown if neither the chat's avatar nor a drawn fallback is available.
   static Uri get _windowsAppLogo => Uri.file(
     '${File(Platform.resolvedExecutable).parent.path}'
     r'\data\flutter_assets\assets\logo\mini\logo_mini.png',

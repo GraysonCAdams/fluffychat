@@ -45,7 +45,8 @@ class Avatar extends StatelessWidget {
   static final _phoneCharacters = RegExp(r'^\+?[\d\s().\-]+$');
   static final _parenthesized = RegExp(r'\([^)]*\)?');
 
-  @visibleForTesting
+  /// The initials shown for [rawName] when there is no picture. Also used
+  /// for Windows notification images.
   static String calcFallbackLetters(String? rawName) {
     final name = rawName?.replaceAll(_parenthesized, ' ').trim();
     if (name == null || name.isEmpty) return '@';
@@ -57,7 +58,6 @@ class Avatar extends StatelessWidget {
   /// Bridged SMS chats are often named after a bare number: a short code
   /// (a business sender) or the phone number of an unsaved contact. Initials
   /// of digits say nothing, so those get an icon instead.
-  @visibleForTesting
   static IconData? numberIcon(String? rawName) {
     final name = rawName?.trim();
     if (name == null || !_phoneCharacters.hasMatch(name)) return null;
