@@ -88,7 +88,7 @@ dependencies:
   slugify: ^2.0.0
   sqflite_common_ffi: ^2.4.5
   synchronized: ^3.5.0
-  tray_manager: ^0.8.3
+  tray_manager: ^0.5.3
   unifiedpush: ^6.2.0
   unifiedpush_ui: ^0.2.0
   universal_html: ^2.3.0
@@ -96,6 +96,9 @@ dependencies:
   uuid: ^4.6.0
   video_player: ^2.14.1
   wakelock_plus: ^1.8.0
+  # Not imported directly. webpush_encryption needs it, and 0.6.1 builds its
+  # Android library 16 KB page aligned; 0.6.0 does not.
+  webcrypto: ^0.6.1
   window_manager: ^0.5.2
 
 dev_dependencies:

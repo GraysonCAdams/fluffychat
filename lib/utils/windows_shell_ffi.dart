@@ -513,49 +513,24 @@ abstract final class WindowsDesktop {
   }
 
   static Future<void> quit() async {
-    _tray?.dispose();
-    _tray = null;
+    await tray.trayManager.destroy();
     await windowManager.setPreventClose(false);
     await windowManager.destroy();
   }
 
-  static tray.TrayIcon? _tray;
-
   static Future<void> _initTray(L10n l10n) async {
-    final trayIcon = tray.TrayIcon.create();
-    final menu = tray.Menu.create();
-    final open = tray.MenuItem.createWithLabelAndType(
-      l10n.open,
-      tray.MenuItemType.normal,
+    await tray.trayManager.setIcon(_trayIcon);
+    await tray.trayManager.setToolTip(AppSettings.applicationName.value);
+    await tray.trayManager.setContextMenu(
+      tray.Menu(
+        items: [
+          tray.MenuItem(key: 'open', label: l10n.open),
+          tray.MenuItem.separator(),
+          tray.MenuItem(key: 'quit', label: l10n.quit),
+        ],
+      ),
     );
-    final quit = tray.MenuItem.createWithLabelAndType(
-      l10n.quit,
-      tray.MenuItemType.normal,
-    );
-    if (trayIcon == null || menu == null || open == null || quit == null) {
-      Logs().w('Unable to create the tray icon');
-      return;
-    }
-    open.addListener((event) {
-      if (event is tray.MenuItemClickedEvent) showWindow();
-    });
-    quit.addListener((event) {
-      if (event is tray.MenuItemClickedEvent) WindowsDesktop.quit();
-    });
-    menu
-      ..addItem(open)
-      ..addSeparator()
-      ..addItem(quit);
-    trayIcon
-      ..icon = tray.ImageAsset.fromAsset(_trayIcon)
-      ..setTooltip(AppSettings.applicationName.value)
-      ..setContextMenu(menu)
-      ..setContextMenuTrigger(tray.ContextMenuTrigger.rightClicked)
-      ..addListener((event) {
-        if (event is tray.TrayIconClickedEvent) showWindow();
-      })
-      ..setVisible(true);
-    _tray = trayIcon;
+    tray.trayManager.addListener(_TrayEvents());
   }
 
   static Future<void> _restoreBounds() async {
@@ -620,4 +595,22 @@ class _WindowEvents with WindowListener {
 
   @override
   void onWindowUnmaximize() => WindowsDesktop._saveBounds();
+}
+
+class _TrayEvents with tray.TrayListener {
+  @override
+  void onTrayIconMouseDown() => WindowsDesktop.showWindow();
+
+  @override
+  void onTrayIconRightMouseDown() => tray.trayManager.popUpContextMenu();
+
+  @override
+  void onTrayMenuItemClick(tray.MenuItem menuItem) {
+    switch (menuItem.key) {
+      case 'open':
+        WindowsDesktop.showWindow();
+      case 'quit':
+        WindowsDesktop.quit();
+    }
+  }
 }
