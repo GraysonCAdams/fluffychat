@@ -3,8 +3,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:developer';
-
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/routes.dart';
@@ -61,9 +59,12 @@ class FluffyChatApp extends StatelessWidget {
       }
 
       if (state.uri.scheme == 'matrix') {
-        debugger();
-        final type = state.uri.pathSegments.first;
-        final id = state.uri.pathSegments[1];
+        // A matrix: URI names its target as <type>/<id>; anything shorter
+        // has nothing to open.
+        final segments = state.uri.pathSegments;
+        if (segments.length < 2) return '/';
+        final type = segments[0];
+        final id = segments[1];
         switch (type) {
           case 'roomid':
             final roomId = '!$id';
