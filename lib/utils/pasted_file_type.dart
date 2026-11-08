@@ -36,7 +36,12 @@ Future<XFile> pastedFile(String path) async {
 /// their content shows and a matching name, such as "image.png", so they are
 /// sent as an image rather than an untyped, nameless file.
 XFile pastedImageData(Uint8List bytes) {
-  final mimeType = lookupMimeType('', headerBytes: bytes) ?? 'image/png';
+  // Windows hands clipboard images over as BMP, which the mime package does
+  // not recognise by its "BM" signature.
+  final isBmp = bytes.length > 1 && bytes[0] == 0x42 && bytes[1] == 0x4D;
+  final mimeType = isBmp
+      ? 'image/bmp'
+      : lookupMimeType('', headerBytes: bytes) ?? 'image/png';
   final name = 'image.${extensionFromMime(mimeType)}';
   // Native XFiles take their name from the path; the bytes stay in memory.
   return XFile.fromData(bytes, mimeType: mimeType, name: name, path: name);

@@ -47,6 +47,14 @@ void main() {
     expect(file.name, startsWith('image.'));
   });
 
+  test('pasted BMP bytes, as Windows provides them, become a BMP image', () {
+    final file = pastedImageData(
+      Uint8List.fromList([0x42, 0x4D, 246, 64, 0, 0]),
+    );
+    expect(file.mimeType, 'image/bmp');
+    expect(file.name, 'image.bmp');
+  });
+
   test('unrecognised content keeps its name', () async {
     final path = '${dir.path}${Platform.pathSeparator}notes';
     File(path).writeAsStringSync('plain text');
