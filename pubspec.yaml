@@ -21,6 +21,7 @@ dependencies:
   collection: ^1.18.0
   crop_image: ^1.0.17
   cross_file: ^0.3.5
+  crypto: ^3.0.7
   cupertino_ui: ^1.1.4
   desktop_drop: ^0.8.4
   device_info_plus: ^13.3.0
@@ -68,6 +69,8 @@ dependencies:
   mime: ^2.1.0
   native_imaging: ^1.0.0
   ogg_caf_converter: ^0.4.1
+  opus_codec: ^3.0.5
+  opus_codec_dart: ^3.0.5
   package_info_plus: ^10.2.2
   particles_network: ^1.9.6
   pasteboard: ^0.6.0
@@ -99,6 +102,7 @@ dependencies:
   # Not imported directly. webpush_encryption needs it, and 0.6.1 builds its
   # Android library 16 KB page aligned; 0.6.0 does not.
   webcrypto: ^0.6.1
+  whisper_ggml: ^2.9.0
   window_manager: ^0.5.2
 
 dev_dependencies:

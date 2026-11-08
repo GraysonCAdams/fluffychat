@@ -15,7 +15,7 @@ import 'dart:typed_data';
 /// Returns the original bytes if the input can not be parsed.
 Uint8List remuxOggOpus(Uint8List input, {String vendor = 'FluffyChat'}) {
   try {
-    final packets = _readOggPackets(input);
+    final packets = readOggPackets(input);
     if (packets.isEmpty || !_startsWith(packets.first, 'OpusHead')) {
       return input;
     }
@@ -67,7 +67,7 @@ Uint8List remuxOggOpus(Uint8List input, {String vendor = 'FluffyChat'}) {
 const _maxPageBodySize = 4096;
 
 /// Reads all packets of the first logical bitstream.
-List<Uint8List> _readOggPackets(Uint8List data) {
+List<Uint8List> readOggPackets(Uint8List data) {
   final view = ByteData.sublistView(data);
   final packets = <Uint8List>[];
   final current = BytesBuilder(copy: false);
