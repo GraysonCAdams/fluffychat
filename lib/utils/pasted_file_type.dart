@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cross_file/cross_file.dart';
 import 'package:mime/mime.dart';
@@ -29,4 +30,14 @@ Future<XFile> pastedFile(String path) async {
     path,
   ).copy('${directory.path}${Platform.pathSeparator}$name');
   return XFile(typed.path, mimeType: mimeType);
+}
+
+/// Wraps image bytes pasted from the clipboard (not a file) with the type
+/// their content shows and a matching name, such as "image.png", so they are
+/// sent as an image rather than an untyped, nameless file.
+XFile pastedImageData(Uint8List bytes) {
+  final mimeType = lookupMimeType('', headerBytes: bytes) ?? 'image/png';
+  final name = 'image.${extensionFromMime(mimeType)}';
+  // Native XFiles take their name from the path; the bytes stay in memory.
+  return XFile.fromData(bytes, mimeType: mimeType, name: name, path: name);
 }

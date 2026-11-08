@@ -1032,7 +1032,7 @@ class ChatController extends State<ChatPageWithRoom>
     await showAdaptiveDialog(
       context: context,
       builder: (c) => SendFileDialog(
-        files: [XFile.fromData(image)],
+        files: [pastedImageData(image)],
         room: room,
         outerContext: context,
         threadRootEventId: activeThreadId,
