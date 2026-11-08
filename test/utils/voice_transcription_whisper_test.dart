@@ -28,24 +28,29 @@ void main() {
       // Loading by full path first makes whisper_ggml's later
       // DynamicLibrary.open('whisper_ggml.dll') resolve to this module.
       DynamicLibrary.open('$buildDir\\whisper_ggml.dll');
-      initOpus(DynamicLibrary.open('$buildDir\\libopus_x64.dll'));
-
+      // libopus gets its own directory: Windows keeps a loaded DLL locked.
+      final opusDir = await Directory.systemTemp.createTemp('opus');
+      final opus = await File(
+        '$buildDir\\data\\flutter_assets\\packages\\opus_codec_windows'
+        '\\assets\\libopus_x64.dll.blob',
+      ).copy('${opusDir.path}\\libopus_x64.dll');
+      initOpus(DynamicLibrary.open(opus.path));
       final temp = await Directory.systemTemp.createTemp('whisper');
       final wav = File('${temp.path}\\jfk.wav');
       await wav.writeAsBytes(
         oggOpusToWav(File('test/fixtures/jfk_speech.ogg').readAsBytesSync()),
       );
 
-      final response = await const Whisper(model: WhisperModel.base)
-          .transcribe(
-            transcribeRequest: TranscribeRequest(
-              audio: wav.path,
-              language: 'auto',
-              isNoTimestamps: true,
-            ),
-            modelPath: model!,
-          );
+      final response = await const Whisper(model: WhisperModel.base).transcribe(
+        transcribeRequest: TranscribeRequest(
+          audio: wav.path,
+          language: 'auto',
+          isNoTimestamps: true,
+        ),
+        modelPath: model!,
+      );
       await temp.delete(recursive: true);
+      printOnFailure(response.text);
 
       expect(
         response.text.toLowerCase(),
