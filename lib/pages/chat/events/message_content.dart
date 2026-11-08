@@ -17,7 +17,9 @@ import '../../../config/app_config.dart';
 import '../../../utils/event_checkbox_extension.dart';
 import '../../../utils/platform_infos.dart';
 import '../../../utils/url_launcher.dart';
+import '../../../utils/voice_transcription/voice_transcriber.dart';
 import 'audio_player.dart';
+import 'audio_transcript.dart';
 import 'cute_events.dart';
 import 'html_message.dart';
 import 'image_bubble.dart';
@@ -113,10 +115,26 @@ class MessageContent extends StatelessWidget {
                 fontSize: fontSize,
               );
             }
-            return MessageDownloadContent(
+            final download = MessageDownloadContent(
               event,
               textColor: textColor,
               linkColor: linkColor,
+            );
+            if (!VoiceTranscriber.isSupported) return download;
+            return Column(
+              mainAxisSize: .min,
+              crossAxisAlignment: .start,
+              children: [
+                download,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                  child: AudioTranscript(
+                    event,
+                    color: textColor,
+                    fontSize: fontSize,
+                  ),
+                ),
+              ],
             );
           case MessageTypes.Video:
             return EventVideoPlayer(

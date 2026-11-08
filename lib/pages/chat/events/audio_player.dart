@@ -13,6 +13,7 @@ import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/file_description.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/url_launcher.dart';
+import 'package:fluffychat/utils/voice_transcription/voice_transcriber.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:just_audio/just_audio.dart';
@@ -24,6 +25,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../utils/matrix_sdk_extensions/event_extension.dart';
 import '../../../widgets/fluffy_chat_app.dart';
 import '../../../widgets/matrix.dart';
+import 'audio_transcript.dart';
 
 class AudioPlayerWidget extends StatefulWidget {
   final Color color;
@@ -500,6 +502,12 @@ class AudioPlayerState extends State<AudioPlayerWidget> {
                       ],
                     ),
                   ),
+                  if (VoiceTranscriber.isSupported)
+                    AudioTranscript(
+                      widget.event,
+                      color: widget.color,
+                      fontSize: widget.fontSize,
+                    ),
                   if (fileDescription != null) ...[
                     const SizedBox(height: 8),
                     Padding(

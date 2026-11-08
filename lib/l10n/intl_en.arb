@@ -2885,5 +2885,27 @@
                 "type": "String"
             }
         }
-    }
+    },
+    "showTranscript": "Show transcript",
+    "hideTranscript": "Hide transcript",
+    "transcribing": "Transcribing…",
+    "downloadTranscriptionModel": "Download speech recognition model?",
+    "downloadTranscriptionModelDescription": "Voice messages are transcribed on this device. This needs a one-time download of a {size} speech recognition model. Your audio never leaves the device.",
+    "@downloadTranscriptionModelDescription": {
+        "placeholders": {
+            "size": {
+                "type": "String"
+            }
+        }
+    },
+    "downloadingTranscriptionModel": "Downloading speech recognition model… {percent}%",
+    "@downloadingTranscriptionModel": {
+        "placeholders": {
+            "percent": {
+                "type": "int"
+            }
+        }
+    },
+    "transcriptionFailed": "Could not transcribe this voice message",
+    "noSpeechDetected": "No speech detected"
 }
