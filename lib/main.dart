@@ -24,6 +24,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:universal_html/universal_html.dart' as web;
+import 'package:video_player_media_kit/video_player_media_kit.dart';
 
 import 'config/setting_keys.dart';
 import 'utils/background_push.dart';
@@ -141,6 +142,10 @@ Future<void> startGui(
 
   if (PlatformInfos.isLinux || PlatformInfos.isWindows) {
     JustAudioMediaKit.ensureInitialized();
+  }
+  // video_player has no Windows implementation of its own.
+  if (PlatformInfos.isWindows) {
+    VideoPlayerMediaKit.ensureInitialized(windows: true);
   }
 
   if (PlatformInfos.isWindows) {

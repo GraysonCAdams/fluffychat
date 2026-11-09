@@ -15,11 +15,8 @@ import 'package:matrix/matrix.dart';
 
 import '../../../config/app_config.dart';
 import '../../../utils/event_checkbox_extension.dart';
-import '../../../utils/platform_infos.dart';
 import '../../../utils/url_launcher.dart';
-import '../../../utils/voice_transcription/voice_transcriber.dart';
 import 'audio_player.dart';
-import 'audio_transcript.dart';
 import 'cute_events.dart';
 import 'html_message.dart';
 import 'image_bubble.dart';
@@ -104,37 +101,11 @@ class MessageContent extends StatelessWidget {
           case CuteEventContent.eventType:
             return CuteContent(event);
           case MessageTypes.Audio:
-            if (PlatformInfos.isMobile ||
-                PlatformInfos.isMacOS ||
-                PlatformInfos.isWeb ||
-                PlatformInfos.isLinux) {
-              return AudioPlayerWidget(
-                event,
-                color: textColor,
-                linkColor: linkColor,
-                fontSize: fontSize,
-              );
-            }
-            final download = MessageDownloadContent(
+            return AudioPlayerWidget(
               event,
-              textColor: textColor,
+              color: textColor,
               linkColor: linkColor,
-            );
-            if (!VoiceTranscriber.isSupported) return download;
-            return Column(
-              mainAxisSize: .min,
-              crossAxisAlignment: .start,
-              children: [
-                download,
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                  child: AudioTranscript(
-                    event,
-                    color: textColor,
-                    fontSize: fontSize,
-                  ),
-                ),
-              ],
+              fontSize: fontSize,
             );
           case MessageTypes.Video:
             return EventVideoPlayer(
@@ -142,6 +113,7 @@ class MessageContent extends StatelessWidget {
               textColor: textColor,
               linkColor: linkColor,
               timeline: timeline,
+              playInline: true,
             );
           case MessageTypes.File:
             return MessageDownloadContent(

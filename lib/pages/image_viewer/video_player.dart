@@ -22,7 +22,11 @@ import '../../widgets/mxc_image.dart';
 class EventVideoPlayer extends StatefulWidget {
   final Event event;
 
-  const EventVideoPlayer(this.event, {super.key});
+  /// The size to play at inside a chat message. Without it the video fills
+  /// the height of the image viewer and loops.
+  final Size? inlineSize;
+
+  const EventVideoPlayer(this.event, {this.inlineSize, super.key});
 
   @override
   EventVideoPlayerState createState() => EventVideoPlayerState();
@@ -34,9 +38,7 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
 
   double? _downloadProgress;
 
-  // The video_player package only doesn't support Windows and Linux.
-  final _supportsVideoPlayer =
-      !PlatformInfos.isWindows && !PlatformInfos.isLinux;
+  final _supportsVideoPlayer = PlatformInfos.supportsVideoPlayer;
 
   Future<void> _downloadAction() async {
     if (!_supportsVideoPlayer) {
@@ -93,8 +95,15 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
           showControlsOnInitialize: false,
           autoPlay: true,
           autoInitialize: true,
-          looping: true,
+          looping: widget.inlineSize == null,
           aspectRatio: _videoPlayerController?.value.aspectRatio,
+          // Chewie's options open as a bottom sheet, which suits phones but
+          // spans the whole window on desktop. Desktop gets a speed menu on
+          // the control bar instead, opening next to its button.
+          showOptions: !PlatformInfos.isDesktop,
+          additionalControls: PlatformInfos.isDesktop
+              ? (context) => [_PlaybackSpeedButton(videoPlayerController)]
+              : null,
         );
       });
     } on IOException catch (e) {
@@ -142,8 +151,9 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
     final infoMap = widget.event.content.tryGetMap<String, Object?>('info');
     final videoWidth = infoMap?.tryGet<int>('w') ?? 400;
     final videoHeight = infoMap?.tryGet<int>('h') ?? 300;
-    final height = MediaQuery.sizeOf(context).height - 52;
-    final width = videoWidth * (height / videoHeight);
+    final inlineSize = widget.inlineSize;
+    final height = inlineSize?.height ?? MediaQuery.sizeOf(context).height - 52;
+    final width = inlineSize?.width ?? videoWidth * (height / videoHeight);
 
     final chewieController = _chewieController;
     return chewieController != null
@@ -151,7 +161,11 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
             child: SizedBox(
               width: width,
               height: height,
-              child: Chewie(controller: chewieController),
+              child: widget.inlineSize == null
+                  ? Chewie(controller: chewieController)
+                  : InlineVideoFrame(
+                      child: Chewie(controller: chewieController),
+                    ),
             ),
           )
         : Stack(
@@ -188,4 +202,50 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
             ],
           );
   }
+}
+
+/// Hosts a video player inside a chat message.
+///
+/// The chat timeline scrolls under its app bar, so a message sees the app
+/// bar's height as top padding. Chewie's controls keep clear of that padding
+/// with a SafeArea, which squeezes their bar to nothing in a box the size of
+/// a message, so the padding is removed here.
+class InlineVideoFrame extends StatelessWidget {
+  final Widget child;
+
+  const InlineVideoFrame({required this.child, super.key});
+
+  @override
+  Widget build(BuildContext context) => MediaQuery.removePadding(
+    context: context,
+    removeTop: true,
+    removeBottom: true,
+    removeLeft: true,
+    removeRight: true,
+    child: child,
+  );
+}
+
+class _PlaybackSpeedButton extends StatelessWidget {
+  final VideoPlayerController controller;
+
+  const _PlaybackSpeedButton(this.controller);
+
+  static const _speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+  @override
+  Widget build(BuildContext context) => PopupMenuButton<double>(
+    icon: const Icon(Icons.speed, color: Colors.white),
+    initialValue: controller.value.playbackSpeed,
+    onSelected: controller.setPlaybackSpeed,
+    itemBuilder: (context) => [
+      for (final speed in _speeds)
+        PopupMenuItem(
+          value: speed,
+          child: Text(
+            '${speed == speed.roundToDouble() ? speed.toInt() : speed}x',
+          ),
+        ),
+    ],
+  );
 }

@@ -18,8 +18,12 @@ import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
 import '../../image_viewer/image_viewer.dart';
+import '../../image_viewer/video_player.dart' as viewer;
 
-class EventVideoPlayer extends StatelessWidget {
+/// A video in the timeline. Where video playback is supported, tapping it
+/// plays it inside the message, with controls and a full screen button.
+/// Elsewhere the tap saves the file.
+class EventVideoPlayer extends StatefulWidget {
   final Event event;
   final Timeline? timeline;
   final Color? textColor;
@@ -30,14 +34,30 @@ class EventVideoPlayer extends StatelessWidget {
     this.timeline,
     this.textColor,
     this.linkColor,
+    this.playInline = false,
     super.key,
   });
 
+  /// Whether a tap plays the video in place instead of opening the image
+  /// viewer. Set for messages in the chat timeline.
+  final bool playInline;
+
+  @override
+  State<EventVideoPlayer> createState() => _EventVideoPlayerState();
+}
+
+class _EventVideoPlayerState extends State<EventVideoPlayer> {
   static const String fallbackBlurHash = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
+
+  bool _playing = false;
+
+  Event get event => widget.event;
 
   @override
   Widget build(BuildContext context) {
     final supportsVideoPlayer = PlatformInfos.supportsVideoPlayer;
+    final textColor = widget.textColor;
+    final linkColor = widget.linkColor;
 
     final blurHash =
         (event.infoMap as Map<String, dynamic>).tryGet<String>(
@@ -63,77 +83,93 @@ class EventVideoPlayer extends StatelessWidget {
       mainAxisSize: .min,
       spacing: 8,
       children: [
-        Material(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(AppConfig.borderRadius),
-          child: InkWell(
-            onTap: () => supportsVideoPlayer
-                ? showDialog(
-                    context: context,
-                    builder: (_) => ImageViewer(
-                      event,
-                      timeline: timeline,
-                      outerContext: context,
-                    ),
-                  )
-                : event.saveFile(context),
+        if (_playing)
+          ClipRRect(
             borderRadius: BorderRadius.circular(AppConfig.borderRadius),
-            child: SizedBox(
+            child: Container(
+              color: Colors.black,
               width: width,
               height: height,
-              child: Hero(
-                tag: event.eventId,
-                child: Stack(
-                  children: [
-                    if (event.hasThumbnail &&
-                        AppSettings.showThumbnailsInTimeline.value)
-                      MxcImage(
-                        event: event,
-                        cacheKey: event.transactionId ?? event.eventId,
-                        cacheName: event.room.id,
-                        isThumbnail: true,
-                        width: width,
-                        height: height,
-                        fit: BoxFit.cover,
-                        placeholder: (context) => BlurHash(
+              child: viewer.EventVideoPlayer(
+                event,
+                inlineSize: Size(width, height),
+              ),
+            ),
+          )
+        else
+          Material(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(AppConfig.borderRadius),
+            child: InkWell(
+              onTap: () => supportsVideoPlayer && widget.playInline
+                  ? setState(() => _playing = true)
+                  : supportsVideoPlayer
+                  ? showDialog(
+                      context: context,
+                      builder: (_) => ImageViewer(
+                        event,
+                        timeline: widget.timeline,
+                        outerContext: context,
+                      ),
+                    )
+                  : event.saveFile(context),
+              borderRadius: BorderRadius.circular(AppConfig.borderRadius),
+              child: SizedBox(
+                width: width,
+                height: height,
+                child: Hero(
+                  tag: event.eventId,
+                  child: Stack(
+                    children: [
+                      if (event.hasThumbnail &&
+                          AppSettings.showThumbnailsInTimeline.value)
+                        MxcImage(
+                          event: event,
+                          cacheKey: event.transactionId ?? event.eventId,
+                          cacheName: event.room.id,
+                          isThumbnail: true,
+                          width: width,
+                          height: height,
+                          fit: BoxFit.cover,
+                          placeholder: (context) => BlurHash(
+                            blurhash: blurHash,
+                            width: width,
+                            height: height,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      else
+                        BlurHash(
                           blurhash: blurHash,
                           width: width,
                           height: height,
                           fit: BoxFit.cover,
                         ),
-                      )
-                    else
-                      BlurHash(
-                        blurhash: blurHash,
-                        width: width,
-                        height: height,
-                        fit: BoxFit.cover,
-                      ),
-                    Center(
-                      child: CircleAvatar(
-                        child: supportsVideoPlayer
-                            ? const Icon(Icons.play_arrow_outlined)
-                            : const Icon(Icons.file_download_outlined),
-                      ),
-                    ),
-                    if (duration != null)
-                      Positioned(
-                        bottom: 8,
-                        left: 16,
-                        child: Text(
-                          '${duration.inMinutes.toString().padLeft(2, '0')}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}',
-                          style: TextStyle(
-                            color: Colors.white,
-                            backgroundColor: Colors.black.withAlpha(32),
-                          ),
+                      Center(
+                        child: CircleAvatar(
+                          child: supportsVideoPlayer
+                              ? const Icon(Icons.play_arrow_outlined)
+                              : const Icon(Icons.file_download_outlined),
                         ),
                       ),
-                  ],
+                      if (duration != null)
+                        Positioned(
+                          bottom: 8,
+                          left: 16,
+                          child: Text(
+                            '${duration.inMinutes.toString().padLeft(2, '0')}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              backgroundColor: Colors.black.withAlpha(32),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
         if (fileDescription != null && textColor != null && linkColor != null)
           SizedBox(
             width: width,

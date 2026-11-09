@@ -65,7 +65,7 @@ dependencies:
   material_ui: 1.8.0
   matrix: ^14.1.0
   media_kit_libs_linux: ^1.2.1
-  media_kit_libs_windows_audio: ^1.0.9
+  media_kit_libs_windows_video: ^1.0.11
   mime: ^2.1.0
   native_imaging: ^1.0.0
   ogg_caf_converter: ^0.4.1
@@ -98,6 +98,7 @@ dependencies:
   url_launcher: ^6.3.3
   uuid: ^4.6.0
   video_player: ^2.14.1
+  video_player_media_kit: ^2.0.0
   wakelock_plus: ^1.8.0
   # Not imported directly. webpush_encryption needs it, and 0.6.1 builds its
   # Android library 16 KB page aligned; 0.6.0 does not.

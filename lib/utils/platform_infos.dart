@@ -34,8 +34,9 @@ abstract class PlatformInfos {
 
   static bool get usesTouchscreen => !isMobile;
 
-  static bool get supportsVideoPlayer =>
-      !PlatformInfos.isWindows && !PlatformInfos.isLinux;
+  /// Windows plays video through media_kit (see `main.dart`); Linux has no
+  /// video_player backend.
+  static bool get supportsVideoPlayer => !PlatformInfos.isLinux;
 
   static bool get supportsCustomImageResizer =>
       PlatformInfos.isWeb || PlatformInfos.isMobile;
