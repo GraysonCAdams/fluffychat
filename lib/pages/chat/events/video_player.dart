@@ -11,6 +11,7 @@ import 'package:fluffychat/utils/file_description.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/event_extension.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/url_launcher.dart';
+import 'package:fluffychat/utils/video_poster.dart';
 import 'package:fluffychat/widgets/blur_hash.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
@@ -137,6 +138,36 @@ class _EventVideoPlayerState extends State<EventVideoPlayer> {
                             height: height,
                             fit: BoxFit.cover,
                           ),
+                        )
+                      else if (AppSettings.showThumbnailsInTimeline.value &&
+                          VideoPoster.isSupported)
+                        FutureBuilder(
+                          future: VideoPoster.forEvent(event),
+                          builder: (context, snapshot) {
+                            final poster = snapshot.data;
+                            if (poster == null) {
+                              return BlurHash(
+                                blurhash: blurHash,
+                                width: width,
+                                height: height,
+                                fit: BoxFit.cover,
+                              );
+                            }
+                            return Image.memory(
+                              poster,
+                              width: width,
+                              height: height,
+                              fit: BoxFit.cover,
+                              // Posters are full-size frames; decode them at
+                              // the size they are shown.
+                              cacheWidth:
+                                  (width *
+                                          MediaQuery.devicePixelRatioOf(
+                                            context,
+                                          ))
+                                      .round(),
+                            );
+                          },
                         )
                       else
                         BlurHash(
