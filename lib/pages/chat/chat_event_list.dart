@@ -11,6 +11,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/chat/encryption_info.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
+import 'package:fluffychat/pages/chat/message_context_menu.dart';
 import 'package:fluffychat/pages/chat/seen_by_row.dart';
 import 'package:fluffychat/pages/chat/typing_indicators.dart';
 import 'package:fluffychat/utils/account_config.dart';
@@ -267,6 +268,8 @@ class ChatEventList extends StatelessWidget {
                       highlightMarker:
                           controller.scrollToEventIdMarker == event.eventId,
                       onSelect: controller.onSelectMessage,
+                      onContextMenu: (event, position) =>
+                          showMessageContextMenu(controller, event, position),
                       scrollToEventId: controller.scrollToEventId,
                       longPressSelect: controller.selectedEvents.isNotEmpty,
                       selected: controller.selectedEvents.any(
@@ -275,6 +278,7 @@ class ChatEventList extends StatelessWidget {
                       singleSelected:
                           controller.selectedEvents.singleOrNull?.eventId ==
                           event.eventId,
+                      hideReactionPicker: controller.messageMenuOpen,
                       onEdit: controller.editSelectedEventAction,
                       timeline: timeline,
                       displayReadMarker:

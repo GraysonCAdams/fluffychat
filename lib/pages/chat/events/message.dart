@@ -36,6 +36,9 @@ class Message extends StatelessWidget {
   final Event? previousEvent;
   final bool displayReadMarker;
   final void Function(Event) onSelect;
+
+  /// Opens the message's actions at a global position, for a right click.
+  final void Function(Event, Offset)? onContextMenu;
   final void Function(Event) onInfoTab;
   final void Function(String) scrollToEventId;
   final void Function() onSwipe;
@@ -45,6 +48,9 @@ class Message extends StatelessWidget {
   final bool longPressSelect;
   final bool selected;
   final bool singleSelected;
+
+  /// Hides the reaction picker shown under a single selected message.
+  final bool hideReactionPicker;
   final Timeline timeline;
   final bool highlightMarker;
   final bool animateIn;
@@ -63,12 +69,14 @@ class Message extends StatelessWidget {
     this.longPressSelect = false,
     required this.bigEmojis,
     required this.onSelect,
+    this.onContextMenu,
     required this.onInfoTab,
     required this.scrollToEventId,
     required this.onSwipe,
     this.selected = false,
     required this.onEdit,
     required this.singleSelected,
+    this.hideReactionPicker = false,
     required this.timeline,
     this.highlightMarker = false,
     this.animateIn = false,
@@ -203,7 +211,9 @@ class Message extends StatelessWidget {
     );
 
     final showReactionPicker =
-        singleSelected && event.room.canSendDefaultMessages;
+        singleSelected &&
+        !hideReactionPicker &&
+        event.room.canSendDefaultMessages;
 
     final enterThread = this.enterThread;
     final sender = event.senderFromMemoryOrFallback;
@@ -428,6 +438,12 @@ class Message extends StatelessWidget {
                                         HapticFeedback.heavyImpact();
                                         onSelect(event);
                                       },
+                                onSecondaryTapUp: onContextMenu == null
+                                    ? null
+                                    : (details) => onContextMenu!(
+                                        event,
+                                        details.globalPosition,
+                                      ),
                                 child: _AnimateIn(
                                   key: ValueKey(
                                     event.transactionId ?? event.eventId,

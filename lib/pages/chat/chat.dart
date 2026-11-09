@@ -523,6 +523,7 @@ class ChatController extends State<ChatPageWithRoom>
       }
     });
     web.window.addEventListener('paste', _handleClipboardFilePasteWeb);
+    HardwareKeyboard.instance.addHandler(_escapeClearsSelection);
 
     super.initState();
     _displayChatDetailsColumn = ValueNotifier(
@@ -796,6 +797,7 @@ class ChatController extends State<ChatPageWithRoom>
     inputFocus.dispose();
     _displayChatDetailsColumn.dispose();
     web.window.removeEventListener('paste', _handleClipboardFilePasteWeb);
+    HardwareKeyboard.instance.removeHandler(_escapeClearsSelection);
     undoController.dispose();
     if (currentlyTyping) room.setTyping(false);
     MxcImage.clearCache(widget.room.id);
@@ -1588,6 +1590,37 @@ class ChatController extends State<ChatPageWithRoom>
         TextPosition(offset: sendController.text.length),
       );
   }
+
+  /// Escape leaves selection mode wherever focus is in the chat. A dialog or
+  /// menu on top keeps the key for itself.
+  bool _escapeClearsSelection(KeyEvent evt) {
+    if (evt is! KeyDownEvent ||
+        evt.logicalKey != LogicalKeyboardKey.escape ||
+        !mounted ||
+        selectedEvents.isEmpty) {
+      return false;
+    }
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    if (focusContext != null &&
+        ModalRoute.of(focusContext) != ModalRoute.of(context)) {
+      return false;
+    }
+    clearSelectedEvents();
+    return true;
+  }
+
+  /// Makes [event] the only selected message.
+  void selectOnly(Event event) => setState(() {
+    selectedEvents
+      ..clear()
+      ..add(event);
+  });
+
+  /// Whether a message's right-click menu is open. Its own reaction row
+  /// stands in for the picker under the selected message meanwhile.
+  bool messageMenuOpen = false;
+
+  void setMessageMenuOpen(bool open) => setState(() => messageMenuOpen = open);
 
   void clearSelectedEvents() => setState(() {
     selectedEvents.clear();
