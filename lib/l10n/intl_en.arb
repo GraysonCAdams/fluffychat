@@ -2315,6 +2315,7 @@
     "doesNotSeemToBeAValidHomeserver": "Doesn't seem to be a compatible homeserver. Wrong URL?",
     "calculatingFileSize": "Calculating file size...",
     "oneOfYourDevicesIsNotVerified": "One of your devices is not verified",
+    "thisDeviceIsNotVerified": "This device is not verified",
     "noticeChatBackupDeviceVerification": "Note: When you connect all your devices to the chat backup, they are automatically verified.",
     "continueText": "Continue",
     "blur": "Blur:",

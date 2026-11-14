@@ -1054,10 +1054,11 @@ class ChatListController extends State<ChatList>
       waitForFirstSync = true;
     });
 
-    if (client.userDeviceKeys[client.userID!]?.deviceKeys.values.any(
-          (device) => !device.verified && !device.blocked,
-        ) ??
-        false) {
+    // Other sessions being unverified is not something this install can act
+    // on, so only its own device is checked.
+    final thisDevice =
+        client.userDeviceKeys[client.userID!]?.deviceKeys[client.deviceID];
+    if (thisDevice != null && !thisDevice.verified && !thisDevice.blocked) {
       late final ScaffoldFeatureController controller;
       final theme = Theme.of(context);
       controller = ScaffoldMessenger.of(context).showSnackBar(
@@ -1067,7 +1068,7 @@ class ChatListController extends State<ChatList>
           backgroundColor: theme.colorScheme.errorContainer,
           closeIconColor: theme.colorScheme.onErrorContainer,
           content: Text(
-            L10n.of(context).oneOfYourDevicesIsNotVerified,
+            L10n.of(context).thisDeviceIsNotVerified,
             style: TextStyle(color: theme.colorScheme.onErrorContainer),
           ),
           action: SnackBarAction(
