@@ -82,6 +82,10 @@ enum AppSettings<T> {
   chatFilter<String>('chat.fluffy.chat_filter', 'allChats'),
   hideRoomsInSpaces<bool>('chat.fluffy.hideRoomsInSpaces', false),
   openSpacesAsChatList<bool>('chat.fluffy.open_spaces_as_chat_list', true),
+  suggestContactsFromChats<bool>(
+    'chat.fluffy.suggest_contacts_from_chats',
+    true,
+  ),
   showThumbnailsInTimeline<bool>('chat.fluffy.showThumbnailsInTimeline', true),
   doubleTapToReact<bool>('chat.fluffy.double_tap_to_react', false),
   doubleTapReaction<String>('chat.fluffy.double_tap_reaction', '❤️'),

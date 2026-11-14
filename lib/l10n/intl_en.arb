@@ -2318,6 +2318,8 @@
     "thisDeviceIsNotVerified": "This device is not verified",
     "openSpacesAsChatList": "Open spaces as a list of their chats",
     "openSpacesAsChatListDescription": "Otherwise a space opens its room directory, which also lists rooms you have not joined.",
+    "suggestContactsFromChats": "Suggest people from your chats",
+    "suggestContactsFromChatsDescription": "Search for a new chat also finds people you already have a chat with, including contacts on bridged networks.",
     "noticeChatBackupDeviceVerification": "Note: When you connect all your devices to the chat backup, they are automatically verified.",
     "continueText": "Continue",
     "blur": "Blur:",

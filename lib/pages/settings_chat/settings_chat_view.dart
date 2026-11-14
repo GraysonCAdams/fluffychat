@@ -56,6 +56,11 @@ class SettingsChatView extends StatelessWidget {
                 setting: AppSettings.openSpacesAsChatList,
               ),
               SettingsSwitchListTile.adaptive(
+                title: L10n.of(context).suggestContactsFromChats,
+                subtitle: L10n.of(context).suggestContactsFromChatsDescription,
+                setting: AppSettings.suggestContactsFromChats,
+              ),
+              SettingsSwitchListTile.adaptive(
                 title: L10n.of(context).hideInvalidOrUnknownMessageFormats,
                 setting: AppSettings.hideUnknownEvents,
               ),

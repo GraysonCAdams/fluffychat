@@ -273,7 +273,13 @@ class NewPrivateChatView extends StatelessWidget {
                                   presenceUserId: contact.userId,
                                 ),
                                 title: Text(displayname),
-                                subtitle: Text(contact.userId),
+                                // Bridged contacts have generated IDs that
+                                // mean nothing to read.
+                                subtitle:
+                                    controller.directChatWith(contact.userId) ==
+                                        null
+                                    ? Text(contact.userId)
+                                    : null,
                                 onTap: () => controller.openUserModal(contact),
                               );
                             },

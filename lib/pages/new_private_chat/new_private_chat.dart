@@ -6,6 +6,7 @@
 import 'dart:async';
 
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat_view.dart';
 import 'package:fluffychat/pages/new_private_chat/qr_scanner_modal.dart';
@@ -15,6 +16,7 @@ import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/url_launcher.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -68,11 +70,63 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     });
   }
 
+  /// The direct chat with each person found among your chats, by user ID.
+  final Map<String, String> _directChats = {};
+
+  /// The direct chat already open with [userId], if one was found.
+  String? directChatWith(String userId) => _directChats[userId];
+
+  /// People from your direct chats whose name or ID contains [searchTerm].
+  ///
+  /// The server's user directory never returns bridged contacts, since
+  /// Synapse keeps every user in an appservice namespace out of it, so they
+  /// are only found here.
+  List<Profile> _searchDirectChats(String searchTerm) {
+    final client = Matrix.of(context).client;
+    final needle = searchTerm.toLowerCase();
+    final profiles = <String, Profile>{};
+    for (final room in client.rooms) {
+      if (room.membership != Membership.join) continue;
+      final userId = room.directChatMatrixID;
+      if (userId == null || profiles.containsKey(userId)) continue;
+      final user = room.unsafeGetUserFromMemoryOrFallback(userId);
+      final displayname = user.calcDisplayname();
+      if (!displayname.toLowerCase().contains(needle) &&
+          !userId.toLowerCase().contains(needle)) {
+        continue;
+      }
+      _directChats[userId] = room.id;
+      profiles[userId] = Profile(
+        userId: userId,
+        displayName: displayname,
+        avatarUrl: user.avatarUrl,
+      );
+    }
+    return profiles.values.toList()
+      ..sort((a, b) => a.displayName!.compareTo(b.displayName!));
+  }
+
   Future<List<Profile>> _searchUser(String searchTerm) async {
-    final result = await Matrix.of(
-      context,
-    ).client.searchUserDirectory(searchTerm);
-    final profiles = result.results;
+    _directChats.clear();
+    final fromChats = AppSettings.suggestContactsFromChats.value
+        ? _searchDirectChats(searchTerm)
+        : <Profile>[];
+    final List<Profile> fromDirectory;
+    try {
+      fromDirectory = (await Matrix.of(
+        context,
+      ).client.searchUserDirectory(searchTerm)).results;
+    } catch (e, s) {
+      if (fromChats.isEmpty) rethrow;
+      Logs().w('User directory search failed', e, s);
+      return fromChats;
+    }
+    final profiles = [
+      ...fromChats,
+      ...fromDirectory.where(
+        (profile) => !_directChats.containsKey(profile.userId),
+      ),
+    ];
 
     if (searchTerm.isValidMatrixIdStrict() &&
         searchTerm.sigil == '@' &&
@@ -119,8 +173,14 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     );
   }
 
-  void openUserModal(Profile profile) =>
-      UserDialog.show(context: context, profile: profile);
+  void openUserModal(Profile profile) {
+    final roomId = _directChats[profile.userId];
+    if (roomId != null) {
+      context.go('/rooms/$roomId');
+      return;
+    }
+    UserDialog.show(context: context, profile: profile);
+  }
 
   @override
   void dispose() {
