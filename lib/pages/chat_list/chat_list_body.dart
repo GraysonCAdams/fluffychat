@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
@@ -33,15 +34,23 @@ class ChatListViewBody extends StatelessWidget {
 
     final client = Matrix.of(context).client;
     final activeSpace = controller.activeSpaceId;
-    if (activeSpace != null) {
+    final spacesAsChatList = AppSettings.openSpacesAsChatList.value;
+    if (activeSpace != null &&
+        (controller.spaceDirectoryOpen || !spacesAsChatList)) {
       return SpaceView(
         key: ValueKey(activeSpace),
         spaceId: activeSpace,
         onBack: controller.clearActiveSpace,
+        onClose: spacesAsChatList
+            ? () => controller.setSpaceDirectoryOpen(false)
+            : null,
         onChatTab: controller.onChatTap,
         activeChat: controller.activeChat,
       );
     }
+    final activeSpaceRoom = activeSpace == null
+        ? null
+        : client.getRoomById(activeSpace);
     final spaces = client.rooms.where((r) => r.isSpace);
     final spaceDelegateCandidates = <String, Room>{};
     for (final space in spaces) {
@@ -67,18 +76,29 @@ class ChatListViewBody extends StatelessWidget {
           .where((s) => s.hasRoomUpdate)
           .rateLimit(const Duration(seconds: 1)),
       builder: (context, _) {
+        final spaceRoomIds = activeSpaceRoom == null
+            ? null
+            : _roomIdsInSpace(client, activeSpaceRoom);
         final rooms = controller.filteredRooms
             .where(
-              (room) =>
-                  !AppSettings.hideRoomsInSpaces.value ||
-                  spaceDelegateCandidates[room.id] == null,
+              (room) => spaceRoomIds != null
+                  ? spaceRoomIds.contains(room.id)
+                  : !AppSettings.hideRoomsInSpaces.value ||
+                        spaceDelegateCandidates[room.id] == null,
             )
             .toList();
 
         return CustomScrollView(
           controller: controller.scrollController,
           slivers: [
-            ChatListHeader(controller: controller),
+            if (activeSpaceRoom == null)
+              ChatListHeader(controller: controller)
+            else
+              _SpaceChatListHeader(
+                space: activeSpaceRoom,
+                onBack: controller.clearActiveSpace,
+                onOpenDirectory: () => controller.setSpaceDirectoryOpen(true),
+              ),
             SliverList(
               delegate: SliverChildListDelegate([
                 if (controller.isSearchMode) ...[
@@ -261,6 +281,86 @@ class ChatListViewBody extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// The chats of [space] and of the spaces directly inside it, matching the
+/// two levels the space's room directory shows.
+Set<String> _roomIdsInSpace(Client client, Room space) {
+  final roomIds = <String>{};
+  for (final child in space.spaceChildren) {
+    final roomId = child.roomId;
+    if (roomId == null) continue;
+    final room = client.getRoomById(roomId);
+    if (room != null && room.isSpace) {
+      roomIds.addAll(room.spaceChildren.map((child) => child.roomId).nonNulls);
+    } else {
+      roomIds.add(roomId);
+    }
+  }
+  return roomIds;
+}
+
+/// Heads the chat list while it is filtered to a space: the space's name, a
+/// way back to all chats, and a way into the space's room directory.
+class _SpaceChatListHeader extends StatelessWidget {
+  final Room space;
+  final void Function() onBack;
+  final void Function() onOpenDirectory;
+
+  const _SpaceChatListHeader({
+    required this.space,
+    required this.onBack,
+    required this.onOpenDirectory,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final displayname = space.getLocalizedDisplayname();
+    return SliverAppBar(
+      floating: true,
+      toolbarHeight: 72,
+      scrolledUnderElevation: 0,
+      backgroundColor: Colors.transparent,
+      automaticallyImplyLeading: false,
+      leading: IconButton(
+        tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+        icon: const Icon(Icons.arrow_back),
+        onPressed: onBack,
+      ),
+      titleSpacing: 0,
+      title: Row(
+        children: [
+          Avatar(
+            size: Avatar.defaultSize / 1.5,
+            mxContent: space.avatar,
+            name: displayname,
+            shapeBorder: RoundedSuperellipseBorder(
+              side: BorderSide(width: 1, color: theme.dividerColor),
+              borderRadius: BorderRadius.circular(AppConfig.spaceBorderRadius),
+            ),
+            borderRadius: BorderRadius.circular(AppConfig.spaceBorderRadius),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              displayname,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          tooltip: L10n.of(context).discover,
+          icon: const Icon(Icons.explore_outlined),
+          onPressed: onOpenDirectory,
+        ),
+        const SizedBox(width: 8),
+      ],
     );
   }
 }

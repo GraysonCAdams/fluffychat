@@ -51,6 +51,11 @@ class SettingsChatView extends StatelessWidget {
                 setting: AppSettings.hideRoomsInSpaces,
               ),
               SettingsSwitchListTile.adaptive(
+                title: L10n.of(context).openSpacesAsChatList,
+                subtitle: L10n.of(context).openSpacesAsChatListDescription,
+                setting: AppSettings.openSpacesAsChatList,
+              ),
+              SettingsSwitchListTile.adaptive(
                 title: L10n.of(context).hideInvalidOrUnknownMessageFormats,
                 setting: AppSettings.hideUnknownEvents,
               ),

@@ -104,11 +104,24 @@ class ChatListController extends State<ChatList>
 
     setState(() {
       _activeSpaceId = spaceId;
+      _spaceDirectoryOpen = false;
     });
   }
 
   void clearActiveSpace() => setState(() {
     _activeSpaceId = null;
+    _spaceDirectoryOpen = false;
+  });
+
+  bool _spaceDirectoryOpen = false;
+
+  /// Whether the active space shows its room directory, which lists every
+  /// room in the space including ones not joined yet, rather than the chat
+  /// list filtered to the space.
+  bool get spaceDirectoryOpen => _spaceDirectoryOpen;
+
+  void setSpaceDirectoryOpen(bool open) => setState(() {
+    _spaceDirectoryOpen = open;
   });
 
   Future<void> _onCallEvent(CallEvent? event) async {

@@ -39,12 +39,16 @@ enum SpaceActions { addChild, settings, leave }
 class SpaceView extends StatefulWidget {
   final String spaceId;
   final void Function() onBack;
+
+  /// Closes this directory, shown as a back button when set.
+  final void Function()? onClose;
   final void Function(Room room) onChatTab;
   final String? activeChat;
 
   const SpaceView({
     required this.spaceId,
     required this.onBack,
+    this.onClose,
     required this.onChatTab,
     required this.activeChat,
     super.key,
@@ -409,13 +413,24 @@ class _SpaceViewState extends State<SpaceView> {
                             fontWeight: FontWeight.normal,
                           ),
                           floatingLabelBehavior: FloatingLabelBehavior.never,
-                          prefixIcon: IconButton(
-                            onPressed: () {},
-                            icon: Icon(
-                              Icons.search_outlined,
-                              color: theme.colorScheme.onPrimaryContainer,
-                            ),
-                          ),
+                          prefixIcon: widget.onClose == null
+                              ? IconButton(
+                                  onPressed: () {},
+                                  icon: Icon(
+                                    Icons.search_outlined,
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                  ),
+                                )
+                              : IconButton(
+                                  tooltip: MaterialLocalizations.of(
+                                    context,
+                                  ).backButtonTooltip,
+                                  onPressed: widget.onClose,
+                                  icon: Icon(
+                                    Icons.arrow_back,
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                  ),
+                                ),
                           suffixIcon: PopupMenuButton<SpaceActions>(
                             icon: Avatar(
                               size: avatarSize,
