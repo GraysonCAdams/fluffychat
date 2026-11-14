@@ -22,13 +22,13 @@ dependencies:
   crop_image: ^1.0.17
   cross_file: ^0.3.5
   crypto: ^3.0.7
-  cupertino_ui: ^1.1.4
+  cupertino_ui: ^1.1.6
   desktop_drop: ^0.8.4
   device_info_plus: ^13.3.0
   dynamic_color: ^2.1.0
   emoji_picker_flutter: ^4.5.4
   ffi: ^2.1.0
-  file_picker: ^13.3.0
+  file_picker: ^13.3.2
   file_selector: ^1.1.0
   flutter:
     sdk: flutter
@@ -42,7 +42,7 @@ dependencies:
   flutter_new_badger: ^2.0.0
   flutter_secure_storage: ^11.2.0
   flutter_shortcuts_new: ^2.1.0
-  flutter_vodozemac: ^0.8.1
+  flutter_vodozemac: ^0.9.0
   flutter_web_auth_2: ^5.1.0
   flutter_webrtc: ^1.6.2+hotfix.3
   geolocator: ^14.1.2
@@ -57,13 +57,13 @@ dependencies:
   just_audio: ^0.10.6
   just_audio_media_kit: ^2.1.0
   latlong2: ^0.10.1
-  light_compressor_v2: ^1.10.0
+  light_compressor_v2: ^1.11.0
   livekit_client: ^2.13.2
   local_auth: ^3.0.2
-  lottie: ^3.6.1
+  lottie: ^3.8.2
   managed_configurations: ^1.2.0
   material_ui: 1.8.0
-  matrix: ^14.1.0
+  matrix: ^14.2.0
   media_kit: ^1.2.6
   media_kit_libs_linux: ^1.2.1
   media_kit_libs_windows_video: ^1.0.11
@@ -118,7 +118,7 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   license_checker: ^1.6.2
-  vodozemac: ^0.8.0
+  vodozemac: ^0.9.0
 
 flutter:
   generate: true
@@ -128,7 +128,7 @@ flutter:
     - assets/logo/mini/
     - assets/logo/tray_icon.ico
     - assets/sounds/
-    - assets/vodozemac/0.8.1/
+    - assets/vodozemac/0.9.0/
 
 hooks:
   user_defines:
