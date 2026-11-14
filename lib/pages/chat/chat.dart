@@ -20,6 +20,7 @@ import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
 import 'package:fluffychat/pages/chat/utils/web_file_to_x_file.dart';
 import 'package:fluffychat/pages/chat_details/chat_details.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
+import 'package:fluffychat/utils/clipboard_gif.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/file_selector.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
@@ -32,6 +33,7 @@ import 'package:fluffychat/utils/pasted_file_type.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/scheduled_messages.dart';
 import 'package:fluffychat/utils/show_scaffold_dialog.dart';
+import 'package:fluffychat/utils/windows_clipboard.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_modal_action_popup.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_text_input_dialog.dart';
@@ -795,6 +797,7 @@ class ChatController extends State<ChatPageWithRoom>
     scrollController.dispose();
     inputFocus.removeListener(_inputFocusListener);
     inputFocus.dispose();
+    _emojiPanelWatcher?.cancel();
     _displayChatDetailsColumn.dispose();
     web.window.removeEventListener('paste', _handleClipboardFilePasteWeb);
     HardwareKeyboard.instance.removeHandler(_escapeClearsSelection);
@@ -1124,7 +1127,27 @@ class ChatController extends State<ChatPageWithRoom>
     );
   }
 
+  /// Offers the GIF linked from the clipboard for sending, returning false
+  /// when the clipboard holds no such GIF.
+  Future<bool> _pasteClipboardGif() async {
+    final gif = await clipboardLinkedGif();
+    if (gif == null) return false;
+    if (!mounted) return true;
+    await showAdaptiveDialog(
+      context: context,
+      builder: (c) => SendFileDialog(
+        files: [gif],
+        room: room,
+        outerContext: context,
+        threadRootEventId: activeThreadId,
+        threadLastEventId: threadLastEventId,
+      ),
+    );
+    return true;
+  }
+
   Future<void> _handleClipboardImagePaste() async {
+    if (await _pasteClipboardGif()) return;
     final paths = await Pasteboard.files();
     if (paths.isNotEmpty) {
       final files = await Future.wait(paths.map(pastedFile));
@@ -1266,6 +1289,28 @@ class ChatController extends State<ChatPageWithRoom>
     if (showEmojiPicker && inputFocus.hasFocus) {
       setState(() => showEmojiPicker = false);
     }
+    if (PlatformInfos.isWindows) _watchEmojiPanel(inputFocus.hasFocus);
+  }
+
+  Timer? _emojiPanelWatcher;
+
+  /// The Windows emoji panel (Win+.) only copies a picked GIF to the
+  /// clipboard, since Flutter's text field cannot take it directly. While the
+  /// composer has focus, a GIF the panel copies is offered for sending as if
+  /// the user had pasted it.
+  void _watchEmojiPanel(bool composerFocused) {
+    _emojiPanelWatcher?.cancel();
+    _emojiPanelWatcher = null;
+    if (!composerFocused) return;
+    var sequence = WindowsClipboard.sequenceNumber;
+    _emojiPanelWatcher = Timer.periodic(const Duration(milliseconds: 300), (_) {
+      final current = WindowsClipboard.sequenceNumber;
+      if (current == sequence) return;
+      sequence = current;
+      if (WindowsClipboard.holdsEmojiPanelContent) {
+        _pasteClipboardGif();
+      }
+    });
   }
 
   Future<void> sendLocationAction() async {
