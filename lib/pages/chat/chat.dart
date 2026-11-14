@@ -591,7 +591,7 @@ class ChatController extends State<ChatPageWithRoom>
       await loadTimelineFuture;
       // We launched the chat with a given initial event ID:
       if (initialEventId != null) {
-        scrollToEventId(initialEventId);
+        scrollToEventId(initialEventId, openThread: true);
         return;
       }
 
@@ -1483,10 +1483,14 @@ class ChatController extends State<ChatPageWithRoom>
     inputFocus.requestFocus();
   }
 
+  /// Scrolls the timeline to [eventId]. A thread reply is shown as its
+  /// thread's root in the main timeline, unless [openThread] is set, which
+  /// opens the thread and scrolls to the reply inside it.
   Future<void> scrollToEventId(
     String eventId, {
     bool highlightEvent = true,
     bool timelineReloaded = false,
+    bool openThread = false,
   }) async {
     final foundEvent = timeline!.events.firstWhereOrNull(
       (event) => event.eventId == eventId,
@@ -1497,7 +1501,14 @@ class ChatController extends State<ChatPageWithRoom>
         ? foundEvent?.relationshipEventId
         : null;
     if (activeThreadId == null && threadRootId != null) {
-      return scrollToEventId(threadRootId, highlightEvent: highlightEvent);
+      if (!openThread) {
+        return scrollToEventId(threadRootId, highlightEvent: highlightEvent);
+      }
+      enterThread(threadRootId);
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => scrollToEventId(eventId, highlightEvent: highlightEvent),
+      );
+      return;
     }
 
     final eventIndex = foundEvent == null
@@ -1527,6 +1538,7 @@ class ChatController extends State<ChatPageWithRoom>
           eventId,
           highlightEvent: highlightEvent,
           timelineReloaded: true,
+          openThread: openThread,
         );
       });
       return;

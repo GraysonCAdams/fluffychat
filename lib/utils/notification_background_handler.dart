@@ -12,6 +12,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/client_manager.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/push_helper.dart';
+import 'package:fluffychat/utils/windows_shell.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_vodozemac/flutter_vodozemac.dart' as vod;
@@ -123,14 +124,26 @@ const windowsReplyInputId = 'reply';
 /// Windows reports a toast button's arguments as both the action ID and the
 /// payload, and typed text in [NotificationResponse.data], so unpack them into
 /// the shape the other platforms report.
+///
+/// A click on the toast body also arrives as an action, because the plugin
+/// takes any launch arguments to mean a button, and the toast's own launch
+/// arguments are its payload. Button arguments always contain `#`, so
+/// arguments without one are a body click.
 @visibleForTesting
 NotificationResponse unpackWindowsResponse(NotificationResponse response) {
   final arguments = response.actionId;
   if (response.notificationResponseType !=
           NotificationResponseType.selectedNotificationAction ||
-      arguments == null ||
-      !arguments.contains('#')) {
+      arguments == null) {
     return response;
+  }
+  if (!arguments.contains('#')) {
+    return NotificationResponse(
+      notificationResponseType: NotificationResponseType.selectedNotification,
+      id: response.id,
+      payload: arguments,
+      data: response.data,
+    );
   }
   final separator = arguments.indexOf('#');
   return NotificationResponse(
@@ -188,7 +201,10 @@ Future<void> notificationTap(
             .waitForRoomInSync(roomId)
             .timeout(const Duration(seconds: 30));
       }
-      router.go('/rooms/$roomId?client=${client.clientName}');
+      router.go(_notificationRoute(client, roomId, payload.eventId));
+      // Closing the window only hides it to the tray, and the toast does not
+      // bring it back by itself.
+      if (PlatformInfos.isWindows) await WindowsDesktop.showWindow();
     case NotificationResponseType.selectedNotificationAction:
       final actionType = FluffyChatNotificationActions.values.singleWhereOrNull(
         (action) => action.name == notificationResponse.actionId,
@@ -232,7 +248,7 @@ Future<void> notificationTap(
         case FluffyChatNotificationActions.mute:
           await room.setPushRuleState(PushRuleState.mentionsOnly);
         case FluffyChatNotificationActions.open:
-          router?.go('/rooms/$roomId?client=${client.clientName}');
+          router?.go(_notificationRoute(client, roomId, payload.eventId));
         case FluffyChatNotificationActions.enterCall:
           router?.go('/rooms/$roomId?client=${client.clientName}&action=call');
       }
@@ -242,3 +258,11 @@ Future<void> notificationTap(
 }
 
 enum FluffyChatNotificationActions { markAsRead, reply, mute, open, enterCall }
+
+/// The chat a notification belongs to, scrolled to the notified message.
+String _notificationRoute(Client client, String roomId, String? eventId) {
+  final event = eventId == null || eventId.isEmpty
+      ? ''
+      : '&event=${Uri.encodeQueryComponent(eventId)}';
+  return '/rooms/$roomId?client=${client.clientName}$event';
+}

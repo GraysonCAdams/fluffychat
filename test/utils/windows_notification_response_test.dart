@@ -39,13 +39,20 @@ void main() {
     );
   });
 
-  test('a click on the toast body is left alone', () {
+  test('a click on the toast body opens the notification', () {
+    // The toast's launch arguments are its payload, and Windows passes them
+    // on a body click too, which the plugin reports as an action.
     final response = unpackWindowsResponse(
       NotificationResponse(
-        notificationResponseType: NotificationResponseType.selectedNotification,
+        notificationResponseType:
+            NotificationResponseType.selectedNotificationAction,
         actionId: payload,
         payload: payload,
       ),
+    );
+    expect(
+      response.notificationResponseType,
+      NotificationResponseType.selectedNotification,
     );
     expect(response.payload, payload);
   });

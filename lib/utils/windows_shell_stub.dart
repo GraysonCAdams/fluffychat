@@ -26,4 +26,6 @@ abstract final class WindowsDesktop {
   static Future<void> init(List<String> args, Object l10n) async {}
 
   static void setLaunchAtStartup(bool enabled) {}
+
+  static Future<void> showWindow() async {}
 }
