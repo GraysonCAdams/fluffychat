@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:collection/collection.dart';
@@ -229,6 +230,17 @@ class Message extends StatelessWidget {
           ];
     final eventStateTextColor = theme.colorScheme.onSurface;
 
+    final rowPaddingTop = nextEventSameSender ? 1.0 : 8.0;
+    final rowPaddingBottom = previousEventSameSender || previousEvent == null
+        ? 1.0
+        : 8.0;
+    // The hover and selection highlight reaches into the row's padding so it
+    // does not end flush against the avatar and bubbles. Next to a message
+    // from the same sender there is only a pixel of padding to reach into.
+    const highlightInsetX = 6.0;
+    final highlightInsetTop = min(rowPaddingTop, 4.0);
+    final highlightInsetBottom = min(rowPaddingBottom, 4.0);
+
     return Center(
       child: SwipeToReply(
         key: ValueKey(event.transactionId ?? event.eventId),
@@ -241,10 +253,8 @@ class Message extends StatelessWidget {
           padding: EdgeInsets.only(
             left: 8.0,
             right: 8.0,
-            top: nextEventSameSender ? 1.0 : 8.0,
-            bottom: previousEventSameSender || previousEvent == null
-                ? 1.0
-                : 8.0,
+            top: rowPaddingTop,
+            bottom: rowPaddingBottom,
           ),
           child: Column(
             mainAxisSize: .min,
@@ -254,10 +264,10 @@ class Message extends StatelessWidget {
                 clipBehavior: Clip.none,
                 children: [
                   Positioned(
-                    top: 0,
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
+                    top: -highlightInsetTop,
+                    bottom: -highlightInsetBottom,
+                    left: -highlightInsetX,
+                    right: -highlightInsetX,
                     child: InkWell(
                       hoverColor: longPressSelect ? Colors.transparent : null,
                       enableFeedback: !selected,
