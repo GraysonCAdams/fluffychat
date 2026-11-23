@@ -40,10 +40,22 @@ One account data event, `im.fluffychat.merged_contacts`:
   from).
 - `name` is optional. Without it the display name of the `send_via` room is
   used.
+- `fallback` (optional, default false) turns on the offer to resend a failed
+  message through the next network (see SendRouter).
 - Conflicts between devices: last write wins per contact, by `updated`. The
-  whole event is small, so it is rewritten on every change.
+  whole event is small, so it is rewritten on every change. Since account
+  data is replaced whole, a device that sees its own edit (made within the
+  last five minutes) overwritten by another device's copy reconciles the two
+  per contact and writes the result back.
+- Unmerging leaves a tombstone, `{"removed": true, "rooms": [], "updated":
+  ...}`, so an older copy of the contact on another device cannot bring it
+  back. Tombstones older than 30 days are dropped on the next write.
 - Rooms that are left, or no longer direct chats, are dropped from a contact
-  when the event is read. A contact with fewer than two rooms dissolves.
+  when the event is read. A contact with fewer than two rooms dissolves. This
+  happens in the in-memory view only: the stored contact keeps the room, so a
+  room that is briefly missing (rooms not loaded yet, a stale `m.direct`)
+  comes back on its own. When two contacts claim one room, the more recently
+  updated one keeps it.
 
 ## Layers
 
@@ -59,11 +71,17 @@ UI                         chat list tile, merged chat screen, send-via chip, ma
 ### MergedContactsStore (`lib/utils/merged_contacts/store.dart`)
 
 - Loads from `client.accountData`, listens to `onSync` for changes to the
-  event type, exposes `contactForRoom(roomId)` in O(1) and a change stream.
+  event type, exposes `contactForRoom(roomId)` in O(1) and a change
+  notifier (`revision`).
 - All writes go through it: `merge(rooms)`, `unmerge(contactId)`,
-  `removeRoom`, `setSendVia`, `setSendMode`, `rename`.
-- Lives on the `Matrix` widget's per-client state, next to other per-client
-  services.
+  `removeRoom`, `setSendVia`, `setSendMode`, `rename`, `reorderRoom`,
+  `dismissSuggestion`. A write shows at once and is undone if the server
+  rejects it.
+- One store per client, reached through `MergedContactsStore.forClient`
+  rather than the `Matrix` widget, so the push handler, which runs without
+  the widget tree, sees the same contacts. Account data and room access go
+  through a small backend interface so the store is unit tested without a
+  server.
 
 ### MergedContact
 
@@ -183,14 +201,23 @@ number on another network can be offered for the existing contact.
 ### Chat list
 
 - One tile per contact, sorted by the contact's newest event. Member rooms
-  are hidden from the list (and from space views) while merged.
+  are hidden from the list (and from space views) while merged. The contact
+  takes the place of the first of its rooms in the SDK's room order, which is
+  pinned first, then newest first (`MergedChatList` in
+  `lib/pages/chat_list/merged_contact_list.dart`).
+- A contact passes a filter (Unread, a source space, the space being
+  viewed) when any of its rooms does, and counts as unread for the
+  unread-below chip and the pinned row when any room is unread. It sits in
+  the pinned row when any of its rooms is pinned.
 - Avatar full size, with up to two network badges in the corner and "+N"
   beyond that.
 - Search matches the contact name and each member room's name.
 - Long press: Unmerge, Manage, plus the usual actions applied to every room
   (mute, pin, mark read).
-- Entry points to merge: long press a direct chat -> "Merge with...", multi
-  select two or more direct chats -> "Merge", and the suggestion banner.
+- Entry points to merge: long press a direct chat -> "Merge with...", which
+  opens a picker of direct chats where several can be ticked at once, and
+  the suggestion banner. This branch's chat list has no multi-select mode,
+  so the picker takes the place of multi-selecting chats in the list.
 
 ### Merged chat screen
 

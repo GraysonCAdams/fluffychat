@@ -5,28 +5,39 @@
 
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
 class UnreadBubble extends StatelessWidget {
   final Room room;
-  const UnreadBubble({required this.room, super.key});
+
+  /// When set, the bubble counts across every room of this merged contact.
+  final MergedContact? contact;
+
+  const UnreadBubble({required this.room, this.contact, super.key});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final unread = room.isUnreadOrInvited;
-    final hasNotifications = room.notificationCount > 0;
-    final unreadBubbleSize = unread || room.hasNewMessages
-        ? room.notificationCount > 0
+    final contact = this.contact;
+    final unread = contact?.isUnread ?? room.isUnreadOrInvited;
+    final notificationCount =
+        contact?.notificationCount ?? room.notificationCount;
+    final highlightCount = contact?.highlightCount ?? room.highlightCount;
+    final hasNewMessages = contact?.hasNewMessages ?? room.hasNewMessages;
+    final markedUnread = contact?.markedUnread ?? room.markedUnread;
+    final hasNotifications = notificationCount > 0;
+    final unreadBubbleSize = unread || hasNewMessages
+        ? notificationCount > 0
               ? 20.0
               : 14.0
         : 0.0;
-    final showsCount = hasNotifications || room.markedUnread;
+    final showsCount = hasNotifications || markedUnread;
     // Chat list tiles read as one screen reader node, where a bare number
     // would not say what it counts.
     final semanticsLabel = showsCount
-        ? '${L10n.of(context).unread}: ${room.notificationCount}'
+        ? '${L10n.of(context).unread}: $notificationCount'
         : unreadBubbleSize > 0
         ? L10n.of(context).unread
         : null;
@@ -36,25 +47,22 @@ class UnreadBubble extends StatelessWidget {
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 7),
       height: unreadBubbleSize,
-      width: !hasNotifications && !unread && !room.hasNewMessages
+      width: !hasNotifications && !unread && !hasNewMessages
           ? 0
-          : (unreadBubbleSize - 9) * room.notificationCount.toString().length +
-                9,
+          : (unreadBubbleSize - 9) * notificationCount.toString().length + 9,
       decoration: BoxDecoration(
-        color: room.highlightCount > 0
+        color: highlightCount > 0
             ? theme.colorScheme.error
-            : hasNotifications ||
-                  room.markedUnread ||
-                  room.membership == .invite
+            : hasNotifications || markedUnread || room.membership == .invite
             ? theme.colorScheme.primary
             : theme.colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(unreadBubbleSize),
       ),
       child: showsCount
           ? Text(
-              room.notificationCount.toString(),
+              notificationCount.toString(),
               style: TextStyle(
-                color: room.highlightCount > 0
+                color: highlightCount > 0
                     ? theme.colorScheme.onError
                     : hasNotifications
                     ? theme.colorScheme.onPrimary

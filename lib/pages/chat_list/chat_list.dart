@@ -15,10 +15,14 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_view.dart';
+import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
+import 'package:fluffychat/pages/chat_list/merged_contact_list.dart';
 import 'package:fluffychat/utils/android_direct_share.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
+import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/show_scaffold_dialog.dart';
@@ -165,6 +169,11 @@ class ChatListController extends State<ChatList>
   }
 
   Future<void> onChatTap(Room room) async {
+    final contact = mergedContactFor(room);
+    if (contact != null) {
+      openMergedContact(context, contact);
+      return;
+    }
     if (room.membership == Membership.leave) {
       context.go('/rooms/archive/${room.id}');
       return;
@@ -196,6 +205,37 @@ class ChatListController extends State<ChatList>
   List<Room> get filteredRooms => Matrix.of(
     context,
   ).client.rooms.where(getRoomFilterByActiveFilter(activeFilter)).toList();
+
+  MergedChatList _mergedChatList = const MergedChatList([], {});
+
+  /// The chats to list under the active filter and [where], with each
+  /// merged contact collapsed into one entry (see [MergedChatList]).
+  List<Room> listedChats(bool Function(Room room) where) {
+    final filter = getRoomFilterByActiveFilter(activeFilter);
+    _mergedChatList = MergedChatList.build(
+      Matrix.of(context).client,
+      Matrix.of(context).client.rooms,
+      (room) => filter(room) && where(room),
+    );
+    return _mergedChatList.rooms;
+  }
+
+  /// The merged contact [room] stands for in the list, if it is one.
+  MergedContact? mergedContactFor(Room room) =>
+      _mergedChatList.contacts[room.id];
+
+  /// Whether a listed chat counts as unread, across all rooms of a contact.
+  bool listedChatIsUnread(Room room) =>
+      mergedContactFor(room)?.isUnread ?? room.isUnreadOrInvited;
+
+  /// Whether a listed chat belongs in the pinned row.
+  bool listedChatIsPinned(Room room) =>
+      mergedContactFor(room)?.isFavourite ?? room.isFavourite;
+
+  /// Whether the chat list search [filter] (lower case) finds [room].
+  bool listedChatMatches(Room room, String filter, MatrixLocals locals) =>
+      mergedContactFor(room)?.matchesSearch(filter, locals) ??
+      room.getLocalizedDisplayname(locals).toLowerCase().contains(filter);
 
   bool isSearchMode = false;
   Future<QueryPublicRoomsResponse>? publicRoomsResponse;
@@ -406,29 +446,52 @@ class ChatListController extends State<ChatList>
     return header;
   }
 
-  final Map<String, (int, Room, Room?, bool, ChatListItem)> _tiles = {};
+  final Map<String, (int, int, Room, Room?, bool, ChatListItem)> _tiles = {};
 
   /// The chat list tile for [room], shown below [space] when it has one.
-  ChatListItem chatListTile(Room room, Room? space) {
-    final active = activeChat == room.id;
+  /// A room standing for a merged contact gets the contact's tile, with a
+  /// badge for each of its rooms' spaces found in [spaces].
+  ChatListItem chatListTile(
+    Room room,
+    Room? space, {
+    Map<String, Room> spaces = const {},
+  }) {
+    final contact = mergedContactFor(room);
+    final active = contact == null
+        ? activeChat == room.id
+        : isMergedContactActive(contact, activeChat);
+    final mergedRevision = MergedContactsStore.forClient(
+      room.client,
+    ).revision.value;
     final cached = _tiles[room.id];
     if (cached != null &&
         cached.$1 == _viewGeneration &&
-        identical(cached.$2, room) &&
-        identical(cached.$3, space) &&
-        cached.$4 == active) {
-      return cached.$5;
+        cached.$2 == mergedRevision &&
+        identical(cached.$3, room) &&
+        identical(cached.$4, space) &&
+        cached.$5 == active) {
+      return cached.$6;
     }
     final tile = ChatListItem(
       room,
       space: space,
+      contact: contact,
+      networks: contact == null ? const [] : contact.networks(spaces),
       key: ValueKey(room.id),
       onTap: () => onChatTap(room),
-      onLongPress: (context, [globalPosition]) =>
-          chatContextAction(room, context, space, globalPosition),
+      onLongPress: (context, [globalPosition]) => contact == null
+          ? chatContextAction(room, context, space, globalPosition)
+          : mergedContactContextAction(this, contact, context, globalPosition),
       activeChat: active,
     );
-    _tiles[room.id] = (_viewGeneration, room, space, active, tile);
+    _tiles[room.id] = (
+      _viewGeneration,
+      mergedRevision,
+      room,
+      space,
+      active,
+      tile,
+    );
     return tile;
   }
 
@@ -753,6 +816,18 @@ class ChatListController extends State<ChatList>
                 ],
               ),
             ),
+          if (room.isDirectChat && !room.isSpace)
+            PopupMenuItem(
+              value: ChatContextAction.mergeWith,
+              child: Row(
+                mainAxisSize: .min,
+                children: [
+                  const Icon(Icons.call_merge_outlined),
+                  const SizedBox(width: 12),
+                  Text(L10n.of(context).mergeWith),
+                ],
+              ),
+            ),
         ],
         PopupMenuItem(
           value: ChatContextAction.leave,
@@ -994,6 +1069,9 @@ class ChatListController extends State<ChatList>
           context: context,
           future: () => room.removeTag(activeTag!),
         );
+        return;
+      case ChatContextAction.mergeWith:
+        await mergeChatWith(this, room);
         return;
       case ChatContextAction.showMore:
         throw ('Should not be handled!');
@@ -1302,5 +1380,6 @@ enum ChatContextAction {
   leave,
   addToSpace,
   block,
+  mergeWith,
   showMore,
 }

@@ -2944,5 +2944,24 @@
                 "type": "String"
             }
         }
-    }
+    },
+    "mergeWith": "Merge with…",
+    "manageContact": "Manage contact",
+    "unmerge": "Unmerge",
+    "unmergeContactQuestion": "Unmerge this contact?",
+    "unmergeContactDescription": "Its chats show separately again. No messages are lost.",
+    "chooseChatsToMerge": "Same person on other networks",
+    "merge": "Merge",
+    "contactWasUnmerged": "This contact was unmerged.",
+    "renameContact": "Rename contact",
+    "removingLastChatUnmerges": "A contact needs at least two chats, so this unmerges it. No messages are lost.",
+    "networks": "Networks",
+    "defaultNetworkDescription": "New messages go to the selected network. Replies and reactions always use the network of the message they answer.",
+    "moveUp": "Move up",
+    "removeFromContact": "Remove from contact",
+    "addChatToContact": "Add a chat",
+    "replyNetwork": "When they write",
+    "sendModePreferred": "Keep sending on the selected network",
+    "sendModeLastReceived": "Send on the network they last wrote from",
+    "defaultNetwork": "Default"
 }

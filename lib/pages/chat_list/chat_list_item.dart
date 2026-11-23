@@ -11,8 +11,10 @@ import 'package:fluffychat/pages/chat_list/push_rule_state_cache.dart';
 import 'package:fluffychat/pages/chat_list/unread_bubble.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/room_status_extension.dart';
 import 'package:fluffychat/widgets/hover_builder.dart';
+import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
 import 'package:fluffychat/widgets/typing_animation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -24,6 +26,12 @@ import '../../widgets/avatar.dart';
 class ChatListItem extends StatefulWidget {
   final Room room;
   final Room? space;
+
+  /// Set when [room] stands for a merged contact: the tile then shows the
+  /// contact (its name, newest message, summed unread state) and a badge for
+  /// each of [networks] instead of [space].
+  final MergedContact? contact;
+  final List<Room?> networks;
   final bool activeChat;
 
   /// Opens the context menu below [context]'s widget, or at [globalPosition]
@@ -42,6 +50,8 @@ class ChatListItem extends StatefulWidget {
     this.onForget,
     this.filter,
     this.space,
+    this.contact,
+    this.networks = const [],
     super.key,
   });
 
@@ -102,28 +112,45 @@ class _ChatListItemState extends State<ChatListItem> {
     final onLongPress = widget.onLongPress;
     final onForget = widget.onForget;
 
-    final displayname = room.getLocalizedDisplayname(
-      MatrixLocals(L10n.of(context)),
-    );
+    final contact = widget.contact;
+    final displayname =
+        contact?.displayName(MatrixLocals(L10n.of(context))) ??
+        room.getLocalizedDisplayname(MatrixLocals(L10n.of(context)));
     final filter = widget.filter;
     if (filter != null && !displayname.toLowerCase().contains(filter)) {
       return const SizedBox.shrink();
     }
 
-    final isMuted = room.cachedPushRuleState != PushRuleState.notify;
-    final typingText = room.getLocalizedTypingText(context);
-    final lastEvent = room.lastEvent;
+    // A merged contact reads these from all of its rooms; see MergedContact.
+    final isMuted =
+        contact?.isMuted ?? room.cachedPushRuleState != PushRuleState.notify;
+    final typingText = contact == null
+        ? room.getLocalizedTypingText(context)
+        : contact.rooms
+              .map((room) => room.getLocalizedTypingText(context))
+              .firstWhere((text) => text.isNotEmpty, orElse: () => '');
+    final lastEvent = contact?.lastEvent ?? room.lastEvent;
+    // The room the preview's message is in, which for a contact can be any
+    // of its rooms.
+    final previewRoom = lastEvent?.room ?? room;
     final ownMessage = lastEvent?.senderId == room.client.userID;
-    final directChatMatrixId = room.directChatMatrixID;
+    final directChatMatrixId = previewRoom.directChatMatrixID;
     final isDirectChat = directChatMatrixId != null;
-    final hasNotifications = room.notificationCount > 0;
+    final isUnread = contact?.isUnread ?? room.isUnreadOrInvited;
+    final notificationCount =
+        contact?.notificationCount ?? room.notificationCount;
+    final highlightCount = contact?.highlightCount ?? room.highlightCount;
+    final hasNewMessages = contact?.hasNewMessages ?? room.hasNewMessages;
+    final isFavourite = contact?.isFavourite ?? room.isFavourite;
+    final isLowPriority = contact?.isLowPriority ?? room.isLowPriority;
+    final hasNotifications = notificationCount > 0;
     final backgroundColor = activeChat
         ? theme.colorScheme.secondaryContainer
         : null;
 
     final needLastEventSender =
         lastEvent != null &&
-        room.getState(EventTypes.RoomMember, lastEvent.senderId) == null;
+        previewRoom.getState(EventTypes.RoomMember, lastEvent.senderId) == null;
     final previewLocals =
         isDirectChat && lastEvent?.senderId == directChatMatrixId
         ? DirectChatMatrixLocals(L10n.of(context), displayname)
@@ -162,7 +189,7 @@ class _ChatListItemState extends State<ChatListItem> {
                         clipBehavior: Clip.none,
                         children: [
                           // A dot in the left margin marks an unread chat.
-                          if (room.isUnreadOrInvited)
+                          if (isUnread)
                             Positioned(
                               left: -14,
                               top: Avatar.defaultSize / 2 - 4,
@@ -170,7 +197,7 @@ class _ChatListItemState extends State<ChatListItem> {
                                 width: 8,
                                 height: 8,
                                 decoration: BoxDecoration(
-                                  color: room.highlightCount > 0
+                                  color: highlightCount > 0
                                       ? theme.colorScheme.error
                                       : theme.colorScheme.primary,
                                   shape: BoxShape.circle,
@@ -198,14 +225,29 @@ class _ChatListItemState extends State<ChatListItem> {
                                     AppConfig.spaceBorderRadius,
                                   )
                                 : null,
-                            mxContent: room.avatar,
+                            mxContent: contact?.avatar ?? room.avatar,
                             size: Avatar.defaultSize,
                             name: displayname,
-                            presenceUserId: directChatMatrixId,
+                            presenceUserId:
+                                contact?.sendViaRoom.directChatMatrixID ??
+                                room.directChatMatrixID,
                             presenceBackgroundColor: backgroundColor,
                             onTap: () => onLongPress?.call(context),
                           ),
-                          if (space != null)
+                          if (contact != null)
+                            Positioned(
+                              right: -4,
+                              bottom: -4,
+                              child: NetworkBadges(
+                                networks: widget.networks,
+                                size: Avatar.defaultSize * 0.42,
+                                outlineColor:
+                                    backgroundColor ??
+                                    theme.colorScheme.surface,
+                                onTap: () => onLongPress?.call(context),
+                              ),
+                            )
+                          else if (space != null)
                             Positioned(
                               right: -4,
                               bottom: -4,
@@ -245,7 +287,7 @@ class _ChatListItemState extends State<ChatListItem> {
                       overflow: TextOverflow.ellipsis,
                       softWrap: false,
                       // Unread chats stand out with heavier, brighter text.
-                      style: room.isUnreadOrInvited
+                      style: isUnread
                           ? TextStyle(
                               fontWeight: FontWeight.w700,
                               color: theme.colorScheme.onSurface,
@@ -258,7 +300,7 @@ class _ChatListItemState extends State<ChatListItem> {
                       padding: EdgeInsets.only(left: 4.0),
                       child: Icon(Icons.notifications_off_outlined, size: 16),
                     ),
-                  if (room.isLowPriority)
+                  if (isLowPriority)
                     Padding(
                       padding: EdgeInsets.only(
                         right: hasNotifications ? 4.0 : 0.0,
@@ -269,7 +311,7 @@ class _ChatListItemState extends State<ChatListItem> {
                         color: theme.colorScheme.primary,
                       ),
                     ),
-                  if (room.isFavourite)
+                  if (isFavourite)
                     Padding(
                       padding: EdgeInsets.only(
                         right: hasNotifications ? 4.0 : 0.0,
@@ -284,17 +326,15 @@ class _ChatListItemState extends State<ChatListItem> {
                     Padding(
                       padding: const EdgeInsets.only(left: 4.0),
                       child: Text(
-                        room.latestEventReceivedTime.localizedTimeShort(
-                          context,
-                        ),
+                        (contact?.latestEventReceivedTime ??
+                                room.latestEventReceivedTime)
+                            .localizedTimeShort(context),
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: room.hasNewMessages
-                              ? FontWeight.bold
-                              : null,
-                          color: room.highlightCount >= 1
+                          fontWeight: hasNewMessages ? FontWeight.bold : null,
+                          color: highlightCount >= 1
                               ? theme.colorScheme.error
-                              : room.hasNewMessages
+                              : hasNewMessages
                               ? theme.colorScheme.primary
                               : null,
                         ),
@@ -311,7 +351,7 @@ class _ChatListItemState extends State<ChatListItem> {
                     ),
                   if (typingText.isEmpty &&
                       ownMessage &&
-                      room.lastEvent?.status.isSending == true) ...[
+                      lastEvent?.status.isSending == true) ...[
                     const SizedBox(
                       width: 16,
                       height: 16,
@@ -328,7 +368,7 @@ class _ChatListItemState extends State<ChatListItem> {
                             padding: const EdgeInsets.only(right: 4.0),
                             child: TypingAnimation(size: 4.0),
                           )
-                        : room.lastEvent?.relationshipType ==
+                        : lastEvent?.relationshipType ==
                               RelationshipTypes.thread
                         ? Container(
                             decoration: BoxDecoration(
@@ -396,7 +436,7 @@ class _ChatListItemState extends State<ChatListItem> {
                                   body != null &&
                                   (!isDirectChat ||
                                       directChatMatrixId !=
-                                          room.lastEvent?.senderId)) {
+                                          lastEvent.senderId)) {
                                 body = L10n.of(context).senderMessage(
                                   lastEvent.senderId == room.client.userID
                                       ? L10n.of(context).you
@@ -423,16 +463,14 @@ class _ChatListItemState extends State<ChatListItem> {
                                     : body?.trim().replaceAll('\n', ' ') ??
                                           L10n.of(context).noMessagesYet,
                                 softWrap: false,
-                                maxLines: room.notificationCount >= 1 ? 2 : 1,
+                                maxLines: notificationCount >= 1 ? 2 : 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  decoration: room.lastEvent?.redacted == true
+                                  decoration: lastEvent?.redacted == true
                                       ? TextDecoration.lineThrough
                                       : null,
-                                  fontWeight: room.isUnreadOrInvited
-                                      ? FontWeight.w600
-                                      : null,
-                                  color: room.isUnreadOrInvited
+                                  fontWeight: isUnread ? FontWeight.w600 : null,
+                                  color: isUnread
                                       ? theme.colorScheme.onSurface
                                       : null,
                                 ),
@@ -442,9 +480,9 @@ class _ChatListItemState extends State<ChatListItem> {
                   ),
                   // The dot beside the avatar marks unread chats; a count
                   // is only shown for mentions.
-                  if (room.highlightCount > 0) ...[
+                  if (highlightCount > 0) ...[
                     const SizedBox(width: 8),
-                    UnreadBubble(room: room),
+                    UnreadBubble(room: room, contact: contact),
                   ],
                 ],
               ),
