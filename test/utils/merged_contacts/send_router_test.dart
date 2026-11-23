@@ -155,7 +155,7 @@ void main() {
     });
   });
 
-  group('the composer and the send-via chip', () {
+  group('the composer and the send-via button', () {
     test('a plain message is not locked', () {
       expect(router(oneOff: sms).composerTarget(), const SendTarget(sms));
     });

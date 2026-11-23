@@ -22,7 +22,7 @@ import 'chat.dart';
 import 'composer_attachments.dart';
 import 'input_bar.dart';
 import 'reply_display.dart';
-import 'send_via_chip.dart';
+import 'send_via_button.dart';
 
 class ChatInputRow extends StatelessWidget {
   final ChatController controller;
@@ -255,22 +255,6 @@ class ChatInputRow extends StatelessWidget {
                       alignment: Alignment.center,
                       child: _ChatAccountPicker(controller),
                     ),
-                  if (networks != null)
-                    Container(
-                      height: height,
-                      alignment: Alignment.center,
-                      padding: const EdgeInsets.only(right: 6),
-                      child: SendViaChip(
-                        networks: networks,
-                        target: target,
-                        defaultRoomId: controller.mergedDefaultRoomId!,
-                        onPick: controller.pickSendViaRoom,
-                        onSetDefault: controller.setMergedSendVia,
-                        unencryptedWarning:
-                            !targetRoom.encrypted &&
-                            networks.any((network) => network.room.encrypted),
-                      ),
-                    ),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2.0),
@@ -313,6 +297,27 @@ class ChatInputRow extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (networks != null)
+                    Container(
+                      height: height,
+                      // Mirrors the attachment button's slot at the other
+                      // end (44 wide after a 2px gap), plus 2px because that
+                      // icon's glyph is inset in its box and this one is not,
+                      // so both look the same distance from the edge.
+                      width: 48,
+                      padding: const EdgeInsets.only(right: 4),
+                      alignment: Alignment.center,
+                      child: SendViaButton(
+                        networks: networks,
+                        target: target,
+                        defaultRoomId: controller.mergedDefaultRoomId!,
+                        onPick: controller.pickSendViaRoom,
+                        onSetDefault: controller.setMergedSendVia,
+                        unencryptedWarning:
+                            !targetRoom.encrypted &&
+                            networks.any((network) => network.room.encrypted),
+                      ),
+                    ),
                   if (showSendButton)
                     ChatSendButton(controller, recordingViewModel),
                 ],

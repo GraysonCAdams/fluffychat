@@ -204,7 +204,7 @@ class ChatController extends State<ChatPageWithRoom>
   String readMarkerEventId = '';
 
   /// The room new messages go to. For a merged contact that is the target
-  /// network, which the send-via chip and the contact's send mode change, so
+  /// network, which the send-via button and the contact's send mode change, so
   /// everything reading [room] (encryption, permissions, the composer)
   /// follows the target.
   String get roomId => isMerged ? sendRouter.newMessageRoomId : widget.room.id;
@@ -236,7 +236,7 @@ class ChatController extends State<ChatPageWithRoom>
     return contact;
   }
 
-  /// A network picked on the send-via chip for the next message only.
+  /// A network picked on the send-via button for the next message only.
   String? _oneOffRoomId;
 
   /// Decides where everything sent from this screen goes (see SendRouter).
@@ -299,7 +299,7 @@ class ChatController extends State<ChatPageWithRoom>
   /// even when the composer's target has moved on.
   Room? _typingRoom;
 
-  /// The send-via chip picked [roomId] for the next message. A merged
+  /// The send-via button picked [roomId] for the next message. A merged
   /// contact just changes the target; a single room shown on its own
   /// switches to the contact's other room.
   void pickSendViaRoom(String roomId) {
@@ -312,7 +312,7 @@ class ChatController extends State<ChatPageWithRoom>
 
   (int, String, List<MergedNetwork>)? _mergedNetworks;
 
-  /// The networks of this chat's merged contact for the send-via chip, or
+  /// The networks of this chat's merged contact for the send-via button, or
   /// null when the chat is not merged. Kept until the contacts change, as
   /// finding each room's space walks every room of the account.
   List<MergedNetwork>? mergedNetworks(MatrixLocals locals) {

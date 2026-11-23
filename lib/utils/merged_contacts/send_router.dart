@@ -42,7 +42,7 @@ class SendTarget {
   final String roomId;
 
   /// True while replying, editing or in a thread: the message answers an
-  /// existing one, so it goes to that message's room and the send-via chip
+  /// existing one, so it goes to that message's room and the send-via button
   /// cannot switch it.
   final bool locked;
 
@@ -79,7 +79,7 @@ class SendRouter {
   /// [SendMode.lastReceived]. Null when they never wrote.
   final String? lastReceivedRoomId;
 
-  /// A network the user picked on the send-via chip for the next message
+  /// A network the user picked on the send-via button for the next message
   /// only. Cleared after that message is sent.
   final String? oneOffRoomId;
 
@@ -112,7 +112,7 @@ class SendRouter {
   bool get isMerged => roomIds.length > 1;
 
   /// The room a message that starts something new goes to:
-  /// 1. a one-off pick from the send-via chip,
+  /// 1. a one-off pick from the send-via button,
   /// 2. in [SendMode.lastReceived], the room they last wrote from,
   /// 3. the contact's `send_via` room.
   String get newMessageRoomId {

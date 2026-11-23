@@ -4,7 +4,7 @@
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/merged_network_menu.dart';
-import 'package:fluffychat/pages/chat/send_via_chip.dart';
+import 'package:fluffychat/pages/chat/send_via_button.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -34,7 +34,7 @@ void main() {
     ];
   });
 
-  Future<void> pumpChip(
+  Future<void> pumpButton(
     WidgetTester tester, {
     required SendTarget target,
     required List<String> picks,
@@ -46,7 +46,7 @@ void main() {
         supportedLocales: L10n.supportedLocales,
         home: Scaffold(
           body: Center(
-            child: SendViaChip(
+            child: SendViaButton(
               networks: networks,
               target: target,
               defaultRoomId: '!imsg:x',
@@ -65,14 +65,16 @@ void main() {
   ) async {
     final picks = <String>[];
     final defaults = <String>[];
-    await pumpChip(
+    await pumpButton(
       tester,
       target: const SendTarget('!imsg:x'),
       picks: picks,
       defaults: defaults,
     );
-    expect(find.text('iMessage'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('send_via_chip')));
+    // The button has no label; the network is named in its tooltip.
+    expect(find.byTooltip('Send via iMessage'), findsOneWidget);
+    expect(find.text('iMessage'), findsNothing);
+    await tester.tap(find.byKey(const Key('send_via_button')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('SMS').last);
     await tester.pumpAndSettle();
@@ -83,13 +85,13 @@ void main() {
   testWidgets('long press makes the pick the default', (tester) async {
     final picks = <String>[];
     final defaults = <String>[];
-    await pumpChip(
+    await pumpButton(
       tester,
       target: const SendTarget('!imsg:x'),
       picks: picks,
       defaults: defaults,
     );
-    await tester.longPress(find.byKey(const Key('send_via_chip')));
+    await tester.longPress(find.byKey(const Key('send_via_button')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('SMS').last);
     await tester.pumpAndSettle();
@@ -97,20 +99,20 @@ void main() {
     expect(picks, ['!sms:x']);
   });
 
-  testWidgets('while replying the chip shows the reply\'s network, locked', (
+  testWidgets('while replying the button shows the reply\'s network, locked', (
     tester,
   ) async {
     final picks = <String>[];
     final defaults = <String>[];
-    await pumpChip(
+    await pumpButton(
       tester,
       target: const SendTarget('!sms:x', locked: true),
       picks: picks,
       defaults: defaults,
     );
-    expect(find.text('SMS'), findsOneWidget);
-    expect(find.byIcon(Icons.lock_outline), findsOneWidget);
-    await tester.tap(find.byKey(const Key('send_via_chip')));
+    expect(find.text('SMS'), findsNothing);
+    expect(find.byIcon(Icons.lock), findsOneWidget);
+    await tester.tap(find.byKey(const Key('send_via_button')));
     await tester.pumpAndSettle();
     // No menu opened: iMessage is not offered.
     expect(find.text('iMessage'), findsNothing);
