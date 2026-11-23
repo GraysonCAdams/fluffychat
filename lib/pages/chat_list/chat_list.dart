@@ -115,6 +115,16 @@ class ChatListController extends State<ChatList>
     _spaceDirectoryOpen = false;
   });
 
+  String? _sourceSpaceId;
+
+  /// The space the chat list is narrowed to by the source filter chip, on
+  /// top of the All / Unread / Groups filters. Null shows every source.
+  String? get sourceSpaceId => _sourceSpaceId;
+
+  void setSourceSpace(String? spaceId) => setState(() {
+    _sourceSpaceId = spaceId;
+  });
+
   bool _spaceDirectoryOpen = false;
 
   /// Whether the active space shows its room directory, which lists every
@@ -330,6 +340,13 @@ class ChatListController extends State<ChatList>
   BoxConstraints? snappingSheetContainerSize;
 
   final ScrollController scrollController = ScrollController();
+
+  /// The chats the list currently shows below the pins, in order, and
+  /// whether the pinned row is shown above them.
+  final listedRooms = ValueNotifier<({List<Room> rooms, bool pins})>((
+    rooms: const [],
+    pins: false,
+  ));
   final ValueNotifier<bool> scrolledToTop = ValueNotifier(true);
 
   final StreamController<Client> _clientStream = StreamController.broadcast();

@@ -141,7 +141,8 @@ class _ChatListItemState extends State<ChatListItem> {
           builder: (context, _) => _mergeSemantics(
             ListTile(
               minVerticalPadding: 16,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+              // The wider left side is the gutter the unread dot sits in.
+              contentPadding: const EdgeInsets.only(left: 18, right: 8),
               onLongPress: () => onLongPress?.call(context),
               // The avatars show a picture or initials of the chat named in
               // the title and of its space, plus a presence dot, and their
@@ -158,11 +159,56 @@ class _ChatListItemState extends State<ChatListItem> {
                       width: Avatar.defaultSize,
                       height: Avatar.defaultSize,
                       child: Stack(
+                        clipBehavior: Clip.none,
                         children: [
+                          // A dot in the left margin marks an unread chat.
+                          if (room.isUnreadOrInvited)
+                            Positioned(
+                              left: -14,
+                              top: Avatar.defaultSize / 2 - 4,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: room.highlightCount > 0
+                                      ? theme.colorScheme.error
+                                      : theme.colorScheme.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                          // The chat itself gets the full-size avatar; the
+                          // space it belongs to (for bridges, the network) is
+                          // a small badge in the corner, outlined in the
+                          // tile's background so it reads as separate.
+                          Avatar(
+                            shapeBorder: room.isSpace
+                                ? RoundedSuperellipseBorder(
+                                    side: BorderSide(
+                                      width: 1,
+                                      color: theme.dividerColor,
+                                    ),
+                                    borderRadius: BorderRadius.circular(
+                                      AppConfig.spaceBorderRadius,
+                                    ),
+                                  )
+                                : null,
+                            borderRadius: room.isSpace
+                                ? BorderRadius.circular(
+                                    AppConfig.spaceBorderRadius,
+                                  )
+                                : null,
+                            mxContent: room.avatar,
+                            size: Avatar.defaultSize,
+                            name: displayname,
+                            presenceUserId: directChatMatrixId,
+                            presenceBackgroundColor: backgroundColor,
+                            onTap: () => onLongPress?.call(context),
+                          ),
                           if (space != null)
                             Positioned(
-                              top: 0,
-                              left: 0,
+                              right: -4,
+                              bottom: -4,
                               child: Avatar(
                                 shapeBorder: RoundedSuperellipseBorder(
                                   side: BorderSide(
@@ -172,60 +218,18 @@ class _ChatListItemState extends State<ChatListItem> {
                                         theme.colorScheme.surface,
                                   ),
                                   borderRadius: BorderRadius.circular(
-                                    AppConfig.spaceBorderRadius * 0.75,
+                                    AppConfig.spaceBorderRadius * 0.5,
                                   ),
                                 ),
                                 borderRadius: BorderRadius.circular(
-                                  AppConfig.spaceBorderRadius * 0.75,
+                                  AppConfig.spaceBorderRadius * 0.5,
                                 ),
                                 mxContent: space.avatar,
-                                size: Avatar.defaultSize * 0.75,
+                                size: Avatar.defaultSize * 0.42,
                                 name: space.getLocalizedDisplayname(),
                                 onTap: () => onLongPress?.call(context),
                               ),
                             ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Avatar(
-                              shapeBorder: space == null
-                                  ? room.isSpace
-                                        ? RoundedSuperellipseBorder(
-                                            side: BorderSide(
-                                              width: 1,
-                                              color: theme.dividerColor,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              AppConfig.spaceBorderRadius,
-                                            ),
-                                          )
-                                        : null
-                                  : RoundedRectangleBorder(
-                                      side: BorderSide(
-                                        width: 2,
-                                        color:
-                                            backgroundColor ??
-                                            theme.colorScheme.surface,
-                                      ),
-                                      borderRadius: BorderRadius.circular(
-                                        Avatar.defaultSize,
-                                      ),
-                                    ),
-                              borderRadius: room.isSpace
-                                  ? BorderRadius.circular(
-                                      AppConfig.spaceBorderRadius,
-                                    )
-                                  : null,
-                              mxContent: room.avatar,
-                              size: space != null
-                                  ? Avatar.defaultSize * 0.75
-                                  : Avatar.defaultSize,
-                              name: displayname,
-                              presenceUserId: directChatMatrixId,
-                              presenceBackgroundColor: backgroundColor,
-                              onTap: () => onLongPress?.call(context),
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -240,6 +244,13 @@ class _ChatListItemState extends State<ChatListItem> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       softWrap: false,
+                      // Unread chats stand out with heavier, brighter text.
+                      style: room.isUnreadOrInvited
+                          ? TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onSurface,
+                            )
+                          : null,
                     ),
                   ),
                   if (isMuted)
@@ -418,13 +429,23 @@ class _ChatListItemState extends State<ChatListItem> {
                                   decoration: room.lastEvent?.redacted == true
                                       ? TextDecoration.lineThrough
                                       : null,
+                                  fontWeight: room.isUnreadOrInvited
+                                      ? FontWeight.w600
+                                      : null,
+                                  color: room.isUnreadOrInvited
+                                      ? theme.colorScheme.onSurface
+                                      : null,
                                 ),
                               );
                             },
                           ),
                   ),
-                  const SizedBox(width: 8),
-                  UnreadBubble(room: room),
+                  // The dot beside the avatar marks unread chats; a count
+                  // is only shown for mentions.
+                  if (room.highlightCount > 0) ...[
+                    const SizedBox(width: 8),
+                    UnreadBubble(room: room),
+                  ],
                 ],
               ),
               onTap: widget.onTap,

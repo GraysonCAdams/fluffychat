@@ -93,8 +93,15 @@ abstract class FluffyThemes {
       ),
       // Menus hang below the button that opened them rather than covering
       // it. Without room underneath, a menu shifts up to stay on screen.
-      popupMenuTheme: const PopupMenuThemeData(
+      popupMenuTheme: PopupMenuThemeData(
         position: PopupMenuPosition.under,
+        // Rounded like the app's bubbles and dialogs.
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppConfig.borderRadius),
+        ),
+        color: colorScheme.surfaceContainer,
+        surfaceTintColor: Colors.transparent,
+        elevation: 3,
       ),
       textSelectionTheme: TextSelectionThemeData(
         selectionColor: colorScheme.onSurface.withAlpha(128),

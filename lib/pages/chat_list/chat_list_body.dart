@@ -63,6 +63,40 @@ class ChatListViewBody extends StatelessWidget {
     // Only the parts that show room data listen to the sync, each through
     // its own RoomUpdatesBuilder. The header and the search results depend on
     // the controller alone, which rebuilds this whole widget when they change.
+    return Stack(
+      children: [
+        _buildScrollView(
+          context,
+          client,
+          activeSpaceRoom,
+          publicRooms,
+          publicSpaces,
+          userSearchResult,
+          filter,
+        ),
+        if (!controller.isSearchMode)
+          Positioned(
+            left: 0,
+            right: 0,
+            // Clear of the system gesture bar.
+            bottom: MediaQuery.viewPaddingOf(context).bottom + 16,
+            child: Center(child: _UnreadBelowChip(controller)),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildScrollView(
+    BuildContext context,
+    Client client,
+    Room? activeSpaceRoom,
+    List<PublishedRoomsChunk>? publicRooms,
+    List<PublishedRoomsChunk>? publicSpaces,
+    SearchUserDirectoryResponse? userSearchResult,
+    String filter,
+  ) {
+    final theme = Theme.of(context);
+    const dummyChatCount = 4;
     return CustomScrollView(
       // A different account starts from fresh tile state.
       key: ValueKey(client.userID.toString()),
@@ -131,15 +165,33 @@ class ChatListViewBody extends StatelessWidget {
                 builder: (context) => client.rooms.isEmpty
                     ? const SizedBox.shrink()
                     : Container(
-                        height: 36 + 8 + 8,
-                        padding: EdgeInsets.symmetric(vertical: 8),
+                        // 1 above and 2 below leaves the same 16 between
+                        // the search field, the chips and the first chat,
+                        // given the padding those two already carry.
+                        height: 36 + 1 + 2,
+                        padding: const EdgeInsets.only(top: 1, bottom: 2),
                         child: ListView(
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
                           shrinkWrap: true,
                           scrollDirection: Axis.horizontal,
                           children: [
+                            if (activeSpaceRoom == null)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4.0,
+                                ),
+                                child: Center(
+                                  child: _SourceFilterChip(controller),
+                                ),
+                              ),
                             ...ActiveFilter.values
-                                .where((filter) => filter != ActiveFilter.tag)
+                                .where(
+                                  (filter) =>
+                                      filter != ActiveFilter.tag &&
+                                      // The first chip stands for all chats.
+                                      (filter != ActiveFilter.allChats ||
+                                          activeSpaceRoom != null),
+                                )
                                 .map(
                                   (filter) => Padding(
                                     padding: const EdgeInsets.symmetric(
@@ -151,6 +203,15 @@ class ChatListViewBody extends StatelessWidget {
                                             filter == controller.activeFilter,
                                         onSelected: (_) => controller
                                             .setActiveFilter(filter, null),
+                                        showCheckmark: false,
+                                        onDeleted:
+                                            filter == controller.activeFilter &&
+                                                filter != ActiveFilter.allChats
+                                            ? () => controller.setActiveFilter(
+                                                ActiveFilter.allChats,
+                                                null,
+                                              )
+                                            : null,
                                         label: Text(
                                           filter.toLocalizedString(context),
                                         ),
@@ -166,6 +227,13 @@ class ChatListViewBody extends StatelessWidget {
                                 child: Center(
                                   child: FilterChip(
                                     selected: entry.key == controller.activeTag,
+                                    showCheckmark: false,
+                                    onDeleted: entry.key == controller.activeTag
+                                        ? () => controller.setActiveFilter(
+                                            ActiveFilter.allChats,
+                                            null,
+                                          )
+                                        : null,
                                     onSelected: (_) =>
                                         controller.setActiveFilter(
                                           ActiveFilter.tag,
@@ -201,9 +269,14 @@ class ChatListViewBody extends StatelessWidget {
                 spaceDelegateCandidates[roomId] = space;
               }
             }
-            final spaceRoomIds = activeSpaceRoom == null
+            final sourceSpaceId = controller.sourceSpaceId;
+            final sourceSpace = sourceSpaceId == null
                 ? null
-                : _roomIdsInSpace(client, activeSpaceRoom);
+                : client.getRoomById(sourceSpaceId);
+            final filterSpace = activeSpaceRoom ?? sourceSpace;
+            final spaceRoomIds = filterSpace == null
+                ? null
+                : _roomIdsInSpace(client, filterSpace);
             final hideRoomsInSpaces = AppSettings.hideRoomsInSpaces.value;
             final rooms = controller.filteredRooms
                 .where(
@@ -218,7 +291,7 @@ class ChatListViewBody extends StatelessWidget {
             // built as empty tiles, so the list only builds what it shows.
             final matrixLocals = MatrixLocals(L10n.of(context));
             final shownRooms = filter.isEmpty
-                ? rooms
+                ? List.of(rooms)
                 : rooms
                       .where(
                         (room) => room
@@ -227,8 +300,23 @@ class ChatListViewBody extends StatelessWidget {
                             .contains(filter),
                       )
                       .toList();
+            // Pinned chats sit in a row of large avatars above the list,
+            // and are left out of the list itself. A search shows them as
+            // normal rows so results stay in one place.
+            final pinnedRooms = filter.isEmpty
+                ? rooms.where((room) => room.isFavourite).toList()
+                : const <Room>[];
+            if (pinnedRooms.isNotEmpty) {
+              shownRooms.removeWhere((room) => room.isFavourite);
+            }
             // Lets the list find a tile's new index when its chat moves,
             // so the tile keeps its State instead of being rebuilt.
+            // The unread chip reads the listed rooms after this frame.
+            final listed = List<Room>.of(shownRooms);
+            final hasPins = pinnedRooms.isNotEmpty;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              controller.listedRooms.value = (rooms: listed, pins: hasPins);
+            });
             final roomIndexes = <String, int>{
               for (var i = 0; i < shownRooms.length; i++) shownRooms[i].id: i,
             };
@@ -285,6 +373,14 @@ class ChatListViewBody extends StatelessWidget {
                       childCount: dummyChatCount,
                     ),
                   ),
+                if (client.prevBatch != null && pinnedRooms.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: _PinnedRow(
+                      rooms: pinnedRooms,
+                      spaces: spaceDelegateCandidates,
+                      controller: controller,
+                    ),
+                  ),
                 if (client.prevBatch != null)
                   SliverSafeArea(
                     top: false,
@@ -307,6 +403,504 @@ class ChatListViewBody extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+/// A chip at the bottom of the chat list that counts the unread chats below
+/// the visible rows and scrolls to the next one when tapped. Row positions
+/// are estimated from the two row heights the list uses, which is close
+/// enough to count rows and to land the next unread chat on screen.
+class _UnreadBelowChip extends StatelessWidget {
+  final ChatListController controller;
+
+  const _UnreadBelowChip(this.controller);
+
+  static const double _rowHeight = 76;
+  static const double _unreadRowHeight = 97;
+  static const double _headerHeight = 72 + 39;
+  static const double _pinsHeight = 146;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        controller.scrollController,
+        controller.listedRooms,
+      ]),
+      builder: (context, _) {
+        final scroll = controller.scrollController;
+        if (!scroll.hasClients) return const SizedBox.shrink();
+        final listed = controller.listedRooms.value;
+        final bottom = scroll.offset + scroll.position.viewportDimension;
+        var top = _headerHeight + (listed.pins ? _pinsHeight : 0);
+        var below = 0;
+        double? firstTop;
+        for (final room in listed.rooms) {
+          final unread = room.isUnreadOrInvited;
+          final height = room.notificationCount >= 1
+              ? _unreadRowHeight
+              : _rowHeight;
+          if (unread && top + height / 2 > bottom) {
+            below++;
+            firstTop ??= top;
+          }
+          top += height;
+        }
+        final target = firstTop;
+        if (below == 0 || target == null) return const SizedBox.shrink();
+        return ActionChip(
+          avatar: Icon(
+            Icons.arrow_downward,
+            size: 16,
+            color: theme.colorScheme.onPrimary,
+          ),
+          label: Text('$below ${L10n.of(context).unread.toLowerCase()}'),
+          labelStyle: theme.textTheme.labelLarge?.copyWith(
+            color: theme.colorScheme.onPrimary,
+          ),
+          backgroundColor: theme.colorScheme.primary,
+          side: BorderSide.none,
+          shape: const StadiumBorder(),
+          elevation: 3,
+          onPressed: () => scroll.animateTo(
+            // Leaves the unread chat a third of the way down the screen.
+            (target - scroll.position.viewportDimension / 3).clamp(
+              0.0,
+              scroll.position.maxScrollExtent,
+            ),
+            duration: FluffyThemes.animationDuration,
+            curve: FluffyThemes.animationCurve,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The pinned chats as one row that scrolls sideways, unread ones first.
+/// While unread pins lie beyond the right edge, a dot on that edge says so
+/// and scrolls to them when tapped.
+class _PinnedRow extends StatefulWidget {
+  final List<Room> rooms;
+  final Map<String, Room> spaces;
+  final ChatListController controller;
+
+  const _PinnedRow({
+    required this.rooms,
+    required this.spaces,
+    required this.controller,
+  });
+
+  @override
+  State<_PinnedRow> createState() => _PinnedRowState();
+}
+
+class _PinnedRowState extends State<_PinnedRow> {
+  static const double _itemWidth = 104;
+  static const double _sidePadding = 12;
+
+  final _scrollController = ScrollController();
+
+  /// How many unread pins are fully or partly past the right edge.
+  final _hiddenUnread = ValueNotifier<int>(0);
+
+  int _unreadCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_updateHiddenUnread);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _hiddenUnread.dispose();
+    super.dispose();
+  }
+
+  void _updateHiddenUnread() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final rightEdge = position.pixels + position.viewportDimension;
+    // Unread pins come first, so they fill the first slots of the row.
+    final shown = ((rightEdge - _sidePadding) / _itemWidth).floor();
+    _hiddenUnread.value = (_unreadCount - shown).clamp(0, _unreadCount);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final unread = widget.rooms.where((room) => room.isUnreadOrInvited);
+    final read = widget.rooms.where((room) => !room.isUnreadOrInvited);
+    final sorted = [...unread, ...read];
+    _unreadCount = unread.length;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _updateHiddenUnread();
+    });
+
+    return SizedBox(
+      height: 146,
+      child: Stack(
+        children: [
+          ListView.builder(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            // Extra room above for the unread preview bubbles.
+            padding: const EdgeInsets.fromLTRB(
+              _sidePadding,
+              26,
+              _sidePadding,
+              8,
+            ),
+            itemExtent: _itemWidth,
+            itemCount: sorted.length,
+            itemBuilder: (context, i) => _PinnedChat(
+              key: ValueKey(sorted[i].id),
+              room: sorted[i],
+              space: widget.spaces[sorted[i].id],
+              controller: widget.controller,
+            ),
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: ValueListenableBuilder(
+              valueListenable: _hiddenUnread,
+              builder: (context, hidden, _) => hidden == 0
+                  ? const SizedBox.shrink()
+                  : GestureDetector(
+                      onTap: () => _scrollController.animateTo(
+                        (_scrollController.offset +
+                                _scrollController.position.viewportDimension -
+                                _itemWidth)
+                            .clamp(
+                              0.0,
+                              _scrollController.position.maxScrollExtent,
+                            ),
+                        duration: FluffyThemes.animationDuration,
+                        curve: FluffyThemes.animationCurve,
+                      ),
+                      child: Container(
+                        width: 44,
+                        alignment: Alignment.centerRight,
+                        // Level with the middle of the avatars, which sit above
+                        // their names.
+                        padding: const EdgeInsets.only(right: 8, bottom: 4),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              theme.colorScheme.surface.withAlpha(0),
+                              theme.colorScheme.surface,
+                            ],
+                          ),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Text(
+                            '$hidden',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onPrimary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A pinned chat in the row above the list: a large avatar with the chat's
+/// name under it, and a dot before the name while it has unread messages.
+class _PinnedChat extends StatelessWidget {
+  final Room room;
+  final Room? space;
+  final ChatListController controller;
+
+  const _PinnedChat({
+    required this.room,
+    required this.space,
+    required this.controller,
+    super.key,
+  });
+
+  static const double _avatarSize = 76;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final locals = MatrixLocals(L10n.of(context));
+    final name = room.getLocalizedDisplayname(locals);
+    final unread = room.isUnreadOrInvited;
+    final space = this.space;
+    final preview = unread
+        ? room.lastEvent
+              ?.calcLocalizedBodyFallback(
+                locals,
+                hideReply: true,
+                hideEdit: true,
+                plaintextBody: true,
+                removeMarkdown: true,
+              )
+              .trim()
+              .replaceAll('\n', ' ')
+        : null;
+    return Center(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppConfig.borderRadius),
+        onTap: () => controller.onChatTap(room),
+        onLongPress: () => controller.chatContextAction(room, context, space),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Avatar(
+                    mxContent: room.avatar,
+                    name: name,
+                    size: _avatarSize,
+                    presenceUserId: room.directChatMatrixID,
+                  ),
+                  // An unread pin shows its newest message in a small speech
+                  // bubble over the top of the avatar.
+                  if (preview != null)
+                    Positioned(
+                      top: -14,
+                      left: -10,
+                      right: -10,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.colorScheme.shadow.withAlpha(60),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            preview,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurface,
+                              height: 1.15,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (space != null)
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Avatar(
+                        shapeBorder: RoundedSuperellipseBorder(
+                          side: BorderSide(
+                            width: 2,
+                            color: theme.colorScheme.surface,
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            AppConfig.spaceBorderRadius * 0.5,
+                          ),
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          AppConfig.spaceBorderRadius * 0.5,
+                        ),
+                        mxContent: space.avatar,
+                        size: 24,
+                        name: space.getLocalizedDisplayname(locals),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (unread)
+                    Container(
+                      width: 8,
+                      height: 8,
+                      margin: const EdgeInsets.only(right: 4),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  Flexible(
+                    child: Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: unread ? FontWeight.w700 : null,
+                        color: unread ? theme.colorScheme.onSurface : null,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The first filter chip. It reads "All" with a dropdown arrow and opens the
+/// list of sources: spaces, which for bridged networks are the networks
+/// themselves. With a source chosen it shows that source's icon and name and
+/// a clear button.
+class _SourceFilterChip extends StatelessWidget {
+  final ChatListController controller;
+
+  const _SourceFilterChip(this.controller);
+
+  Future<void> _openMenu(BuildContext context, Room? selected) async {
+    final client = Matrix.of(context).client;
+    final locals = MatrixLocals(L10n.of(context));
+    final box = context.findRenderObject()! as RenderBox;
+    final overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
+    final origin = box.localToGlobal(
+      Offset(0, box.size.height + 4),
+      ancestor: overlay,
+    );
+    final picked = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        origin.dx,
+        origin.dy,
+        overlay.size.width - origin.dx,
+        0,
+      ),
+      // Material menu metrics: 48 high rows, 12 side padding, and a width
+      // that follows the longest row between 112 and 280.
+      constraints: const BoxConstraints(minWidth: 112, maxWidth: 280),
+      items: [
+        _sourceItem(
+          value: '',
+          leading: const Icon(Icons.forum_outlined, size: 24),
+          label: L10n.of(context).all,
+          selected: selected == null,
+        ),
+        for (final space in controller.spaces)
+          _sourceItem(
+            value: space.id,
+            leading: _spaceAvatar(space, locals, 24),
+            label: space.getLocalizedDisplayname(locals),
+            selected: space.id == selected?.id,
+          ),
+      ],
+    );
+    if (picked == null) return;
+    controller.setSourceSpace(
+      picked.isEmpty ? null : client.getRoomById(picked)?.id,
+    );
+  }
+
+  static PopupMenuItem<String> _sourceItem({
+    required String value,
+    required Widget leading,
+    required String label,
+    required bool selected,
+  }) => PopupMenuItem(
+    value: value,
+    height: 48,
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    child: Row(
+      children: [
+        leading,
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+        const SizedBox(width: 12),
+        // Keeps every row the same width whether or not it is checked.
+        SizedBox(
+          width: 24,
+          child: selected ? const Icon(Icons.check, size: 20) : null,
+        ),
+      ],
+    ),
+  );
+
+  static Widget _spaceAvatar(Room space, MatrixLocals locals, double size) =>
+      Avatar(
+        mxContent: space.avatar,
+        name: space.getLocalizedDisplayname(locals),
+        size: size,
+        borderRadius: BorderRadius.circular(size / 4),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final client = Matrix.of(context).client;
+    final selectedId = controller.sourceSpaceId;
+    final selected = selectedId == null ? null : client.getRoomById(selectedId);
+    final locals = MatrixLocals(L10n.of(context));
+    final hasSources = controller.spaces.isNotEmpty;
+
+    return FilterChip(
+      // Lit while nothing narrows the list further, or a source is chosen.
+      selected:
+          selected != null || controller.activeFilter == ActiveFilter.allChats,
+      showCheckmark: false,
+      onSelected: (_) {
+        if (controller.activeFilter != ActiveFilter.allChats &&
+            selected == null) {
+          controller.setActiveFilter(ActiveFilter.allChats, null);
+          return;
+        }
+        if (hasSources) _openMenu(context, selected);
+      },
+      onDeleted: selected == null
+          ? null
+          : () => controller.setSourceSpace(null),
+      avatar: selected == null ? null : _spaceAvatar(selected, locals, 20),
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 140),
+            child: Text(
+              selected?.getLocalizedDisplayname(locals) ?? L10n.of(context).all,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (selected == null && hasSources)
+            const Icon(Icons.arrow_drop_down, size: 18),
+        ],
+      ),
     );
   }
 }

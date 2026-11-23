@@ -44,110 +44,127 @@ class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
           ? theme.colorScheme.surface.withAlpha(240)
           : Colors.transparent,
       automaticallyImplyLeading: false,
-      title: TextField(
-        controller: controller.searchController,
-        focusNode: controller.searchFocusNode,
-        textInputAction: TextInputAction.search,
-        onChanged: (text) =>
-            controller.onSearchEnter(text, globalSearch: globalSearch),
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: theme.colorScheme.secondaryContainer,
-          border: OutlineInputBorder(
-            borderSide: BorderSide.none,
-            borderRadius: BorderRadius.circular(99),
-          ),
-          // The hint is the same Text the decorator would build from a
-          // hint text (style, one line, ellipsis), but as a widget of its
-          // own only it rebuilds when the sync status changes.
-          hint: _SyncStatusBuilder(
-            client: client,
-            builder: (context, status, hide) => Text(
-              hide
-                  ? L10n.of(context).searchChatsRooms
-                  : status.calcLocalizedString(context),
-              style: theme.textTheme.bodyLarge!.merge(
-                TextStyle(
-                  color: theme.colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.normal,
+      // The account button sits beside the search field, not inside it.
+      title: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              // Centres the text in the shortened field.
+              textAlignVertical: TextAlignVertical.center,
+              controller: controller.searchController,
+              focusNode: controller.searchFocusNode,
+              textInputAction: TextInputAction.search,
+              onChanged: (text) =>
+                  controller.onSearchEnter(text, globalSearch: globalSearch),
+              decoration: InputDecoration(
+                // Slimmer than the default 48 so the bar reads as a pill.
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                constraints: const BoxConstraints(maxHeight: 42),
+                filled: true,
+                fillColor: theme.colorScheme.secondaryContainer,
+                border: OutlineInputBorder(
+                  borderSide: BorderSide.none,
+                  borderRadius: BorderRadius.circular(99),
                 ),
-              ),
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.start,
-              maxLines: 1,
-            ),
-          ),
-          prefixIcon: _SyncStatusBuilder(
-            client: client,
-            builder: (context, status, hide) => hide
-                ? controller.isSearchMode
-                      ? IconButton(
-                          tooltip: L10n.of(context).cancel,
-                          icon: const Icon(Icons.close_outlined),
-                          onPressed: controller.cancelSearch,
-                          color: theme.colorScheme.onPrimaryContainer,
-                        )
-                      : isColumnMode ||
-                            (controller.spaces.isEmpty &&
-                                !AppSettings.displayNavigationRail.value)
-                      ? IconButton(
-                          tooltip: L10n.of(context).search,
-                          onPressed: controller.startSearch,
-                          icon: Icon(
-                            Icons.search_outlined,
-                            color: theme.colorScheme.onPrimaryContainer,
-                          ),
-                        )
-                      : IconButton(
-                          tooltip: L10n.of(context).displayNavigationRail,
-                          onPressed: controller.openNavrail,
-                          icon: Icon(
-                            Icons.menu,
-                            color: theme.colorScheme.onPrimaryContainer,
-                          ),
-                        )
-                : SizedBox(
-                    width: 8,
-                    height: 8,
-                    child: Center(
-                      child: CircularProgressIndicator.adaptive(
-                        strokeWidth: 2,
-                        value: status.progress,
+                // The hint is the same Text the decorator would build from a
+                // hint text (style, one line, ellipsis), but as a widget of its
+                // own only it rebuilds when the sync status changes.
+                hint: _SyncStatusBuilder(
+                  client: client,
+                  builder: (context, status, hide) => Text(
+                    hide
+                        ? L10n.of(context).search
+                        : status.calcLocalizedString(context),
+                    style: theme.textTheme.bodyLarge!.merge(
+                      TextStyle(
+                        color: theme.colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.normal,
                       ),
                     ),
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.start,
+                    maxLines: 1,
                   ),
+                ),
+                prefixIcon: _SyncStatusBuilder(
+                  client: client,
+                  builder: (context, status, hide) => hide
+                      ? controller.isSearchMode
+                            ? IconButton(
+                                tooltip: L10n.of(context).cancel,
+                                icon: const Icon(Icons.close_outlined),
+                                onPressed: controller.cancelSearch,
+                                color: theme.colorScheme.onPrimaryContainer,
+                              )
+                            // Sources are picked from the filter chips, so narrow
+                            // layouts have no navigation rail to open.
+                            : true
+                            ? IconButton(
+                                tooltip: L10n.of(context).search,
+                                onPressed: controller.startSearch,
+                                icon: Icon(
+                                  Icons.search_outlined,
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                ),
+                              )
+                            : IconButton(
+                                tooltip: L10n.of(context).displayNavigationRail,
+                                onPressed: controller.openNavrail,
+                                icon: Icon(
+                                  Icons.menu,
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                ),
+                              )
+                      : SizedBox(
+                          width: 8,
+                          height: 8,
+                          child: Center(
+                            child: CircularProgressIndicator.adaptive(
+                              strokeWidth: 2,
+                              value: status.progress,
+                            ),
+                          ),
+                        ),
+                ),
+                suffixIcon: controller.isSearchMode && globalSearch
+                    ? controller.isSearching
+                          ? const Padding(
+                              padding: EdgeInsets.symmetric(
+                                vertical: 10.0,
+                                horizontal: 12,
+                              ),
+                              child: SizedBox.square(
+                                dimension: 24,
+                                child: CircularProgressIndicator.adaptive(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : TextButton.icon(
+                              onPressed: controller.setServer,
+                              style: TextButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(99),
+                                ),
+                                textStyle: const TextStyle(fontSize: 12),
+                              ),
+                              icon: const Icon(Icons.edit_outlined, size: 16),
+                              label: Text(
+                                controller.searchServer ??
+                                    Matrix.of(context).client.homeserver!.host,
+                                maxLines: 2,
+                              ),
+                            )
+                    : null,
+              ),
+            ),
           ),
-          suffixIcon: controller.isSearchMode && globalSearch
-              ? controller.isSearching
-                    ? const Padding(
-                        padding: EdgeInsets.symmetric(
-                          vertical: 10.0,
-                          horizontal: 12,
-                        ),
-                        child: SizedBox.square(
-                          dimension: 24,
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2,
-                          ),
-                        ),
-                      )
-                    : TextButton.icon(
-                        onPressed: controller.setServer,
-                        style: TextButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(99),
-                          ),
-                          textStyle: const TextStyle(fontSize: 12),
-                        ),
-                        icon: const Icon(Icons.edit_outlined, size: 16),
-                        label: Text(
-                          controller.searchServer ??
-                              Matrix.of(context).client.homeserver!.host,
-                          maxLines: 2,
-                        ),
-                      )
-              : SizedBox(width: 0, child: ClientChooserButton(controller)),
-        ),
+          if (!controller.isSearchMode) ...[
+            const SizedBox(width: 8),
+            ClientChooserButton(controller),
+          ],
+        ],
       ),
     );
   }

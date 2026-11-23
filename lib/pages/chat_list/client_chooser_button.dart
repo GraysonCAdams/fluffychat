@@ -57,7 +57,9 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
           .where((userId) => userId == client.userID)
           .listen((_) {
             if (!mounted) return;
-            setState(() => _profileFuture = client.fetchOwnProfile());
+            setState(() {
+              _profileFuture = client.fetchOwnProfile();
+            });
           });
     }
     return _profileFuture;
@@ -261,10 +263,12 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
           tooltip: L10n.of(context).accountsAndSettings,
           onSelected: (o) => _clientSelected(o, context),
           itemBuilder: _bundleMenuItems,
+          // As tall as the search field it sits beside.
+          padding: EdgeInsets.zero,
           icon: Avatar(
             mxContent: snapshot.data?.avatarUrl,
             name: snapshot.data?.displayName ?? client?.userID?.localpart,
-            size: 32,
+            size: 42,
           ),
         ),
       ),

@@ -20,9 +20,8 @@ class ChatListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final oneColumnSpacesMode =
-        !FluffyThemes.isColumnMode(context) &&
-        AppSettings.displayNavigationRail.value;
+    // Narrow layouts pick a source from the filter chips, not a rail.
+    const oneColumnSpacesMode = false;
     return PopScope(
       canPop: !controller.isSearchMode && controller.activeSpaceId == null,
       onPopInvokedWithResult: (pop, _) {
@@ -43,9 +42,7 @@ class ChatListView extends StatelessWidget {
             child: AnimatedSize(
               duration: FluffyThemes.animationDuration,
               curve: FluffyThemes.animationCurve,
-              child:
-                  (FluffyThemes.isColumnMode(context) ||
-                      AppSettings.displayNavigationRail.value)
+              child: FluffyThemes.isColumnMode(context)
                   ? SpacesNavigationRail(
                       activeSpaceId: controller.activeSpaceId,
                       onGoToChats: controller.clearActiveSpace,
@@ -95,14 +92,9 @@ class ChatListView extends StatelessWidget {
                     !controller.isSearchMode &&
                         controller.activeSpaceId == null &&
                         !FluffyThemes.isColumnMode(context)
-                    ? ValueListenableBuilder(
-                        valueListenable: controller.scrolledToTop,
-                        builder: (context, scrolledToTop, _) => StartChatFab(
-                          extended:
-                              scrolledToTop &&
-                              !AppSettings.displayNavigationRail.value,
-                        ),
-                      )
+                    // Always the compact button, so it stays clear of the
+                    // unread chip in the middle of the bottom edge.
+                    ? const StartChatFab()
                     : const SizedBox.shrink(),
               ),
             ),
