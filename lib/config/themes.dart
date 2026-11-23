@@ -40,15 +40,34 @@ abstract class FluffyThemes {
   static const Duration animationDuration = Duration(milliseconds: 250);
   static const Curve animationCurve = Curves.easeInOut;
 
+  /// ColorScheme.fromSeed computes its tonal palettes from scratch and is
+  /// costly. buildTheme runs for both brightnesses whenever the app root
+  /// rebuilds (it reads the window width), usually with unchanged inputs.
+  /// The immutable result depends only on brightness and seed.
+  static final Map<(Brightness, Color), ColorScheme> _colorSchemeCache = {};
+
+  static ColorScheme _colorSchemeFor(Brightness brightness, Color seed) {
+    final key = (brightness, seed);
+    final cached = _colorSchemeCache[key];
+    if (cached != null) return cached;
+    // Each pick in the color settings adds a seed; a handful covers the
+    // light and dark schemes of the current and previous choices.
+    if (_colorSchemeCache.length >= 8) _colorSchemeCache.clear();
+    return _colorSchemeCache[key] = ColorScheme.fromSeed(
+      brightness: brightness,
+      seedColor: seed,
+      dynamicSchemeVariant: DynamicSchemeVariant.rainbow,
+    );
+  }
+
   static ThemeData buildTheme(
     BuildContext context,
     Brightness brightness, [
     Color? seed,
   ]) {
-    final colorScheme = ColorScheme.fromSeed(
-      brightness: brightness,
-      seedColor: seed ?? Color(AppSettings.colorSchemeSeedInt.value),
-      dynamicSchemeVariant: DynamicSchemeVariant.rainbow,
+    final colorScheme = _colorSchemeFor(
+      brightness,
+      seed ?? Color(AppSettings.colorSchemeSeedInt.value),
     );
     final isColumnMode = FluffyThemes.isColumnMode(context);
     final dividerColor = brightness == Brightness.dark

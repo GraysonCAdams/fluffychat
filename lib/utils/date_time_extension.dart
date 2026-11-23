@@ -8,6 +8,20 @@ import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+// Building a DateFormat parses its pattern and looks up the locale's symbols,
+// and the chat list formats a time for every visible tile on every rebuild.
+// Formatting leaves a DateFormat unchanged, so one instance per pattern and
+// language is shared.
+final _dateFormats = <(String, String), DateFormat>{};
+
+DateFormat _dateFormat(String pattern, BuildContext context) {
+  final languageCode = Localizations.localeOf(context).languageCode;
+  return _dateFormats[(pattern, languageCode)] ??= DateFormat(
+    pattern,
+    languageCode,
+  );
+}
+
 /// Provides extra functionality for formatting the time.
 extension DateTimeExtension on DateTime {
   bool operator <(DateTime other) {
@@ -37,14 +51,8 @@ extension DateTimeExtension on DateTime {
 
   /// Returns a simple time String.
   String localizedTimeOfDay(BuildContext context) => use24HourFormat(context)
-      ? DateFormat(
-          'HH:mm',
-          Localizations.localeOf(context).languageCode,
-        ).format(this)
-      : DateFormat(
-          'h:mm a',
-          Localizations.localeOf(context).languageCode,
-        ).format(this);
+      ? _dateFormat('HH:mm', context).format(this)
+      : _dateFormat('h:mm a', context).format(this);
 
   /// Returns [localizedTimeOfDay()] if the ChatTime is today, the name of the week
   /// day if the ChatTime is this week and a date string else.
@@ -64,17 +72,11 @@ extension DateTimeExtension on DateTime {
     if (sameDay) {
       return localizedTimeOfDay(context);
     } else if (sameWeek) {
-      return DateFormat.E(
-        Localizations.localeOf(context).languageCode,
-      ).format(this);
+      return _dateFormat('E', context).format(this);
     } else if (sameYear) {
-      return DateFormat.MMMd(
-        Localizations.localeOf(context).languageCode,
-      ).format(this);
+      return _dateFormat('MMMd', context).format(this);
     }
-    return DateFormat.yMMMd(
-      Localizations.localeOf(context).languageCode,
-    ).format(this);
+    return _dateFormat('yMMMd', context).format(this);
   }
 
   DateTime get dateOnly => DateTime(year, month, day);
@@ -98,17 +100,11 @@ extension DateTimeExtension on DateTime {
     } else if (now.difference(date).inDays == 1) {
       return L10n.of(context).yesterday;
     } else if (sameWeek) {
-      return DateFormat.EEEE(
-        Localizations.localeOf(context).languageCode,
-      ).format(date);
+      return _dateFormat('EEEE', context).format(date);
     } else if (sameYear) {
-      return DateFormat.MMMMd(
-        Localizations.localeOf(context).languageCode,
-      ).format(date);
+      return _dateFormat('MMMMd', context).format(date);
     }
-    return DateFormat.yMMMMd(
-      Localizations.localeOf(context).languageCode,
-    ).format(date);
+    return _dateFormat('yMMMMd', context).format(date);
   }
 
   /// If the DateTime is today, this returns [localizedTimeOfDay()], if not it also
@@ -130,18 +126,10 @@ extension DateTimeExtension on DateTime {
 
   String localizedDetailedTime(BuildContext context) =>
       L10n.of(context).dateAndTimeOfDay(
-        DateFormat.yMMMd(
-          Localizations.localeOf(context).languageCode,
-        ).format(this),
+        _dateFormat('yMMMd', context).format(this),
         use24HourFormat(context)
-            ? DateFormat(
-                'HH:mm:ss',
-                Localizations.localeOf(context).languageCode,
-              ).format(this)
-            : DateFormat(
-                'h:mm:ss a',
-                Localizations.localeOf(context).languageCode,
-              ).format(this),
+            ? _dateFormat('HH:mm:ss', context).format(this)
+            : _dateFormat('h:mm:ss a', context).format(this),
       );
 
   /// Check if time needs to be in 24h format

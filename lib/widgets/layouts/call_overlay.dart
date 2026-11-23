@@ -19,50 +19,53 @@ class CallOverlay extends StatelessWidget {
       valueListenable: Matrix.of(context).activeCallRoomId,
       builder: (context, value, _) {
         final roomId = value;
-        if (roomId == null) return child;
-        return ValueListenableBuilder(
-          valueListenable: Matrix.of(context).callPosition,
-          builder: (context, value, _) {
-            final callPosition = value;
-            final callFullScreen = callPosition == .fullScreen;
-            return Stack(
-              children: [
-                child,
-                AnimatedPositioned(
-                  duration: FluffyThemes.animationDuration,
-                  curve: FluffyThemes.animationCurve,
-                  top: callFullScreen
-                      ? 0
-                      : callPosition == .top
-                      ? 86
-                      : null,
-                  left: callFullScreen ? 0 : null,
-                  right: callFullScreen ? 0 : 8,
-                  bottom: callFullScreen ? 0 : null,
-                  height: callFullScreen ? null : 256,
-                  width: callFullScreen ? null : 256,
-                  child: Material(
-                    elevation: callFullScreen ? 0 : 4,
-                    clipBehavior: .hardEdge,
-                    shape: callFullScreen
-                        ? null
-                        : RoundedRectangleBorder(
-                            side: BorderSide(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(
-                              AppConfig.borderRadius,
+        // The Stack is kept even without a call so that starting or ending
+        // one only adds or removes the overlay. Returning `child` on its own
+        // here would re-parent the whole router subtree, discarding its state.
+        return Stack(
+          children: [
+            child,
+            if (roomId != null)
+              ValueListenableBuilder(
+                valueListenable: Matrix.of(context).callPosition,
+                builder: (context, value, _) {
+                  final callPosition = value;
+                  final callFullScreen = callPosition == .fullScreen;
+                  return AnimatedPositioned(
+                    duration: FluffyThemes.animationDuration,
+                    curve: FluffyThemes.animationCurve,
+                    top: callFullScreen
+                        ? 0
+                        : callPosition == .top
+                        ? 86
+                        : null,
+                    left: callFullScreen ? 0 : null,
+                    right: callFullScreen ? 0 : 8,
+                    bottom: callFullScreen ? 0 : null,
+                    height: callFullScreen ? null : 256,
+                    width: callFullScreen ? null : 256,
+                    child: Material(
+                      elevation: callFullScreen ? 0 : 4,
+                      clipBehavior: .hardEdge,
+                      shape: callFullScreen
+                          ? null
+                          : RoundedRectangleBorder(
+                              side: BorderSide(color: Colors.grey),
+                              borderRadius: BorderRadius.circular(
+                                AppConfig.borderRadius,
+                              ),
                             ),
-                          ),
-                    child: Navigator(
-                      onDidRemovePage: (_) {
-                        Matrix.of(context).activeCallRoomId.value = null;
-                      },
-                      pages: [MaterialPage(child: CallPage(roomId: roomId))],
+                      child: Navigator(
+                        onDidRemovePage: (_) {
+                          Matrix.of(context).activeCallRoomId.value = null;
+                        },
+                        pages: [MaterialPage(child: CallPage(roomId: roomId))],
+                      ),
                     ),
-                  ),
-                ),
-              ],
-            );
-          },
+                  );
+                },
+              ),
+          ],
         );
       },
     );

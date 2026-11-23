@@ -136,7 +136,11 @@ abstract class ClientManager {
       customImageResizer: PlatformInfos.supportsCustomImageResizer
           ? customImageResizer
           : null,
-      logLevel: Level.verbose,
+      // The level only gates printing: Logs() still records every event in
+      // outputEvents for the in-app log viewer. Printing formats and writes
+      // each line synchronously on the UI isolate, so release and profile
+      // builds print warnings and errors only.
+      logLevel: kReleaseMode || kProfileMode ? Level.warning : Level.verbose,
       database: await flutterMatrixSdkDatabaseBuilder(clientName),
       supportedLoginTypes: {
         AuthenticationTypes.password,

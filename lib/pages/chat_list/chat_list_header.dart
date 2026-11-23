@@ -3,6 +3,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
+
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
@@ -42,9 +44,9 @@ class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
           ? theme.colorScheme.surface.withAlpha(240)
           : Colors.transparent,
       automaticallyImplyLeading: false,
-      title: StreamBuilder(
-        stream: client.onSyncStatus.stream,
-        builder: (context, snapshot) {
+      title: _SyncStatusBuilder(
+        client: client,
+        builder: (context) {
           final status =
               client.onSyncStatus.value ??
               const SyncStatusUpdate(SyncStatus.waitingForResponse);
@@ -149,4 +151,83 @@ class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(56);
+}
+
+/// Rebuilds [builder] when a sync status update changes something the search
+/// field shows.
+///
+/// The client reports several status updates per sync loop, and most leave
+/// the field as it was once the first sync is done. Each update is reduced to
+/// the inputs the field reads, and only a different result rebuilds it.
+class _SyncStatusBuilder extends StatefulWidget {
+  final Client client;
+  final WidgetBuilder builder;
+
+  const _SyncStatusBuilder({required this.client, required this.builder});
+
+  @override
+  State<_SyncStatusBuilder> createState() => _SyncStatusBuilderState();
+}
+
+class _SyncStatusBuilderState extends State<_SyncStatusBuilder> {
+  StreamSubscription<SyncStatusUpdate>? _subscription;
+  Object? _shown;
+
+  /// Everything the search field takes from the sync state: whether the
+  /// status is hidden, the status text and progress while it is not, and
+  /// whether there are spaces, which picks the leading button.
+  Object? _displayedState() {
+    final client = widget.client;
+    final status =
+        client.onSyncStatus.value ??
+        const SyncStatusUpdate(SyncStatus.waitingForResponse);
+    final hide =
+        client.onSync.value != null &&
+        status.status != SyncStatus.error &&
+        client.prevBatch != null;
+    return (
+      hide,
+      hide ? null : status.status,
+      hide ? null : status.error?.exception,
+      hide ? null : status.progress,
+      client.rooms.any((room) => room.isSpace),
+    );
+  }
+
+  void _subscribe() {
+    _subscription?.cancel();
+    _shown = _displayedState();
+    _subscription = widget.client.onSyncStatus.stream.listen((_) {
+      if (!mounted) return;
+      final state = _displayedState();
+      if (state == _shown) return;
+      setState(() => _shown = state);
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SyncStatusBuilder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.client != widget.client) _subscribe();
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // A rebuild from the parent can follow changes no status update
+    // reported, so start comparing from what is about to be shown.
+    _shown = _displayedState();
+    return widget.builder(context);
+  }
 }

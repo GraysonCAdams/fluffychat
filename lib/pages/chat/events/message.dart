@@ -28,6 +28,7 @@ import '../sticker_picker_dialog.dart';
 import 'message_content.dart';
 import 'message_reactions.dart';
 import 'reply_content.dart';
+import 'sender_user_builder.dart';
 import 'state_message.dart';
 import 'swipe_to_reply.dart';
 
@@ -309,10 +310,10 @@ class Message extends StatelessWidget {
                       else if (nextEventSameSender || ownMessage)
                         SizedBox(width: avatarSize)
                       else
-                        FutureBuilder<User?>(
-                          future: event.fetchSenderUser(),
-                          builder: (context, snapshot) {
-                            final user = snapshot.data ?? sender;
+                        SenderUserBuilder(
+                          event: event,
+                          builder: (context, fetchedUser) {
+                            final user = fetchedUser ?? sender;
                             return Avatar(
                               mxContent: user.avatarUrl,
                               name: user.calcDisplayname(),
@@ -360,11 +361,11 @@ class Message extends StatelessWidget {
                                       ),
                                     ),
                                   if ((!nextEventSameSender) && !ownMessage)
-                                    FutureBuilder<User?>(
-                                      future: event.fetchSenderUser(),
-                                      builder: (context, snapshot) {
+                                    SenderUserBuilder(
+                                      event: event,
+                                      builder: (context, fetchedUser) {
                                         final displayname =
-                                            snapshot.data?.calcDisplayname() ??
+                                            fetchedUser?.calcDisplayname() ??
                                             sender.calcDisplayname();
                                         return ConstrainedBox(
                                           constraints: BoxConstraints(
@@ -493,33 +494,30 @@ class Message extends StatelessWidget {
                                                   includingFallback: false,
                                                 ) !=
                                                 null)
-                                              FutureBuilder<Event?>(
-                                                future: event.getReplyEvent(
-                                                  timeline,
-                                                ),
-                                                builder: (BuildContext context, snapshot) {
+                                              ReplyEventBuilder(
+                                                event: event,
+                                                timeline: timeline,
+                                                builder: (context, foundReplyEvent) {
                                                   final replyEvent =
-                                                      snapshot.hasData
-                                                      ? snapshot.data!
-                                                      : Event(
-                                                          eventId:
-                                                              event
-                                                                  .inReplyToEventId() ??
-                                                              '\$fake_event_id',
-                                                          content: {
-                                                            'msgtype': 'm.text',
-                                                            'body': '...',
-                                                          },
-                                                          senderId:
-                                                              event.senderId,
-                                                          type:
-                                                              'm.room.message',
-                                                          room: event.room,
-                                                          status:
-                                                              EventStatus.sent,
-                                                          originServerTs:
-                                                              DateTime.now(),
-                                                        );
+                                                      foundReplyEvent ??
+                                                      Event(
+                                                        eventId:
+                                                            event
+                                                                .inReplyToEventId() ??
+                                                            '\$fake_event_id',
+                                                        content: {
+                                                          'msgtype': 'm.text',
+                                                          'body': '...',
+                                                        },
+                                                        senderId:
+                                                            event.senderId,
+                                                        type: 'm.room.message',
+                                                        room: event.room,
+                                                        status:
+                                                            EventStatus.sent,
+                                                        originServerTs:
+                                                            DateTime.now(),
+                                                      );
                                                   return Padding(
                                                     padding:
                                                         const EdgeInsets.only(
@@ -979,7 +977,13 @@ class BubbleBackground extends StatelessWidget {
         colors: colors,
         context: context,
       ),
-      child: child,
+      // The gradient follows the bubble's position on screen, so the painter
+      // repaints on every scroll frame. The boundary keeps that from
+      // re-recording the message content too. There is deliberately no
+      // boundary around the CustomPaint itself: the gradient must also
+      // repaint whenever the rest of the message does, for example when a
+      // reaction row appears and moves the bubble without any scrolling.
+      child: RepaintBoundary(child: child),
     );
   }
 }

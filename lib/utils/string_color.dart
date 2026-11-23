@@ -6,20 +6,25 @@
 import 'package:material_ui/material_ui.dart';
 
 extension StringColor on String {
-  static final _colorSchemeCache = <String, ColorScheme>{};
+  // The seed colour only depends on which of 12 hues the string falls in, so
+  // there are only 12 possible schemes. Keying the cache by hue instead of
+  // by string keeps it at 12 entries however many names are seen.
+  static final _colorSchemeCache = List<ColorScheme?>.filled(12, null);
 
-  ColorScheme get colorScheme =>
-      _colorSchemeCache[this] ??= ColorScheme.fromSeed(
-        seedColor: _getColorLight(0.3),
-        dynamicSchemeVariant: DynamicSchemeVariant.rainbow,
-      );
+  ColorScheme get colorScheme {
+    final hue = _hueBucket;
+    return _colorSchemeCache[hue] ??= ColorScheme.fromSeed(
+      seedColor: HSLColor.fromAHSL(0.75, hue * 25.5, 1, 0.3).toColor(),
+      dynamicSchemeVariant: DynamicSchemeVariant.rainbow,
+    );
+  }
 
-  Color _getColorLight(double light) {
-    var number = 0.0;
+  /// The sum of the UTF-16 code units, modulo 12.
+  int get _hueBucket {
+    var number = 0;
     for (var i = 0; i < length; i++) {
       number += codeUnitAt(i);
     }
-    number = (number % 12) * 25.5;
-    return HSLColor.fromAHSL(0.75, number, 1, light).toColor();
+    return number % 12;
   }
 }

@@ -22,7 +22,7 @@ import 'package:matrix/matrix.dart';
 
 import '../../../utils/url_launcher.dart';
 
-class HtmlMessage extends StatelessWidget {
+class HtmlMessage extends StatefulWidget {
   final String html;
   final Room room;
   final Color textColor;
@@ -118,6 +118,67 @@ class HtmlMessage extends StatelessWidget {
     'li',
   };
 
+  @override
+  State<HtmlMessage> createState() => _HtmlMessageState();
+}
+
+/// Small least-recently-used map. Parsing and highlighting are pure
+/// functions of their input string, so their results can be shared between
+/// messages and survive a message scrolling out of view and back.
+class _LruCache<K, V> {
+  final int capacity;
+  final _map = <K, V>{};
+
+  _LruCache(this.capacity);
+
+  V putIfAbsent(K key, V Function() compute) {
+    if (_map.containsKey(key)) {
+      // Re-insert to mark the entry as most recently used.
+      final value = _map.remove(key) as V;
+      _map[key] = value;
+      return value;
+    }
+    final value = compute();
+    _map[key] = value;
+    if (_map.length > capacity) _map.remove(_map.keys.first);
+    return value;
+  }
+}
+
+class _HtmlMessageState extends State<HtmlMessage> {
+  // Parsed DOM trees are only ever read while rendering, never mutated, so
+  // one tree can back every message with the same HTML.
+  static final _LruCache<String, dom.Element> _parsedHtml = _LruCache(256);
+  static final _LruCache<String, dom.Element?> _highlightedCode = _LruCache(
+    128,
+  );
+
+  Room get room => widget.room;
+  Color get textColor => widget.textColor;
+  double get fontSize => widget.fontSize;
+  TextStyle get linkStyle => widget.linkStyle;
+  String? get eventId => widget.eventId;
+  Set<Event>? get checkboxCheckedEvents => widget.checkboxCheckedEvents;
+
+  // Looks up the callback when a link is tapped, so a cached span keeps
+  // calling whatever the parent passed most recently.
+  void onOpen(LinkableElement link) => widget.onOpen(link);
+
+  /// The widget built for [_builtFor]. Returning the same instance lets
+  /// Flutter skip rebuilding the whole text subtree when only an unrelated
+  /// part of the message changed.
+  Widget? _built;
+  _HtmlInputs? _builtFor;
+
+  /// Mentioned user and room ids, recorded while rendering, whose pills
+  /// show names and avatars read from memory at render time.
+  List<String> _pillIds = const [];
+  List<Object?> _pillValues = const [];
+
+  /// Whether the HTML has task list checkboxes, whose state depends on
+  /// [HtmlMessage.checkboxCheckedEvents] and the user's power level.
+  bool _hasCheckboxes = false;
+
   /// Adding line breaks before block elements.
   List<InlineSpan> _renderWithLineBreaks(
     dom.NodeList nodes,
@@ -133,9 +194,13 @@ class HtmlMessage extends StatelessWidget {
         if (nodes[i] is dom.Element &&
             onlyElements.indexOf(nodes[i] as dom.Element) <
                 onlyElements.length - 1) ...[
-          if (blockHtmlTags.contains((nodes[i] as dom.Element).localName))
+          if (HtmlMessage.blockHtmlTags.contains(
+            (nodes[i] as dom.Element).localName,
+          ))
             const TextSpan(text: '\n\n'),
-          if (fullLineHtmlTag.contains((nodes[i] as dom.Element).localName))
+          if (HtmlMessage.fullLineHtmlTag.contains(
+            (nodes[i] as dom.Element).localName,
+          ))
             const TextSpan(text: '\n'),
         ],
       ],
@@ -162,12 +227,13 @@ class HtmlMessage extends StatelessWidget {
     if (depth >= 100) return const TextSpan();
 
     if (node is dom.Element &&
-        ignoredHtmlTags.contains(node.localName?.toLowerCase())) {
+        HtmlMessage.ignoredHtmlTags.contains(node.localName?.toLowerCase())) {
       return const TextSpan();
     }
 
     // This is a text node or not permitted node, so we render it as text:
-    if (node is! dom.Element || !allowedHtmlTags.contains(node.localName)) {
+    if (node is! dom.Element ||
+        !HtmlMessage.allowedHtmlTags.contains(node.localName)) {
       var text = node.text ?? '';
       // Single linebreak nodes between Elements are ignored:
       if (text == '\n') text = '';
@@ -191,6 +257,7 @@ class HtmlMessage extends StatelessWidget {
             ?.primaryIdentifier;
         if (matrixId != null) {
           if (matrixId.sigil == '@') {
+            _pillIds.add(matrixId);
             final user = room.unsafeGetUserFromMemoryOrFallback(matrixId);
             return WidgetSpan(
               child: MatrixPill(
@@ -205,6 +272,7 @@ class HtmlMessage extends StatelessWidget {
             );
           }
           if (matrixId.sigil == '#' || matrixId.sigil == '!') {
+            _pillIds.add(matrixId);
             final room = matrixId.sigil == '!'
                 ? this.room.client.getRoomById(matrixId)
                 : this.room.client.getRoomByAlias(matrixId);
@@ -247,6 +315,7 @@ class HtmlMessage extends StatelessWidget {
         final eventId = this.eventId;
 
         final isCheckbox = node.className == 'task-list-item';
+        if (isCheckbox) _hasCheckboxes = true;
         final checkboxIndex = isCheckbox
             ? node.rootElement
                       .getElementsByClassName('task-list-item')
@@ -355,10 +424,12 @@ class HtmlMessage extends StatelessWidget {
                 ?.split('language-')
                 .last ??
             'md';
-        final highlightedHtml = highlight
-            .parse(node.text, language: lang)
-            .toHtml();
-        final element = parser.parse(highlightedHtml).body;
+        final code = node.text;
+        final element = _highlightedCode.putIfAbsent(
+          '$lang\u0000$code',
+          () =>
+              parser.parse(highlight.parse(code, language: lang).toHtml()).body,
+        );
         if (element == null) {
           return const TextSpan(text: 'Unable to render code block!');
         }
@@ -584,9 +655,70 @@ class HtmlMessage extends StatelessWidget {
     }
   }
 
+  /// What the rendered pills showed for each id in [ids]. Member state
+  /// events are replaced, not mutated, when a member changes, so identity is
+  /// enough to notice a new name or avatar without side effects.
+  List<Object?> _readPillValues(List<String> ids) => [
+    for (final id in ids)
+      if (id.startsWith('@'))
+        room.getState(EventTypes.RoomMember, id)
+      else
+        ...switch (id.startsWith('!')
+            ? room.client.getRoomById(id)
+            : room.client.getRoomByAlias(id)) {
+          null => const [null, null],
+          final pillRoom => [
+            pillRoom.getLocalizedDisplayname(),
+            pillRoom.avatar,
+          ],
+        },
+  ];
+
+  _HtmlInputs _currentInputs() => _HtmlInputs(
+    html: widget.html,
+    room: widget.room,
+    textColor: widget.textColor,
+    fontSize: widget.fontSize,
+    linkStyle: widget.linkStyle,
+    eventId: widget.eventId,
+    maxLinesSetting: AppSettings.messagePreviewMaxLines.value,
+    checkboxes: _hasCheckboxes
+        ? [
+            for (final event in widget.checkboxCheckedEvents ?? <Event>{})
+              (event.eventId, event.senderId, event.checkedCheckboxId),
+          ]
+        : const [],
+    canSendMessages: _hasCheckboxes && widget.room.canSendDefaultMessages,
+  );
+
   @override
   Widget build(BuildContext context) {
-    final element = parser.parse(html).body ?? dom.Element.html('');
+    final built = _built;
+    if (built != null &&
+        _builtFor == _currentInputs() &&
+        const ListEquality<Object?>(
+          _PillValueEquality(),
+        ).equals(_pillValues, _readPillValues(_pillIds))) {
+      return built;
+    }
+
+    _pillIds = [];
+    _hasCheckboxes = false;
+    final result = _build(context);
+    _pillValues = _readPillValues(_pillIds);
+    _built = result;
+    // Taken after rendering, once it is known whether the message has
+    // checkboxes whose inputs need comparing.
+    _builtFor = _currentInputs();
+    return result;
+  }
+
+  Widget _build(BuildContext context) {
+    final html = widget.html;
+    final element = _parsedHtml.putIfAbsent(
+      html,
+      () => parser.parse(html).body ?? dom.Element.html(''),
+    );
     final configuredMaxLines = AppSettings.messagePreviewMaxLines.value;
     final maxLines = configuredMaxLines <= 0 ? null : configuredMaxLines;
     final span = _renderHtml(element, context);
@@ -623,6 +755,66 @@ class HtmlMessage extends StatelessWidget {
       fontSize: fontSize,
     );
   }
+}
+
+/// Compares member state events by identity and room names and avatars by
+/// value.
+class _PillValueEquality implements Equality<Object?> {
+  const _PillValueEquality();
+
+  @override
+  bool equals(Object? e1, Object? e2) =>
+      e1 is Event || e2 is Event ? identical(e1, e2) : e1 == e2;
+
+  @override
+  int hash(Object? e) => e is Event ? identityHashCode(e) : e.hashCode;
+
+  @override
+  bool isValidKey(Object? o) => true;
+}
+
+/// Everything besides pills that the rendered message depends on.
+class _HtmlInputs {
+  final String html;
+  final Room room;
+  final Color textColor;
+  final double fontSize;
+  final TextStyle linkStyle;
+  final String? eventId;
+  final int maxLinesSetting;
+  final List<(String, String, int?)> checkboxes;
+  final bool canSendMessages;
+
+  const _HtmlInputs({
+    required this.html,
+    required this.room,
+    required this.textColor,
+    required this.fontSize,
+    required this.linkStyle,
+    required this.eventId,
+    required this.maxLinesSetting,
+    required this.checkboxes,
+    required this.canSendMessages,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      other is _HtmlInputs &&
+      other.html == html &&
+      identical(other.room, room) &&
+      other.textColor == textColor &&
+      other.fontSize == fontSize &&
+      other.linkStyle == linkStyle &&
+      other.eventId == eventId &&
+      other.maxLinesSetting == maxLinesSetting &&
+      other.canSendMessages == canSendMessages &&
+      const ListEquality<(String, String, int?)>().equals(
+        other.checkboxes,
+        checkboxes,
+      );
+
+  @override
+  int get hashCode => Object.hash(html, textColor, fontSize, eventId);
 }
 
 class _CollapsibleText extends StatefulWidget {

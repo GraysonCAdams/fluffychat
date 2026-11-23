@@ -6,6 +6,8 @@
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/active_call_indicator.dart';
+import 'package:fluffychat/pages/chat_list/message_preview_cache.dart';
+import 'package:fluffychat/pages/chat_list/push_rule_state_cache.dart';
 import 'package:fluffychat/pages/chat_list/unread_bubble.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
@@ -19,7 +21,7 @@ import '../../config/themes.dart';
 import '../../utils/date_time_extension.dart';
 import '../../widgets/avatar.dart';
 
-class ChatListItem extends StatelessWidget {
+class ChatListItem extends StatefulWidget {
   final Room room;
   final Room? space;
   final bool activeChat;
@@ -44,10 +46,71 @@ class ChatListItem extends StatelessWidget {
   });
 
   @override
+  State<ChatListItem> createState() => _ChatListItemState();
+}
+
+class _ChatListItemState extends State<ChatListItem> {
+  // The futures below are created once per input and reused across builds.
+  // A FutureBuilder given a new future on every build resubscribes and
+  // rebuilds again when each one completes, and the SDK call behind it is
+  // repeated on every sync.
+  Object? _heroUsersKey;
+  Future<List<User>>? _heroUsersFuture;
+  Object? _senderKey;
+  Future<User?>? _senderFuture;
+
+  /// Loads the members a nameless room is named after, again only when the
+  /// room or its heroes change.
+  Future<List<User>>? _heroUsers(Room room) {
+    if (room.name.isNotEmpty) {
+      _heroUsersKey = null;
+      return _heroUsersFuture = null;
+    }
+    final key = (
+      room.id,
+      room.membership,
+      room.summary.mHeroes?.join('\n'),
+      room.directChatMatrixID,
+    );
+    if (key != _heroUsersKey || _heroUsersFuture == null) {
+      _heroUsersKey = key;
+      _heroUsersFuture = room.loadHeroUsers();
+    }
+    return _heroUsersFuture;
+  }
+
+  /// Fetches the sender of [event] while it is missing from the room state,
+  /// once per event.
+  Future<User?>? _sender(Event? event, bool needed) {
+    if (event == null || !needed) {
+      _senderKey = null;
+      return _senderFuture = null;
+    }
+    final key = (event.eventId, event.type, event.redacted);
+    if (key != _senderKey || _senderFuture == null) {
+      _senderKey = key;
+      _senderFuture = event.fetchSenderUser();
+    }
+    return _senderFuture;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final room = widget.room;
+    final activeChat = widget.activeChat;
+    final onLongPress = widget.onLongPress;
+    final onForget = widget.onForget;
 
-    final isMuted = room.pushRuleState != PushRuleState.notify;
+    final displayname = room.getLocalizedDisplayname(
+      MatrixLocals(L10n.of(context)),
+    );
+    final filter = widget.filter;
+    if (filter != null && !displayname.toLowerCase().contains(filter)) {
+      return const SizedBox.shrink();
+    }
+
+    final isMuted = room.cachedPushRuleState != PushRuleState.notify;
     final typingText = room.getLocalizedTypingText(context);
     final lastEvent = room.lastEvent;
     final ownMessage = lastEvent?.senderId == room.client.userID;
@@ -57,13 +120,6 @@ class ChatListItem extends StatelessWidget {
     final backgroundColor = activeChat
         ? theme.colorScheme.secondaryContainer
         : null;
-    final displayname = room.getLocalizedDisplayname(
-      MatrixLocals(L10n.of(context)),
-    );
-    final filter = this.filter;
-    if (filter != null && !displayname.toLowerCase().contains(filter)) {
-      return const SizedBox.shrink();
-    }
 
     final needLastEventSender =
         lastEvent != null &&
@@ -72,7 +128,7 @@ class ChatListItem extends StatelessWidget {
         isDirectChat && lastEvent?.senderId == directChatMatrixId
         ? DirectChatMatrixLocals(L10n.of(context), displayname)
         : MatrixLocals(L10n.of(context));
-    final space = this.space;
+    final space = widget.space;
 
     final tile = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -81,90 +137,97 @@ class ChatListItem extends StatelessWidget {
         clipBehavior: Clip.hardEdge,
         color: backgroundColor,
         child: FutureBuilder(
-          future: room.name.isEmpty ? room.loadHeroUsers() : null,
-          builder: (context, _) => HoverBuilder(
-            builder: (context, _) => ListTile(
+          future: _heroUsers(room),
+          builder: (context, _) => _mergeSemantics(
+            ListTile(
               minVerticalPadding: 16,
               contentPadding: const EdgeInsets.symmetric(horizontal: 8),
               onLongPress: () => onLongPress?.call(context),
-              leading: HoverBuilder(
-                builder: (context, hovered) => AnimatedScale(
-                  duration: FluffyThemes.animationDuration,
-                  curve: FluffyThemes.animationCurve,
-                  scale: hovered ? 1.1 : 1.0,
-                  child: SizedBox(
-                    width: Avatar.defaultSize,
-                    height: Avatar.defaultSize,
-                    child: Stack(
-                      children: [
-                        if (space != null)
-                          Positioned(
-                            top: 0,
-                            left: 0,
-                            child: Avatar(
-                              shapeBorder: RoundedSuperellipseBorder(
-                                side: BorderSide(
-                                  width: 2,
-                                  color:
-                                      backgroundColor ??
-                                      theme.colorScheme.surface,
+              // The avatars show a picture or initials of the chat named in
+              // the title and of its space, plus a presence dot, and their
+              // only action opens the same context menu as the tile's long
+              // press. Left in the tree each would become a separate screen
+              // reader stop that announces bare initials.
+              leading: ExcludeSemantics(
+                child: HoverBuilder(
+                  builder: (context, hovered) => AnimatedScale(
+                    duration: FluffyThemes.animationDuration,
+                    curve: FluffyThemes.animationCurve,
+                    scale: hovered ? 1.1 : 1.0,
+                    child: SizedBox(
+                      width: Avatar.defaultSize,
+                      height: Avatar.defaultSize,
+                      child: Stack(
+                        children: [
+                          if (space != null)
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              child: Avatar(
+                                shapeBorder: RoundedSuperellipseBorder(
+                                  side: BorderSide(
+                                    width: 2,
+                                    color:
+                                        backgroundColor ??
+                                        theme.colorScheme.surface,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    AppConfig.spaceBorderRadius * 0.75,
+                                  ),
                                 ),
                                 borderRadius: BorderRadius.circular(
                                   AppConfig.spaceBorderRadius * 0.75,
                                 ),
+                                mxContent: space.avatar,
+                                size: Avatar.defaultSize * 0.75,
+                                name: space.getLocalizedDisplayname(),
+                                onTap: () => onLongPress?.call(context),
                               ),
-                              borderRadius: BorderRadius.circular(
-                                AppConfig.spaceBorderRadius * 0.75,
-                              ),
-                              mxContent: space.avatar,
-                              size: Avatar.defaultSize * 0.75,
-                              name: space.getLocalizedDisplayname(),
+                            ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Avatar(
+                              shapeBorder: space == null
+                                  ? room.isSpace
+                                        ? RoundedSuperellipseBorder(
+                                            side: BorderSide(
+                                              width: 1,
+                                              color: theme.dividerColor,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              AppConfig.spaceBorderRadius,
+                                            ),
+                                          )
+                                        : null
+                                  : RoundedRectangleBorder(
+                                      side: BorderSide(
+                                        width: 2,
+                                        color:
+                                            backgroundColor ??
+                                            theme.colorScheme.surface,
+                                      ),
+                                      borderRadius: BorderRadius.circular(
+                                        Avatar.defaultSize,
+                                      ),
+                                    ),
+                              borderRadius: room.isSpace
+                                  ? BorderRadius.circular(
+                                      AppConfig.spaceBorderRadius,
+                                    )
+                                  : null,
+                              mxContent: room.avatar,
+                              size: space != null
+                                  ? Avatar.defaultSize * 0.75
+                                  : Avatar.defaultSize,
+                              name: displayname,
+                              presenceUserId: directChatMatrixId,
+                              presenceBackgroundColor: backgroundColor,
                               onTap: () => onLongPress?.call(context),
                             ),
                           ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Avatar(
-                            shapeBorder: space == null
-                                ? room.isSpace
-                                      ? RoundedSuperellipseBorder(
-                                          side: BorderSide(
-                                            width: 1,
-                                            color: theme.dividerColor,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            AppConfig.spaceBorderRadius,
-                                          ),
-                                        )
-                                      : null
-                                : RoundedRectangleBorder(
-                                    side: BorderSide(
-                                      width: 2,
-                                      color:
-                                          backgroundColor ??
-                                          theme.colorScheme.surface,
-                                    ),
-                                    borderRadius: BorderRadius.circular(
-                                      Avatar.defaultSize,
-                                    ),
-                                  ),
-                            borderRadius: room.isSpace
-                                ? BorderRadius.circular(
-                                    AppConfig.spaceBorderRadius,
-                                  )
-                                : null,
-                            mxContent: room.avatar,
-                            size: space != null
-                                ? Avatar.defaultSize * 0.75
-                                : Avatar.defaultSize,
-                            name: displayname,
-                            presenceUserId: directChatMatrixId,
-                            presenceBackgroundColor: backgroundColor,
-                            onTap: () => onLongPress?.call(context),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -305,17 +368,19 @@ class ChatListItem extends StatelessWidget {
                             key: ValueKey(
                               '${lastEvent?.eventId}_${lastEvent?.type}_${lastEvent?.redacted}',
                             ),
-                            future: needLastEventSender
-                                ? lastEvent.fetchSenderUser()
-                                : null,
+                            future: _sender(lastEvent, needLastEventSender),
                             builder: (context, snapshot) {
-                              var body = lastEvent?.calcLocalizedBody(
-                                previewLocals,
-                                hideReply: true,
-                                hideEdit: true,
-                                plaintextBody: true,
-                                removeMarkdown: true,
-                              );
+                              // An invite shows its reason instead of the
+                              // last message, so the body is not needed.
+                              var body =
+                                  lastEvent == null ||
+                                      room.membership == Membership.invite
+                                  ? null
+                                  : MessagePreviewCache.localizedBody(
+                                      lastEvent,
+                                      L10n.of(context),
+                                      previewLocals,
+                                    );
                               if (lastEvent != null &&
                                   body != null &&
                                   (!isDirectChat ||
@@ -362,7 +427,7 @@ class ChatListItem extends StatelessWidget {
                   UnreadBubble(room: room),
                 ],
               ),
-              onTap: onTap,
+              onTap: widget.onTap,
               trailing: onForget == null
                   ? null
                   : IconButton(
@@ -380,4 +445,11 @@ class ChatListItem extends StatelessWidget {
       child: tile,
     );
   }
+
+  /// Joins everything the tile shows into one screen reader stop: name,
+  /// preview, time and unread count read as one chat, and the tile's tap and
+  /// long press stay its actions. The archive's delete button is a second
+  /// action of its own, so a tile that has one is left unmerged.
+  Widget _mergeSemantics(Widget child) =>
+      widget.onForget == null ? MergeSemantics(child: child) : child;
 }

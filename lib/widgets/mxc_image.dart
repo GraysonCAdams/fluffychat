@@ -6,13 +6,14 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:archive/archive.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/utils/client_download_content_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_file_extension.dart';
 import 'package:fluffychat/widgets/matrix.dart';
+import 'package:flutter/foundation.dart';
 import 'package:lottie/lottie.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -35,6 +36,15 @@ class MxcImage extends StatefulWidget {
   final Client? client;
   final BorderRadius borderRadius;
 
+  /// Paints the image at this opacity, which is cheaper than wrapping it in
+  /// an [Opacity] widget because no offscreen layer is needed.
+  final double? opacity;
+
+  /// Caps the decoded width and height of an image drawn without a known
+  /// box, like the full screen viewer, so a large photo is not decoded to a
+  /// huge texture. The aspect ratio is kept and nothing is upscaled.
+  final int? maxDecodeDimension;
+
   static void clearCache(String cacheName) =>
       _MxcImageState._imageDataCaches.remove(cacheName);
 
@@ -55,6 +65,8 @@ class MxcImage extends StatefulWidget {
     this.client,
     this.borderRadius = BorderRadius.zero,
     this.cacheName,
+    this.opacity,
+    this.maxDecodeDimension,
     super.key,
   });
 
@@ -148,9 +160,46 @@ class _MxcImageState extends State<MxcImage> {
     }
   }
 
+  /// Whether the image is drawn without the cross fade from the
+  /// placeholder. True only while the bytes were already cached when this
+  /// widget was created, so there is nothing to fade in from.
+  bool _skipFade = false;
+
+  Uint8List? _lottieSource;
+  Uint8List? _lottieData;
+
+  /// Unzipping and re-encoding a Lottie file returns a new list each time,
+  /// which would make [Lottie.memory] parse the animation again on every
+  /// build, so the result is kept for as long as the bytes are the same.
+  Uint8List? _ungzippedLottie(Uint8List data) {
+    if (!identical(data, _lottieSource)) {
+      _lottieSource = data;
+      _lottieData = _ungzipLottie(data);
+    }
+    return _lottieData;
+  }
+
+  double? _opacityValue;
+  Animation<double>? _opacityAnimation;
+
+  /// [Image] repaints whenever it gets a different animation object, so one
+  /// is kept per opacity value.
+  Animation<double>? get _opacity {
+    final opacity = widget.opacity;
+    if (opacity != _opacityValue) {
+      _opacityValue = opacity;
+      _opacityAnimation = opacity == null
+          ? null
+          : AlwaysStoppedAnimation(opacity);
+    }
+    return _opacityAnimation;
+  }
+
   @override
   void initState() {
     super.initState();
+    final data = _imageData;
+    _skipFade = data != null && data.isNotEmpty;
     WidgetsBinding.instance.addPostFrameCallback((_) => _tryLoad());
   }
 
@@ -158,7 +207,8 @@ class _MxcImageState extends State<MxcImage> {
   Widget build(BuildContext context) {
     final data = _imageData;
     final hasData = data != null && data.isNotEmpty;
-    final ungzippedLottieData = data == null ? null : _ungzipLottie(data);
+    if (!hasData) _skipFade = false;
+    final ungzippedLottieData = data == null ? null : _ungzippedLottie(data);
 
     Widget errorFallback(
       BuildContext context,
@@ -187,23 +237,39 @@ class _MxcImageState extends State<MxcImage> {
             placeholder: widget.placeholder,
           )
         : (ungzippedLottieData != null
-              ? Lottie.memory(
-                  ungzippedLottieData,
-                  width: widget.width,
-                  height: widget.height,
-                  fit: widget.fit,
-                  errorBuilder: errorFallback,
+              ? _withOpacity(
+                  Lottie.memory(
+                    ungzippedLottieData,
+                    width: widget.width,
+                    height: widget.height,
+                    fit: widget.fit,
+                    errorBuilder: errorFallback,
+                  ),
                 )
-              : Image.memory(
-                  data,
+              : Image(
+                  image: _imageProvider(context, data),
                   width: widget.width,
                   height: widget.height,
                   fit: widget.fit,
+                  opacity: _opacity,
                   filterQuality: widget.isThumbnail
                       ? FilterQuality.low
                       : FilterQuality.medium,
-                  errorBuilder: errorFallback,
+                  errorBuilder: (context, error, stackTrace) =>
+                      _withOpacity(errorFallback(context, error, stackTrace)),
                 ));
+
+    if (_skipFade) {
+      // The same layout the cross fade gives a shown first child: a Stack
+      // that loosens the constraints, without the hidden placeholder or the
+      // animation controller.
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          ClipRRect(borderRadius: widget.borderRadius, child: imageChild),
+        ],
+      );
+    }
 
     return AnimatedCrossFade(
       duration: FluffyThemes.animationDuration,
@@ -221,6 +287,123 @@ class _MxcImageState extends State<MxcImage> {
           : CrossFadeState.showSecond,
     );
   }
+
+  /// Applies [MxcImage.opacity] to content that cannot paint with an
+  /// opacity of its own.
+  Widget _withOpacity(Widget child) {
+    final opacity = widget.opacity;
+    return opacity == null ? child : Opacity(opacity: opacity, child: child);
+  }
+
+  /// Decodes [data] no larger than the box it is drawn into, when that box
+  /// is known. A chat full of photos otherwise keeps every one decoded at
+  /// full resolution, which costs memory, upload time to the GPU and
+  /// garbage collection pauses. Images shown without a size, like the full
+  /// screen viewer, keep their resolution for zooming, capped only by
+  /// [MxcImage.maxDecodeDimension] when it is set.
+  ImageProvider _imageProvider(BuildContext context, Uint8List data) {
+    final width = widget.width;
+    final height = widget.height;
+    final fit = widget.fit;
+    if (width == null ||
+        height == null ||
+        !width.isFinite ||
+        !height.isFinite ||
+        width <= 0 ||
+        height <= 0 ||
+        fit == BoxFit.fill ||
+        fit == BoxFit.none) {
+      final maxDecodeDimension = widget.maxDecodeDimension;
+      if (maxDecodeDimension != null) {
+        return ResizeImage(
+          MemoryImage(data),
+          width: maxDecodeDimension,
+          height: maxDecodeDimension,
+          policy: ResizeImagePolicy.fit,
+        );
+      }
+      return MemoryImage(data);
+    }
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    return _BoxSizedMemoryImage(
+      data,
+      boxWidth: width * devicePixelRatio,
+      boxHeight: height * devicePixelRatio,
+      fit: fit,
+    );
+  }
+}
+
+/// A [MemoryImage] decoded at the smallest size that still fills a
+/// [boxWidth] by [boxHeight] physical pixel box under [fit], and never
+/// larger than the encoded image.
+///
+/// Unlike [ResizeImage], the decoded size follows the image's own aspect
+/// ratio, so [BoxFit.cover] never ends up upscaling a downsized image.
+@immutable
+class _BoxSizedMemoryImage extends ImageProvider<_BoxSizedMemoryImage> {
+  final Uint8List bytes;
+  final double boxWidth;
+  final double boxHeight;
+
+  /// Null behaves like [BoxFit.scaleDown], the default of [paintImage].
+  final BoxFit? fit;
+
+  const _BoxSizedMemoryImage(
+    this.bytes, {
+    required this.boxWidth,
+    required this.boxHeight,
+    required this.fit,
+  });
+
+  @override
+  Future<_BoxSizedMemoryImage> obtainKey(ImageConfiguration configuration) =>
+      SynchronousFuture<_BoxSizedMemoryImage>(this);
+
+  @override
+  ImageStreamCompleter loadImage(
+    _BoxSizedMemoryImage key,
+    ImageDecoderCallback decode,
+  ) => MultiFrameImageStreamCompleter(
+    codec: key._loadAsync(decode),
+    scale: 1.0,
+    debugLabel: 'MxcImage(${describeIdentity(key.bytes)})',
+  );
+
+  Future<ui.Codec> _loadAsync(ImageDecoderCallback decode) async {
+    final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+    return decode(buffer, getTargetSize: _targetSize);
+  }
+
+  ui.TargetImageSize _targetSize(int intrinsicWidth, int intrinsicHeight) {
+    if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
+      return const ui.TargetImageSize();
+    }
+    final widthScale = boxWidth / intrinsicWidth;
+    final heightScale = boxHeight / intrinsicHeight;
+    final scale = switch (fit) {
+      BoxFit.cover => max(widthScale, heightScale),
+      BoxFit.fitWidth => widthScale,
+      BoxFit.fitHeight => heightScale,
+      _ => min(widthScale, heightScale),
+    };
+    if (scale >= 1) return const ui.TargetImageSize();
+    // Giving only the width keeps the aspect ratio; rounding up keeps the
+    // decoded image at least as large as the box needs.
+    return ui.TargetImageSize(width: (intrinsicWidth * scale).ceil());
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is _BoxSizedMemoryImage &&
+      identical(other.bytes, bytes) &&
+      other.boxWidth == boxWidth &&
+      other.boxHeight == boxHeight &&
+      other.fit == fit;
+
+  @override
+  int get hashCode =>
+      Object.hash(identityHashCode(bytes), boxWidth, boxHeight, fit);
 }
 
 class _MxcImagePlaceholder extends StatelessWidget {

@@ -340,6 +340,11 @@ class _GridTile extends StatelessWidget {
                   scale: 1 - 0.12 * t,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16 * t),
+                    // An unselected tile has square corners, so clipping
+                    // would only add a clip layer per tile while scrolling.
+                    // Switching clipBehavior rather than dropping the widget
+                    // keeps the thumbnail's element in place.
+                    clipBehavior: t == 0 ? Clip.none : Clip.antiAlias,
                     child: thumbnail,
                   ),
                 ),

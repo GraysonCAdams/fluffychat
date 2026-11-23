@@ -11,6 +11,7 @@ import 'package:collection/collection.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/client_manager.dart';
+import 'package:fluffychat/utils/dynamic_primary_color.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -36,6 +37,15 @@ bool _vodozemacInitialized = false;
 
 bool isIntegrationTest = false;
 
+/// Logs() keeps every event in outputEvents (shown by the in-app log viewer)
+/// and never drops any, so a long session grows it without bound. onLog runs
+/// right after each event is appended; trimming in batches keeps the cost of
+/// shifting the list to once per thousand events.
+void _capLogHistory(LogEvent _) {
+  final events = Logs().outputEvents;
+  if (events.length > 5000) events.removeRange(0, 1000);
+}
+
 void main(List<String> args) => runZonedGuarded(() async {
   // Forward Flutter errors to global error reporter
   FlutterError.onError = (details) => Zone.current.handleUncaughtError(
@@ -44,6 +54,7 @@ void main(List<String> args) => runZonedGuarded(() async {
   );
 
   isIntegrationTest = args.singleOrNull == 'integration_test';
+  Logs().onLog = _capLogHistory;
   if (PlatformInfos.isAndroid) {
     final port = mainIsolateReceivePort = ReceivePort();
     IsolateNameServer.removePortNameMapping(AppConfig.mainIsolatePortName);
@@ -122,6 +133,9 @@ Future<void> startGui(
   SharedPreferences store, {
   List<String> args = const [],
 }) async {
+  // Started first so the platform round trip overlaps the awaits below.
+  final dynamicPrimaryColorFuture = loadDynamicPrimaryColor();
+
   // Fetch the pin for the applock if existing for mobile applications.
   String? pin;
   var useBiometrics = false;
@@ -160,11 +174,14 @@ Future<void> startGui(
   await firstClient?.roomsLoading;
   await firstClient?.accountDataLoading;
 
+  final dynamicPrimaryColor = await dynamicPrimaryColorFuture;
+
   runApp(
     FluffyChatApp(
       clients: clients,
       appLockSettings: (pincode: pin, useBiometrics: useBiometrics),
       store: store,
+      dynamicPrimaryColor: dynamicPrimaryColor,
     ),
   );
 }

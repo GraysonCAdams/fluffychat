@@ -7,9 +7,9 @@ import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/navi_rail_item.dart';
+import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
 import 'package:fluffychat/pages/chat_list/start_chat_fab.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
-import 'package:fluffychat/utils/stream_extension.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:go_router/go_router.dart';
@@ -36,15 +36,21 @@ class SpacesNavigationRail extends StatelessWidget {
     return Material(
       color: coloredMode ? theme.colorScheme.surfaceContainer : null,
       child: SafeArea(
-        child: StreamBuilder(
+        child: RoomUpdatesBuilder(
           key: ValueKey(client.userID.toString()),
-          stream: client.onSync.stream
-              .where((s) => s.hasRoomUpdate)
-              .rateLimit(const Duration(seconds: 1)),
-          builder: (context, _) {
+          client: client,
+          builder: (context) {
             final allSpaces = client.rooms
                 .where((room) => room.isSpace && room.membership == .join)
                 .toList();
+            // Each badge counts the unread chats it covers. Collecting the
+            // unread ids once keeps that to one pass over the rooms instead
+            // of one pass per space.
+            final unreadRoomIds = <String>{
+              for (final room in client.rooms)
+                if (room.isUnread || room.membership == Membership.invite)
+                  room.id,
+            };
 
             return SizedBox(
               width: FluffyThemes.isColumnMode(context)
@@ -71,7 +77,7 @@ class SpacesNavigationRail extends StatelessWidget {
                               child: Icon(Icons.forum),
                             ),
                             toolTip: L10n.of(context).chats,
-                            unreadBadgeFilter: (room) => true,
+                            unreadCount: unreadRoomIds.length,
                           );
                         }
                         i--;
@@ -91,15 +97,16 @@ class SpacesNavigationRail extends StatelessWidget {
                             .getLocalizedDisplayname(
                               MatrixLocals(L10n.of(context)),
                             );
-                        final spaceChildrenIds = space.spaceChildren
+                        final unreadCount = space.spaceChildren
                             .map((c) => c.roomId)
-                            .toSet();
+                            .toSet()
+                            .where(unreadRoomIds.contains)
+                            .length;
                         return NaviRailItem(
                           toolTip: displayname,
                           isSelected: activeSpaceId == space.id,
                           onTap: () => onGoToSpaceId(allSpaces[i].id),
-                          unreadBadgeFilter: (room) =>
-                              spaceChildrenIds.contains(room.id),
+                          unreadCount: unreadCount,
                           icon: Avatar(
                             mxContent: allSpaces[i].avatar,
                             name: displayname,

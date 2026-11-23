@@ -103,59 +103,62 @@ class Avatar extends StatelessWidget {
             // clip to the area inside the border instead.
             child: ClipPath(
               clipper: _InnerShapeClipper(shape, Directionality.of(context)),
-              child: MxcImage(
-                client: client,
-                borderRadius: borderRadius,
-                key: ValueKey(mxContent.toString()),
-                cacheKey:
-                    '${mxContent}_${size}_${animated ? 'animated' : 'static'}',
-                uri: mxContent,
-                isThumbnail: !animated,
-                animated: animated,
-                fit: BoxFit.cover,
-                width: size,
-                height: size,
-                placeholder: (_) => noPic
-                    ? Container(
-                        decoration: BoxDecoration(
-                          color:
-                              backgroundColor ??
-                              fallbackLetters.colorScheme.primaryContainer,
-                        ),
-                        alignment: Alignment.center,
-                        child: numberIcon != null
-                            ? Icon(
-                                numberIcon,
+              // Without a picture there is nothing to load or fade to:
+              // MxcImage would only cross-fade from this same placeholder to
+              // itself, so the placeholder is shown on its own.
+              child: noPic
+                  ? Container(
+                      decoration: BoxDecoration(
+                        color:
+                            backgroundColor ??
+                            fallbackLetters.colorScheme.primaryContainer,
+                      ),
+                      alignment: Alignment.center,
+                      child: numberIcon != null
+                          ? Icon(
+                              numberIcon,
+                              color:
+                                  textColor ??
+                                  fallbackLetters
+                                      .colorScheme
+                                      .onPrimaryContainer,
+                              size: (size / 2).roundToDouble(),
+                            )
+                          : Text(
+                              fallbackLetters,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'RobotoMono',
                                 color:
                                     textColor ??
                                     fallbackLetters
                                         .colorScheme
                                         .onPrimaryContainer,
-                                size: (size / 2).roundToDouble(),
-                              )
-                            : Text(
-                                fallbackLetters,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: 'RobotoMono',
-                                  color:
-                                      textColor ??
-                                      fallbackLetters
-                                          .colorScheme
-                                          .onPrimaryContainer,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: (size / 2.5).roundToDouble(),
-                                ),
+                                fontWeight: FontWeight.bold,
+                                fontSize: (size / 2.5).roundToDouble(),
                               ),
-                      )
-                    : Center(
+                            ),
+                    )
+                  : MxcImage(
+                      client: client,
+                      borderRadius: borderRadius,
+                      key: ValueKey(mxContent.toString()),
+                      cacheKey:
+                          '${mxContent}_${size}_${animated ? 'animated' : 'static'}',
+                      uri: mxContent,
+                      isThumbnail: !animated,
+                      animated: animated,
+                      fit: BoxFit.cover,
+                      width: size,
+                      height: size,
+                      placeholder: (_) => Center(
                         child: Icon(
                           Icons.person_2,
                           color: theme.colorScheme.tertiary,
                           size: size / 1.5,
                         ),
                       ),
-              ),
+                    ),
             ),
           ),
         ),

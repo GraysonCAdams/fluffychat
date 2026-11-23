@@ -22,6 +22,7 @@ import 'html_message.dart';
 import 'image_bubble.dart';
 import 'map_bubble.dart';
 import 'message_download_content.dart';
+import 'sender_user_builder.dart';
 
 class MessageContent extends StatelessWidget {
   final Event event;
@@ -211,12 +212,12 @@ class MessageContent extends StatelessWidget {
           linkColor: linkColor,
         );
       case EventTypes.CallInvite:
-        return FutureBuilder<User?>(
-          future: event.fetchSenderUser(),
-          builder: (context, snapshot) {
+        return SenderUserBuilder(
+          event: event,
+          builder: (context, user) {
             return _ButtonContent(
               label: L10n.of(context).startedACall(
-                snapshot.data?.calcDisplayname() ??
+                user?.calcDisplayname() ??
                     event.senderFromMemoryOrFallback.calcDisplayname(),
               ),
               icon: '📞',
@@ -227,12 +228,12 @@ class MessageContent extends StatelessWidget {
           },
         );
       default:
-        return FutureBuilder<User?>(
-          future: event.fetchSenderUser(),
-          builder: (context, snapshot) {
+        return SenderUserBuilder(
+          event: event,
+          builder: (context, user) {
             return _ButtonContent(
               label: L10n.of(context).userSentUnknownEvent(
-                snapshot.data?.calcDisplayname() ??
+                user?.calcDisplayname() ??
                     event.senderFromMemoryOrFallback.calcDisplayname(),
                 event.type,
               ),
@@ -263,12 +264,12 @@ class RedactionWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<User?>(
-      future: event.redactedBecause?.fetchSenderUser(),
-      builder: (context, snapshot) {
+    return SenderUserBuilder(
+      event: event.redactedBecause,
+      builder: (context, user) {
         final reason = event.redactedBecause?.content.tryGet<String>('reason');
         final redactedBy =
-            snapshot.data?.calcDisplayname() ??
+            user?.calcDisplayname() ??
             event.redactedBecause?.senderId.localpart ??
             L10n.of(context).user;
         return _ButtonContent(

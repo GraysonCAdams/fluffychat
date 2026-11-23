@@ -84,6 +84,12 @@ android {
             applicationIdSuffix = ".fork"
             manifestPlaceholders["appLabel"] = "FluffyChat Fork"
         }
+        // Flutter's profile build type is copied from debug before the block
+        // above applies, so it would otherwise install as a separate app.
+        getByName("profile") {
+            applicationIdSuffix = ".fork"
+            manifestPlaceholders["appLabel"] = "FluffyChat Fork"
+        }
         release {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true

@@ -120,6 +120,10 @@ class ImageViewerView extends StatelessWidget {
                                     fit: BoxFit.contain,
                                     isThumbnail: false,
                                     animated: true,
+                                    // Keeps a 12 MP photo from becoming a
+                                    // 48 MB texture; 4096 px still leaves
+                                    // headroom for pinch zoom.
+                                    maxDecodeDimension: 4096,
                                   ),
                                 ),
                               ),

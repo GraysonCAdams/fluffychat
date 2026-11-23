@@ -10,10 +10,11 @@ import 'package:collection/collection.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/active_call_indicator.dart';
+import 'package:fluffychat/pages/chat_list/push_rule_state_cache.dart';
+import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
 import 'package:fluffychat/pages/chat_list/unread_bubble.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
-import 'package:fluffychat/utils/stream_extension.dart';
 import 'package:fluffychat/utils/string_color.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -22,7 +23,6 @@ import 'package:fluffychat/widgets/hover_builder.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:matrix/matrix.dart' as sdk;
 import 'package:matrix/matrix.dart';
 
 enum SpaceChildAction {
@@ -381,11 +381,9 @@ class _SpaceViewState extends State<SpaceView> {
     return Scaffold(
       body: room == null
           ? const Center(child: Icon(Icons.search_outlined, size: 80))
-          : StreamBuilder(
-              stream: room.client.onSync.stream
-                  .where((s) => s.hasRoomUpdate)
-                  .rateLimit(const Duration(seconds: 1)),
-              builder: (context, snapshot) {
+          : RoomUpdatesBuilder(
+              client: room.client,
+              builder: (context) {
                 final filter = _filterController.text.trim().toLowerCase();
                 return CustomScrollView(
                   slivers: [
@@ -625,7 +623,7 @@ class _SpaceViewState extends State<SpaceView> {
                                       ),
                                     ),
                                     if (joinedRoom != null &&
-                                        joinedRoom.pushRuleState !=
+                                        joinedRoom.cachedPushRuleState !=
                                             PushRuleState.notify)
                                       const Padding(
                                         padding: EdgeInsets.only(left: 4.0),

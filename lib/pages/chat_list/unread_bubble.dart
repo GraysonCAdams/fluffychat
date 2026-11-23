@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/config/themes.dart';
+import 'package:fluffychat/l10n/l10n.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -21,7 +22,15 @@ class UnreadBubble extends StatelessWidget {
               ? 20.0
               : 14.0
         : 0.0;
-    return AnimatedContainer(
+    final showsCount = hasNotifications || room.markedUnread;
+    // Chat list tiles read as one screen reader node, where a bare number
+    // would not say what it counts.
+    final semanticsLabel = showsCount
+        ? '${L10n.of(context).unread}: ${room.notificationCount}'
+        : unreadBubbleSize > 0
+        ? L10n.of(context).unread
+        : null;
+    final bubble = AnimatedContainer(
       duration: FluffyThemes.animationDuration,
       curve: FluffyThemes.animationCurve,
       alignment: Alignment.center,
@@ -41,7 +50,7 @@ class UnreadBubble extends StatelessWidget {
             : theme.colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(unreadBubbleSize),
       ),
-      child: hasNotifications || room.markedUnread
+      child: showsCount
           ? Text(
               room.notificationCount.toString(),
               style: TextStyle(
@@ -56,6 +65,12 @@ class UnreadBubble extends StatelessWidget {
               textAlign: .center,
             )
           : const SizedBox.shrink(),
+    );
+    if (semanticsLabel == null) return bubble;
+    return Semantics(
+      label: semanticsLabel,
+      excludeSemantics: true,
+      child: bubble,
     );
   }
 }

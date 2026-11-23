@@ -3,7 +3,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:async/async.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
@@ -12,7 +11,7 @@ import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:matrix/matrix.dart' hide Result;
+import 'package:matrix/matrix.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -175,9 +174,7 @@ class SettingsView extends StatelessWidget {
               contentPadding: EdgeInsets.only(left: 16, right: 8),
             ),
             FutureBuilder(
-              future: Result.capture(
-                Matrix.of(context).client.getAuthMetadata(),
-              ).then((result) => result.asValue?.value),
+              future: controller.authMetadataFuture,
               builder: (context, snapshot) {
                 final accountManageUrl = snapshot.data?.accountManagementUri;
                 if (accountManageUrl == null) {

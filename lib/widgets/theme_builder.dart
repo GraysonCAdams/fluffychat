@@ -4,7 +4,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:collection/collection.dart';
-import 'package:dynamic_color/dynamic_color.dart';
 import 'package:fluffychat/utils/color_value.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
@@ -21,8 +20,18 @@ class ThemeBuilder extends StatefulWidget {
   final String themeModeSettingsKey;
   final String primaryColorSettingsKey;
 
+  /// The preferences main() has already loaded, so the saved theme mode and
+  /// color are known for the very first frame.
+  final SharedPreferences store;
+
+  /// The system's dynamic primary color, resolved before runApp by
+  /// loadDynamicPrimaryColor(). Used when the user has not picked a color.
+  final Color? dynamicPrimaryColor;
+
   const ThemeBuilder({
     required this.builder,
+    required this.store,
+    this.dynamicPrimaryColor,
     this.themeModeSettingsKey = 'theme_mode',
     this.primaryColorSettingsKey = 'primary_color',
     super.key,
@@ -33,7 +42,6 @@ class ThemeBuilder extends StatefulWidget {
 }
 
 class ThemeController extends State<ThemeBuilder> {
-  SharedPreferences? _sharedPreferences;
   ThemeMode? _themeMode;
   Color? _primaryColor;
 
@@ -44,24 +52,23 @@ class ThemeController extends State<ThemeBuilder> {
   static ThemeController of(BuildContext context) =>
       Provider.of<ThemeController>(context, listen: false);
 
-  Future<void> _loadData(_) async {
-    final preferences = _sharedPreferences ??=
-        await SharedPreferences.getInstance();
+  // Reading synchronously before the first build means MaterialApp starts
+  // with the saved theme. Applying it a frame later would make MaterialApp
+  // animate from the default theme, rebuilding the whole app every frame.
+  void _loadData() {
+    final preferences = widget.store;
 
     final rawThemeMode = preferences.getString(widget.themeModeSettingsKey);
     final rawColor = preferences.getInt(widget.primaryColorSettingsKey);
 
-    setState(() {
-      _themeMode = ThemeMode.values.singleWhereOrNull(
-        (value) => value.name == rawThemeMode,
-      );
-      _primaryColor = rawColor == null ? null : Color(rawColor);
-    });
+    _themeMode = ThemeMode.values.singleWhereOrNull(
+      (value) => value.name == rawThemeMode,
+    );
+    _primaryColor = rawColor == null ? null : Color(rawColor);
   }
 
   Future<void> setThemeMode(ThemeMode newThemeMode) async {
-    final preferences = _sharedPreferences ??=
-        await SharedPreferences.getInstance();
+    final preferences = widget.store;
     await preferences.setString(widget.themeModeSettingsKey, newThemeMode.name);
     setState(() {
       _themeMode = newThemeMode;
@@ -69,8 +76,7 @@ class ThemeController extends State<ThemeBuilder> {
   }
 
   Future<void> setPrimaryColor(Color? newPrimaryColor) async {
-    final preferences = _sharedPreferences ??=
-        await SharedPreferences.getInstance();
+    final preferences = widget.store;
     if (newPrimaryColor == null) {
       await preferences.remove(widget.primaryColorSettingsKey);
     } else {
@@ -86,17 +92,18 @@ class ThemeController extends State<ThemeBuilder> {
 
   @override
   void initState() {
-    WidgetsBinding.instance.addPostFrameCallback(_loadData);
     super.initState();
+    _loadData();
   }
 
   @override
   Widget build(BuildContext context) {
     return Provider(
       create: (_) => this,
-      child: DynamicColorBuilder(
-        builder: (light, _) =>
-            widget.builder(context, themeMode, primaryColor ?? light?.primary),
+      child: widget.builder(
+        context,
+        themeMode,
+        primaryColor ?? widget.dynamicPrimaryColor,
       ),
     );
   }

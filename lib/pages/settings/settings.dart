@@ -32,6 +32,32 @@ class SettingsController extends State<Settings> {
   Future<Profile>? profileFuture;
   bool profileUpdated = false;
 
+  Client? _authMetadataClient;
+  Future<GetAuthMetadataResponse?>? _authMetadataFuture;
+
+  /// The homeserver's auth metadata, or null when it cannot be fetched.
+  /// Kept across rebuilds so a rebuild does not start a new request and
+  /// reset the FutureBuilder that shows the "manage account" entry; a new
+  /// request starts only when the active client changes.
+  Future<GetAuthMetadataResponse?> get authMetadataFuture {
+    final client = Matrix.of(context).client;
+    if (_authMetadataFuture == null || _authMetadataClient != client) {
+      _authMetadataClient = client;
+      _authMetadataFuture = _loadAuthMetadata(client);
+    }
+    return _authMetadataFuture!;
+  }
+
+  static Future<GetAuthMetadataResponse?> _loadAuthMetadata(
+    Client client,
+  ) async {
+    try {
+      return await client.getAuthMetadata();
+    } catch (_) {
+      return null;
+    }
+  }
+
   void updateProfile() => setState(() {
     profileUpdated = true;
     profileFuture = null;

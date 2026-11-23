@@ -8,7 +8,6 @@ import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/widgets/hover_builder.dart';
 import 'package:fluffychat/widgets/unread_rooms_badge.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:matrix/matrix.dart';
 
 import '../../config/themes.dart';
 
@@ -18,7 +17,9 @@ class NaviRailItem extends StatelessWidget {
   final void Function() onTap;
   final Widget icon;
   final Widget? selectedIcon;
-  final bool Function(Room)? unreadBadgeFilter;
+
+  /// Unread chats to show on a badge, or null for no badge.
+  final int? unreadCount;
 
   const NaviRailItem({
     required this.toolTip,
@@ -26,7 +27,7 @@ class NaviRailItem extends StatelessWidget {
     required this.onTap,
     required this.icon,
     this.selectedIcon,
-    this.unreadBadgeFilter,
+    this.unreadCount,
     super.key,
   });
   @override
@@ -40,7 +41,7 @@ class NaviRailItem extends StatelessWidget {
               : 4.0
         : 0.0;
     final icon = isSelected ? selectedIcon ?? this.icon : this.icon;
-    final unreadBadgeFilter = this.unreadBadgeFilter;
+    final unreadCount = this.unreadCount;
     return HoverBuilder(
       builder: (context, hovered) {
         return SizedBox(
@@ -83,10 +84,10 @@ class NaviRailItem extends StatelessWidget {
                       child: InkWell(
                         borderRadius: borderRadius,
                         onTap: onTap,
-                        child: unreadBadgeFilter == null
+                        child: unreadCount == null
                             ? icon
                             : UnreadRoomsBadge(
-                                filter: unreadBadgeFilter,
+                                unreadCount: unreadCount,
                                 badgePosition: BadgePosition.topEnd(
                                   top: -7,
                                   end: -8,

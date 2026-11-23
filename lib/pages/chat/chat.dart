@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+import 'package:emoji_picker_flutter/locales/default_emoji_set_locale.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
@@ -57,6 +58,7 @@ import 'package:universal_html/universal_html.dart' as web;
 
 import '../../utils/account_bundles.dart';
 import '../../utils/localized_exception_extension.dart';
+import '../../utils/stream_extension.dart';
 import 'send_file_dialog.dart';
 import 'send_location_dialog.dart';
 
@@ -390,8 +392,10 @@ class ChatController extends State<ChatPageWithRoom>
     }
     if (!scrollController.hasClients) return;
     if (timeline?.allowNewEvent == false ||
-        scrollController.position.pixels > 0 && _scrolledUp == false) {
-      setState(() => _scrolledUp = true);
+        scrollController.position.pixels > 0) {
+      // Only rebuild when the flag actually flips; this listener runs on
+      // every scroll frame.
+      if (_scrolledUp == false) setState(() => _scrolledUp = true);
     } else if (scrollController.position.pixels <= 0 && _scrolledUp == true) {
       setState(() => _scrolledUp = false);
       setReadMarker();
@@ -600,10 +604,8 @@ class ChatController extends State<ChatPageWithRoom>
 
     bigEmojis = defaultEmojiSet.fold(
       <String>{},
-      (emojis, category) => {
-        ...emojis,
-        ...(category.emoji.map((emoji) => emoji.emoji)),
-      },
+      (emojis, category) =>
+          emojis..addAll(category.emoji.map((emoji) => emoji.emoji)),
     );
 
     sendingClient = Matrix.of(context).client;
@@ -865,6 +867,7 @@ class ChatController extends State<ChatPageWithRoom>
     inputFocus.dispose();
     _emojiPanelWatcher?.cancel();
     _displayChatDetailsColumn.dispose();
+    inputBarHeight.dispose();
     web.window.removeEventListener('paste', _handleClipboardFilePasteWeb);
     HardwareKeyboard.instance.removeHandler(_escapeClearsSelection);
     undoController.dispose();
@@ -1965,7 +1968,12 @@ class ChatController extends State<ChatPageWithRoom>
   Timer? _storeInputTimeoutTimer;
   static const Duration _storeInputTimeout = Duration(milliseconds: 500);
 
-  double? inputBarHeight;
+  /// Height of the composer overlay, which the timeline pads itself by.
+  ///
+  /// The composer changes height on every frame while the emoji picker,
+  /// attachment panel or reply preview animates, so only the timeline's
+  /// padding listens to this; the rest of the chat does not rebuild.
+  final ValueNotifier<double?> inputBarHeight = ValueNotifier(null);
 
   void updateInputBarHeight() {
     RenderBox? renderBox;
@@ -1973,12 +1981,41 @@ class ChatController extends State<ChatPageWithRoom>
       renderBox = inputBarKey.currentContext!.findRenderObject() as RenderBox;
     }
 
-    final height = renderBox?.size.height ?? 72.0;
-    if (height != inputBarHeight) {
-      setState(() {
-        inputBarHeight = height;
-      });
+    inputBarHeight.value = renderBox?.size.height ?? 72.0;
+  }
+
+  Locale? _suggestionEmojisLocale;
+  List<Emoji> _suggestionEmojis = const [];
+
+  /// All emojis of [locale] for the composer's suggestions. The list has
+  /// thousands of entries, so it is built once per locale rather than on
+  /// every rebuild of the composer.
+  List<Emoji> suggestionEmojisFor(Locale locale) {
+    if (locale != _suggestionEmojisLocale) {
+      _suggestionEmojisLocale = locale;
+      _suggestionEmojis = getDefaultEmojiLocale(
+        locale,
+      ).fold(<Emoji>[], (emojis, category) => emojis..addAll(category.emoji));
     }
+    return _suggestionEmojis;
+  }
+
+  Stream<bool>? _roomStateUpdates;
+  Client? _roomStateUpdatesClient;
+
+  /// Rate limited state updates for this room, rebuilt only when the
+  /// sending client changes. A stream created in [ChatView.build] would be
+  /// resubscribed on every rebuild of the chat.
+  Stream<bool> get roomStateUpdates {
+    final client = room.client;
+    if (_roomStateUpdates == null || _roomStateUpdatesClient != client) {
+      _roomStateUpdatesClient = client;
+      final roomId = room.id;
+      _roomStateUpdates = client.onRoomState.stream
+          .where((update) => update.roomId == roomId)
+          .rateLimit(const Duration(seconds: 1));
+    }
+    return _roomStateUpdates!;
   }
 
   void onInputBarChanged(String text) {

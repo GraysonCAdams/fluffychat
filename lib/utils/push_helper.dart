@@ -22,6 +22,7 @@ import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/start_push_foreground_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_new_badger/flutter_new_badger.dart';
@@ -114,7 +115,9 @@ Future<void> _tryPushHelper(
   final isBackgroundMessage = clients == null;
   Logs().v(
     'Push helper has been started (background=$isBackgroundMessage).',
-    notification.toJson(),
+    // The full payload is only useful while debugging, and serializing it
+    // on every push costs time on the UI isolate in release builds.
+    kDebugMode ? notification.toJson() : null,
   );
 
   final clientName = notification.clientName;

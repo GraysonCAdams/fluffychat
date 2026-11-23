@@ -3,6 +3,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
+
 import 'package:async/async.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
@@ -16,10 +18,56 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../utils/fluffy_share.dart';
 import 'chat_list.dart';
 
-class ClientChooserButton extends StatelessWidget {
+class ClientChooserButton extends StatefulWidget {
   final ChatListController controller;
 
   const ClientChooserButton(this.controller, {super.key});
+
+  @override
+  State<ClientChooserButton> createState() => _ClientChooserButtonState();
+}
+
+class _ClientChooserButtonState extends State<ClientChooserButton> {
+  ChatListController get controller => widget.controller;
+
+  // The own profile is read once per active client and again whenever the
+  // client reports that this user's profile changed. Reading it in build
+  // would query the profile store on every rebuild of the chat list header.
+  Client? _profileClient;
+  String? _profileUserId;
+  Future<Profile>? _profileFuture;
+  StreamSubscription<String>? _profileUpdates;
+
+  Future<Profile>? _ownProfile(Client? client) {
+    if (client == null || !client.isLogged()) {
+      _profileClient = null;
+      _profileUserId = null;
+      _profileUpdates?.cancel();
+      _profileUpdates = null;
+      return _profileFuture = null;
+    }
+    if (client != _profileClient ||
+        client.userID != _profileUserId ||
+        _profileFuture == null) {
+      _profileClient = client;
+      _profileUserId = client.userID;
+      _profileFuture = client.fetchOwnProfile();
+      _profileUpdates?.cancel();
+      _profileUpdates = client.onUserProfileUpdate.stream
+          .where((userId) => userId == client.userID)
+          .listen((_) {
+            if (!mounted) return;
+            setState(() => _profileFuture = client.fetchOwnProfile());
+          });
+    }
+    return _profileFuture;
+  }
+
+  @override
+  void dispose() {
+    _profileUpdates?.cancel();
+    super.dispose();
+  }
 
   List<PopupMenuEntry<Object>> _bundleMenuItems(BuildContext context) {
     final matrix = Matrix.of(context);
@@ -203,7 +251,7 @@ class ClientChooserButton extends StatelessWidget {
     var clientCount = 0;
     matrix.accountBundles.forEach((key, value) => clientCount += value.length);
     return FutureBuilder<Profile>(
-      future: client?.isLogged() == true ? client?.fetchOwnProfile() : null,
+      future: _ownProfile(client),
       builder: (context, snapshot) => Material(
         clipBehavior: Clip.hardEdge,
         borderRadius: BorderRadius.circular(99),

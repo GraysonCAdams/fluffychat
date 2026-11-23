@@ -27,7 +27,23 @@ class BlurHash extends StatefulWidget {
 }
 
 class _BlurHashState extends State<BlurHash> {
+  /// Decoded placeholders by hash and pixel size, most recently used last.
+  /// The same few hashes come back every time a chat is opened or scrolled,
+  /// and reusing the same bytes also lets [Image.memory] hit the image cache
+  /// instead of decoding the PNG again.
+  static final Map<String, Uint8List> _decoded = {};
+  static const int _maxDecoded = 256;
+
   Uint8List? _data;
+  late final Future<Uint8List?> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    // Computed once, like the bytes it caches: a later change of hash or
+    // size keeps showing the first placeholder.
+    _future = _computeBlurhashData();
+  }
 
   static Future<Uint8List> getBlurhashData(BlurhashData blurhashData) async {
     final blurhash = b.BlurHash.decode(blurhashData.hsh);
@@ -46,16 +62,26 @@ class _BlurHashState extends State<BlurHash> {
       width = (height * ratio).round();
     }
 
-    return _data ??= await compute(
+    final cacheKey = '${widget.blurhash}|$width|$height';
+    final cached = _decoded.remove(cacheKey);
+    if (cached != null) {
+      _decoded[cacheKey] = cached;
+      return _data = cached;
+    }
+
+    final data = await compute(
       getBlurhashData,
       BlurhashData(hsh: widget.blurhash, w: width, h: height),
     );
+    _decoded[cacheKey] = data;
+    if (_decoded.length > _maxDecoded) _decoded.remove(_decoded.keys.first);
+    return _data ??= data;
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Uint8List?>(
-      future: _computeBlurhashData(),
+      future: _future,
       initialData: _data,
       builder: (context, snapshot) {
         final data = snapshot.data;

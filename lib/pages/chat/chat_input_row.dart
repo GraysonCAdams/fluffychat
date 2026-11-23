@@ -3,7 +3,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:emoji_picker_flutter/locales/default_emoji_set_locale.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/recording_input_row.dart';
@@ -233,18 +232,11 @@ class ChatInputRow extends StatelessWidget {
                         ),
                         onChanged: controller.onInputBarChanged,
                         undoController: controller.undoController,
-                        suggestionEmojis:
-                            getDefaultEmojiLocale(
-                              AppSettings.emojiSuggestionLocale.value.isNotEmpty
-                                  ? Locale(
-                                      AppSettings.emojiSuggestionLocale.value,
-                                    )
-                                  : Localizations.localeOf(context),
-                            ).fold(
-                              [],
-                              (emojis, category) =>
-                                  emojis..addAll(category.emoji),
-                            ),
+                        suggestionEmojis: controller.suggestionEmojisFor(
+                          AppSettings.emojiSuggestionLocale.value.isNotEmpty
+                              ? Locale(AppSettings.emojiSuggestionLocale.value)
+                              : Localizations.localeOf(context),
+                        ),
                       ),
                     ),
                   ),

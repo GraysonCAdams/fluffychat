@@ -14,6 +14,7 @@ import 'package:fluffychat/utils/windows_shell.dart';
 import 'package:fluffychat/widgets/app_lock.dart';
 import 'package:fluffychat/widgets/layouts/call_overlay.dart';
 import 'package:fluffychat/widgets/theme_builder.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -29,6 +30,9 @@ class FluffyChatApp extends StatelessWidget {
   final SharedPreferences store;
   final Locale? locale;
 
+  /// The system's dynamic primary color, see loadDynamicPrimaryColor().
+  final Color? dynamicPrimaryColor;
+
   const FluffyChatApp({
     super.key,
     this.testWidget,
@@ -36,6 +40,7 @@ class FluffyChatApp extends StatelessWidget {
     required this.store,
     required this.appLockSettings,
     this.locale,
+    this.dynamicPrimaryColor,
   });
 
   /// getInitialLink may rereturn the value multiple times if this view is
@@ -47,7 +52,7 @@ class FluffyChatApp extends StatelessWidget {
   // the current path.
   static final GoRouter router = GoRouter(
     routes: AppRoutes.routes,
-    debugLogDiagnostics: true,
+    debugLogDiagnostics: kDebugMode,
     redirect: (context, state) {
       // Workaround for content sharings passed to go router:
       if ({
@@ -89,6 +94,8 @@ class FluffyChatApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ThemeBuilder(
+      store: store,
+      dynamicPrimaryColor: dynamicPrimaryColor,
       builder: (context, themeMode, primaryColor) => MaterialApp.router(
         title: AppSettings.applicationName.value,
         themeMode: themeMode,

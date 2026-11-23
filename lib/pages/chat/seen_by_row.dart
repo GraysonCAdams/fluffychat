@@ -10,24 +10,49 @@ import 'package:fluffychat/widgets/matrix.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
-class SeenByRow extends StatelessWidget {
+class SeenByRow extends StatefulWidget {
   final Event event;
   final Timeline timeline;
   const SeenByRow({super.key, required this.event, required this.timeline});
 
   @override
+  State<SeenByRow> createState() => _SeenByRowState();
+}
+
+class _SeenByRowState extends State<SeenByRow> {
+  // Built once per room: a stream created in build would make the
+  // StreamBuilder unsubscribe and resubscribe on every timeline rebuild.
+  late Stream<SyncUpdate> _receiptUpdates = _createReceiptUpdates();
+
+  Stream<SyncUpdate> _createReceiptUpdates() {
+    final room = widget.event.room;
+    return room.client.onSync.stream.where(
+      (syncUpdate) =>
+          syncUpdate.rooms?.join?[room.id]?.ephemeral?.any(
+            (ephemeral) => ephemeral.type == 'm.receipt',
+          ) ??
+          false,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant SeenByRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.event.room.id != widget.event.room.id ||
+        oldWidget.event.room.client != widget.event.room.client) {
+      _receiptUpdates = _createReceiptUpdates();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final event = widget.event;
+    final timeline = widget.timeline;
 
     const maxAvatars = 7;
     return StreamBuilder(
-      stream: event.room.client.onSync.stream.where(
-        (syncUpdate) =>
-            syncUpdate.rooms?.join?[event.room.id]?.ephemeral?.any(
-              (ephemeral) => ephemeral.type == 'm.receipt',
-            ) ??
-            false,
-      ),
+      stream: _receiptUpdates,
       builder: (context, asyncSnapshot) {
         final seenByUsers = event.room.getSeenByUsers(
           timeline,

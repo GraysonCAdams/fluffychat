@@ -6,52 +6,77 @@
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:matrix/matrix.dart';
 
+// These sets are checked for every timeline event on every rebuild of the
+// chat, so they are compile time constants instead of fresh literals.
+const _hiddenRelationshipTypes = {
+  RelationshipTypes.edit,
+  RelationshipTypes.reaction,
+};
+const _hiddenEventTypes = {EventTypes.Reaction, EventTypes.Redaction};
+const _messageEventTypes = {EventTypes.Message, EventTypes.Sticker};
+const _uncollapsedEventTypes = {
+  EventTypes.Message,
+  EventTypes.Sticker,
+  EventTypes.RoomCreate,
+  EventTypes.RoomTombstone,
+};
+
 extension VisibleInGuiExtension on List<Event> {
   List<Event> filterByVisibleInGui({
     String? exceptionEventId,
     String? threadId,
-  }) => where((event) {
-    if (threadId != null &&
-        event.relationshipType != RelationshipTypes.reaction) {
-      if ((event.relationshipType != RelationshipTypes.thread ||
-              event.relationshipEventId != threadId) &&
-          event.eventId != threadId) {
+  }) {
+    // Each settings read goes through SharedPreferences and allocates, so
+    // read them once for the whole list rather than once per event.
+    final hideRedacted = AppSettings.hideRedactedEvents.value;
+    final hideUnknown = AppSettings.hideUnknownEvents.value;
+    return where((event) {
+      final relationshipType = event.relationshipType;
+      if (threadId != null && relationshipType != RelationshipTypes.reaction) {
+        if ((relationshipType != RelationshipTypes.thread ||
+                event.relationshipEventId != threadId) &&
+            event.eventId != threadId) {
+          return false;
+        }
+      } else if (relationshipType == RelationshipTypes.thread) {
         return false;
       }
-    } else if (event.relationshipType == RelationshipTypes.thread) {
-      return false;
-    }
-    return event.isVisibleInGui || event.eventId == exceptionEventId;
-  }).toList();
+      return event._isVisibleInGui(
+            hideRedacted: hideRedacted,
+            hideUnknown: hideUnknown,
+          ) ||
+          event.eventId == exceptionEventId;
+    }).toList();
+  }
 }
 
 extension IsStateExtension on Event {
-  bool get isVisibleInGui =>
+  bool get isVisibleInGui => _isVisibleInGui(
+    hideRedacted: AppSettings.hideRedactedEvents.value,
+    hideUnknown: AppSettings.hideUnknownEvents.value,
+  );
+
+  bool _isVisibleInGui({
+    required bool hideRedacted,
+    required bool hideUnknown,
+  }) =>
       // always filter out edit and reaction relationships
-      !{
-        RelationshipTypes.edit,
-        RelationshipTypes.reaction,
-      }.contains(relationshipType) &&
+      !_hiddenRelationshipTypes.contains(relationshipType) &&
       // always filter out m.key.* and other known but unimportant events
       !isKnownHiddenStates &&
       // event types to hide: redaction and reaction events
       // if a reaction has been redacted we also want it to be hidden in the timeline
-      !{EventTypes.Reaction, EventTypes.Redaction}.contains(type) &&
+      !_hiddenEventTypes.contains(type) &&
       // if we enabled to hide all redacted events, don't show those
-      (!AppSettings.hideRedactedEvents.value || !redacted) &&
+      (!hideRedacted || !redacted) &&
       // if we enabled to hide all unknown events, don't show those
-      (!AppSettings.hideUnknownEvents.value || isEventTypeKnown);
+      (!hideUnknown || isEventTypeKnown);
 
-  bool get isState => !{EventTypes.Message, EventTypes.Sticker}.contains(type);
+  bool get isState => !_messageEventTypes.contains(type);
 
-  bool get isCollapsedState => !{
-    EventTypes.Message,
-    EventTypes.Sticker,
-    EventTypes.RoomCreate,
-    EventTypes.RoomTombstone,
-  }.contains(type);
+  bool get isCollapsedState => !_uncollapsedEventTypes.contains(type);
 
   bool get isKnownHiddenStates =>
-      {PollEventContent.responseType}.contains(type) ||
+      type == PollEventContent.responseType ||
       type.startsWith('m.key.verification.');
 }

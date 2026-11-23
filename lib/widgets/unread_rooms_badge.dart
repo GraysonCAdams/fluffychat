@@ -6,18 +6,19 @@
 import 'package:badges/badges.dart' as b;
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:matrix/matrix.dart';
 
-import 'matrix.dart';
-
+/// Shows [unreadCount] on a badge over [child], hidden at zero.
+///
+/// The caller counts the unread chats. Counting here by scanning every room
+/// would repeat that scan for each badge on screen.
 class UnreadRoomsBadge extends StatelessWidget {
-  final bool Function(Room) filter;
+  final int unreadCount;
   final b.BadgePosition? badgePosition;
   final Widget? child;
 
   const UnreadRoomsBadge({
     super.key,
-    required this.filter,
+    required this.unreadCount,
     this.badgePosition,
     this.child,
   });
@@ -25,11 +26,6 @@ class UnreadRoomsBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    final unreadCount = Matrix.of(context).client.rooms
-        .where(filter)
-        .where((r) => (r.isUnread || r.membership == Membership.invite))
-        .length;
     return b.Badge(
       badgeStyle: b.BadgeStyle(
         padding: const EdgeInsetsGeometry.all(1),

@@ -23,7 +23,6 @@ import 'package:fluffychat/widgets/pulsating_widget.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
-import '../../utils/stream_extension.dart';
 import 'attachment_panel.dart';
 import 'chat_emoji_picker.dart';
 import 'chat_input_row.dart';
@@ -61,9 +60,7 @@ class ChatView extends StatelessWidget {
         }
       },
       child: StreamBuilder(
-        stream: controller.room.client.onRoomState.stream
-            .where((update) => update.roomId == controller.room.id)
-            .rateLimit(const Duration(seconds: 1)),
+        stream: controller.roomStateUpdates,
         builder: (context, snapshot) => FutureBuilder(
           future: controller.loadTimelineFuture,
           builder: (BuildContext context, snapshot) {
@@ -342,8 +339,9 @@ class ChatView extends StatelessWidget {
                     child: Stack(
                       children: <Widget>[
                         if (accountConfig.wallpaperUrl != null)
-                          Opacity(
-                            opacity: accountConfig.wallpaperOpacity ?? 0.5,
+                          // Its own layer, so scrolling the timeline on top
+                          // does not paint the blurred wallpaper again.
+                          RepaintBoundary(
                             child: ImageFiltered(
                               imageFilter: ui.ImageFilter.blur(
                                 sigmaX: accountConfig.wallpaperBlur ?? 0.0,
@@ -356,6 +354,11 @@ class ChatView extends StatelessWidget {
                                 height: MediaQuery.sizeOf(context).height,
                                 width: MediaQuery.sizeOf(context).width,
                                 isThumbnail: false,
+                                // Blurring is linear, so fading the image
+                                // before the blur looks the same as fading
+                                // the blurred result, without the offscreen
+                                // layer an Opacity widget needs.
+                                opacity: accountConfig.wallpaperOpacity ?? 0.5,
                                 placeholder: (_) => Container(),
                               ),
                             ),

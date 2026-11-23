@@ -105,213 +105,268 @@ class ChatEventList extends StatelessWidget {
       threadId: controller.activeThreadId,
     );
 
-    // create a map of eventId --> index to greatly improve performance of
-    // ListView's findChildIndexCallback
+    // create a map of item key --> index to greatly improve performance of
+    // ListView's findChildIndexCallback. It must use the same value as the
+    // ValueKey of each item below, or messages still carrying a transaction
+    // id (our own) are never found and get rebuilt from scratch.
     final thisEventsKeyMap = <String, int>{};
     for (var i = 0; i < events.length; i++) {
-      thisEventsKeyMap[events[i].eventId] = i;
+      thisEventsKeyMap[events[i].transactionId ?? events[i].eventId] = i;
     }
 
     final hasWallpaper =
         controller.room.client.applicationAccountConfig.wallpaperUrl != null;
 
+    final topPadding = 8 + MediaQuery.paddingOf(context).top;
+    final defaultInputBarHeight =
+        72.0 + (FluffyThemes.isColumnMode(context) ? 16.0 : 0.0);
+
     return SelectionArea(
-      child: MediaQuery(
-        data: MediaQuery.of(context).copyWith(
-          textScaler: TextScaler.linear(AppSettings.fontSizeFactor.value),
-        ),
-        child: ListView.custom(
-          padding: EdgeInsets.only(
-            top: 8 + MediaQuery.paddingOf(context).top,
-            bottom:
-                8 +
-                (controller.inputBarHeight ??
-                    (72 + (FluffyThemes.isColumnMode(context) ? 16 : 0))),
-            left: horizontalPadding,
-            right: horizontalPadding,
-          ),
+      child: _ChatTextScale(
+        // The same layout ListView.custom builds from a delegate and padding,
+        // spelled out so that only the padding listens to the composer
+        // height, which changes on every frame of its animations.
+        child: CustomScrollView(
           reverse: true,
           controller: controller.scrollController,
           keyboardDismissBehavior: PlatformInfos.isIOS
               ? ScrollViewKeyboardDismissBehavior.onDrag
               : ScrollViewKeyboardDismissBehavior.manual,
-          childrenDelegate: SliverChildBuilderDelegate(
-            (BuildContext context, int i) {
-              // Footer to display typing indicator and read receipts:
-              if (i == 0) {
-                if (timeline.canRequestFuture) {
-                  return Center(
-                    child: TextButton.icon(
-                      onPressed: timeline.isRequestingFuture
-                          ? null
-                          : controller.requestFuture,
-                      icon: timeline.isRequestingFuture
-                          ? CircularProgressIndicator.adaptive(strokeWidth: 2)
-                          : const Icon(Icons.arrow_downward_outlined),
-                      label: Text(L10n.of(context).loadMore),
-                    ),
-                  );
-                }
-                return Column(
-                  mainAxisSize: .min,
-                  children: [
-                    if (events.isNotEmpty)
-                      SeenByRow(event: events.first, timeline: timeline),
-                    TypingIndicators(controller),
-                    EncryptionInfo(room: controller.room),
-                  ],
-                );
-              }
-
-              // Request history button or progress indicator:
-              if (i == events.length + 1) {
-                if (controller.activeThreadId != null ||
-                    !timeline.canRequestHistory) {
-                  return const SizedBox.shrink();
-                }
-                return Builder(
-                  builder: (context) {
-                    final visibleIndex = timeline.events.lastIndexWhere(
-                      (event) =>
-                          !event.isCollapsedState && event.isVisibleInGui,
-                    );
-                    if (visibleIndex > timeline.events.length - 50) {
-                      WidgetsBinding.instance.addPostFrameCallback(
-                        controller.requestHistory,
+          slivers: [
+            ValueListenableBuilder<double?>(
+              valueListenable: controller.inputBarHeight,
+              builder: (context, inputBarHeight, list) => SliverPadding(
+                padding: EdgeInsets.only(
+                  top: topPadding,
+                  bottom: 8.0 + (inputBarHeight ?? defaultInputBarHeight),
+                  left: horizontalPadding,
+                  right: horizontalPadding,
+                ),
+                sliver: list,
+              ),
+              child: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (BuildContext context, int i) {
+                    // Footer to display typing indicator and read receipts:
+                    if (i == 0) {
+                      if (timeline.canRequestFuture) {
+                        return Center(
+                          child: TextButton.icon(
+                            onPressed: timeline.isRequestingFuture
+                                ? null
+                                : controller.requestFuture,
+                            icon: timeline.isRequestingFuture
+                                ? CircularProgressIndicator.adaptive(
+                                    strokeWidth: 2,
+                                  )
+                                : const Icon(Icons.arrow_downward_outlined),
+                            label: Text(L10n.of(context).loadMore),
+                          ),
+                        );
+                      }
+                      return Column(
+                        mainAxisSize: .min,
+                        children: [
+                          if (events.isNotEmpty)
+                            SeenByRow(event: events.first, timeline: timeline),
+                          TypingIndicators(controller),
+                          EncryptionInfo(room: controller.room),
+                        ],
                       );
                     }
-                    return Center(
-                      child: TextButton.icon(
-                        onPressed: timeline.isRequestingHistory
-                            ? null
-                            : controller.requestHistory,
-                        icon: timeline.isRequestingHistory
-                            ? CircularProgressIndicator.adaptive(strokeWidth: 2)
-                            : const Icon(Icons.arrow_upward_outlined),
-                        label: Text(L10n.of(context).loadMore),
-                      ),
-                    );
-                  },
-                );
-              }
-              i--;
 
-              // The message at this index:
-              final event = events[i];
-              final animateIn =
-                  (event.transactionId ?? event.eventId) ==
-                  controller.animateInEventId;
+                    // Request history button or progress indicator:
+                    if (i == events.length + 1) {
+                      if (controller.activeThreadId != null ||
+                          !timeline.canRequestHistory) {
+                        return const SizedBox.shrink();
+                      }
+                      return Builder(
+                        builder: (context) {
+                          final visibleIndex = timeline.events.lastIndexWhere(
+                            (event) =>
+                                !event.isCollapsedState && event.isVisibleInGui,
+                          );
+                          if (visibleIndex > timeline.events.length - 50) {
+                            WidgetsBinding.instance.addPostFrameCallback(
+                              controller.requestHistory,
+                            );
+                          }
+                          return Center(
+                            child: TextButton.icon(
+                              onPressed: timeline.isRequestingHistory
+                                  ? null
+                                  : controller.requestHistory,
+                              icon: timeline.isRequestingHistory
+                                  ? CircularProgressIndicator.adaptive(
+                                      strokeWidth: 2,
+                                    )
+                                  : const Icon(Icons.arrow_upward_outlined),
+                              label: Text(L10n.of(context).loadMore),
+                            ),
+                          );
+                        },
+                      );
+                    }
+                    i--;
 
-              final nextEvent = i + 1 < events.length ? events[i + 1] : null;
-              final previousEvent = i > 0 ? events[i - 1] : null;
+                    // The message at this index:
+                    final event = events[i];
+                    final animateIn =
+                        (event.transactionId ?? event.eventId) ==
+                        controller.animateInEventId;
 
-              // Collapsed state event
-              final canExpand =
-                  event.isCollapsedState &&
-                  nextEvent?.isCollapsedState == true &&
-                  previousEvent?.isCollapsedState != true;
-              final isCollapsed =
-                  event.isCollapsedState &&
-                  previousEvent?.isCollapsedState == true &&
-                  !controller.expandedEventIds.contains(event.eventId);
+                    final nextEvent = i + 1 < events.length
+                        ? events[i + 1]
+                        : null;
+                    final previousEvent = i > 0 ? events[i - 1] : null;
 
-              final displayDate =
-                  event.type == EventTypes.RoomCreate ||
-                  nextEvent == null ||
-                  !event.originServerTs.sameDay(nextEvent.originServerTs);
+                    // Collapsed state event
+                    final canExpand =
+                        event.isCollapsedState &&
+                        nextEvent?.isCollapsedState == true &&
+                        previousEvent?.isCollapsedState != true;
+                    final isCollapsed =
+                        event.isCollapsedState &&
+                        previousEvent?.isCollapsedState == true &&
+                        !controller.expandedEventIds.contains(event.eventId);
 
-              return AutoScrollTag(
-                key: ValueKey(event.transactionId ?? event.eventId),
-                index: i,
-                controller: controller.scrollController,
-                child: Column(
-                  mainAxisSize: .min,
-                  children: [
-                    if (!isCollapsed && displayDate)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 4.0),
-                            child: Material(
-                              borderRadius: BorderRadius.circular(
-                                AppConfig.borderRadius * 2,
+                    final displayDate =
+                        event.type == EventTypes.RoomCreate ||
+                        nextEvent == null ||
+                        !event.originServerTs.sameDay(nextEvent.originServerTs);
+
+                    return AutoScrollTag(
+                      key: ValueKey(event.transactionId ?? event.eventId),
+                      index: i,
+                      controller: controller.scrollController,
+                      child: Column(
+                        mainAxisSize: .min,
+                        children: [
+                          if (!isCollapsed && displayDate)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: 8.0,
+                                bottom: 16.0,
                               ),
-                              color: theme.colorScheme.inverseSurface.withAlpha(
-                                200,
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8.0,
-                                  vertical: 2.0,
-                                ),
-                                child: Text(
-                                  event.originServerTs.localizedDate(context),
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.onInverseSurface,
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 4.0),
+                                  child: Material(
+                                    borderRadius: BorderRadius.circular(
+                                      AppConfig.borderRadius * 2,
+                                    ),
+                                    color: theme.colorScheme.inverseSurface
+                                        .withAlpha(200),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8.0,
+                                        vertical: 2.0,
+                                      ),
+                                      child: Text(
+                                        event.originServerTs.localizedDate(
+                                          context,
+                                        ),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: theme
+                                              .colorScheme
+                                              .onInverseSurface,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                      ),
-                    Message(
-                      event,
-                      bigEmojis: controller.bigEmojis,
-                      animateIn: animateIn,
-                      onSwipe: () => controller.replyAction(replyTo: event),
-                      onInfoTab: controller.showEventInfo,
-                      onMention: () => controller.sendController.text +=
-                          '${event.senderFromMemoryOrFallback.mention} ',
-                      highlightMarker:
-                          controller.scrollToEventIdMarker == event.eventId,
-                      onSelect: controller.onSelectMessage,
-                      onContextMenu: (event, position) =>
-                          showMessageContextMenu(controller, event, position),
-                      scrollToEventId: controller.scrollToEventId,
-                      longPressSelect: controller.selectedEvents.isNotEmpty,
-                      selected: controller.selectedEvents.any(
-                        (e) => e.eventId == event.eventId,
-                      ),
-                      singleSelected:
-                          controller.selectedEvents.singleOrNull?.eventId ==
-                          event.eventId,
-                      hideReactionPicker: controller.messageMenuOpen,
-                      onEdit: controller.editSelectedEventAction,
-                      timeline: timeline,
-                      displayReadMarker:
-                          i > 0 &&
-                          controller.readMarkerEventId == event.eventId,
-                      nextEvent: nextEvent,
-                      previousEvent: previousEvent,
-                      wallpaperMode: hasWallpaper,
-                      scrollController: controller.scrollController,
-                      colors: colors,
-                      isCollapsed: isCollapsed,
-                      enterThread: controller.activeThreadId == null
-                          ? controller.enterThread
-                          : null,
-                      onExpand: canExpand
-                          ? () => controller.expandEventsFrom(
-                              event,
-                              !controller.expandedEventIds.contains(
+                          Message(
+                            event,
+                            bigEmojis: controller.bigEmojis,
+                            animateIn: animateIn,
+                            onSwipe: () =>
+                                controller.replyAction(replyTo: event),
+                            onInfoTab: controller.showEventInfo,
+                            onMention: () => controller.sendController.text +=
+                                '${event.senderFromMemoryOrFallback.mention} ',
+                            highlightMarker:
+                                controller.scrollToEventIdMarker ==
                                 event.eventId,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ],
+                            onSelect: controller.onSelectMessage,
+                            onContextMenu: (event, position) =>
+                                showMessageContextMenu(
+                                  controller,
+                                  event,
+                                  position,
+                                ),
+                            scrollToEventId: controller.scrollToEventId,
+                            longPressSelect:
+                                controller.selectedEvents.isNotEmpty,
+                            selected: controller.selectedEvents.any(
+                              (e) => e.eventId == event.eventId,
+                            ),
+                            singleSelected:
+                                controller
+                                    .selectedEvents
+                                    .singleOrNull
+                                    ?.eventId ==
+                                event.eventId,
+                            hideReactionPicker: controller.messageMenuOpen,
+                            onEdit: controller.editSelectedEventAction,
+                            timeline: timeline,
+                            displayReadMarker:
+                                i > 0 &&
+                                controller.readMarkerEventId == event.eventId,
+                            nextEvent: nextEvent,
+                            previousEvent: previousEvent,
+                            wallpaperMode: hasWallpaper,
+                            scrollController: controller.scrollController,
+                            colors: colors,
+                            isCollapsed: isCollapsed,
+                            enterThread: controller.activeThreadId == null
+                                ? controller.enterThread
+                                : null,
+                            onExpand: canExpand
+                                ? () => controller.expandEventsFrom(
+                                    event,
+                                    !controller.expandedEventIds.contains(
+                                      event.eventId,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  childCount: events.length + 2,
+                  findChildIndexCallback: (key) =>
+                      controller.findChildIndexCallback(key, thisEventsKeyMap),
                 ),
-              );
-            },
-            childCount: events.length + 2,
-            findChildIndexCallback: (key) =>
-                controller.findChildIndexCallback(key, thisEventsKeyMap),
-          ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+/// Applies the chat font size setting to the timeline.
+///
+/// Copying the whole [MediaQueryData] depends on all of it, keyboard insets
+/// included. Doing that here rather than in [ChatEventList] means a keyboard
+/// animation rebuilds only this widget, and the timeline passed in as
+/// [child] is reused as is.
+class _ChatTextScale extends StatelessWidget {
+  final Widget child;
+
+  const _ChatTextScale({required this.child});
+
+  @override
+  Widget build(BuildContext context) => MediaQuery(
+    data: MediaQuery.of(
+      context,
+    ).copyWith(textScaler: TextScaler.linear(AppSettings.fontSizeFactor.value)),
+    child: child,
+  );
 }
