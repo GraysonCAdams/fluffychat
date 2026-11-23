@@ -48,9 +48,7 @@ class ChatDetailsView extends StatelessWidget {
     final roomAvatar = room.avatar;
 
     return StreamBuilder(
-      stream: room.client.onRoomState.stream.where(
-        (update) => update.roomId == room.id,
-      ),
+      stream: controller.roomStateUpdates(room),
       builder: (context, snapshot) {
         var members = room.getParticipants().toList()
           ..sort((b, a) => a.powerLevel.level.compareTo(b.powerLevel.level));
@@ -256,13 +254,7 @@ class ChatDetailsView extends StatelessWidget {
                           ),
                         ),
                         StreamBuilder(
-                          stream: room.client.onSync.stream.where(
-                            (s) =>
-                                s.accountData?.any(
-                                  (data) => data.type == 'm.push_rules',
-                                ) ??
-                                false,
-                          ),
+                          stream: controller.pushRuleUpdates(room),
                           builder: (context, _) => Wrap(
                             alignment: .center,
                             spacing: 16,

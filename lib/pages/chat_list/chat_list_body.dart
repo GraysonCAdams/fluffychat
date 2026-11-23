@@ -8,7 +8,6 @@ import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
-import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/dummy_chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
 import 'package:fluffychat/pages/chat_list/search_title.dart';
@@ -22,7 +21,6 @@ import 'package:matrix/matrix.dart';
 import '../../config/themes.dart';
 import '../../widgets/adaptive_dialogs/user_dialog.dart';
 import '../../widgets/matrix.dart';
-import 'chat_list_header.dart';
 
 class ChatListViewBody extends StatelessWidget {
   final ChatListController controller;
@@ -71,7 +69,7 @@ class ChatListViewBody extends StatelessWidget {
       controller: controller.scrollController,
       slivers: [
         if (activeSpaceRoom == null)
-          ChatListHeader(controller: controller)
+          controller.header
         else
           RoomUpdatesBuilder(
             client: client,
@@ -193,6 +191,7 @@ class ChatListViewBody extends StatelessWidget {
         ),
         RoomUpdatesBuilder(
           client: client,
+          onUpdate: controller.markRoomsUpdated,
           builder: (context) {
             final spaceDelegateCandidates = <String, Room>{};
             for (final space in client.rooms.where((r) => r.isSpace)) {
@@ -296,20 +295,9 @@ class ChatListViewBody extends StatelessWidget {
                           : null,
                       itemBuilder: (BuildContext context, int i) {
                         final room = shownRooms[i];
-                        final space = spaceDelegateCandidates[room.id];
-                        return ChatListItem(
+                        return controller.chatListTile(
                           room,
-                          space: space,
-                          key: ValueKey(room.id),
-                          onTap: () => controller.onChatTap(room),
-                          onLongPress: (context, [globalPosition]) =>
-                              controller.chatContextAction(
-                                room,
-                                context,
-                                space,
-                                globalPosition,
-                              ),
-                          activeChat: controller.activeChat == room.id,
+                          spaceDelegateCandidates[room.id],
                         );
                       },
                     ),

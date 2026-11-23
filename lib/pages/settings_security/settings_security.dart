@@ -161,6 +161,17 @@ class SettingsSecurityController extends State<SettingsSecurity> {
     setState(() {});
   }
 
+  /// What the homeserver allows changing, asked for once per page. Started
+  /// from build, every rebuild (toggling a switch here) sent the request
+  /// again.
+  late final Future<Capabilities> capabilitiesFuture = Matrix.of(
+    context,
+  ).client.getCapabilities().timeout(const Duration(seconds: 10));
+
+  /// Whether the device can check biometrics, asked for once per page.
+  late final Future<bool> canCheckBiometricsFuture =
+      LocalAuthentication().canCheckBiometrics;
+
   @override
   Widget build(BuildContext context) => SettingsSecurityView(this);
 }

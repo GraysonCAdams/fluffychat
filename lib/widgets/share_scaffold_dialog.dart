@@ -75,6 +75,31 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
     context.go('/rooms/$roomId', extra: widget.items);
   }
 
+  final Map<String, (Room, bool, bool, _ShareRoomRow)> _rows = {};
+
+  /// The row for [room], reused as the same widget instance while its
+  /// selection and filter state stay the same. Selecting a chat or typing in
+  /// the filter rebuilds this whole dialog, and a row handed back unchanged
+  /// is skipped, so only the rows that look different are built again.
+  _ShareRoomRow _row(Room room, bool selected, bool filteredOut) {
+    final cached = _rows[room.id];
+    if (cached != null &&
+        identical(cached.$1, room) &&
+        cached.$2 == selected &&
+        cached.$3 == filteredOut) {
+      return cached.$4;
+    }
+    final row = _ShareRoomRow(
+      room: room,
+      selected: selected,
+      filteredOut: filteredOut,
+      onChanged: () => _toggleRoom(room.id),
+      key: ValueKey(room.id),
+    );
+    _rows[room.id] = (room, selected, filteredOut, row);
+    return row;
+  }
+
   @override
   void dispose() {
     _filterController.dispose();
@@ -146,47 +171,7 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
               if (!value && filterOut) {
                 return const SizedBox.shrink();
               }
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Opacity(
-                  opacity: filterOut ? 0.5 : 1,
-                  child: FutureBuilder(
-                    future: room.loadHeroUsers(),
-                    builder: (context, _) => CheckboxListTile.adaptive(
-                      checkboxShape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(90),
-                      ),
-                      controlAffinity: ListTileControlAffinity.trailing,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppConfig.borderRadius,
-                        ),
-                      ),
-                      secondary: Avatar(
-                        mxContent: room.avatar,
-                        name: displayname,
-                        size: Avatar.defaultSize * 0.75,
-                      ),
-                      title: Text(
-                        displayname,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        room.directChatMatrixID ??
-                            L10n.of(context).countParticipants(
-                              (room.summary.mJoinedMemberCount ?? 0) +
-                                  (room.summary.mInvitedMemberCount ?? 0),
-                            ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      value: selectedRoomId == room.id,
-                      onChanged: (_) => _toggleRoom(room.id),
-                    ),
-                  ),
-                ),
-              );
+              return _row(room, value, filterOut);
             },
           ),
         ],
@@ -209,6 +194,92 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
                   ),
                 ),
               ),
+      ),
+    );
+  }
+}
+
+class _ShareRoomRow extends StatefulWidget {
+  final Room room;
+  final bool selected;
+  final bool filteredOut;
+  final VoidCallback onChanged;
+
+  const _ShareRoomRow({
+    required this.room,
+    required this.selected,
+    required this.filteredOut,
+    required this.onChanged,
+    super.key,
+  });
+
+  @override
+  State<_ShareRoomRow> createState() => _ShareRoomRowState();
+}
+
+class _ShareRoomRowState extends State<_ShareRoomRow> {
+  /// Loads the members a nameless room is named after. Created once per
+  /// room: a FutureBuilder given a new future on every build subscribes again
+  /// and repeats the SDK call each time.
+  late Future<List<User>> _heroUsers;
+
+  @override
+  void initState() {
+    super.initState();
+    _heroUsers = widget.room.loadHeroUsers();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ShareRoomRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.room, widget.room)) {
+      _heroUsers = widget.room.loadHeroUsers();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final room = widget.room;
+    final displayname = room.getLocalizedDisplayname(
+      MatrixLocals(L10n.of(context)),
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Opacity(
+        opacity: widget.filteredOut ? 0.5 : 1,
+        child: FutureBuilder(
+          future: _heroUsers,
+          builder: (context, _) => CheckboxListTile.adaptive(
+            checkboxShape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(90),
+            ),
+            controlAffinity: ListTileControlAffinity.trailing,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppConfig.borderRadius),
+            ),
+            secondary: Avatar(
+              mxContent: room.avatar,
+              name: displayname,
+              size: Avatar.defaultSize * 0.75,
+            ),
+            title: Text(
+              displayname,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              room.directChatMatrixID ??
+                  L10n.of(context).countParticipants(
+                    (room.summary.mJoinedMemberCount ?? 0) +
+                        (room.summary.mInvitedMemberCount ?? 0),
+                  ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            value: widget.selected,
+            onChanged: (_) => widget.onChanged(),
+          ),
+        ),
       ),
     );
   }

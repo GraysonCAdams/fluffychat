@@ -868,6 +868,7 @@ class ChatController extends State<ChatPageWithRoom>
     _emojiPanelWatcher?.cancel();
     _displayChatDetailsColumn.dispose();
     inputBarHeight.dispose();
+    inputTextIsEmpty.dispose();
     web.window.removeEventListener('paste', _handleClipboardFilePasteWeb);
     HardwareKeyboard.instance.removeHandler(_escapeClearsSelection);
     undoController.dispose();
@@ -972,7 +973,7 @@ class ChatController extends State<ChatPageWithRoom>
     store.remove('draft_$roomId');
     setState(() {
       sendController.clear();
-      _inputTextIsEmpty = true;
+      inputTextIsEmpty.value = true;
     });
     scaffoldMessenger.showSnackBar(
       SnackBar(
@@ -1095,7 +1096,7 @@ class ChatController extends State<ChatPageWithRoom>
 
     setState(() {
       sendController.text = pendingText;
-      _inputTextIsEmpty = pendingText.isEmpty;
+      inputTextIsEmpty.value = pendingText.isEmpty;
       replyEvent = null;
       editEvent = null;
       pendingText = '';
@@ -2019,11 +2020,7 @@ class ChatController extends State<ChatPageWithRoom>
   }
 
   void onInputBarChanged(String text) {
-    if (_inputTextIsEmpty != text.isEmpty) {
-      setState(() {
-        _inputTextIsEmpty = text.isEmpty;
-      });
-    }
+    inputTextIsEmpty.value = text.isEmpty;
 
     _storeInputTimeoutTimer?.cancel();
     _storeInputTimeoutTimer = Timer(_storeInputTimeout, () async {
@@ -2066,7 +2063,13 @@ class ChatController extends State<ChatPageWithRoom>
     }
   }
 
-  bool _inputTextIsEmpty = true;
+  /// Whether the composer's text was empty when it last changed.
+  ///
+  /// Only the attachment button and the send button look different with
+  /// text in the composer, so they listen to this. Typing the first
+  /// character or deleting the last one then rebuilds those two instead of
+  /// the whole chat.
+  final ValueNotifier<bool> inputTextIsEmpty = ValueNotifier(true);
 
   bool get isArchived =>
       {Membership.leave, Membership.ban}.contains(room.membership);

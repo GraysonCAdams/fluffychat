@@ -10,6 +10,7 @@ import 'package:fluffychat/utils/file_selector.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/theme_builder.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:matrix/matrix.dart';
 
 import '../../widgets/matrix.dart';
 import 'settings_style_view.dart';
@@ -135,6 +136,23 @@ class SettingsStyleController extends State<SettingsStyle> {
     await AppSettings.fontSizeFactor.setItem(d);
     setState(() {});
   }
+
+  /// Syncs that change the app's account config. Created once: a
+  /// StreamBuilder handed a stream made in build subscribes again on every
+  /// rebuild of the page.
+  late final Stream<SyncUpdate> accountConfigUpdates = Matrix.of(context)
+      .client
+      .onSync
+      .stream
+      .where(
+        (syncUpdate) =>
+            syncUpdate.accountData?.any(
+              (accountData) =>
+                  accountData.type ==
+                  ApplicationAccountConfigExtension.accountDataKey,
+            ) ??
+            false,
+      );
 
   @override
   Widget build(BuildContext context) => SettingsStyleView(this);

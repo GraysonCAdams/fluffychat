@@ -62,6 +62,20 @@ class SettingsIgnoreListController extends State<SettingsIgnoreList> {
     super.dispose();
   }
 
+  /// Syncs that change the ignore list. Created once: a StreamBuilder handed
+  /// a stream made in build subscribes again on every rebuild of the page.
+  late final Stream<SyncUpdate> ignoreListUpdates = Matrix.of(context)
+      .client
+      .onSync
+      .stream
+      .where(
+        (syncUpdate) =>
+            syncUpdate.accountData?.any(
+              (accountData) => accountData.type == 'm.ignored_user_list',
+            ) ??
+            false,
+      );
+
   @override
   Widget build(BuildContext context) => SettingsIgnoreListView(this);
 }

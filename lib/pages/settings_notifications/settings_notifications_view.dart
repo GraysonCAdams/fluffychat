@@ -15,7 +15,6 @@ import 'package:fluffychat/widgets/settings_switch_list_tile.dart';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
-import 'package:unifiedpush/unifiedpush.dart';
 import 'package:unifiedpush_ui/unifiedpush_ui.dart';
 
 import '../../utils/localized_exception_extension.dart';
@@ -49,13 +48,7 @@ class SettingsNotificationsView extends StatelessWidget {
       ),
       body: MaxWidthBody(
         child: StreamBuilder(
-          stream: Matrix.of(context).client.onSync.stream.where(
-            (syncUpdate) =>
-                syncUpdate.accountData?.any(
-                  (accountData) => accountData.type == 'm.push_rules',
-                ) ??
-                false,
-          ),
+          stream: controller.pushRuleUpdates,
           builder: (BuildContext context, _) {
             final theme = Theme.of(context);
             final lastReceivedPush =
@@ -146,7 +139,7 @@ class SettingsNotificationsView extends StatelessWidget {
                     ),
                   if (PlatformInfos.isAndroid)
                     FutureBuilder(
-                      future: UnifiedPush.getDistributors(),
+                      future: controller.unifiedPushDistributors,
                       builder: (context, snapshot) {
                         final distributors = snapshot.data;
                         if (distributors == null || distributors.isEmpty) {

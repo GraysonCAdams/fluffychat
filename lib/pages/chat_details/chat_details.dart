@@ -129,6 +129,41 @@ class ChatDetailsController extends State<ChatDetails> {
 
   static const fixedWidth = 360.0;
 
+  (Client, String, Stream<Object?>, Stream<Object?>)? _updateStreams;
+
+  void _ensureUpdateStreams(Room room) {
+    final cached = _updateStreams;
+    if (cached != null &&
+        identical(cached.$1, room.client) &&
+        cached.$2 == room.id) {
+      return;
+    }
+    final roomId = room.id;
+    _updateStreams = (
+      room.client,
+      roomId,
+      room.client.onRoomState.stream.where((update) => update.roomId == roomId),
+      room.client.onSync.stream.where(
+        (s) =>
+            s.accountData?.any((data) => data.type == 'm.push_rules') ?? false,
+      ),
+    );
+  }
+
+  /// State updates of [room]. Created once per room and kept here: a
+  /// StreamBuilder handed a stream made in build subscribes again on every
+  /// rebuild of the page.
+  Stream<Object?> roomStateUpdates(Room room) {
+    _ensureUpdateStreams(room);
+    return _updateStreams!.$3;
+  }
+
+  /// Syncs that change the push rules, kept like [roomStateUpdates].
+  Stream<Object?> pushRuleUpdates(Room room) {
+    _ensureUpdateStreams(room);
+    return _updateStreams!.$4;
+  }
+
   @override
   Widget build(BuildContext context) => ChatDetailsView(this);
 }

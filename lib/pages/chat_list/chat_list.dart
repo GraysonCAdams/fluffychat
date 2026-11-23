@@ -12,6 +12,8 @@ import 'package:cross_file/cross_file.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_view.dart';
 import 'package:fluffychat/utils/android_direct_share.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
@@ -354,6 +356,64 @@ class ChatListController extends State<ChatList>
       Matrix.of(context).client.rooms.where((r) => r.isSpace).toList();
 
   String? get activeChat => widget.activeChat;
+
+  /// Counts the changes that can alter what the header and the chat tiles
+  /// show: every setState of this controller and every room update the
+  /// list rebuilds for (see [markRoomsUpdated]).
+  ///
+  /// The router hands this page a new [ChatList] whenever the location
+  /// changes, for example when a chat is closed, and that rebuilds the whole
+  /// list. The header and the tiles built since the last change are handed
+  /// back as the same widget instances, which the framework skips, so such a
+  /// rebuild only redoes the tiles whose active state changed. They still
+  /// rebuild on their own when an inherited widget they read changes.
+  int _viewGeneration = 0;
+
+  @override
+  void setState(VoidCallback fn) {
+    _viewGeneration++;
+    super.setState(fn);
+  }
+
+  /// Called before the chat list rebuilds for a sync that touched the rooms,
+  /// so the tiles are built again with the new room data.
+  void markRoomsUpdated() => _viewGeneration++;
+
+  (int, ChatListHeader)? _header;
+
+  ChatListHeader get header {
+    final cached = _header;
+    if (cached != null && cached.$1 == _viewGeneration) return cached.$2;
+    final header = ChatListHeader(controller: this);
+    _header = (_viewGeneration, header);
+    return header;
+  }
+
+  final Map<String, (int, Room, Room?, bool, ChatListItem)> _tiles = {};
+
+  /// The chat list tile for [room], shown below [space] when it has one.
+  ChatListItem chatListTile(Room room, Room? space) {
+    final active = activeChat == room.id;
+    final cached = _tiles[room.id];
+    if (cached != null &&
+        cached.$1 == _viewGeneration &&
+        identical(cached.$2, room) &&
+        identical(cached.$3, space) &&
+        cached.$4 == active) {
+      return cached.$5;
+    }
+    final tile = ChatListItem(
+      room,
+      space: space,
+      key: ValueKey(room.id),
+      onTap: () => onChatTap(room),
+      onLongPress: (context, [globalPosition]) =>
+          chatContextAction(room, context, space, globalPosition),
+      activeChat: active,
+    );
+    _tiles[room.id] = (_viewGeneration, room, space, active, tile);
+    return tile;
+  }
 
   Future<void> _processIncomingSharedMedia(List<SharedMediaFile> files) async {
     files.removeWhere(

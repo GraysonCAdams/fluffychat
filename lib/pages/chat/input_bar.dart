@@ -22,6 +22,13 @@ import '../../widgets/avatar.dart';
 import '../../widgets/matrix.dart';
 import 'command_hints.dart';
 
+/// The lower case name of every emoji in a suggestion list, by index.
+///
+/// The lists hold thousands of emojis and are kept for as long as the chat
+/// uses the same locale, so the names are lowered once per list instead of
+/// on every keystroke of an emoji search.
+final Expando<List<String>> _lowerCaseEmojiNames = Expando();
+
 class InputBar extends StatelessWidget {
   final Room room;
   final int? minLines;
@@ -128,9 +135,13 @@ class InputBar extends StatelessWidget {
       }
 
       // aside of emote packs, also propose normal (tm) unicode emojis
-      final matchingUnicodeEmojis = suggestionEmojis
-          .where((emoji) => emoji.name.toLowerCase().contains(emoteSearch))
-          .toList();
+      final lowerCaseNames = _lowerCaseEmojiNames[suggestionEmojis] ??= [
+        for (final emoji in suggestionEmojis) emoji.name.toLowerCase(),
+      ];
+      final matchingUnicodeEmojis = [
+        for (var i = 0; i < suggestionEmojis.length; i++)
+          if (lowerCaseNames[i].contains(emoteSearch)) suggestionEmojis[i],
+      ];
 
       // sort by the index of the search term in the name in order to have
       // best matches first
@@ -399,10 +410,7 @@ class InputBar extends StatelessWidget {
       focusNode: focusNode,
       textEditingController: controller,
       optionsBuilder: getSuggestions,
-      fieldViewBuilder: (context, controller, focusNode, _) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(
-          textScaler: TextScaler.linear(AppSettings.fontSizeFactor.value),
-        ),
+      fieldViewBuilder: (context, controller, focusNode, _) => _InputTextScale(
         child: TextField(
           controller: controller,
           focusNode: focusNode,
@@ -493,4 +501,24 @@ class InputBar extends StatelessWidget {
       optionsViewOpenDirection: OptionsViewOpenDirection.up,
     );
   }
+}
+
+/// Applies the chat font size setting to the composer.
+///
+/// Copying the whole [MediaQueryData] depends on all of it, keyboard insets
+/// included. Doing that here rather than in the autocomplete's field builder
+/// means a change to the media query rebuilds only this widget, and the text
+/// field passed in as [child] is reused as is.
+class _InputTextScale extends StatelessWidget {
+  final Widget child;
+
+  const _InputTextScale({required this.child});
+
+  @override
+  Widget build(BuildContext context) => MediaQuery(
+    data: MediaQuery.of(
+      context,
+    ).copyWith(textScaler: TextScaler.linear(AppSettings.fontSizeFactor.value)),
+    child: child,
+  );
 }

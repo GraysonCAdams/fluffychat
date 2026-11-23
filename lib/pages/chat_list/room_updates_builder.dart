@@ -20,9 +20,14 @@ class RoomUpdatesBuilder extends StatefulWidget {
   final Client client;
   final WidgetBuilder builder;
 
+  /// Called right before each rebuild that a sync caused, and not before a
+  /// rebuild that came from the parent.
+  final VoidCallback? onUpdate;
+
   const RoomUpdatesBuilder({
     required this.client,
     required this.builder,
+    this.onUpdate,
     super.key,
   });
 
@@ -39,7 +44,9 @@ class _RoomUpdatesBuilderState extends State<RoomUpdatesBuilder> {
         .where((s) => s.hasRoomUpdate)
         .rateLimit(const Duration(seconds: 1))
         .listen((_) {
-          if (mounted) setState(() {});
+          if (!mounted) return;
+          widget.onUpdate?.call();
+          setState(() {});
         });
   }
 

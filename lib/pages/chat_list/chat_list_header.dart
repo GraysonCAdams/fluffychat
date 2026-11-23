@@ -44,107 +44,110 @@ class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
           ? theme.colorScheme.surface.withAlpha(240)
           : Colors.transparent,
       automaticallyImplyLeading: false,
-      title: _SyncStatusBuilder(
-        client: client,
-        builder: (context) {
-          final status =
-              client.onSyncStatus.value ??
-              const SyncStatusUpdate(SyncStatus.waitingForResponse);
-          final hide =
-              client.onSync.value != null &&
-              status.status != SyncStatus.error &&
-              client.prevBatch != null;
-          return TextField(
-            controller: controller.searchController,
-            focusNode: controller.searchFocusNode,
-            textInputAction: TextInputAction.search,
-            onChanged: (text) =>
-                controller.onSearchEnter(text, globalSearch: globalSearch),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: theme.colorScheme.secondaryContainer,
-              border: OutlineInputBorder(
-                borderSide: BorderSide.none,
-                borderRadius: BorderRadius.circular(99),
-              ),
-              hintText: hide
+      title: TextField(
+        controller: controller.searchController,
+        focusNode: controller.searchFocusNode,
+        textInputAction: TextInputAction.search,
+        onChanged: (text) =>
+            controller.onSearchEnter(text, globalSearch: globalSearch),
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: theme.colorScheme.secondaryContainer,
+          border: OutlineInputBorder(
+            borderSide: BorderSide.none,
+            borderRadius: BorderRadius.circular(99),
+          ),
+          // The hint is the same Text the decorator would build from a
+          // hint text (style, one line, ellipsis), but as a widget of its
+          // own only it rebuilds when the sync status changes.
+          hint: _SyncStatusBuilder(
+            client: client,
+            builder: (context, status, hide) => Text(
+              hide
                   ? L10n.of(context).searchChatsRooms
                   : status.calcLocalizedString(context),
-              hintStyle: TextStyle(
-                color: theme.colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.normal,
+              style: theme.textTheme.bodyLarge!.merge(
+                TextStyle(
+                  color: theme.colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.normal,
+                ),
               ),
-
-              prefixIcon: hide
-                  ? controller.isSearchMode
-                        ? IconButton(
-                            tooltip: L10n.of(context).cancel,
-                            icon: const Icon(Icons.close_outlined),
-                            onPressed: controller.cancelSearch,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.start,
+              maxLines: 1,
+            ),
+          ),
+          prefixIcon: _SyncStatusBuilder(
+            client: client,
+            builder: (context, status, hide) => hide
+                ? controller.isSearchMode
+                      ? IconButton(
+                          tooltip: L10n.of(context).cancel,
+                          icon: const Icon(Icons.close_outlined),
+                          onPressed: controller.cancelSearch,
+                          color: theme.colorScheme.onPrimaryContainer,
+                        )
+                      : isColumnMode ||
+                            (controller.spaces.isEmpty &&
+                                !AppSettings.displayNavigationRail.value)
+                      ? IconButton(
+                          tooltip: L10n.of(context).search,
+                          onPressed: controller.startSearch,
+                          icon: Icon(
+                            Icons.search_outlined,
                             color: theme.colorScheme.onPrimaryContainer,
-                          )
-                        : isColumnMode ||
-                              (controller.spaces.isEmpty &&
-                                  !AppSettings.displayNavigationRail.value)
-                        ? IconButton(
-                            tooltip: L10n.of(context).search,
-                            onPressed: controller.startSearch,
-                            icon: Icon(
-                              Icons.search_outlined,
-                              color: theme.colorScheme.onPrimaryContainer,
-                            ),
-                          )
-                        : IconButton(
-                            tooltip: L10n.of(context).displayNavigationRail,
-                            onPressed: controller.openNavrail,
-                            icon: Icon(
-                              Icons.menu,
-                              color: theme.colorScheme.onPrimaryContainer,
-                            ),
-                          )
-                  : SizedBox(
-                      width: 8,
-                      height: 8,
-                      child: Center(
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                          value: status.progress,
-                        ),
+                          ),
+                        )
+                      : IconButton(
+                          tooltip: L10n.of(context).displayNavigationRail,
+                          onPressed: controller.openNavrail,
+                          icon: Icon(
+                            Icons.menu,
+                            color: theme.colorScheme.onPrimaryContainer,
+                          ),
+                        )
+                : SizedBox(
+                    width: 8,
+                    height: 8,
+                    child: Center(
+                      child: CircularProgressIndicator.adaptive(
+                        strokeWidth: 2,
+                        value: status.progress,
                       ),
                     ),
-              suffixIcon: controller.isSearchMode && globalSearch
-                  ? controller.isSearching
-                        ? const Padding(
-                            padding: EdgeInsets.symmetric(
-                              vertical: 10.0,
-                              horizontal: 12,
-                            ),
-                            child: SizedBox.square(
-                              dimension: 24,
-                              child: CircularProgressIndicator.adaptive(
-                                strokeWidth: 2,
-                              ),
-                            ),
-                          )
-                        : TextButton.icon(
-                            onPressed: controller.setServer,
-                            style: TextButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(99),
-                              ),
-                              textStyle: const TextStyle(fontSize: 12),
-                            ),
-                            icon: const Icon(Icons.edit_outlined, size: 16),
-                            label: Text(
-                              controller.searchServer ??
-                                  Matrix.of(context).client.homeserver!.host,
-                              maxLines: 2,
-                            ),
-                          )
-                  : SizedBox(width: 0, child: ClientChooserButton(controller)),
-            ),
-          );
-        },
+                  ),
+          ),
+          suffixIcon: controller.isSearchMode && globalSearch
+              ? controller.isSearching
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(
+                          vertical: 10.0,
+                          horizontal: 12,
+                        ),
+                        child: SizedBox.square(
+                          dimension: 24,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      )
+                    : TextButton.icon(
+                        onPressed: controller.setServer,
+                        style: TextButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
+                        icon: const Icon(Icons.edit_outlined, size: 16),
+                        label: Text(
+                          controller.searchServer ??
+                              Matrix.of(context).client.homeserver!.host,
+                          maxLines: 2,
+                        ),
+                      )
+              : SizedBox(width: 0, child: ClientChooserButton(controller)),
+        ),
       ),
     );
   }
@@ -153,15 +156,25 @@ class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(56);
 }
 
-/// Rebuilds [builder] when a sync status update changes something the search
-/// field shows.
+/// Builds a part of the search field that shows the sync status: the hint
+/// and the leading icon.
 ///
 /// The client reports several status updates per sync loop, and most leave
 /// the field as it was once the first sync is done. Each update is reduced to
-/// the inputs the field reads, and only a different result rebuilds it.
+/// the inputs these parts read, and only a different result rebuilds them.
+/// The text field itself is outside the builder, so a status change never
+/// rebuilds it.
 class _SyncStatusBuilder extends StatefulWidget {
   final Client client;
-  final WidgetBuilder builder;
+
+  /// Gets the current status and whether it is hidden, which it is once the
+  /// client has synced and while no error is reported.
+  final Widget Function(
+    BuildContext context,
+    SyncStatusUpdate status,
+    bool hide,
+  )
+  builder;
 
   const _SyncStatusBuilder({required this.client, required this.builder});
 
@@ -173,24 +186,29 @@ class _SyncStatusBuilderState extends State<_SyncStatusBuilder> {
   StreamSubscription<SyncStatusUpdate>? _subscription;
   Object? _shown;
 
-  /// Everything the search field takes from the sync state: whether the
+  SyncStatusUpdate get _status =>
+      widget.client.onSyncStatus.value ??
+      const SyncStatusUpdate(SyncStatus.waitingForResponse);
+
+  bool _hide(SyncStatusUpdate status) {
+    final client = widget.client;
+    return client.onSync.value != null &&
+        status.status != SyncStatus.error &&
+        client.prevBatch != null;
+  }
+
+  /// Everything the built parts take from the sync state: whether the
   /// status is hidden, the status text and progress while it is not, and
   /// whether there are spaces, which picks the leading button.
   Object? _displayedState() {
-    final client = widget.client;
-    final status =
-        client.onSyncStatus.value ??
-        const SyncStatusUpdate(SyncStatus.waitingForResponse);
-    final hide =
-        client.onSync.value != null &&
-        status.status != SyncStatus.error &&
-        client.prevBatch != null;
+    final status = _status;
+    final hide = _hide(status);
     return (
       hide,
       hide ? null : status.status,
       hide ? null : status.error?.exception,
       hide ? null : status.progress,
-      client.rooms.any((room) => room.isSpace),
+      widget.client.rooms.any((room) => room.isSpace),
     );
   }
 
@@ -228,6 +246,7 @@ class _SyncStatusBuilderState extends State<_SyncStatusBuilder> {
     // A rebuild from the parent can follow changes no status update
     // reported, so start comparing from what is about to be shown.
     _shown = _displayedState();
-    return widget.builder(context);
+    final status = _status;
+    return widget.builder(context, status, _hide(status));
   }
 }

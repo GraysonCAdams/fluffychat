@@ -44,10 +44,6 @@ class ChatInputRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final textMessageOnly =
-        controller.sendController.text.isNotEmpty ||
-        controller.replyEvent != null ||
-        controller.editEvent != null;
 
     if (!controller.room.otherPartyCanReceiveMessages) {
       return Center(
@@ -150,14 +146,26 @@ class ChatInputRow extends StatelessWidget {
                 ]
               : <Widget>[
                   const SizedBox(width: 2),
-                  AnimatedContainer(
-                    duration: FluffyThemes.animationDuration,
-                    curve: FluffyThemes.animationCurve,
-                    width: textMessageOnly ? 0 : 44,
-                    height: height,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(),
-                    clipBehavior: Clip.hardEdge,
+                  // Hides once there is text, which the chat does not
+                  // rebuild for (see ChatController.inputTextIsEmpty).
+                  ValueListenableBuilder(
+                    valueListenable: controller.inputTextIsEmpty,
+                    builder: (context, _, child) {
+                      final textMessageOnly =
+                          controller.sendController.text.isNotEmpty ||
+                          controller.replyEvent != null ||
+                          controller.editEvent != null;
+                      return AnimatedContainer(
+                        duration: FluffyThemes.animationDuration,
+                        curve: FluffyThemes.animationCurve,
+                        width: textMessageOnly ? 0 : 44,
+                        height: height,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(),
+                        clipBehavior: Clip.hardEdge,
+                        child: child,
+                      );
+                    },
                     child: IconButton(
                       tooltip: L10n.of(context).addAttachment,
                       icon: Icon(
@@ -317,6 +325,10 @@ class _ChatAccountPicker extends StatelessWidget {
 /// The mic and send button, a circle beside the composer's pill as in
 /// Google Messages. Long-pressing the mic records a voice message through
 /// [recordingViewModel], which the input row shares to show the recorder.
+///
+/// The mic turns into the send button once there is text, which the chat
+/// does not rebuild for, so this listens to
+/// [ChatController.inputTextIsEmpty] itself.
 class ChatSendButton extends StatelessWidget {
   final ChatController controller;
   final RecordingViewModelState recordingViewModel;
@@ -324,7 +336,12 @@ class ChatSendButton extends StatelessWidget {
   const ChatSendButton(this.controller, this.recordingViewModel, {super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: controller.inputTextIsEmpty,
+    builder: (context, _, _) => _build(context),
+  );
+
+  Widget _build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
       height: ChatInputRow.height,

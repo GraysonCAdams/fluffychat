@@ -52,6 +52,40 @@ class SettingsHomeserverController extends State<SettingsHomeserver> {
     return (name: name, version: version, federationBaseUrl: federationBaseUrl);
   }
 
+  Client? _futuresClient;
+  late Future<GetWellknownSupportResponse> _wellknownSupport;
+  late Future<({String name, String version, Uri federationBaseUrl})>
+  _serverInfo;
+  late Future<DiscoveryInformation> _wellknown;
+
+  /// Starts the requests the page shows, once per client. Started from
+  /// build, every rebuild of the page would send them again and reset the
+  /// FutureBuilders to their loading state.
+  void _ensureFutures() {
+    final client = Matrix.of(context).client;
+    if (identical(client, _futuresClient)) return;
+    _futuresClient = client;
+    _wellknownSupport = client.getWellknownSupport();
+    _serverInfo = fetchServerInfo();
+    _wellknown = client.getWellknown();
+  }
+
+  Future<GetWellknownSupportResponse> get wellknownSupportFuture {
+    _ensureFutures();
+    return _wellknownSupport;
+  }
+
+  Future<({String name, String version, Uri federationBaseUrl})>
+  get serverInfoFuture {
+    _ensureFutures();
+    return _serverInfo;
+  }
+
+  Future<DiscoveryInformation> get wellknownFuture {
+    _ensureFutures();
+    return _wellknown;
+  }
+
   @override
   Widget build(BuildContext context) => SettingsHomeserverView(this);
 }

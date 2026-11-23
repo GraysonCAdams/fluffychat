@@ -29,13 +29,7 @@ class SettingsIgnoreListView extends StatelessWidget {
       body: MaxWidthBody(
         withScrolling: false,
         child: StreamBuilder(
-          stream: client.onSync.stream.where(
-            (syncUpdate) =>
-                syncUpdate.accountData?.any(
-                  (accountData) => accountData.type == 'm.ignored_user_list',
-                ) ??
-                false,
-          ),
+          stream: controller.ignoreListUpdates,
           builder: (context, asyncSnapshot) {
             if (client.prevBatch == null) {
               return const Center(child: CircularProgressIndicator.adaptive());

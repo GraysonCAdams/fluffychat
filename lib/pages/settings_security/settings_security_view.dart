@@ -14,7 +14,6 @@ import 'package:fluffychat/widgets/layouts/max_width_body.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/settings_switch_list_tile.dart';
 import 'package:go_router/go_router.dart';
-import 'package:local_auth/local_auth.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -42,9 +41,7 @@ class SettingsSecurityView extends StatelessWidget {
         iconColor: theme.colorScheme.onSurface,
         child: MaxWidthBody(
           child: FutureBuilder(
-            future: Matrix.of(
-              context,
-            ).client.getCapabilities().timeout(const Duration(seconds: 10)),
+            future: controller.capabilitiesFuture,
             builder: (context, snapshot) {
               final capabilities = snapshot.data;
               final error = snapshot.error;
@@ -117,7 +114,7 @@ class SettingsSecurityView extends StatelessWidget {
                     ),
                     if (AppLock.of(context).isActive) ...[
                       FutureBuilder(
-                        future: LocalAuthentication().canCheckBiometrics,
+                        future: controller.canCheckBiometricsFuture,
                         builder: (context, snapshot) {
                           if (snapshot.data != true) return SizedBox.shrink();
                           return SwitchListTile.adaptive(

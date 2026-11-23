@@ -15,6 +15,7 @@ import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
+import 'package:unifiedpush/unifiedpush.dart';
 
 import '../../widgets/matrix.dart';
 import 'settings_notifications_view.dart';
@@ -62,6 +63,25 @@ class SettingsNotificationsController extends State<SettingsNotifications> {
   }
 
   Future<List<Pusher>?>? pusherFuture;
+
+  /// Syncs that change the push rules. Created once: a StreamBuilder handed
+  /// a stream made in build subscribes again on every rebuild of the page.
+  late final Stream<SyncUpdate> pushRuleUpdates = Matrix.of(context)
+      .client
+      .onSync
+      .stream
+      .where(
+        (syncUpdate) =>
+            syncUpdate.accountData?.any(
+              (accountData) => accountData.type == 'm.push_rules',
+            ) ??
+            false,
+      );
+
+  /// The installed UnifiedPush distributors, asked for once per page
+  /// instead of on every rebuild of the push rules section.
+  late final Future<List<String>> unifiedPushDistributors =
+      UnifiedPush.getDistributors();
 
   Future<void> togglePushRule(PushRuleKind kind, PushRule pushRule) async {
     setState(() {
