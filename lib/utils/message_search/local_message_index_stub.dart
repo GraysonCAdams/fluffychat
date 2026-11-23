@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:flutter/foundation.dart';
 import 'package:matrix/matrix.dart';
 
 import 'index_operation.dart';
@@ -25,6 +26,9 @@ class LocalMessageIndex {
   /// Where the index of [client] is stored, or null when it has none.
   static String? pathFor(Client client) => null;
 
+  @visibleForTesting
+  static int baseId(String eventId, int timestamp) => 0;
+
   Future<void> apply(List<IndexOperation> operations, {int? watermark}) async {}
 
   Future<MessageSearchPage> search(
@@ -41,6 +45,8 @@ class LocalMessageIndex {
 
   Future<LocalMessageIndexStats> stats() async =>
       const LocalMessageIndexStats(messages: 0, bytes: 0);
+
+  Future<void> compact() async {}
 
   Future<void> clear() async {}
 

@@ -21,7 +21,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:fluffychat/utils/message_search/local_message_index_io.dart';
+import 'package:fluffychat/utils/message_search/local_message_index.dart';
 import 'package:fluffychat/utils/message_search/search_query.dart';
 import 'package:fluffychat/utils/message_search/stored_event_scanner.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -148,8 +148,14 @@ void main() {
         'Index size: ${stats.bytes ~/ 1024} KiB '
         '(${(100 * stats.bytes / sdkBytes).round()}% of the SDK database)',
       );
+      final scanner = StoredEventScanner(sdk, index);
       print(
-        'Run with nothing new: ${await median(() => StoredEventScanner(sdk, index).catchUp())}',
+        'Run with nothing new, as before a search: '
+        '${await median(() => scanner.catchUp(rereadRecent: false))}',
+      );
+      print(
+        'Run with nothing new, as on app start: '
+        '${await median(scanner.catchUp)}',
       );
 
       Future<int> search(String text) async =>

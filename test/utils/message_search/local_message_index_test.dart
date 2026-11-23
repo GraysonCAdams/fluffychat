@@ -10,7 +10,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fluffychat/utils/message_search/index_operation.dart';
-import 'package:fluffychat/utils/message_search/local_message_index_io.dart';
+import 'package:fluffychat/utils/message_search/local_message_index.dart';
 import 'package:fluffychat/utils/message_search/search_query.dart';
 import 'package:flutter_test/flutter_test.dart';
 

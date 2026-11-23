@@ -12,6 +12,7 @@ Map<String, Object?> event({
   Object? content = const {'msgtype': 'm.text', 'body': 'Dinner with Naveen'},
   Map<String, Object?>? unsigned,
   String? redacts,
+  int status = 2,
 }) => {
   'type': type,
   'event_id': eventId,
@@ -21,7 +22,7 @@ Map<String, Object?> event({
   'content': content,
   'unsigned': ?unsigned,
   'redacts': ?redacts,
-  'status': 2,
+  'status': status,
 };
 
 void main() {
@@ -113,8 +114,17 @@ void main() {
       isNull,
     );
     expect(IndexOperation.fromEventJson(event(type: 'm.reaction')), isNull);
-    // Still sending: stored under a transaction ID.
-    expect(IndexOperation.fromEventJson(event(eventId: 'txn123')), isNull);
+    // Still sending, and failed to send: stored under a transaction ID.
+    expect(
+      IndexOperation.fromEventJson(event(eventId: 'txn123', status: 0)),
+      isNull,
+    );
+    expect(
+      IndexOperation.fromEventJson(event(eventId: 'txn123', status: -1)),
+      isNull,
+    );
+    // Sent, but not yet seen in a sync.
+    expect(IndexOperation.fromEventJson(event(status: 1)), isA<IndexMessage>());
     expect(
       IndexOperation.fromEventJson(event(content: {'msgtype': 'm.text'})),
       isNull,

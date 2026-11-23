@@ -20,6 +20,7 @@ sealed class IndexOperation {
     required String? senderId,
     required int? timestamp,
     required String? body,
+    int? status,
     String? redacts,
     bool isRedacted = false,
     String? relationType,
@@ -29,9 +30,10 @@ sealed class IndexOperation {
     if (type == 'm.room.redaction') {
       return redacts == null ? null : RemoveMessage(redacts);
     }
-    // Events still waiting for their server ID are stored under a transaction
-    // ID. They show up again under the real ID once sent.
-    if (eventId == null || !eventId.startsWith(r'$')) return null;
+    if (eventId == null) return null;
+    // A message that is still being sent, or failed to send, is stored under
+    // a transaction ID. It shows up again under its real ID once sent.
+    if (status != null && status < _statusSent) return null;
     if (isRedacted) return RemoveMessage(eventId);
     // An encrypted event that could not be decrypted keeps the type
     // m.room.encrypted and is skipped here like every other non-message.
@@ -77,6 +79,7 @@ sealed class IndexOperation {
           ? json['origin_server_ts']! as int
           : null,
       body: content is Map ? _string(content['body']) : null,
+      status: json['status'] is int ? json['status']! as int : null,
       redacts: _string(json['redacts']),
       isRedacted: unsigned is Map && unsigned['redacted_because'] != null,
       relationType: relation is Map ? _string(relation['rel_type']) : null,
@@ -88,6 +91,9 @@ sealed class IndexOperation {
   /// Event content is whatever the sender put there, so a field that should
   /// be text may hold anything.
   static String? _string(Object? value) => value is String ? value : null;
+
+  /// The SDK's `EventStatus.sent`. Lower values are `sending` and `error`.
+  static const _statusSent = 1;
 
   /// A single pasted log file should not take megabytes of index. Text past
   /// this length is not searchable.

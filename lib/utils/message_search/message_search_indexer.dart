@@ -62,7 +62,7 @@ class MessageSearchIndexer {
             .where((state) => state == LoginState.loggedOut)
             .listen((_) => _removeIndex()),
       );
-    unawaited(catchUp());
+    unawaited(catchUp(rereadRecent: true));
   }
 
   /// The index, or null on platforms and accounts that have none.
@@ -117,14 +117,16 @@ class MessageSearchIndexer {
   });
 
   /// Indexes what the SDK database holds beyond what is indexed already.
-  /// Calls made while a run is active share that run.
-  Future<void> catchUp() => _catchUp ??= _runCatchUp().whenComplete(() {
-    _catchUp = null;
-  });
+  /// Calls made while a run is active share that run. [rereadRecent] is
+  /// explained at [StoredEventScanner.catchUp].
+  Future<void> catchUp({bool rereadRecent = false}) =>
+      _catchUp ??= _runCatchUp(rereadRecent).whenComplete(() {
+        _catchUp = null;
+      });
 
   bool get isCatchingUp => _catchUp != null;
 
-  Future<void> _runCatchUp() async {
+  Future<void> _runCatchUp(bool rereadRecent) async {
     final database = client.database;
     final sdkDatabase = database is MatrixSdkDatabase
         ? database.database
@@ -135,8 +137,11 @@ class MessageSearchIndexer {
       foundNew = await StoredEventScanner(
         sdkDatabase,
         index,
-      ).catchUp(isCancelled: () => _stopped);
-      await _forgetLeftRooms(index);
+      ).catchUp(rereadRecent: rereadRecent, isCancelled: () => _stopped);
+      // Reading the room list of the index is a scan of its own, so it
+      // shares the once-per-start schedule.
+      if (rereadRecent) await _forgetLeftRooms(index);
+      if (foundNew || rereadRecent) await index.compact();
     });
     if (foundNew && !_stopped) _changes.notify();
   }
@@ -161,7 +166,10 @@ class MessageSearchIndexer {
   Future<void> rebuild() async {
     _pending.clear();
     await _serialized((index) => index.clear());
-    await catchUp();
+    // A run that is already active may have read part of the store before
+    // the index was emptied. Wait it out, then read everything.
+    await _catchUp;
+    await catchUp(rereadRecent: true);
   }
 
   /// Logging out deletes the SDK database. The index holds the same message
@@ -169,6 +177,7 @@ class MessageSearchIndexer {
   Future<void> _removeIndex() async {
     final index = await this.index;
     _stopped = true;
+    _index = Future.value();
     _flushTimer?.cancel();
     _pending.clear();
     for (final subscription in _subscriptions) {

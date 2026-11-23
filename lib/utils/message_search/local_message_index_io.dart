@@ -32,6 +32,7 @@ class LocalMessageIndex {
   final String path;
 
   static const _schemaVersion = 1;
+  static const _walSizeLimit = 1024 * 1024;
 
   /// Opens the index at [path], creating it when missing.
   ///
@@ -56,12 +57,20 @@ class LocalMessageIndex {
           version: _schemaVersion,
           onConfigure: (db) async {
             await helper?.applyPragmaKey(db);
+            // Has to be chosen before the first table exists. It lets
+            // [compact] hand unused pages back to the file system without
+            // rewriting the whole file.
+            await db.rawQuery('PRAGMA auto_vacuum = INCREMENTAL');
             // Message text arrives in many small writes. Write-ahead logging
             // spares each of them a full journal sync, and losing the last
             // few after a crash is harmless because they are indexed again
             // from the SDK database.
             await db.rawQuery('PRAGMA journal_mode = WAL');
             await db.rawQuery('PRAGMA synchronous = NORMAL');
+            // The log file keeps the size of its busiest moment, which after
+            // the first indexing run is several megabytes of nothing. This
+            // cuts it back whenever its content has been moved to the index.
+            await db.rawQuery('PRAGMA journal_size_limit = $_walSizeLimit');
           },
           onCreate: (db, _) => _createSchema(db),
         ),
@@ -86,6 +95,19 @@ class LocalMessageIndex {
 
   static Future<void> _createSchema(Database db) async {
     final batch = db.batch();
+    _addSchema(batch);
+    await batch.commit(noResult: true);
+  }
+
+  static void _addSchema(Batch batch) {
+    // Room and user IDs are long and repeat in every message of a chat. Each
+    // is stored once here and referred to by number, which cuts a typical
+    // message row by a third.
+    batch.execute(
+      'CREATE TABLE names ('
+      'id INTEGER PRIMARY KEY, '
+      'name TEXT NOT NULL UNIQUE)',
+    );
     // `id` orders the rows by time, see [baseId]. `ts` is the timestamp
     // shown to the user. `edit_ts` is the timestamp of the edit `body` comes
     // from, 0 for the original text.
@@ -93,8 +115,8 @@ class LocalMessageIndex {
       'CREATE TABLE messages ('
       'id INTEGER PRIMARY KEY, '
       'event_id TEXT NOT NULL UNIQUE, '
-      'room_id TEXT NOT NULL, '
-      'sender TEXT NOT NULL, '
+      'room INTEGER NOT NULL, '
+      'sender INTEGER NOT NULL, '
       'ts INTEGER NOT NULL, '
       'edit_ts INTEGER NOT NULL DEFAULT 0, '
       'body TEXT NOT NULL)',
@@ -126,10 +148,9 @@ class LocalMessageIndex {
       'INSERT INTO messages_fts(rowid, body) VALUES (new.id, new.body); END',
     );
     batch.execute('CREATE TABLE meta (k TEXT PRIMARY KEY NOT NULL, v TEXT)');
-    await batch.commit(noResult: true);
   }
 
-  static const _slotBits = 21;
+  static const _slotBits = 4;
   static const _maxTimestamp = (1 << 42) - 1;
 
   /// The row ID a message gets when no other row has taken it: its timestamp
@@ -143,7 +164,9 @@ class LocalMessageIndex {
   /// page is the cursor for the next one.
   ///
   /// The hash spreads messages that share a millisecond, which bridges
-  /// produce when they import history.
+  /// produce when they import history. It is kept to a few bits because the
+  /// index stores the distance between the row IDs of consecutive matches,
+  /// and larger row IDs make every one of those entries longer.
   @visibleForTesting
   static int baseId(String eventId, int timestamp) {
     // FNV-1a. The hash only has to spread, and a fixed function keeps row
@@ -163,16 +186,23 @@ class LocalMessageIndex {
   /// comes from the same or a newer edit, so an original that is indexed
   /// after its edit does not bring the old wording back.
   static const _upsert =
-      'INSERT INTO messages (id, event_id, room_id, sender, ts, edit_ts, body) '
+      'INSERT INTO messages (id, event_id, room, sender, ts, edit_ts, body) '
       'VALUES ('
       '(SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM messages WHERE id = ?1) '
       'THEN ?1 ELSE (SELECT min(m.id) + 1 FROM messages m WHERE m.id >= ?1 '
       'AND NOT EXISTS (SELECT 1 FROM messages n WHERE n.id = m.id + 1)) END), '
-      '?2, ?3, ?4, ?5, ?6, ?7) '
+      '?2, (SELECT id FROM names WHERE name = ?3), '
+      '(SELECT id FROM names WHERE name = ?4), ?5, ?6, ?7) '
       'ON CONFLICT (event_id) DO UPDATE SET '
       'body = excluded.body, edit_ts = excluded.edit_ts '
       'WHERE excluded.edit_ts >= messages.edit_ts '
       'AND excluded.body != messages.body';
+
+  static const _addName = 'INSERT OR IGNORE INTO names (name) VALUES (?)';
+
+  /// The room and user IDs known to be in the `names` table, so that only
+  /// the first message of a room or sender has to make sure of it.
+  final Set<String> _storedNames = {};
 
   static const _watermarkKey = 'sdk_events_rowid';
 
@@ -184,9 +214,14 @@ class LocalMessageIndex {
   Future<void> apply(List<IndexOperation> operations, {int? watermark}) async {
     if (operations.isEmpty && watermark == null) return;
     final batch = _db.batch();
+    final newNames = <String>{};
     for (final operation in operations) {
       switch (operation) {
         case IndexMessage():
+          for (final name in [operation.roomId, operation.senderId]) {
+            if (_storedNames.contains(name) || !newNames.add(name)) continue;
+            batch.execute(_addName, [name]);
+          }
           batch.execute(_upsert, [
             baseId(operation.eventId, operation.timestamp),
             operation.eventId,
@@ -211,6 +246,8 @@ class LocalMessageIndex {
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await batch.commit(noResult: true);
+    // Only now is it certain that the names were written.
+    _storedNames.addAll(newNames);
   }
 
   /// The row ID in the SDK's event table up to which stored events have been
@@ -233,10 +270,12 @@ class LocalMessageIndex {
     int limit = 30,
   }) async {
     final rows = await _db.rawQuery(
-      'SELECT id, event_id, room_id, sender, ts, body FROM messages '
-      'WHERE id IN (SELECT rowid FROM messages_fts '
+      'SELECT m.id, m.event_id, r.name AS room_id, s.name AS sender, m.ts, '
+      'm.body FROM messages m '
+      'JOIN names r ON r.id = m.room JOIN names s ON s.id = m.sender '
+      'WHERE m.id IN (SELECT rowid FROM messages_fts '
       'WHERE messages_fts MATCH ? AND rowid < ? '
-      'ORDER BY rowid DESC LIMIT ?) ORDER BY id DESC',
+      'ORDER BY rowid DESC LIMIT ?) ORDER BY m.id DESC',
       [query.ftsMatch, before ?? double.maxFinite.toInt(), limit],
     );
     return MessageSearchPage(
@@ -260,13 +299,29 @@ class LocalMessageIndex {
   /// at most, which does not justify an index on the room that every message
   /// would pay for in file size.
   Future<List<String>> roomIds() async {
-    final rows = await _db.rawQuery('SELECT DISTINCT room_id FROM messages');
-    return [for (final row in rows) row['room_id']! as String];
+    final rows = await _db.rawQuery(
+      'SELECT name FROM names '
+      'WHERE id IN (SELECT DISTINCT room FROM messages)',
+    );
+    return [for (final row in rows) row['name']! as String];
   }
 
   /// Forgets every message of a room, for example after leaving it.
-  Future<void> removeRoom(String roomId) =>
-      _db.delete('messages', where: 'room_id = ?', whereArgs: [roomId]);
+  Future<void> removeRoom(String roomId) => _db.rawDelete(
+    'DELETE FROM messages '
+    'WHERE room = (SELECT id FROM names WHERE name = ?)',
+    [roomId],
+  );
+
+  /// Returns disk space the index no longer needs to the file system.
+  ///
+  /// Filling the index leaves unused pages behind, because FTS5 writes small
+  /// segments first and merges them into larger ones later. After the first
+  /// indexing run they make up a quarter of the file.
+  Future<void> compact() async {
+    await _db.rawQuery('PRAGMA incremental_vacuum');
+    await _db.rawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
+  }
 
   Future<LocalMessageIndexStats> stats() async {
     final rows = await _db.rawQuery('SELECT count(*) AS n FROM messages');
@@ -288,11 +343,14 @@ class LocalMessageIndex {
     // run the FTS triggers once per message.
     batch.execute('DROP TABLE messages_fts');
     batch.execute('DROP TABLE messages');
+    batch.execute('DROP TABLE names');
     batch.execute('DROP TABLE meta');
+    // Created again in the same transaction, so nothing that reads the index
+    // in between finds it without its tables.
+    _addSchema(batch);
     await batch.commit(noResult: true);
-    await _createSchema(_db);
-    await _db.execute('VACUUM');
-    await _db.rawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
+    _storedNames.clear();
+    await compact();
   }
 
   Future<void> close() => _db.close();

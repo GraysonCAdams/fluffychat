@@ -9,7 +9,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fluffychat/utils/message_search/local_message_index_io.dart';
+import 'package:fluffychat/utils/message_search/local_message_index.dart';
 import 'package:fluffychat/utils/message_search/search_query.dart';
 import 'package:fluffychat/utils/message_search/stored_event_scanner.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +25,7 @@ Map<String, Object?> event(
   int ts = 1700000000000,
   Map<String, Object?>? unsigned,
   String? redacts,
+  int status = 2,
 }) => {
   'type': type,
   'event_id': eventId,
@@ -34,7 +35,7 @@ Map<String, Object?> event(
   'content': content ?? {'msgtype': 'm.text', 'body': body ?? 'hello'},
   'unsigned': ?unsigned,
   'redacts': ?redacts,
-  'status': 2,
+  'status': status,
 };
 
 void main() {
@@ -78,7 +79,7 @@ void main() {
     await store(
       event(r'$locked', type: 'm.room.encrypted', content: {'ciphertext': 'x'}),
     );
-    await store(event('txn-still-sending', body: 'Naveen unsent'));
+    await store(event('txn-still-sending', body: 'Naveen unsent', status: 0));
     await store(event(r'$odd', content: {'body': 7}));
 
     expect(await scanner.catchUp(), isTrue);
@@ -143,6 +144,10 @@ void main() {
     await store(event(r'$b', body: 'Naveen says hi'));
     final rows = await sdk.rawQuery('SELECT max(rowid) AS r FROM box_events');
     expect(rows.single['r'], watermark);
+
+    // A run before a search does not look below the watermark.
+    expect(await scanner.catchUp(rereadRecent: false), isFalse);
+    expect(await find('naveen'), isEmpty);
 
     expect(await scanner.catchUp(), isFalse);
     expect(await find('naveen'), [r'$b']);

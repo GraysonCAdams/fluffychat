@@ -27,9 +27,9 @@ class StoredEventScanner {
   /// and one write in sqflite's background isolate, and its result is copied
   /// to the UI isolate. Small steps keep that copy far below a frame, and let
   /// the SDK's own database work run in between.
-  static const stepSize = 400;
+  static const stepSize = 100;
 
-  /// How far below the watermark every run starts again.
+  /// How far below the watermark a run with `rereadRecent` starts.
   ///
   /// The SDK rewrites an event by replacing its row, for example when it
   /// decrypts it later or when it is redacted. SQLite gives the replacement
@@ -39,9 +39,9 @@ class StoredEventScanner {
   /// below the watermark. Reading this many rows again finds those, and
   /// indexing a row twice changes nothing.
   ///
-  /// Events that took the place of more deleted rows than this are missed by
-  /// this run. Those that arrive while the app is running are indexed from
-  /// the event streams regardless.
+  /// Events that took the place of more deleted rows than this are missed.
+  /// Those that arrive while the app is running are indexed from the event
+  /// streams regardless.
   static const overlap = 400;
 
   /// The columns are extracted inside SQLite, so the JSON of an event is
@@ -55,6 +55,7 @@ class StoredEventScanner {
       "json_extract(v, '\$.sender') AS sender, "
       "json_extract(v, '\$.origin_server_ts') AS ts, "
       "json_extract(v, '\$.content.body') AS body, "
+      "json_extract(v, '\$.status') AS status, "
       "json_extract(v, '\$.redacts') AS redacts, "
       "json_extract(v, '\$.unsigned.redacted_because') IS NOT NULL AS redacted, "
       "json_extract(v, '\$.content.\"m.relates_to\".rel_type') AS rel_type, "
@@ -67,17 +68,25 @@ class StoredEventScanner {
   /// Indexes what the SDK stored since the last run.
   ///
   /// Returns true when there were rows above the watermark, which means the
-  /// index may now find messages it could not find before. [isCancelled] is
-  /// asked between steps so a long first run stops when the account goes
-  /// away.
-  Future<bool> catchUp({bool Function()? isCancelled}) async {
+  /// index may now find messages it could not find before.
+  ///
+  /// [rereadRecent] also reads the [overlap] rows below the watermark. That
+  /// is worth doing once per app start, but not before every search, where
+  /// a run that finds nothing new should cost a single small query.
+  ///
+  /// [isCancelled] is asked between steps so a long first run stops when the
+  /// account goes away.
+  Future<bool> catchUp({
+    bool rereadRecent = true,
+    bool Function()? isCancelled,
+  }) async {
     final maxRow = await _maxRowId();
     var watermark = await _index.watermark;
     // Fewer rows than were already read: the SDK emptied its store, as it
     // does on "clear cache". Row IDs start over, so reading does as well.
     if (maxRow < watermark) watermark = 0;
     final hadNewRows = maxRow > watermark;
-    var from = watermark - overlap;
+    var from = rereadRecent ? watermark - overlap : watermark;
     if (from < 0) from = 0;
     while (from < maxRow) {
       if (isCancelled?.call() ?? false) return hadNewRows;
@@ -109,6 +118,7 @@ class StoredEventScanner {
         senderId: _string(row['sender']),
         timestamp: row['ts'] is int ? row['ts']! as int : null,
         body: _string(row['body']),
+        status: row['status'] is int ? row['status']! as int : null,
         redacts: _string(row['redacts']),
         isRedacted: row['redacted'] == 1,
         relationType: _string(row['rel_type']),
