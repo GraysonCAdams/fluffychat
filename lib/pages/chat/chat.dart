@@ -31,6 +31,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/event_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
+import 'package:fluffychat/utils/merged_contacts/merged_timeline.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/ogg_opus_remuxer.dart';
@@ -73,6 +74,14 @@ class ChatPage extends StatelessWidget {
   final Timeline? timeline;
   final String? action;
 
+  /// Set to show a merged contact: all of its rooms in one timeline. Then
+  /// [roomId] is unused.
+  final String? contactId;
+
+  /// The room [eventId] is in, when known, so a merged timeline opens it
+  /// there without asking each room.
+  final String? eventRoomId;
+
   const ChatPage({
     super.key,
     required this.roomId,
@@ -80,10 +89,14 @@ class ChatPage extends StatelessWidget {
     this.shareItems,
     this.timeline,
     this.action,
+    this.contactId,
+    this.eventRoomId,
   });
 
   @override
   Widget build(BuildContext context) {
+    final contactId = this.contactId;
+    if (contactId != null) return _buildMerged(context, contactId);
     final room =
         timeline?.room ?? Matrix.of(context).client.getRoomById(roomId);
     if (room == null) {
@@ -107,14 +120,55 @@ class ChatPage extends StatelessWidget {
       action: action,
     );
   }
+
+  Widget _buildMerged(BuildContext context, String contactId) {
+    final client = Matrix.of(context).client;
+    final store = MergedContactsStore.forClient(client);
+    return ValueListenableBuilder(
+      valueListenable: store.revision,
+      builder: (context, _, _) {
+        final entry = store.contactById(contactId);
+        final contact = entry == null
+            ? null
+            : MergedContact.resolve(client, entry);
+        if (contact == null) {
+          // Until the first sync the contacts may not be known yet.
+          return Scaffold(
+            appBar: AppBar(),
+            body: Center(
+              child: client.prevBatch == null
+                  ? const CircularProgressIndicator.adaptive()
+                  : Text(L10n.of(context).contactWasUnmerged),
+            ),
+          );
+        }
+        return ChatPageWithRoom(
+          // The page stays the same while the contact's default network
+          // changes, which only changes widget.room.
+          key: Key('chat_page_contact_${contactId}_${eventId}_$action'),
+          room: contact.sendViaRoom,
+          contactId: contactId,
+          shareItems: shareItems,
+          eventId: eventId,
+          eventRoomId: eventRoomId,
+          action: action,
+        );
+      },
+    );
+  }
 }
 
 class ChatPageWithRoom extends StatefulWidget {
+  /// The room shown, or for a merged contact its default room.
   final Room room;
   final List<ShareItem>? shareItems;
   final String? eventId;
   final Timeline? timeline;
   final String? action;
+
+  /// Set when this shows a merged contact (see [ChatPage.contactId]).
+  final String? contactId;
+  final String? eventRoomId;
 
   const ChatPageWithRoom({
     super.key,
@@ -123,6 +177,8 @@ class ChatPageWithRoom extends StatefulWidget {
     this.eventId,
     this.timeline,
     this.action,
+    this.contactId,
+    this.eventRoomId,
   });
 
   @override
@@ -131,7 +187,9 @@ class ChatPageWithRoom extends StatefulWidget {
 
 class ChatController extends State<ChatPageWithRoom>
     with WidgetsBindingObserver {
-  Room get room => sendingClient.getRoomById(roomId) ?? widget.room;
+  Room get room => isMerged
+      ? mergedContact?.roomById(roomId) ?? widget.room
+      : sendingClient.getRoomById(roomId) ?? widget.room;
 
   late Client sendingClient;
 
@@ -141,18 +199,70 @@ class ChatController extends State<ChatPageWithRoom>
 
   late final Set<String> bigEmojis;
 
-  late final String readMarkerEventId;
+  /// The event the "new messages" line is drawn at, or empty for none. A
+  /// merged contact's is only known once its timeline has loaded.
+  String readMarkerEventId = '';
 
-  String get roomId => widget.room.id;
+  /// The room new messages go to. For a merged contact that is the target
+  /// network, which the send-via chip and the contact's send mode change, so
+  /// everything reading [room] (encryption, permissions, the composer)
+  /// follows the target.
+  String get roomId => isMerged ? sendRouter.newMessageRoomId : widget.room.id;
 
-  /// The merged contact this chat's room belongs to, if any.
-  MergedContact? get mergedContact =>
-      MergedContact.ofRoom(room.client, room.id);
+  /// Whether this screen shows a merged contact's rooms in one timeline.
+  bool get isMerged => widget.contactId != null;
+
+  (int, MergedContact?)? _mergedContact;
+
+  /// The merged contact shown, or the one the shown room belongs to. Kept
+  /// until the contacts change: [room] asks for it on every read, and
+  /// resolving rooms walks the account's room list.
+  MergedContact? get mergedContact {
+    final client = widget.room.client;
+    final revision = MergedContactsStore.forClient(client).revision.value;
+    final cached = _mergedContact;
+    if (cached != null && cached.$1 == revision) return cached.$2;
+    final contactId = widget.contactId;
+    final MergedContact? contact;
+    if (contactId == null) {
+      contact = MergedContact.ofRoom(client, widget.room.id);
+    } else {
+      final entry = MergedContactsStore.forClient(
+        client,
+      ).contactById(contactId);
+      contact = entry == null ? null : MergedContact.resolve(client, entry);
+    }
+    _mergedContact = (revision, contact);
+    return contact;
+  }
+
+  /// A network picked on the send-via chip for the next message only.
+  String? _oneOffRoomId;
 
   /// Decides where everything sent from this screen goes (see SendRouter).
-  /// Here one room is shown, so new messages go to it; the send-via chip
-  /// switches rooms to send on another network.
-  SendRouter get sendRouter => SendRouter.single(room.id);
+  /// A single room sends everything new to itself. A merged contact sends
+  /// to the one-off pick, else per its send mode.
+  SendRouter get sendRouter {
+    final contact = isMerged ? mergedContact : null;
+    if (contact == null) return SendRouter.single(widget.room.id);
+    return SendRouter.contact(
+      contact.entry,
+      lastReceivedRoomId: contact.lastReceivedRoom?.id,
+      oneOffRoomId: _oneOffRoomId,
+    );
+  }
+
+  /// Where drafts are kept: per contact for a merged contact, so the draft
+  /// survives switching networks.
+  String get _draftKey => isMerged
+      ? 'draft_contact_${widget.contactId}'
+      : 'draft_${widget.room.id}';
+
+  /// A new message left the composer: a network picked for it was for that
+  /// message only.
+  void _afterNewMessage() {
+    if (_oneOffRoomId != null) setState(() => _oneOffRoomId = null);
+  }
 
   /// The room of the thread being shown, found from its root message.
   String? get activeThreadRoomId {
@@ -189,9 +299,16 @@ class ChatController extends State<ChatPageWithRoom>
   /// even when the composer's target has moved on.
   Room? _typingRoom;
 
-  /// The send-via chip picked [roomId] for the next message. With one room
-  /// shown, that means showing the contact's other room.
-  void pickSendViaRoom(String roomId) => context.go('/rooms/$roomId');
+  /// The send-via chip picked [roomId] for the next message. A merged
+  /// contact just changes the target; a single room shown on its own
+  /// switches to the contact's other room.
+  void pickSendViaRoom(String roomId) {
+    if (isMerged) {
+      setState(() => _oneOffRoomId = roomId);
+      return;
+    }
+    context.go('/rooms/$roomId?single=1');
+  }
 
   (int, String, List<MergedNetwork>)? _mergedNetworks;
 
@@ -487,7 +604,7 @@ class ChatController extends State<ChatPageWithRoom>
 
   void _loadDraft() {
     final prefs = Matrix.of(context).store;
-    final draft = prefs.getString('draft_$roomId');
+    final draft = prefs.getString(_draftKey);
     if (draft != null && draft.isNotEmpty) {
       sendController.text = draft;
     }
@@ -697,9 +814,11 @@ class ChatController extends State<ChatPageWithRoom>
         room.lastEvent?.relationshipType == RelationshipTypes.thread
         ? room.lastEvent?.relationshipEventId
         : null;
-    readMarkerEventId = room.hasNewMessages
-        ? lastEventThreadId ?? room.fullyRead
-        : '';
+    if (!isMerged) {
+      readMarkerEventId = room.hasNewMessages
+          ? lastEventThreadId ?? room.fullyRead
+          : '';
+    }
     WidgetsBinding.instance.addObserver(this);
     _tryLoadTimeline();
   }
@@ -743,6 +862,16 @@ class ChatController extends State<ChatPageWithRoom>
     loadTimelineFuture = _getTimeline();
     try {
       await loadTimelineFuture;
+      final timeline = this.timeline;
+      if (timeline is MergedTimeline) {
+        final contact = mergedContact;
+        readMarkerEventId =
+            timeline.readMarkerEventId({
+              for (final room in contact?.rooms ?? const <Room>[])
+                if (room.hasNewMessages) room.id: room.fullyRead,
+            }) ??
+            '';
+      }
       // We launched the chat with a given initial event ID:
       if (initialEventId != null) {
         scrollToEventId(initialEventId, openThread: true);
@@ -825,26 +954,41 @@ class ChatController extends State<ChatPageWithRoom>
             eventContextId.sigil != '\$')) {
       eventContextId = null;
     }
+    final contact = isMerged ? mergedContact : null;
     try {
       timeline?.cancelSubscriptions();
       timeline =
           widget.timeline ??
-          await room.getTimeline(
-            onUpdate: updateView,
-            onInsert: _insert,
-            eventContextId: eventContextId,
-          );
+          (contact != null
+              ? await MergedTimeline.open(
+                  contact.rooms,
+                  onUpdate: updateView,
+                  onInsert: _insert,
+                  eventContextId: eventContextId,
+                  eventContextRoomId: eventContextId == widget.eventId
+                      ? widget.eventRoomId
+                      : null,
+                )
+              : await room.getTimeline(
+                  onUpdate: updateView,
+                  onInsert: _insert,
+                  eventContextId: eventContextId,
+                ));
     } catch (e, s) {
       Logs().w('Unable to load timeline on event ID $eventContextId', e, s);
       if (!mounted) return;
-      timeline = await room.getTimeline(onUpdate: updateView);
+      timeline = contact != null
+          ? await MergedTimeline.open(contact.rooms, onUpdate: updateView)
+          : await room.getTimeline(onUpdate: updateView);
       if (!mounted) return;
       if (e is TimeoutException || e is IOException) {
         _showScrollUpMaterialBanner(eventContextId!);
       }
     }
     timeline!.requestKeys(onlineKeyBackupOnly: false);
-    if (room.markedUnread) room.markUnread(false);
+    for (final room in contact?.rooms ?? [room]) {
+      if (room.markedUnread) room.markUnread(false);
+    }
 
     return;
   }
@@ -866,6 +1010,12 @@ class ChatController extends State<ChatPageWithRoom>
       return;
     }
 
+    final timeline = this.timeline;
+    if (timeline is MergedTimeline) {
+      _setMergedReadMarkers(timeline, eventId);
+      return;
+    }
+
     final setOnLatestEvent = eventId == null;
 
     // We only set read marker if we are at the bottom
@@ -875,7 +1025,6 @@ class ChatController extends State<ChatPageWithRoom>
     if (scrollUpBannerEventId != null) return;
 
     // We do not set read marker if timeline is empty
-    final timeline = this.timeline;
     if (timeline == null || timeline.events.isEmpty) return;
 
     // Do not set read marker on rtc notification while call is active. This
@@ -936,6 +1085,50 @@ class ChatController extends State<ChatPageWithRoom>
         .whenComplete(() {
           if (_setReadMarkerEventId == eventId) _setReadMarkerEventId = null;
         });
+  }
+
+  /// Read markers in progress per room of a merged contact.
+  final Map<String, String> _mergedReadMarkers = {};
+
+  /// A merged contact's rooms are each marked read up to their own newest
+  /// shown event (or [eventId], in its own room only). Same conditions as
+  /// for one room: at the bottom, no jump banner, only rooms with something
+  /// unread.
+  void _setMergedReadMarkers(MergedTimeline timeline, String? eventId) {
+    if (eventId == null && _scrolledUp) return;
+    if (scrollUpBannerEventId != null) return;
+    final targets = <Timeline, Event>{};
+    if (eventId != null) {
+      final event = timeline.events.firstWhereOrNull(
+        (e) => e.eventId == eventId,
+      );
+      final child = event == null ? null : timeline.childOf(event);
+      if (event != null && child != null) targets[child] = event;
+    } else {
+      targets.addAll(timeline.newestShownPerRoom);
+    }
+    for (final MapEntry(key: child, value: event) in targets.entries) {
+      final room = child.room;
+      if (!event.eventId.isValidMatrixIdStrict()) continue;
+      if (eventId == null &&
+          !room.hasNewMessages &&
+          room.notificationCount == 0) {
+        continue;
+      }
+      if (room.fullyRead == event.eventId) continue;
+      if (_mergedReadMarkers[room.id] == event.eventId) continue;
+      _mergedReadMarkers[room.id] = event.eventId;
+      child
+          .setReadMarker(
+            eventId: event.eventId,
+            public: AppSettings.sendPublicReadReceipts.value,
+          )
+          .whenComplete(() {
+            if (_mergedReadMarkers[room.id] == event.eventId) {
+              _mergedReadMarkers.remove(room.id);
+            }
+          });
+    }
   }
 
   @override
@@ -1054,7 +1247,7 @@ class ChatController extends State<ChatPageWithRoom>
       future: () => composerRoom.scheduleTextMessage(store, text, sendAt),
     );
     if (result.error != null || !mounted) return;
-    store.remove('draft_$roomId');
+    store.remove(_draftKey);
     setState(() {
       sendController.clear();
       inputTextIsEmpty.value = true;
@@ -1145,7 +1338,7 @@ class ChatController extends State<ChatPageWithRoom>
     if (sendController.text.trim().isEmpty) return;
     _storeInputTimeoutTimer?.cancel();
     final prefs = Matrix.of(context).store;
-    prefs.remove('draft_$roomId');
+    prefs.remove(_draftKey);
     var parseCommands = true;
 
     final commandMatch = RegExp(r'^\/(\w+)').firstMatch(sendController.text);
@@ -1189,6 +1382,7 @@ class ChatController extends State<ChatPageWithRoom>
       editEvent = null;
       pendingText = '';
     });
+    _afterNewMessage();
   }
 
   Future<void> sendFileAction({FileType type = FileType.any}) async {
@@ -1445,6 +1639,7 @@ class ChatController extends State<ChatPageWithRoom>
     setState(() {
       replyEvent = null;
     });
+    _afterNewMessage();
     return;
   }
 
@@ -2104,15 +2299,20 @@ class ChatController extends State<ChatPageWithRoom>
 
   Stream<bool>? _roomStateUpdates;
   Client? _roomStateUpdatesClient;
+  String? _roomStateUpdatesRoomId;
 
   /// Rate limited state updates for this room, rebuilt only when the
-  /// sending client changes. A stream created in [ChatView.build] would be
-  /// resubscribed on every rebuild of the chat.
+  /// sending client or the room (a merged contact's target) changes. A
+  /// stream created in [ChatView.build] would be resubscribed on every
+  /// rebuild of the chat.
   Stream<bool> get roomStateUpdates {
     final client = room.client;
-    if (_roomStateUpdates == null || _roomStateUpdatesClient != client) {
+    final roomId = room.id;
+    if (_roomStateUpdates == null ||
+        _roomStateUpdatesClient != client ||
+        _roomStateUpdatesRoomId != roomId) {
       _roomStateUpdatesClient = client;
-      final roomId = room.id;
+      _roomStateUpdatesRoomId = roomId;
       _roomStateUpdates = client.onRoomState.stream
           .where((update) => update.roomId == roomId)
           .rateLimit(const Duration(seconds: 1));
@@ -2126,7 +2326,7 @@ class ChatController extends State<ChatPageWithRoom>
     _storeInputTimeoutTimer?.cancel();
     _storeInputTimeoutTimer = Timer(_storeInputTimeout, () async {
       final prefs = Matrix.of(context).store;
-      await prefs.setString('draft_$roomId', text);
+      await prefs.setString(_draftKey, text);
     });
     if (text.endsWith(' ') && Matrix.of(context).hasComplexBundles) {
       final clients = currentRoomBundle;

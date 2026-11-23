@@ -7,7 +7,7 @@ Temporary file for resuming this branch; removed in the final commit.
 - Flutter wrapper for this worktree: scratchpad/bin/wflm (runs C:\src\wfl-merged.bat, which cd's here)
 
 ## Phase
-3 (merged timeline): next
+4 (suggestions and notification grouping): next
 
 ## Done
 - phase 1 committed: model/store/merged_contact + tests, chat list collapse (MergedChatList), tile/pins/unread chip, long press menu, merge picker, manage sheet, app bar network switcher
@@ -15,8 +15,11 @@ Temporary file for resuming this branch; removed in the final commit.
 
 - phase 2 committed: SendRouter (+ tests per action), RoutedEvent extension for message widgets, SendViaChip (+ widget tests), ChatController composerTarget/composerRoom/roomForEvent, all send sites routed
 
+- fix commit: tile opened /rooms/contact before that route existed (opened send_via room until phase 3)
+- phase 3 committed: MergedOrder (generic, tested), MergedTimeline implements Timeline (+ tests), /rooms/contact/:id + redirect (single=1 escape), controller merged mode (room = target, one-off pick, per-room read markers, draft per contact), app bar subtitle, per-message network badge
+
 ## Next
-- phase 3: MergedTimeline (implements Timeline), /rooms/contact/:id route + redirect, merged ChatController mode, read markers per room, draft per contact, per-message network badge
+- phase 4: settings page (contacts, suggestions, switch), suggestion banner in chat list, identifier collection (user id, profile field fetch + cache, display name) off the hot path, notification grouping by contact (Android shortcut/group, active-chat suppression for contact route)
 
 ## Notes
 - flutter commands regenerate linux/macos/windows plugin registrants: never stage them

@@ -11,11 +11,13 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/chat/encryption_info.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
+import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/pages/chat/message_context_menu.dart';
 import 'package:fluffychat/pages/chat/seen_by_row.dart';
 import 'package:fluffychat/pages/chat/typing_indicators.dart';
 import 'package:fluffychat/utils/account_config.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
+import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/mxc_image_viewer.dart';
@@ -113,6 +115,17 @@ class ChatEventList extends StatelessWidget {
     for (var i = 0; i < events.length; i++) {
       thisEventsKeyMap[events[i].transactionId ?? events[i].eventId] = i;
     }
+
+    // In a merged contact's chat a message names its network when it is on
+    // another network than the message before it.
+    final networks = controller.isMerged
+        ? {
+            for (final network
+                in controller.mergedNetworks(MatrixLocals(L10n.of(context))) ??
+                    const <MergedNetwork>[])
+              network.room.id: network,
+          }
+        : const <String, MergedNetwork>{};
 
     final hasWallpaper =
         controller.room.client.applicationAccountConfig.wallpaperUrl != null;
@@ -322,6 +335,11 @@ class ChatEventList extends StatelessWidget {
                             scrollController: controller.scrollController,
                             colors: colors,
                             isCollapsed: isCollapsed,
+                            networkBadge:
+                                networks.isEmpty ||
+                                    nextEvent?.roomId == event.roomId
+                                ? null
+                                : _NetworkBadge(networks[event.roomId]),
                             enterThread: controller.activeThreadId == null
                                 ? controller.enterThread
                                 : null,
@@ -369,4 +387,30 @@ class _ChatTextScale extends StatelessWidget {
     ).copyWith(textScaler: TextScaler.linear(AppSettings.fontSizeFactor.value)),
     child: child,
   );
+}
+
+/// The network a message in a merged contact's chat came over: its icon and
+/// name, small, beside the message's time.
+class _NetworkBadge extends StatelessWidget {
+  final MergedNetwork? network;
+
+  const _NetworkBadge(this.network);
+
+  @override
+  Widget build(BuildContext context) {
+    final network = this.network;
+    if (network == null) return const SizedBox.shrink();
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 3,
+        children: [
+          network.icon(size: 12),
+          Text(network.name, style: TextStyle(fontSize: 11, color: color)),
+        ],
+      ),
+    );
+  }
 }

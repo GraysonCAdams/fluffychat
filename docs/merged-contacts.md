@@ -107,17 +107,35 @@ Wraps one SDK `Timeline` per room.
   has loaded back to its timestamp, or has no more history. That boundary
   ("safe horizon") is the max over rooms of their oldest loaded timestamp.
   Events older than the horizon stay hidden until the other rooms catch up.
+  The bound is strict: events at exactly the horizon wait too, since a room
+  can hold more events with that same timestamp. A room that keeps
+  answering history requests with nothing new (three times in a row) while
+  claiming to have more stops holding the horizon, so it cannot hide the
+  others' history for good.
 - `canRequestHistory`: true while any room can.
-- Jump to an event: load context in its own room, then extend the others to
-  the same horizon.
+- Jump to an event: load context in its own room, and open each other room
+  around its event nearest that time (`timestamp_to_event`), as fragments
+  too. Fragments add an upper bound to the window, the min over rooms of
+  their newest loaded timestamp, and loading newer events asks the room
+  holding it. A room with nothing that old opens live.
 - Read marker: per room. The merged "new messages" line sits above the
   oldest unread event across rooms.
 
-`ChatController` today owns a single `Room` and `Timeline`. It gets a small
-interface, `ChatTimelineSource`, with two implementations: the existing
-single-room path and the merged one. The event list, message widgets and
-scroll code read from the interface. Message widgets already take an `Event`
-that carries its own `room`, so per-event actions keep working.
+The ordering, the window and the choice of room to load from live in
+`MergedOrder` (`merged_order.dart`), generic over the event type and unit
+tested with plain values, including a run that loads history step by step
+and checks shown events never change. Changes in a room map to inserts,
+removals and updates at merged indexes by diffing the merged list.
+
+`ChatController` today owns a single `Room` and `Timeline`. Rather than a
+new `ChatTimelineSource` interface, `MergedTimeline` implements the SDK's
+`Timeline` (forwarding to the rooms' timelines), so the event list, message
+widgets, reply and edit lookups and scroll code take it unchanged: the
+change to the controller is choosing which timeline to open. Message
+widgets already take an `Event` that carries its own `room`, so per-event
+actions keep working. In a merged chat the controller's `room` is the
+composer's target room, so everything that reads it (encryption,
+permissions, typing) follows the target network.
 
 ### SendRouter (`lib/utils/merged_contacts/send_router.dart`)
 
@@ -127,7 +145,7 @@ that carries its own `room`, so per-event actions keep working.
 | Reply, thread reply, reaction, edit, redaction, pin | the room of the event acted on |
 | Read receipt | each room, up to its own newest visible event |
 | Typing notification | the composer's target room |
-| Draft | stored per contact, not per room |
+| Draft | stored per contact (`draft_contact_<id>`), not per room |
 
 The preferred network only decides where a message that starts something
 new goes. Anything that acts on an existing message (reply, reaction, edit,
@@ -228,17 +246,23 @@ number on another network can be offered for the existing contact.
 
 ### Merged chat screen
 
-- Route `/rooms/contact/:id`. Opening a member room's own route redirects
-  here, so notifications and links land in the merged view.
-- App bar: contact name, subtitle "iMessage, SMS".
+- Route `/rooms/contact/:id` (with `?event=` and `?room=` for a jump).
+  Opening a member room's own route redirects here, so notifications and
+  links land in the merged view. Only the room's own page redirects, not
+  its details or settings; `?single=1` and shared items keep a room on its
+  own.
+- App bar: contact name, subtitle "iMessage, SMS". Tapping it opens the
+  manage sheet.
 - Each message carries a small network badge beside its timestamp when it
-  is from a different network than the one before it.
+  is from a different network than the one before it (the older message
+  above it).
 - Composer: a send-via chip left of the text field ("iMessage" with its
   icon). Tap opens the list of networks, long press makes the pick the new
   default. The hint text names the network.
 - Encryption badge reflects the target room, and warns when the target is
   unencrypted while another room in the contact is encrypted.
-- Chat details shows the contact, then a section per room.
+- Chat details: the manage sheet shows the contact, then each room with a
+  link to that room's own details page, instead of a merged details page.
 
 ### Settings
 

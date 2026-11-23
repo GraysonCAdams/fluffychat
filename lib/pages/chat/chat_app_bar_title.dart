@@ -14,6 +14,7 @@ import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/sync_status_localization.dart';
 import 'package:fluffychat/utils/verified_room_extension.dart';
 import 'package:fluffychat/widgets/avatar.dart';
+import 'package:fluffychat/widgets/merged_contacts/manage_merged_contact_sheet.dart';
 import 'package:fluffychat/widgets/presence_builder.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -34,7 +35,7 @@ class ChatAppBarTitle extends StatelessWidget {
 
   Widget _build(BuildContext context) {
     final room = controller.room;
-    final contact = MergedContact.ofRoom(room.client, room.id);
+    final contact = controller.mergedContact;
     final title =
         contact?.displayName(MatrixLocals(L10n.of(context))) ??
         room.getLocalizedDisplayname(MatrixLocals(L10n.of(context)));
@@ -52,6 +53,8 @@ class ChatAppBarTitle extends StatelessWidget {
       highlightColor: Colors.transparent,
       onTap: controller.room.membership != .join
           ? null
+          : controller.isMerged && contact != null
+          ? () => showManageMergedContactSheet(context, contact.id)
           : () => FluffyThemes.isThreeColumnMode(context)
                 ? controller.toggleDisplayChatDetailsColumn()
                 : context.go('/rooms/${room.id}/details'),
@@ -90,7 +93,18 @@ class ChatAppBarTitle extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (contact != null)
+                if (contact != null && controller.isMerged)
+                  Text(
+                    controller
+                            .mergedNetworks(MatrixLocals(L10n.of(context)))
+                            ?.map((network) => network.name)
+                            .join(', ') ??
+                        '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11),
+                  )
+                else if (contact != null)
                   _MergedRoomSwitcher(room: room, contact: contact)
                 else
                   StreamBuilder(
@@ -221,7 +235,8 @@ class _MergedRoomSwitcher extends StatelessWidget {
             defaultRoomId: contact.sendViaRoom.id,
           );
           if (picked == null || picked == room.id || !context.mounted) return;
-          context.go('/rooms/$picked');
+          // This room is shown on its own, so the other one is too.
+          context.go('/rooms/$picked?single=1');
         },
         child: Row(
           mainAxisSize: MainAxisSize.min,

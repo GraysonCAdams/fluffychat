@@ -63,6 +63,10 @@ class Message extends StatelessWidget {
   final List<Color> colors;
   final void Function()? onExpand;
   final bool isCollapsed;
+
+  /// Shown beside the time in a merged contact's chat when this message is
+  /// on a different network than the one before it.
+  final Widget? networkBadge;
   final Set<String> bigEmojis;
 
   const Message(
@@ -89,6 +93,7 @@ class Message extends StatelessWidget {
     required this.scrollController,
     required this.colors,
     this.onExpand,
+    this.networkBadge,
     required this.enterThread,
     this.isCollapsed = false,
     super.key,
@@ -608,6 +613,7 @@ class Message extends StatelessWidget {
                                       shadows: wallpaperTextShadow,
                                     ),
                                   ),
+                                ?networkBadge,
                                 if (isEdited) ...[
                                   Text(' ', style: TextStyle(fontSize: 11)),
                                   Text(

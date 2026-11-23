@@ -13,6 +13,7 @@ import 'package:fluffychat/pages/chat_access_settings/chat_access_settings_contr
 import 'package:fluffychat/pages/chat_details/chat_details.dart';
 import 'package:fluffychat/pages/chat_encryption_settings/chat_encryption_settings.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
+import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/pages/chat_members/chat_members.dart';
 import 'package:fluffychat/pages/chat_permissions_settings/chat_permissions_settings.dart';
 import 'package:fluffychat/pages/chat_search/chat_search_page.dart';
@@ -33,6 +34,7 @@ import 'package:fluffychat/pages/settings_password/settings_password.dart';
 import 'package:fluffychat/pages/settings_security/settings_security.dart';
 import 'package:fluffychat/pages/settings_style/settings_style.dart';
 import 'package:fluffychat/pages/sign_in/sign_in_page.dart';
+import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/widgets/config_viewer.dart';
 import 'package:fluffychat/widgets/layouts/empty_page.dart';
 import 'package:fluffychat/widgets/layouts/two_column_layout.dart';
@@ -127,7 +129,7 @@ abstract class AppRoutes {
                 state.fullPath?.startsWith('/rooms/settings') == false
             ? TwoColumnLayout(
                 mainView: ChatList(
-                  activeChat: state.pathParameters['roomid'],
+                  activeChat: _activeChat(state),
                   activeSpace: state.uri.queryParameters['spaceId'],
                   displayNavigationRail:
                       state.path?.startsWith('/rooms/settings') != true,
@@ -146,7 +148,7 @@ abstract class AppRoutes {
             FluffyThemes.isColumnMode(context)
                 ? const EmptyPage()
                 : ChatList(
-                    activeChat: state.pathParameters['roomid'],
+                    activeChat: _activeChat(state),
                     activeSpace: state.uri.queryParameters['spaceId'],
                   ),
           ),
@@ -377,6 +379,22 @@ abstract class AppRoutes {
               ],
             ),
             GoRoute(
+              path: 'contact/:contactid',
+              pageBuilder: (context, state) => defaultPageBuilder(
+                context,
+                state,
+                ChatPage(
+                  key: ValueKey(state.uri),
+                  roomId: '',
+                  contactId: state.pathParameters['contactid'],
+                  eventId: state.uri.queryParameters['event'],
+                  eventRoomId: state.uri.queryParameters['room'],
+                  action: state.uri.queryParameters['action'],
+                ),
+              ),
+              redirect: loggedOutRedirect,
+            ),
+            GoRoute(
               path: ':roomid',
               pageBuilder: (context, state) {
                 final body = state.uri.queryParameters['body'];
@@ -399,7 +417,12 @@ abstract class AppRoutes {
                   ),
                 );
               },
-              redirect: loggedOutRedirect,
+              redirect: (context, state) =>
+                  Matrix.of(
+                    context,
+                  ).widget.clients.any((client) => client.isLogged())
+                  ? _mergedContactRedirect(context, state)
+                  : '/home',
               routes: [
                 GoRoute(
                   path: 'search',
@@ -499,6 +522,50 @@ abstract class AppRoutes {
       ],
     ),
   ];
+
+  /// The chat the chat list highlights: the room shown, or a merged
+  /// contact's screen.
+  static String? _activeChat(GoRouterState state) {
+    final contactId = state.pathParameters['contactid'];
+    if (contactId != null) return mergedContactActiveChat(contactId);
+    return state.pathParameters['roomid'];
+  }
+
+  /// A room in a merged contact opens the contact's merged screen, so
+  /// notifications, links and the chat list land there. Only the room's own
+  /// page is redirected, not its details or settings; `single=1` keeps the
+  /// room on its own, and shared items stay with the room they were shared
+  /// to.
+  static String? _mergedContactRedirect(
+    BuildContext context,
+    GoRouterState state,
+  ) {
+    if (state.fullPath != '/rooms/:roomid') return null;
+    final query = state.uri.queryParameters;
+    if (query['single'] == '1' ||
+        state.extra != null ||
+        query['body'] != null) {
+      return null;
+    }
+    final roomId = state.pathParameters['roomid'];
+    if (roomId == null) return null;
+    final client = Matrix.of(context).client;
+    final contact = MergedContactsStore.forClient(
+      client,
+    ).contactForRoom(roomId);
+    if (contact == null) return null;
+    final event = query['event'];
+    final action = query['action'];
+    final clientName = query['client'];
+    return Uri(
+      path: '/rooms/contact/${contact.id}',
+      queryParameters: {
+        if (event != null) ...{'event': event, 'room': roomId},
+        'action': ?action,
+        'client': ?clientName,
+      },
+    ).toString();
+  }
 
   static Page noTransitionPageBuilder(
     BuildContext context,

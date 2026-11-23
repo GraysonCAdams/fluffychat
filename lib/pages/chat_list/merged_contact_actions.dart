@@ -6,7 +6,6 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
-import 'package:fluffychat/utils/merged_contacts/model.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
@@ -16,14 +15,12 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
-/// Opens [contact]'s chat: the room new messages go to, with the contact's
-/// other networks a tap away in the app bar.
-void openMergedContact(BuildContext context, MergedContact contact) {
-  final room = contact.entry.sendMode == SendMode.lastReceived
-      ? contact.lastReceivedRoom ?? contact.sendViaRoom
-      : contact.sendViaRoom;
-  context.go('/rooms/${room.id}');
-}
+/// The route of the merged chat screen of [contactId].
+String mergedContactRoute(String contactId) => '/rooms/contact/$contactId';
+
+/// Opens [contact]'s merged chat screen: all of its rooms in one timeline.
+void openMergedContact(BuildContext context, MergedContact contact) =>
+    context.go(mergedContactRoute(contact.id));
 
 /// The value the chat list gets as its active chat while a merged contact's
 /// screen is open, so the contact's tile is highlighted. It cannot clash
