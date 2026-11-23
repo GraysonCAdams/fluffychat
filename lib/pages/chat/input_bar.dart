@@ -8,8 +8,11 @@ import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
+import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/markdown_context_builder.dart';
+import 'package:fluffychat/utils/media_adaptation.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/room_features.dart';
 import 'package:fluffychat/utils/spell_check.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
 import 'package:flutter/services.dart';
@@ -451,7 +454,26 @@ class InputBar extends StatelessWidget {
                 bytes: data,
                 name: content.uri.split('/').last,
               );
-              room.sendFileEvent(file, shrinkImageMaxDimension: 1600);
+              if (!context.mounted) return;
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              final AdaptedMedia adapted;
+              try {
+                adapted = await adaptMediaForRoom(
+                  features: await RoomFeatures.load(room),
+                  file: file,
+                );
+              } on Exception catch (e) {
+                if (!context.mounted) return;
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(content: Text(e.toLocalizedString(context))),
+                );
+                return;
+              }
+              room.sendFileEvent(
+                adapted.file,
+                shrinkImageMaxDimension: 1600,
+                extraContent: adapted.extraContent,
+              );
             },
           ),
           minLines: minLines,

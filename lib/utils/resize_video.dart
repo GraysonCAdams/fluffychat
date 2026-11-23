@@ -9,12 +9,16 @@ import 'package:light_compressor_v2/light_compressor_v2.dart';
 import 'package:matrix/matrix.dart';
 import 'package:mime/mime.dart';
 
+/// Whether [ResizeImage.getVideoInfo] can transcode on this platform. Its
+/// output is always MP4.
+bool get canTranscodeVideo => PlatformInfos.isMobile || PlatformInfos.isMacOS;
+
 extension ResizeImage on XFile {
   Future<MatrixVideoFile> getVideoInfo({bool compress = true}) async {
     MediaInfo? mediaInfo;
     String? destinationPath;
     try {
-      if (PlatformInfos.isMobile || PlatformInfos.isMacOS) {
+      if (canTranscodeVideo) {
         if (compress) {
           final result = await LightCompressor().compressVideo(
             path: path,

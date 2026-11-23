@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/media_adaptation.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart';
@@ -39,6 +40,22 @@ extension LocalizedExceptionExtension on Object {
       return L10n.of(
         context,
       ).fileIsTooBigForServer(_formatFileSize(exception.maxFileSize));
+    }
+    if (this is FileTooBigForChatException) {
+      final exception = this as FileTooBigForChatException;
+      return L10n.of(
+        context,
+      ).fileIsTooBigForChat(_formatFileSize(exception.maxSize));
+    }
+    if (this is MediaTypeNotAcceptedException) {
+      final exception = this as MediaTypeNotAcceptedException;
+      final accepted = exception.acceptedMimeTypes;
+      return accepted.isEmpty
+          ? L10n.of(context).chatDoesNotAcceptMediaTypeAtAll(exception.mimeType)
+          : L10n.of(context).chatDoesNotAcceptMediaType(
+              exception.mimeType,
+              accepted.join(', '),
+            );
     }
     if (this is OtherPartyCanNotReceiveMessages) {
       return L10n.of(context).otherPartyNotLoggedIn;

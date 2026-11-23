@@ -14,9 +14,12 @@ import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/image_edit_geometry.dart';
 import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
+import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_file_extension.dart';
+import 'package:fluffychat/utils/media_adaptation.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/room_features.dart';
 import 'package:fluffychat/utils/show_scaffold_dialog.dart';
 import 'package:fluffychat/utils/size_string.dart';
 import 'package:fluffychat/utils/start_push_foreground_service.dart';
@@ -85,6 +88,9 @@ class SendFileDialogState extends State<SendFileDialog> {
   Future<void> _send(String? uniqueFileType) async {
     final l10n = L10n.of(context);
     final scaffoldMessenger = ScaffoldMessenger.of(widget.outerContext);
+    // Files the room's bridge would refuse, reported once the progress
+    // snackbars are cleared.
+    final refusals = <String>[];
 
     final proceed = await showTrustUserInRoomDialog(
       widget.outerContext,
@@ -108,10 +114,15 @@ class SendFileDialogState extends State<SendFileDialog> {
       final clientConfig = await Result.capture(widget.room.client.getConfig());
       final maxUploadSize =
           clientConfig.asValue?.value.mUploadSize ?? 100 * 1000 * 1000;
+      final features = await RoomFeatures.load(widget.room);
+      final label = _labelTextController.text.trim();
+      // Set when the room does not take captions on a file sent: the label
+      // then follows the files as its own message.
+      var sendLabelSeparately = false;
 
       for (var i = 0; i < _files.length; i++) {
         final xfile = _files[i];
-        final MatrixFile file;
+        MatrixFile file;
         MatrixImageFile? thumbnail;
         final mimeType = xfile.mimeType ?? lookupMimeType(xfile.path);
 
@@ -122,23 +133,30 @@ class SendFileDialogState extends State<SendFileDialog> {
           thumbnail = await xfile.getVideoThumbnail();
         }
 
+        Future<MatrixVideoFile> transcode(bool compress) async {
+          scaffoldMessenger.clearSnackBars();
+          scaffoldMessenger.showLoadingSnackBar(l10n.compressingVideo);
+          try {
+            return await xfile.getVideoInfo(compress: compress);
+          } finally {
+            scaffoldMessenger.clearSnackBars();
+            if (!ForegroundServices.platformSupported) {
+              scaffoldMessenger.showLoadingSnackBar(
+                l10n.sendingFilesDoNotExit(widget.files.length),
+              );
+            }
+          }
+        }
+
         // If file is a video, shrink it!
+        var transcoded = false;
         if (PlatformInfos.isMobile &&
             mimeType != null &&
             mimeType.startsWith('video')) {
           final lengthResult = await Result.capture(xfile.length());
           final length = lengthResult.asValue?.value;
-          scaffoldMessenger.clearSnackBars();
-          scaffoldMessenger.showLoadingSnackBar(l10n.compressingVideo);
-          file = await xfile.getVideoInfo(
-            compress: length != null && length > minSizeToCompress && compress,
-          );
-          scaffoldMessenger.clearSnackBars();
-          if (!ForegroundServices.platformSupported) {
-            scaffoldMessenger.showLoadingSnackBar(
-              l10n.sendingFilesDoNotExit(widget.files.length),
-            );
-          }
+          transcoded = length != null && length > minSizeToCompress && compress;
+          file = await transcode(transcoded);
         } else {
           // Else we just create a MatrixFile
           file = MatrixFile(
@@ -148,18 +166,47 @@ class SendFileDialogState extends State<SendFileDialog> {
           ).detectFileType;
         }
 
+        final AdaptedMedia adapted;
+        try {
+          adapted = await adaptMediaForRoom(
+            features: features,
+            file: file,
+            thumbnail: thumbnail,
+            hasCaption: label.isNotEmpty,
+            // A transcode that already ran and still left an unaccepted type
+            // is not tried again.
+            convertVideo: canTranscodeVideo && !transcoded
+                ? () => transcode(true)
+                : null,
+          );
+        } on MediaTypeNotAcceptedException catch (e) {
+          if (widget.outerContext.mounted) {
+            refusals.add(e.toLocalizedString(widget.outerContext));
+          }
+          continue;
+        } on FileTooBigForChatException catch (e) {
+          if (widget.outerContext.mounted) {
+            refusals.add(e.toLocalizedString(widget.outerContext));
+          }
+          continue;
+        }
+        file = adapted.file;
+        thumbnail = adapted.thumbnail;
+        if (adapted.captionSeparately) sendLabelSeparately = true;
+        final extraContent = adapted.mergeExtraContent(
+          label.isEmpty || adapted.captionSeparately ? null : {'body': label},
+        );
+
         if (file.bytes.length > maxUploadSize) {
           throw FileTooBigMatrixException(file.bytes.length, maxUploadSize);
         }
-
-        final label = _labelTextController.text.trim();
 
         try {
           await widget.room.sendFileEvent(
             file,
             thumbnail: thumbnail,
             shrinkImageMaxDimension: compress ? 1600 : null,
-            extraContent: label.isEmpty ? null : {'body': label},
+            extraContent: extraContent,
             threadRootEventId: widget.threadRootEventId,
             threadLastEventId: widget.threadLastEventId,
           );
@@ -178,15 +225,26 @@ class SendFileDialogState extends State<SendFileDialog> {
             file,
             thumbnail: thumbnail,
             shrinkImageMaxDimension: compress ? 1600 : null,
-            extraContent: label.isEmpty ? null : {'body': label},
+            extraContent: extraContent,
           );
         }
+      }
+      if (sendLabelSeparately) {
+        await widget.room.sendTextEvent(
+          label,
+          parseCommands: false,
+          threadRootEventId: widget.threadRootEventId,
+          threadLastEventId: widget.threadLastEventId,
+        );
       }
     } finally {
       if (ForegroundServices.platformSupported) {
         await ForegroundServices.stopService('send_files');
       } else {
         scaffoldMessenger.clearSnackBars();
+      }
+      for (final message in refusals) {
+        scaffoldMessenger.showSnackBar(SnackBar(content: Text(message)));
       }
     }
 

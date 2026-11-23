@@ -6,9 +6,11 @@ import 'package:async/async.dart' show Result;
 import 'package:cross_file/cross_file.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_file_extension.dart';
+import 'package:fluffychat/utils/media_adaptation.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/resize_video.dart';
+import 'package:fluffychat/utils/room_features.dart';
 import 'package:fluffychat/utils/start_push_foreground_service.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart' hide Result;
@@ -31,8 +33,17 @@ const int _fallbackMaxUploadSize = 100 * 1000 * 1000;
 /// transcoded when [compress] is true, and anything over the homeserver's
 /// upload limit is refused before it is uploaded.
 ///
-/// A failure in one file is logged and handed to [onError], and the remaining
-/// files are still sent, so this never throws for a single bad file. If the
+/// Each file is then fitted to what [room]'s bridge accepts, from its
+/// `com.beeper.room_features` state (see [adaptMediaForRoom]): an image type
+/// the room does not take is re-encoded as PNG, a video as MP4 where the
+/// platform can transcode, else either goes as `m.file` when the room takes
+/// that, and one the bridge would refuse or that is over the room's size
+/// limit is not sent. Rooms without that state are unaffected.
+///
+/// A failure in one file is logged and the remaining files are still sent, so
+/// this never throws for a single bad file. The failures are handed to
+/// [onError] once every file has been tried and the progress snackbars are
+/// gone, so a snackbar [onError] shows is not cleared with them. If the
 /// room is encrypted and no other member has a device to decrypt with, nothing
 /// is sent and [onError] receives [OtherPartyCanNotReceiveMessages].
 ///
@@ -57,6 +68,8 @@ Future<void> sendAttachments({
     Logs().w(message, error, stackTrace);
     onError?.call(error, stackTrace);
   }
+
+  final failures = <(Object, StackTrace)>[];
 
   if (!room.otherPartyCanReceiveMessages) {
     report(
@@ -87,11 +100,13 @@ Future<void> sendAttachments({
     final clientConfig = await Result.capture(room.client.getConfig());
     final maxUploadSize =
         clientConfig.asValue?.value.mUploadSize ?? _fallbackMaxUploadSize;
+    final features = await RoomFeatures.load(room);
 
     for (final xfile in files) {
       try {
         await _sendOne(
           room: room,
+          features: features,
           xfile: xfile,
           compress: compress,
           maxUploadSize: maxUploadSize,
@@ -110,7 +125,8 @@ Future<void> sendAttachments({
           },
         );
       } catch (e, s) {
-        report('Unable to send attachment ${xfile.name}', e, s);
+        Logs().w('Unable to send attachment ${xfile.name}', e, s);
+        failures.add((e, s));
       }
     }
   } finally {
@@ -119,6 +135,9 @@ Future<void> sendAttachments({
     } else {
       snackbars?.messenger.clearSnackBars();
     }
+    for (final (error, stackTrace) in failures) {
+      onError?.call(error, stackTrace);
+    }
   }
 }
 
@@ -126,6 +145,7 @@ Future<void> sendAttachments({
 /// after the server's requested delay when rate limited.
 Future<void> _sendOne({
   required Room room,
+  required RoomFeatures features,
   required XFile xfile,
   required bool compress,
   required int maxUploadSize,
@@ -142,14 +162,14 @@ Future<void> _sendOne({
 
   final MatrixFile file;
   MatrixImageFile? thumbnail;
+  var transcoded = false;
   if (isMobileVideo) {
     thumbnail = await xfile.getVideoThumbnail();
     final length = (await Result.capture(xfile.length())).asValue?.value;
+    transcoded = compress && length != null && length > _minSizeToCompress;
     onCompressStart();
     try {
-      file = await xfile.getVideoInfo(
-        compress: compress && length != null && length > _minSizeToCompress,
-      );
+      file = await xfile.getVideoInfo(compress: transcoded);
     } finally {
       onCompressEnd();
     }
@@ -161,14 +181,33 @@ Future<void> _sendOne({
     ).detectFileType;
   }
 
-  if (file.bytes.length > maxUploadSize) {
-    throw FileTooBigMatrixException(file.bytes.length, maxUploadSize);
+  final adapted = await adaptMediaForRoom(
+    features: features,
+    file: file,
+    thumbnail: thumbnail,
+    // A transcode that already ran and still left an unaccepted type is not
+    // tried again.
+    convertVideo: canTranscodeVideo && !transcoded
+        ? () async {
+            onCompressStart();
+            try {
+              return await xfile.getVideoInfo(compress: true);
+            } finally {
+              onCompressEnd();
+            }
+          }
+        : null,
+  );
+
+  if (adapted.file.bytes.length > maxUploadSize) {
+    throw FileTooBigMatrixException(adapted.file.bytes.length, maxUploadSize);
   }
 
   Future<void> send() => room.sendFileEvent(
-    file,
-    thumbnail: thumbnail,
+    adapted.file,
+    thumbnail: adapted.thumbnail,
     shrinkImageMaxDimension: compress ? 1600 : null,
+    extraContent: adapted.extraContent,
     threadRootEventId: threadRootEventId,
     threadLastEventId: threadLastEventId,
   );
