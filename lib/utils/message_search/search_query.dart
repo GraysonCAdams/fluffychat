@@ -45,9 +45,15 @@ class SearchQuery {
   /// also matches as the start of a longer word so results appear while the
   /// word is still being typed.
   ///
+  /// A single letter only matches itself. As the start of a word it would
+  /// match a large part of the vocabulary, which no index shortens: measured
+  /// on 300,000 messages, such a lookup took 480 ms where a two-letter one
+  /// took 1 ms.
+  ///
   /// Each word is quoted. A bare word such as `or` or `near` would otherwise
   /// be read as an FTS5 operator.
-  String get ftsMatch => terms.map((term) => '"$term"*').join(' ');
+  String get ftsMatch =>
+      terms.map((term) => term.length < 2 ? '"$term"' : '"$term"*').join(' ');
 
   @override
   bool operator ==(Object other) => other is SearchQuery && other.text == text;

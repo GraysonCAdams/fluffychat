@@ -259,12 +259,26 @@ void main() {
       index = (await LocalMessageIndex.open('${directory.path}/index.sqlite'))!;
     });
 
-    test('cannot be opened with another key', () async {
-      final path = '${directory.path}/encrypted.sqlite';
-      final encrypted = (await LocalMessageIndex.open(path, cipher: 'key'))!;
-      await encrypted.apply([message(r'$a', 'hello')]);
-      await encrypted.close();
-      expect(await LocalMessageIndex.open(path, cipher: 'other'), isNull);
-    });
+    test(
+      'an index written with another key is replaced by an empty one',
+      () async {
+        final path = '${directory.path}/encrypted.sqlite';
+        final encrypted = (await LocalMessageIndex.open(path, cipher: 'key'))!;
+        await encrypted.apply([message(r'$a', 'hello')], watermark: 9);
+        await encrypted.close();
+
+        final reopened = (await LocalMessageIndex.open(path, cipher: 'other'))!;
+        addTearDown(reopened.close);
+        expect((await reopened.stats()).messages, 0);
+        expect(await reopened.watermark, 0);
+        await reopened.apply([message(r'$b', 'hello again')]);
+        expect(
+          (await reopened.search(
+            SearchQuery.parse('hello')!,
+          )).hits.single.eventId,
+          r'$b',
+        );
+      },
+    );
   });
 }

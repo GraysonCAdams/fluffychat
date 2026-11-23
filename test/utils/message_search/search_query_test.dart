@@ -42,9 +42,13 @@ void main() {
     test('cannot be turned into FTS5 syntax by the input', () {
       // Unquoted, OR and NEAR are operators and * - ^ : " have meaning.
       expect(
-        SearchQuery.parse('a" OR near(b) -c ^d col:e *')!.ftsMatch,
-        '"a"* "or"* "near"* "b"* "c"* "d"* "col"* "e"*',
+        SearchQuery.parse('ab" OR near(bc) -cd ^de col:ef *')!.ftsMatch,
+        '"ab"* "or"* "near"* "bc"* "cd"* "de"* "col"* "ef"*',
       );
+    });
+
+    test('a single letter is matched as a whole word', () {
+      expect(SearchQuery.parse('a naveen')!.ftsMatch, '"a" "naveen"*');
     });
   });
 }

@@ -40,6 +40,10 @@ class LocalMessageIndex {
   /// message text in the clear and is encrypted with the same key, so it is
   /// never easier to read than the database it was built from.
   ///
+  /// A file that cannot be opened, for example because the SDK database got
+  /// a new key, is replaced by an empty index. Everything in it can be read
+  /// from the SDK database again.
+  ///
   /// Returns null when the bundled SQLite cannot provide the index.
   static Future<LocalMessageIndex?> open(
     String path, {
@@ -47,39 +51,53 @@ class LocalMessageIndex {
     DatabaseFactory? factory,
   }) async {
     factory ??= databaseFactoryFfi;
+    try {
+      return await _open(path, cipher, factory);
+    } catch (e, s) {
+      Logs().w('Unable to open the message search index, replacing it', e, s);
+    }
+    try {
+      await factory.deleteDatabase(path);
+      return await _open(path, cipher, factory);
+    } catch (e, s) {
+      Logs().w('Unable to create the message search index', e, s);
+      return null;
+    }
+  }
+
+  static Future<LocalMessageIndex> _open(
+    String path,
+    String? cipher,
+    DatabaseFactory factory,
+  ) async {
     final helper = cipher == null
         ? null
         : SQfLiteEncryptionHelper(factory: factory, path: path, cipher: cipher);
-    try {
-      final db = await factory.openDatabase(
-        path,
-        options: OpenDatabaseOptions(
-          version: _schemaVersion,
-          onConfigure: (db) async {
-            await helper?.applyPragmaKey(db);
-            // Has to be chosen before the first table exists. It lets
-            // [compact] hand unused pages back to the file system without
-            // rewriting the whole file.
-            await db.rawQuery('PRAGMA auto_vacuum = INCREMENTAL');
-            // Message text arrives in many small writes. Write-ahead logging
-            // spares each of them a full journal sync, and losing the last
-            // few after a crash is harmless because they are indexed again
-            // from the SDK database.
-            await db.rawQuery('PRAGMA journal_mode = WAL');
-            await db.rawQuery('PRAGMA synchronous = NORMAL');
-            // The log file keeps the size of its busiest moment, which after
-            // the first indexing run is several megabytes of nothing. This
-            // cuts it back whenever its content has been moved to the index.
-            await db.rawQuery('PRAGMA journal_size_limit = $_walSizeLimit');
-          },
-          onCreate: (db, _) => _createSchema(db),
-        ),
-      );
-      return LocalMessageIndex._(db, factory, path);
-    } catch (e, s) {
-      Logs().w('Unable to open the local message search index', e, s);
-      return null;
-    }
+    final db = await factory.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: _schemaVersion,
+        onConfigure: (db) async {
+          await helper?.applyPragmaKey(db);
+          // Has to be chosen before the first table exists. It lets
+          // [compact] hand unused pages back to the file system without
+          // rewriting the whole file.
+          await db.rawQuery('PRAGMA auto_vacuum = INCREMENTAL');
+          // Message text arrives in many small writes. Write-ahead logging
+          // spares each of them a full journal sync, and losing the last
+          // few after a crash is harmless because they are indexed again
+          // from the SDK database.
+          await db.rawQuery('PRAGMA journal_mode = WAL');
+          await db.rawQuery('PRAGMA synchronous = NORMAL');
+          // The log file keeps the size of its busiest moment, which after
+          // the first indexing run is several megabytes of nothing. This
+          // cuts it back whenever its content has been moved to the index.
+          await db.rawQuery('PRAGMA journal_size_limit = $_walSizeLimit');
+        },
+        onCreate: (db, _) => _createSchema(db),
+      ),
+    );
+    return LocalMessageIndex._(db, factory, path);
   }
 
   /// Where the index of [client] is stored: beside its SDK database, so both
@@ -101,8 +119,8 @@ class LocalMessageIndex {
 
   static void _addSchema(Batch batch) {
     // Room and user IDs are long and repeat in every message of a chat. Each
-    // is stored once here and referred to by number, which cuts a typical
-    // message row by a third.
+    // is stored once here and referred to by number, which made the message
+    // table a third smaller on the benchmark data.
     batch.execute(
       'CREATE TABLE names ('
       'id INTEGER PRIMARY KEY, '

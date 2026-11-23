@@ -56,6 +56,31 @@ Future<String> median(Future<Object?> Function() run) async {
       '(max ${(micros.last / 1000).toStringAsFixed(1)})';
 }
 
+/// Runs [work] while a timer on this isolate, the stand-in for the UI
+/// isolate, records how late it fires. The lateness is how long Dart code or
+/// message decoding kept the isolate busy in one go, plus whatever the
+/// machine added.
+Future<String> stallsDuring(Future<void> Function() work) async {
+  const interval = Duration(milliseconds: 1);
+  // One frame at 120 Hz.
+  const frame = Duration(microseconds: 8333);
+  final stalls = <Duration>[];
+  var lastTick = Stopwatch()..start();
+  final ticker = Timer.periodic(interval, (_) {
+    stalls.add(lastTick.elapsed - interval);
+    lastTick = Stopwatch()..start();
+  });
+  await work();
+  ticker.cancel();
+  stalls.sort();
+  String ms(Duration d) => (d.inMicroseconds / 1000).toStringAsFixed(1);
+  return 'median stall ${ms(stalls[stalls.length ~/ 2])} ms, '
+      '99th percentile ${ms(stalls[stalls.length * 99 ~/ 100])} ms, '
+      'longest ${ms(stalls.last)} ms, '
+      '${stalls.where((stall) => stall > frame).length} of ${stalls.length} '
+      'ticks later than a 120 Hz frame';
+}
+
 void main() {
   test(
     'local message search over $eventCount stored events',
@@ -124,26 +149,26 @@ void main() {
       ))!;
       addTearDown(index.close);
 
-      // While the index is filled, a timer on this isolate (the stand-in for
-      // the UI isolate) records how late it fires. The lateness is how long
-      // Dart code or message decoding kept the isolate busy in one go.
-      var longestStall = Duration.zero;
-      var lastTick = Stopwatch()..start();
-      final ticker = Timer.periodic(const Duration(milliseconds: 1), (_) {
-        final stall = lastTick.elapsed - const Duration(milliseconds: 1);
-        if (stall > longestStall) longestStall = stall;
-        lastTick = Stopwatch()..start();
+      // The noise floor of the stall measurement: this isolate does nothing
+      // but wait for SQLite here, so any stall is the machine's doing.
+      final idle = await stallsDuring(() async {
+        for (var i = 0; i < 20; i++) {
+          await scan('naveen');
+        }
       });
+      print('Calling isolate while only waiting for SQLite: $idle');
+
       final fill = Stopwatch()..start();
-      await StoredEventScanner(sdk, index).catchUp();
+      final filling = await stallsDuring(
+        () => StoredEventScanner(sdk, index).catchUp(),
+      );
       fill.stop();
-      ticker.cancel();
       final stats = await index.stats();
       print(
         'First indexing run: ${fill.elapsedMilliseconds} ms for '
-        '${stats.messages} messages, longest stall of the calling isolate '
-        '${(longestStall.inMicroseconds / 1000).toStringAsFixed(1)} ms',
+        '${stats.messages} messages',
       );
+      print('Calling isolate during the first indexing run: $filling');
       print(
         'Index size: ${stats.bytes ~/ 1024} KiB '
         '(${(100 * stats.bytes / sdkBytes).round()}% of the SDK database)',

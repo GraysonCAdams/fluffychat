@@ -110,7 +110,8 @@ class _MessageSearchResultsState extends State<MessageSearchResults> {
         // indexed. There is no chat to open for it.
         final hits = [
           for (final hit in _search.hits)
-            if (widget.client.getRoomById(hit.roomId) != null) hit,
+            if (widget.client.getRoomById(hit.roomId) case final room?)
+              (hit, room),
         ];
         final String? status;
         if (hits.isNotEmpty || _search.isLoading) {
@@ -139,9 +140,9 @@ class _MessageSearchResultsState extends State<MessageSearchResults> {
             SliverList.builder(
               itemCount: hits.length,
               itemBuilder: (context, i) => _MessageSearchTile(
-                key: ValueKey(hits[i].eventId),
-                client: widget.client,
-                hit: hits[i],
+                key: ValueKey(hits[i].$1.eventId),
+                hit: hits[i].$1,
+                room: hits[i].$2,
                 highlights: _search.highlights,
               ),
             ),
@@ -212,21 +213,20 @@ class _NextPageTriggerState extends State<_NextPageTrigger> {
 }
 
 class _MessageSearchTile extends StatelessWidget {
-  final Client client;
   final MessageSearchHit hit;
+  final Room room;
   final Set<String> highlights;
 
   const _MessageSearchTile({
-    required this.client,
     required this.hit,
+    required this.room,
     required this.highlights,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
-    final room = client.getRoomById(hit.roomId);
-    if (room == null) return const SizedBox.shrink();
+    final client = room.client;
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
     final roomName = room.getLocalizedDisplayname(MatrixLocals(l10n));

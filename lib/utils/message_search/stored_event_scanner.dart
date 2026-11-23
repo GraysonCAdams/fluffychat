@@ -72,7 +72,7 @@ class StoredEventScanner {
   ///
   /// [rereadRecent] also reads the [overlap] rows below the watermark. That
   /// is worth doing once per app start, but not before every search, where
-  /// a run that finds nothing new should cost a single small query.
+  /// a run that finds nothing new should cost two small queries.
   ///
   /// [isCancelled] is asked between steps so a long first run stops when the
   /// account goes away.
