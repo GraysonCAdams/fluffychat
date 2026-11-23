@@ -15,6 +15,7 @@ import 'package:fluffychat/widgets/settings_switch_list_tile.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'message_search_index_tile.dart';
 import 'settings_chat.dart';
 
 class SettingsChatView extends StatelessWidget {
@@ -156,6 +157,7 @@ class SettingsChatView extends StatelessWidget {
                     }
                   },
                 ),
+              const MessageSearchIndexTile(),
               Divider(color: theme.dividerColor),
               ListTile(
                 title: Text(

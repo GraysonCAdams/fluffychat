@@ -2944,5 +2944,21 @@
                 "type": "String"
             }
         }
-    }
+    },
+    "noMessagesFound": "No messages found",
+    "messageSearchFailed": "Messages could not be searched right now",
+    "messageSearchIndex": "Message search index",
+    "messageSearchIndexSize": "{count} messages, {size}",
+    "@messageSearchIndexSize": {
+        "placeholders": {
+            "count": {
+                "type": "int"
+            },
+            "size": {
+                "type": "String"
+            }
+        }
+    },
+    "messageSearchIndexDescription": "Kept on this device so search also finds messages in encrypted chats and works offline.",
+    "messageSearchIndexRebuild": "Rebuild"
 }

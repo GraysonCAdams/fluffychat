@@ -12,6 +12,7 @@ import 'package:fluffychat/utils/android_bubble.dart';
 import 'package:fluffychat/utils/client_manager.dart';
 import 'package:fluffychat/utils/init_with_restore.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_file_extension.dart';
+import 'package:fluffychat/utils/message_search/message_search_indexer.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/push_helper.dart';
@@ -225,6 +226,7 @@ class MatrixState extends State<Matrix> {
       );
       return;
     }
+    MessageSearchIndexer.of(c).start();
     onRoomKeyRequestSub[name] ??= c.onRoomKeyRequest.stream.listen((
       RoomKeyRequest request,
     ) async {
