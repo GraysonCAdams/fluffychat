@@ -7,7 +7,8 @@ import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// The send-via button at the end of the composer's text field in a merged
+/// The send-via button at the start of the composer, before the attachment
+/// button, in a merged
 /// contact's chat: the icon of the network the next message goes out on. The
 /// network's name is in the field's hint, so the button carries no label.
 ///

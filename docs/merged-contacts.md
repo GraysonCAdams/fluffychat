@@ -286,7 +286,8 @@ pass.
 - Each message carries a small network badge beside its timestamp when it
   is from a different network than the one before it (the older message
   above it).
-- Composer: a send-via button at the end of the text field, showing only the
+- Composer: a send-via button at the start, before the attachment button,
+  showing only the
   network's icon; the hint text names the network. Tap opens the list of
   networks, long press makes the pick the new default.
 - Encryption badge reflects the target room, and warns when the target is

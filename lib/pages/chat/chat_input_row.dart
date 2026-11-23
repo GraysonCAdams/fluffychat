@@ -195,6 +195,25 @@ class ChatInputRow extends StatelessWidget {
                 ]
               : <Widget>[
                   const SizedBox(width: 2),
+                  if (networks != null)
+                    Container(
+                      height: height,
+                      // Leading, before the attachment button. 4px in from
+                      // the composer's rounded edge.
+                      width: 44,
+                      padding: const EdgeInsets.only(left: 4),
+                      alignment: Alignment.center,
+                      child: SendViaButton(
+                        networks: networks,
+                        target: target,
+                        defaultRoomId: controller.mergedDefaultRoomId!,
+                        onPick: controller.pickSendViaRoom,
+                        onSetDefault: controller.setMergedSendVia,
+                        unencryptedWarning:
+                            !targetRoom.encrypted &&
+                            networks.any((network) => network.room.encrypted),
+                      ),
+                    ),
                   // Hides once there is text, which the chat does not
                   // rebuild for (see ChatController.inputTextIsEmpty).
                   ValueListenableBuilder(
@@ -297,27 +316,6 @@ class ChatInputRow extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (networks != null)
-                    Container(
-                      height: height,
-                      // Mirrors the attachment button's slot at the other
-                      // end (44 wide after a 2px gap), plus 2px because that
-                      // icon's glyph is inset in its box and this one is not,
-                      // so both look the same distance from the edge.
-                      width: 48,
-                      padding: const EdgeInsets.only(right: 4),
-                      alignment: Alignment.center,
-                      child: SendViaButton(
-                        networks: networks,
-                        target: target,
-                        defaultRoomId: controller.mergedDefaultRoomId!,
-                        onPick: controller.pickSendViaRoom,
-                        onSetDefault: controller.setMergedSendVia,
-                        unencryptedWarning:
-                            !targetRoom.encrypted &&
-                            networks.any((network) => network.room.encrypted),
-                      ),
-                    ),
                   if (showSendButton)
                     ChatSendButton(controller, recordingViewModel),
                 ],
@@ -419,6 +417,7 @@ class ChatSendButton extends StatelessWidget {
       alignment: Alignment.center,
       child:
           PlatformInfos.platformCanRecord &&
+              AppSettings.voiceMessages.value &&
               !controller.sendController.text.isNotEmpty &&
               controller.pendingAttachments.isEmpty &&
               controller.editEvent == null

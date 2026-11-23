@@ -53,11 +53,26 @@ Future<String?> showMergedNetworkMenu(
   final overlay =
       Overlay.of(anchorContext).context.findRenderObject()! as RenderBox;
   final topLeft = box.localToGlobal(Offset.zero, ancestor: overlay);
+  // Opens below the anchor when the menu fits there, above it otherwise: in
+  // the composer the space below is the keyboard, which showMenu does not
+  // keep clear of by itself.
+  const itemHeight = 48.0;
+  final menuHeight = networks.length * itemHeight + 16;
+  final spaceBelow =
+      overlay.size.height -
+      MediaQuery.viewInsetsOf(anchorContext).bottom -
+      (topLeft.dy + box.size.height);
+  final top = spaceBelow >= menuHeight
+      ? topLeft.dy + box.size.height
+      : topLeft.dy - menuHeight;
   return showMenu<String>(
     context: anchorContext,
+    // Leaves focus where it is, so opening the menu from the composer does
+    // not close the keyboard.
+    requestFocus: false,
     position: RelativeRect.fromLTRB(
       topLeft.dx,
-      topLeft.dy + box.size.height,
+      top,
       overlay.size.width - topLeft.dx - box.size.width,
       0,
     ),
@@ -66,7 +81,7 @@ Future<String?> showMergedNetworkMenu(
       for (final network in networks)
         PopupMenuItem(
           value: network.room.id,
-          height: 48,
+          height: itemHeight,
           child: Row(
             children: [
               network.icon(size: 24),
