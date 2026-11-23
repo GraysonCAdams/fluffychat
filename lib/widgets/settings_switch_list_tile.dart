@@ -31,7 +31,13 @@ class SettingsSwitchListTileState extends State<SettingsSwitchListTile> {
   Widget build(BuildContext context) {
     final subtitle = widget.subtitle;
     return SwitchListTile.adaptive(
-      value: widget.setting.value ?? widget.defaultValue ?? false,
+      // A setting never changed has nothing stored: show its own default
+      // rather than off, which is what the rest of the app acts on.
+      value:
+          widget.setting.value ??
+          widget.defaultValue ??
+          widget.setting.defaultValue ??
+          false,
       title: Text(widget.title),
       subtitle: subtitle == null ? null : Text(subtitle),
       onChanged: (bool newValue) async {

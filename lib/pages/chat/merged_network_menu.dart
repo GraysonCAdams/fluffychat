@@ -58,10 +58,13 @@ Future<String?> showMergedNetworkMenu(
   // keep clear of by itself.
   const itemHeight = 48.0;
   final menuHeight = networks.length * itemHeight + 16;
+  // Read from the view: a Scaffold that resizes for the keyboard reports no
+  // bottom inset to its body.
+  final keyboard = MediaQueryData.fromView(
+    View.of(anchorContext),
+  ).viewInsets.bottom;
   final spaceBelow =
-      overlay.size.height -
-      MediaQuery.viewInsetsOf(anchorContext).bottom -
-      (topLeft.dy + box.size.height);
+      overlay.size.height - keyboard - (topLeft.dy + box.size.height);
   final top = spaceBelow >= menuHeight
       ? topLeft.dy + box.size.height
       : topLeft.dy - menuHeight;

@@ -198,10 +198,11 @@ class ChatInputRow extends StatelessWidget {
                   if (networks != null)
                     Container(
                       height: height,
-                      // Leading, before the attachment button. 4px in from
-                      // the composer's rounded edge.
-                      width: 44,
-                      padding: const EdgeInsets.only(left: 4),
+                      // Leading, before the attachment button: inset from
+                      // the composer's rounded edge, and narrow so the two
+                      // icons sit close together.
+                      width: 36,
+                      padding: const EdgeInsets.only(left: 6),
                       alignment: Alignment.center,
                       child: SendViaButton(
                         networks: networks,
