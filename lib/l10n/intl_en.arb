@@ -2963,5 +2963,50 @@
     "replyNetwork": "When they write",
     "sendModePreferred": "Keep sending on the selected network",
     "sendModeLastReceived": "Send on the network they last wrote from",
-    "defaultNetwork": "Default"
+    "defaultNetwork": "Default",
+    "sendVia": "Send via {network}",
+    "@sendVia": {
+        "type": "String",
+        "placeholders": {
+            "network": {
+                "type": "String"
+            }
+        }
+    },
+    "replySendsVia": "Goes out on {network}, the network of the message you are answering",
+    "@replySendsVia": {
+        "type": "String",
+        "placeholders": {
+            "network": {
+                "type": "String"
+            }
+        }
+    },
+    "sendViaUnencryptedWarning": "Send via {network}. Not encrypted, unlike another network of this contact",
+    "@sendViaUnencryptedWarning": {
+        "type": "String",
+        "placeholders": {
+            "network": {
+                "type": "String"
+            }
+        }
+    },
+    "messageVia": "{network} message",
+    "@messageVia": {
+        "type": "String",
+        "placeholders": {
+            "network": {
+                "type": "String"
+            }
+        }
+    },
+    "encryptedMessageVia": "Encrypted {network} message",
+    "@encryptedMessageVia": {
+        "type": "String",
+        "placeholders": {
+            "network": {
+                "type": "String"
+            }
+        }
+    }
 }

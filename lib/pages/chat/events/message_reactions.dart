@@ -5,6 +5,8 @@
 
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:fluffychat/config/app_config.dart';
+import 'package:fluffychat/utils/merged_contacts/routed_event.dart';
+import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -75,7 +77,9 @@ class MessageReactions extends StatelessWidget {
                   );
                 }
               } else {
-                event.room.sendReaction(event.eventId, r.key);
+                event
+                    .roomFor(SendAction.reaction)
+                    .sendReaction(event.eventId, r.key);
               }
             },
             onLongPress: () async => await _AdaptableReactorsDialog(

@@ -7,14 +7,16 @@ Temporary file for resuming this branch; removed in the final commit.
 - Flutter wrapper for this worktree: scratchpad/bin/wflm (runs C:\src\wfl-merged.bat, which cd's here)
 
 ## Phase
-2 (send-via chip and routing): next
+3 (merged timeline): next
 
 ## Done
 - phase 1 committed: model/store/merged_contact + tests, chat list collapse (MergedChatList), tile/pins/unread chip, long press menu, merge picker, manage sheet, app bar network switcher
 - helper wrote phone_number.dart, contact_identifiers.dart, suggester.dart + tests (uncommitted until phase 4; 78 tests pass)
 
+- phase 2 committed: SendRouter (+ tests per action), RoutedEvent extension for message widgets, SendViaChip (+ widget tests), ChatController composerTarget/composerRoom/roomForEvent, all send sites routed
+
 ## Next
-- phase 2: SendRouter (pure, tested for every action), send-via chip in composer, route every send call site through it
+- phase 3: MergedTimeline (implements Timeline), /rooms/contact/:id route + redirect, merged ChatController mode, read markers per room, draft per contact, per-message network badge
 
 ## Notes
 - flutter commands regenerate linux/macos/windows plugin registrants: never stage them

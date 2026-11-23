@@ -5,8 +5,10 @@
 
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/pages/chat/recording_input_row.dart';
 import 'package:fluffychat/pages/chat/recording_view_model.dart';
+import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -20,6 +22,7 @@ import 'chat.dart';
 import 'composer_attachments.dart';
 import 'input_bar.dart';
 import 'reply_display.dart';
+import 'send_via_chip.dart';
 
 class ChatInputRow extends StatelessWidget {
   final ChatController controller;
@@ -61,6 +64,25 @@ class ChatInputRow extends StatelessWidget {
     final selectedTextButtonStyle = TextButton.styleFrom(
       foregroundColor: theme.colorScheme.onTertiaryContainer,
     );
+
+    // In a merged contact's chat the composer names the network the next
+    // message goes out on.
+    final networks = controller.mergedNetworks(MatrixLocals(L10n.of(context)));
+    final target = controller.composerTarget;
+    final targetRoom = controller.composerRoom;
+    MergedNetwork? targetNetwork;
+    if (networks != null) {
+      for (final network in networks) {
+        if (network.room.id == target.roomId) targetNetwork = network;
+      }
+    }
+    final hintText = targetNetwork != null
+        ? targetRoom.encrypted
+              ? L10n.of(context).encryptedMessageVia(targetNetwork.name)
+              : L10n.of(context).messageVia(targetNetwork.name)
+        : targetRoom.encrypted
+        ? L10n.of(context).encryptedMessage
+        : L10n.of(context).unencryptedMessage;
 
     Widget buildRow(
       BuildContext context,
@@ -204,6 +226,22 @@ class ChatInputRow extends StatelessWidget {
                       alignment: Alignment.center,
                       child: _ChatAccountPicker(controller),
                     ),
+                  if (networks != null)
+                    Container(
+                      height: height,
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.only(right: 6),
+                      child: SendViaChip(
+                        networks: networks,
+                        target: target,
+                        defaultRoomId: controller.mergedDefaultRoomId!,
+                        onPick: controller.pickSendViaRoom,
+                        onSetDefault: controller.setMergedSendVia,
+                        unencryptedWarning:
+                            !targetRoom.encrypted &&
+                            networks.any((network) => network.room.encrypted),
+                      ),
+                    ),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2.0),
@@ -230,9 +268,7 @@ class ChatInputRow extends StatelessWidget {
                             top: 3.0,
                           ),
                           counter: const SizedBox.shrink(),
-                          hintText: controller.room.encrypted
-                              ? L10n.of(context).encryptedMessage
-                              : L10n.of(context).unencryptedMessage,
+                          hintText: hintText,
                           hintMaxLines: 1,
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,

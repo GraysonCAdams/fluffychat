@@ -78,12 +78,13 @@ class ChatEmojiPicker extends StatelessWidget {
                         StickerPickerDialog(
                           room: controller.room,
                           onSelected: (sticker) async {
+                            final target = controller.composerRoom;
                             final proceed = await showTrustUserInRoomDialog(
                               context,
-                              controller.room,
+                              target,
                             );
                             if (!proceed) return;
-                            controller.room.sendEvent(
+                            target.sendEvent(
                               {
                                 'body': sticker.body,
                                 'info': sticker.info ?? {},

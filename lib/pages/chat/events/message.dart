@@ -15,6 +15,8 @@ import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/file_description.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/routed_event.dart';
+import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/utils/string_color.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -436,10 +438,12 @@ class Message extends StatelessWidget {
                                         if (existingReaction != null) {
                                           existingReaction.redactEvent();
                                         } else {
-                                          event.room.sendReaction(
-                                            event.eventId,
-                                            emoji,
-                                          );
+                                          event
+                                              .roomFor(SendAction.reaction)
+                                              .sendReaction(
+                                                event.eventId,
+                                                emoji,
+                                              );
                                         }
                                       }
                                     : null,
@@ -712,7 +716,11 @@ class Message extends StatelessWidget {
                                                         ? null
                                                         : () {
                                                             onSelect(event);
-                                                            event.room
+                                                            event
+                                                                .roomFor(
+                                                                  SendAction
+                                                                      .reaction,
+                                                                )
                                                                 .sendReaction(
                                                                   event.eventId,
                                                                   emoji,
@@ -851,7 +859,10 @@ class Message extends StatelessWidget {
                                                     }
                                                     onSelect(event);
 
-                                                    await event.room
+                                                    await event
+                                                        .roomFor(
+                                                          SendAction.reaction,
+                                                        )
                                                         .sendReaction(
                                                           event.eventId,
                                                           emoji,

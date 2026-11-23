@@ -123,8 +123,8 @@ that carries its own `room`, so per-event actions keep working.
 
 | Action | Goes to |
 |---|---|
-| New message, attachment, voice message | the composer's current target room |
-| Reply, reaction, edit, redaction | the room of the event acted on |
+| New message, attachment, voice message, sticker, location, poll | the composer's current target room |
+| Reply, thread reply, reaction, edit, redaction, pin | the room of the event acted on |
 | Read receipt | each room, up to its own newest visible event |
 | Typing notification | the composer's target room |
 | Draft | stored per contact, not per room |
@@ -136,6 +136,13 @@ the account the user has on that network, whatever `send_via` says: an
 iMessage reaction cannot be delivered through SMS. While the user is
 replying, the send-via chip shows the reply's network and is locked, so it
 is clear the reply will not use the default.
+
+Every send in the chat screen asks `SendRouter` (`route(action,
+eventRoomId:)` and `composerTarget(editRoomId:, replyRoomId:,
+threadRoomId:)`); an action on a message without that message's room is an
+error, not a default. Message widgets, which have no router, reach the room
+through `event.roomFor(action)` (`routed_event.dart`), which states the same
+rule. The router works on room IDs only and is unit tested per action.
 
 Target room for a new message:
 
@@ -253,7 +260,8 @@ switch to turn suggestions off.
    member rooms hidden. Opening the tile opens the `send_via` room with a
    room switcher in the app bar. No timeline work.
 2. **Send-via chip and routing** on the single-room screen: the chip
-   switches which member room is shown and sent to.
+   switches which member room is shown and sent to (picking a network opens
+   that room; long press also makes it the default).
 3. **Merged timeline.** `ChatTimelineSource`, the safe-horizon history
    loader, per-event routing, read markers.
 4. **Suggestions and notification grouping.**

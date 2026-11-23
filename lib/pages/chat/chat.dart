@@ -17,6 +17,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat_view.dart';
 import 'package:fluffychat/pages/chat/event_info_dialog.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/gallery_picker_page.dart';
+import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/pages/chat/start_poll_bottom_sheet.dart';
 import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
 import 'package:fluffychat/pages/chat/utils/web_file_to_x_file.dart';
@@ -29,6 +30,9 @@ import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart
 import 'package:fluffychat/utils/matrix_sdk_extensions/event_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
+import 'package:fluffychat/utils/merged_contacts/send_router.dart';
+import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/ogg_opus_remuxer.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/pasted_file_type.dart';
@@ -141,6 +145,84 @@ class ChatController extends State<ChatPageWithRoom>
 
   String get roomId => widget.room.id;
 
+  /// The merged contact this chat's room belongs to, if any.
+  MergedContact? get mergedContact =>
+      MergedContact.ofRoom(room.client, room.id);
+
+  /// Decides where everything sent from this screen goes (see SendRouter).
+  /// Here one room is shown, so new messages go to it; the send-via chip
+  /// switches rooms to send on another network.
+  SendRouter get sendRouter => SendRouter.single(room.id);
+
+  /// The room of the thread being shown, found from its root message.
+  String? get activeThreadRoomId {
+    final threadId = activeThreadId;
+    if (threadId == null) return null;
+    return timeline?.events
+            .firstWhereOrNull((event) => event.eventId == threadId)
+            ?.roomId ??
+        room.id;
+  }
+
+  /// Where the composer sends, and whether that is locked to the network of
+  /// a message being edited, replied to or answered in a thread.
+  SendTarget get composerTarget => sendRouter.composerTarget(
+    editRoomId: editEvent?.roomId,
+    replyRoomId: replyEvent?.roomId,
+    threadRoomId: activeThreadRoomId,
+  );
+
+  /// The room the composer's next message, attachment, voice message,
+  /// sticker, location or poll goes to.
+  Room get composerRoom => _resolveRoom(composerTarget.roomId);
+
+  /// The room [action] on [event] goes to: always the event's own room.
+  Room roomForEvent(Event event, SendAction action) {
+    final roomId = sendRouter.route(action, eventRoomId: event.roomId);
+    return roomId == event.room.id ? event.room : _resolveRoom(roomId);
+  }
+
+  Room _resolveRoom(String roomId) =>
+      roomId == room.id ? room : sendingClient.getRoomById(roomId) ?? room;
+
+  /// The room typing notifications were last sent to, so they stop there
+  /// even when the composer's target has moved on.
+  Room? _typingRoom;
+
+  /// The send-via chip picked [roomId] for the next message. With one room
+  /// shown, that means showing the contact's other room.
+  void pickSendViaRoom(String roomId) => context.go('/rooms/$roomId');
+
+  (int, String, List<MergedNetwork>)? _mergedNetworks;
+
+  /// The networks of this chat's merged contact for the send-via chip, or
+  /// null when the chat is not merged. Kept until the contacts change, as
+  /// finding each room's space walks every room of the account.
+  List<MergedNetwork>? mergedNetworks(MatrixLocals locals) {
+    final contact = mergedContact;
+    if (contact == null) return null;
+    final revision = MergedContactsStore.forClient(room.client).revision.value;
+    final cached = _mergedNetworks;
+    if (cached != null && cached.$1 == revision && cached.$2 == contact.id) {
+      return cached.$3;
+    }
+    final networks = MergedNetwork.of(contact, locals);
+    _mergedNetworks = (revision, contact.id, networks);
+    return networks;
+  }
+
+  /// The merged contact's default network.
+  String? get mergedDefaultRoomId => mergedContact?.sendViaRoom.id;
+
+  /// Makes [roomId] the merged contact's default network.
+  Future<void> setMergedSendVia(String roomId) async {
+    final contact = mergedContact;
+    if (contact == null) return;
+    await MergedContactsStore.forClient(
+      room.client,
+    ).setSendVia(contact.id, roomId);
+  }
+
   final AutoScrollController scrollController = AutoScrollController();
 
   late final FocusNode inputFocus;
@@ -164,7 +246,7 @@ class ChatController extends State<ChatPageWithRoom>
       context: context,
       builder: (c) => SendFileDialog(
         files: details.files,
-        room: room,
+        room: composerRoom,
         outerContext: context,
         threadRootEventId: activeThreadId,
         threadLastEventId: threadLastEventId,
@@ -254,8 +336,9 @@ class ChatController extends State<ChatPageWithRoom>
     );
     if (result == null || !mounted) return;
     setState(() => showAttachmentPanel = false);
+    final target = composerRoom;
     await sendAttachments(
-      room: room,
+      room: target,
       files: result.files,
       compress: !result.hd,
       threadRootEventId: activeThreadId,
@@ -266,7 +349,7 @@ class ChatController extends State<ChatPageWithRoom>
     );
     final caption = result.caption.trim();
     if (caption.isNotEmpty) {
-      await room.sendTextEvent(caption, threadRootEventId: activeThreadId);
+      await target.sendTextEvent(caption, threadRootEventId: activeThreadId);
     }
   }
 
@@ -428,12 +511,13 @@ class ChatController extends State<ChatPageWithRoom>
       );
       return;
     }
-    final proceed = await showTrustUserInRoomDialog(context, room);
+    final target = composerRoom;
+    final proceed = await showTrustUserInRoomDialog(context, target);
     if (!mounted || !proceed) return;
     for (final item in shareItems) {
       if (item is FileShareItem) continue;
-      if (item is TextShareItem) room.sendTextEvent(item.value);
-      if (item is ContentShareItem) room.sendEvent(item.value.copy());
+      if (item is TextShareItem) target.sendTextEvent(item.value);
+      if (item is ContentShareItem) target.sendEvent(item.value.copy());
     }
     final files = shareItems
         .whereType<FileShareItem>()
@@ -444,7 +528,7 @@ class ChatController extends State<ChatPageWithRoom>
       context: context,
       builder: (c) => SendFileDialog(
         files: files,
-        room: room,
+        room: composerRoom,
         outerContext: context,
         threadRootEventId: activeThreadId,
         threadLastEventId: threadLastEventId,
@@ -872,7 +956,7 @@ class ChatController extends State<ChatPageWithRoom>
     web.window.removeEventListener('paste', _handleClipboardFilePasteWeb);
     HardwareKeyboard.instance.removeHandler(_escapeClearsSelection);
     undoController.dispose();
-    if (currentlyTyping) room.setTyping(false);
+    if (currentlyTyping) _typingRoom?.setTyping(false);
     MxcImage.clearCache(widget.room.id);
     super.dispose();
   }
@@ -885,7 +969,7 @@ class ChatController extends State<ChatPageWithRoom>
       // no need to have the setting typing to false be blocking
       typingCoolDown?.cancel();
       typingCoolDown = null;
-      room.setTyping(false);
+      _typingRoom?.setTyping(false);
       currentlyTyping = false;
     }
     // then cancel the old timeline
@@ -967,7 +1051,7 @@ class ChatController extends State<ChatPageWithRoom>
     final store = Matrix.of(context).store;
     final result = await showFutureLoadingDialog(
       context: context,
-      future: () => room.scheduleTextMessage(store, text, sendAt),
+      future: () => composerRoom.scheduleTextMessage(store, text, sendAt),
     );
     if (result.error != null || !mounted) return;
     store.remove('draft_$roomId');
@@ -1035,7 +1119,11 @@ class ChatController extends State<ChatPageWithRoom>
   }
 
   Future<void> send() async {
-    final proceed = await showTrustUserInRoomDialog(context, room);
+    // Taken once: the reply, edit or picked network can change while the
+    // dialogs below are open, and the message must go where the composer
+    // showed when the user pressed send.
+    final target = composerRoom;
+    final proceed = await showTrustUserInRoomDialog(context, target);
     if (!mounted || !proceed) return;
     if (pendingAttachments.isNotEmpty) {
       final files = List.of(pendingAttachments);
@@ -1044,7 +1132,7 @@ class ChatController extends State<ChatPageWithRoom>
         showAttachmentPanel = false;
       });
       await sendAttachments(
-        room: room,
+        room: target,
         files: files,
         threadRootEventId: activeThreadId,
         threadLastEventId: threadLastEventId,
@@ -1078,11 +1166,11 @@ class ChatController extends State<ChatPageWithRoom>
     if (currentlyTyping) {
       typingCoolDown?.cancel();
       currentlyTyping = false;
-      room.setTyping(false);
+      _typingRoom?.setTyping(false);
     }
 
     // ignore: unawaited_futures
-    room.sendTextEvent(
+    target.sendTextEvent(
       sendController.text,
       inReplyTo: replyEvent,
       editEventId: editEvent?.eventId,
@@ -1111,7 +1199,7 @@ class ChatController extends State<ChatPageWithRoom>
       context: context,
       builder: (c) => SendFileDialog(
         files: files,
-        room: room,
+        room: composerRoom,
         outerContext: context,
         threadRootEventId: activeThreadId,
         threadLastEventId: threadLastEventId,
@@ -1125,7 +1213,7 @@ class ChatController extends State<ChatPageWithRoom>
       context: context,
       builder: (c) => SendFileDialog(
         files: [pastedImageData(image)],
-        room: room,
+        room: composerRoom,
         outerContext: context,
         threadRootEventId: activeThreadId,
         threadLastEventId: threadLastEventId,
@@ -1145,7 +1233,7 @@ class ChatController extends State<ChatPageWithRoom>
       context: context,
       builder: (c) => SendFileDialog(
         files: files,
-        room: room,
+        room: composerRoom,
         outerContext: context,
         threadRootEventId: activeThreadId,
         threadLastEventId: threadLastEventId,
@@ -1163,7 +1251,7 @@ class ChatController extends State<ChatPageWithRoom>
       context: context,
       builder: (c) => SendFileDialog(
         files: [file],
-        room: room,
+        room: composerRoom,
         outerContext: context,
         threadRootEventId: activeThreadId,
         threadLastEventId: threadLastEventId,
@@ -1206,7 +1294,7 @@ class ChatController extends State<ChatPageWithRoom>
       context: context,
       builder: (c) => SendFileDialog(
         files: xFiles,
-        room: room,
+        room: composerRoom,
         outerContext: context,
         threadRootEventId: activeThreadId,
         threadLastEventId: threadLastEventId,
@@ -1224,7 +1312,7 @@ class ChatController extends State<ChatPageWithRoom>
       context: context,
       builder: (c) => SendFileDialog(
         files: [gif],
-        room: room,
+        room: composerRoom,
         outerContext: context,
         threadRootEventId: activeThreadId,
         threadLastEventId: threadLastEventId,
@@ -1243,7 +1331,7 @@ class ChatController extends State<ChatPageWithRoom>
         context: context,
         builder: (c) => SendFileDialog(
           files: files,
-          room: room,
+          room: composerRoom,
           outerContext: context,
           threadRootEventId: activeThreadId,
           threadLastEventId: threadLastEventId,
@@ -1289,7 +1377,7 @@ class ChatController extends State<ChatPageWithRoom>
       context: context,
       builder: (c) => SendFileDialog(
         files: [file],
-        room: room,
+        room: composerRoom,
         outerContext: context,
         threadRootEventId: activeThreadId,
         threadLastEventId: threadLastEventId,
@@ -1303,7 +1391,8 @@ class ChatController extends State<ChatPageWithRoom>
     List<int> waveform,
     String fileName,
   ) async {
-    final proceed = await showTrustUserInRoomDialog(context, room);
+    final target = composerRoom;
+    final proceed = await showTrustUserInRoomDialog(context, target);
     if (!mounted || !proceed) return;
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
@@ -1333,7 +1422,7 @@ class ChatController extends State<ChatPageWithRoom>
     );
 
     try {
-      await room.sendFileEvent(
+      await target.sendFileEvent(
         file,
         inReplyTo: replyEvent,
         threadRootEventId: activeThreadId,
@@ -1409,7 +1498,7 @@ class ChatController extends State<ChatPageWithRoom>
   Future<void> sendLocationAction() async {
     await showAdaptiveDialog(
       context: context,
-      builder: (c) => SendLocationDialog(room: room),
+      builder: (c) => SendLocationDialog(room: composerRoom),
     );
   }
 
@@ -1519,7 +1608,12 @@ class ChatController extends State<ChatPageWithRoom>
               if (client == null) {
                 return;
               }
-              final room = client.getRoomById(roomId)!;
+              final room = client.getRoomById(
+                sendRouter.route(
+                  SendAction.redaction,
+                  eventRoomId: event.roomId,
+                ),
+              )!;
               await Event.fromJson(
                 event.toJson(),
                 room,
@@ -1558,7 +1652,11 @@ class ChatController extends State<ChatPageWithRoom>
 
   bool get canPinSelectedEvents {
     if (isArchived ||
-        !room.canChangeStateEvent(EventTypes.RoomPinnedEvents) ||
+        selectedEvents.length != 1 ||
+        !roomForEvent(
+          selectedEvents.single,
+          SendAction.pin,
+        ).canChangeStateEvent(EventTypes.RoomPinnedEvents) ||
         selectedEvents.length != 1 ||
         !selectedEvents.single.status.isSent ||
         activeThreadId != null) {
@@ -1915,7 +2013,7 @@ class ChatController extends State<ChatPageWithRoom>
       case AddPopupMenuActions.poll:
         showAdaptiveBottomSheet(
           context: context,
-          builder: (context) => StartPollBottomSheet(room: room),
+          builder: (context) => StartPollBottomSheet(room: composerRoom),
         );
         return;
       case AddPopupMenuActions.photoCamera:
@@ -1940,6 +2038,7 @@ class ChatController extends State<ChatPageWithRoom>
     );
     if (!mounted) return;
     if (response == OkCancelResult.ok) {
+      // The pinned bar lists the pins of the room shown.
       final events = room.pinnedEventIds
         ..removeWhere((oldEvent) => oldEvent == eventId);
       showFutureLoadingDialog(
@@ -1950,6 +2049,8 @@ class ChatController extends State<ChatPageWithRoom>
   }
 
   void pinEvent() {
+    // A pin is state of the room the message is in.
+    final room = roomForEvent(selectedEvents.first, SendAction.pin);
     final pinnedEventIds = room.pinnedEventIds;
     final selectedEventIds = selectedEvents.map((e) => e.eventId).toSet();
     final unpin =
@@ -2047,15 +2148,22 @@ class ChatController extends State<ChatPageWithRoom>
         if (!mounted) return;
         typingCoolDown = null;
         currentlyTyping = false;
-        room.setTyping(false);
+        _typingRoom?.setTyping(false);
       });
       typingTimeout ??= Timer(const Duration(seconds: 30), () {
         typingTimeout = null;
         currentlyTyping = false;
       });
+      final target = composerRoom;
+      if (currentlyTyping && _typingRoom != target) {
+        // The target changed while typing: stop in the old room first.
+        _typingRoom?.setTyping(false);
+        currentlyTyping = false;
+      }
       if (!currentlyTyping) {
         currentlyTyping = true;
-        room.setTyping(
+        _typingRoom = target;
+        target.setTyping(
           true,
           timeout: const Duration(seconds: 30).inMilliseconds,
         );

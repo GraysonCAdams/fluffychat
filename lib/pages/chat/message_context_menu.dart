@@ -6,6 +6,7 @@ import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/event_extension.dart';
+import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -41,7 +42,9 @@ Future<void> showMessageContextMenu(
   if (event.redacted) return;
   final context = controller.context;
   final l10n = L10n.of(context);
-  final room = controller.room;
+  // Reacting to and replying to this message happen in its own room, which
+  // in a merged contact's chat need not be the room the composer sends to.
+  final room = controller.roomForEvent(event, SendAction.reaction);
   controller.selectOnly(event);
 
   final timeline = controller.timeline;
