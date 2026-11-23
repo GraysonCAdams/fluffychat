@@ -19,8 +19,14 @@ class SuggesterChat {
   final String? networkId;
 
   /// The identifier from [primaryIdentifier], or null when the chat has
-  /// none. Chats without one are never suggested.
+  /// none.
   final ContactIdentifier? identifier;
+
+  /// The chat's display name as a name identifier, or null. Matched in
+  /// addition to [identifier], because bridges expose different things: one
+  /// puts the phone number in the user ID while another shows only the
+  /// contact's name, and the name is then all the two chats have in common.
+  final ContactIdentifier? name;
 
   /// The merged contact this room already belongs to, or null.
   final String? contactId;
@@ -35,6 +41,7 @@ class SuggesterChat {
     required this.roomId,
     this.networkId,
     this.identifier,
+    this.name,
     this.contactId,
     this.named = true,
   });
@@ -98,10 +105,15 @@ Set<String> dismissedPairKeysFromJson(Object? json) {
   return keys;
 }
 
-/// Groups [chats] by identifier and returns the merges worth offering.
+/// Groups [chats] that share an identifier and returns the merges worth
+/// offering.
 ///
 /// Unnamed chats ([SuggesterChat.named] false) are left out before grouping.
-/// A group of chats sharing an identifier becomes a suggestion when:
+/// Two chats belong to the same group when they share
+/// [SuggesterChat.identifier] or [SuggesterChat.name], directly or through a
+/// third chat. [MergeSuggestion.matchedOn] is a phone or email shared by at
+/// least two of the group when there is one, otherwise the shared name.
+/// A group becomes a suggestion when:
 /// - it has at least two rooms, not all already in the same contact;
 /// - its rooms belong to at most one existing contact. With one, the
 ///   suggestion adds the other rooms to it ([MergeSuggestion.existingContactId]).
@@ -129,18 +141,57 @@ List<MergeSuggestion> suggestMerges(
   List<SuggesterChat> chats, {
   Set<String> dismissedPairs = const {},
 }) {
-  final groups = <ContactIdentifier, Map<String, SuggesterChat>>{};
-  for (final chat in chats) {
-    final identifier = chat.identifier;
-    if (identifier == null || !chat.named) continue;
-    // Keyed by room ID so a room listed twice is counted once.
-    groups.putIfAbsent(identifier, () => {})[chat.roomId] = chat;
+  // Keyed by room ID so a room listed twice is counted once.
+  final byRoom = <String, SuggesterChat>{
+    for (final chat in chats)
+      if (chat.named && (chat.identifier != null || chat.name != null))
+        chat.roomId: chat,
+  };
+  Set<ContactIdentifier> keysOf(SuggesterChat chat) => {
+    if (chat.identifier != null) chat.identifier!,
+    if (chat.name != null) chat.name!,
+  };
+
+  // Union-find over room IDs: rooms sharing a key end up under one root.
+  final parent = <String, String>{for (final id in byRoom.keys) id: id};
+  String find(String id) {
+    while (parent[id] != id) {
+      id = parent[id] = parent[parent[id]!]!;
+    }
+    return id;
+  }
+
+  final firstRoomWithKey = <ContactIdentifier, String>{};
+  for (final chat in byRoom.values) {
+    for (final key in keysOf(chat)) {
+      final other = firstRoomWithKey.putIfAbsent(key, () => chat.roomId);
+      parent[find(chat.roomId)] = find(other);
+    }
+  }
+  final groups = <String, List<SuggesterChat>>{};
+  for (final chat in byRoom.values) {
+    groups.putIfAbsent(find(chat.roomId), () => []).add(chat);
   }
 
   final suggestions = <MergeSuggestion>[];
-  for (final MapEntry(key: identifier, value: byRoom) in groups.entries) {
-    if (byRoom.length < 2) continue;
-    final members = byRoom.values.toList();
+  for (final members in groups.values) {
+    if (members.length < 2) continue;
+    final keyCounts = <ContactIdentifier, int>{};
+    for (final chat in members) {
+      for (final key in keysOf(chat)) {
+        keyCounts[key] = (keyCounts[key] ?? 0) + 1;
+      }
+    }
+    final shared = [
+      for (final MapEntry(:key, :value) in keyCounts.entries)
+        if (value > 1) key,
+    ]..sort((a, b) {
+      final aName = a.type == IdentifierType.name ? 1 : 0;
+      final bName = b.type == IdentifierType.name ? 1 : 0;
+      if (aName != bName) return aName - bName;
+      return a.value.compareTo(b.value);
+    });
+    final identifier = shared.first;
 
     final contactIds = {
       for (final chat in members)

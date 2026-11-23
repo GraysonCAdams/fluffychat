@@ -207,12 +207,14 @@ class ChatInputRow extends StatelessWidget {
                       return AnimatedContainer(
                         duration: FluffyThemes.animationDuration,
                         curve: FluffyThemes.animationCurve,
-                        width: textMessageOnly ? 0 : 44,
+                        // Collapsed, the slot stays as the text's inset
+                        // from the rounded edge of the composer.
+                        width: textMessageOnly ? 16 : 44,
                         height: height,
                         alignment: Alignment.center,
                         decoration: const BoxDecoration(),
                         clipBehavior: Clip.hardEdge,
-                        child: child,
+                        child: textMessageOnly ? null : child,
                       );
                     },
                     child: IconButton(

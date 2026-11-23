@@ -171,6 +171,11 @@ class MergeSuggestionService {
         room,
   ];
 
+  static ContactIdentifier? _nameIdentifier(String displayName) {
+    final name = normalizeName(displayName);
+    return name.isEmpty ? null : ContactIdentifier(IdentifierType.name, name);
+  }
+
   void _compute() {
     final store = _store;
     final spaces = spacesByChild(client);
@@ -189,6 +194,7 @@ class MergeSuggestionService {
             displayName: displayName,
             defaultRegion: region,
           ),
+          name: _nameIdentifier(displayName),
           contactId: store.contactForRoom(room.id)?.id,
           named: isContactName(displayName),
         ),

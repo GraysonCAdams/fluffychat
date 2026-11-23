@@ -182,8 +182,9 @@ failed copy is removed once the new one is on its way.
 
 ### MergeSuggester (`lib/utils/merged_contacts/suggester.dart`)
 
-Groups direct chats by a common identifier and never merges without the
-user. For each chat it takes the first identifier available, in this order:
+Groups direct chats that share an identifier and never merges without the
+user. Each chat is matched on two things: its display name, and a primary
+identifier, the first one available in this order:
 
 1. **Phone number**, normalised to E.164. Sources: the iMessage bridge's
    user IDs (`@imessage_tel=3a+1404...`), and the `com.beeper.bridge.
@@ -201,9 +202,12 @@ merged. A group with two chats on the same network is skipped whatever it
 matched on, because that is a duplicate room from the bridge rather than one
 person on two networks.
 
-Chats sharing a phone number or email are a strong suggestion, shown as a
-banner. A name-only match is weak and only listed in the manage screen,
-since two people can share a name. The identifier a suggestion matched on is
+Two chats land in one group when they share the primary identifier or the
+name. The name is needed because bridges expose different things: one puts
+the number in the user ID, another shows only the contact's name. A group
+that shares a phone number or email is a strong suggestion; one that shares
+only a name is weak, since two people can share a name. Both are offered in
+the banner, strong ones first. The identifier a suggestion matched on is
 shown with it ("Same number: +1 404 ..."). Dismissals are stored in
 `dismissed_suggestions`.
 
@@ -296,9 +300,8 @@ pass.
 of contacts (each opens the manage sheet), pending suggestions strong and
 weak, a switch to turn suggestions off, and the phone number region.
 
-The chat list shows the first strong suggestion as a banner under the
-filter chips, with a link to the rest; weak (name only) suggestions appear
-in the settings alone.
+The chat list shows the first suggestion as a banner under the filter
+chips, with a link to the rest.
 
 ## Notifications
 

@@ -9,10 +9,9 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
-/// Above the chat list: the first strong merge suggestion (same phone
-/// number or email on several networks), with a link to the rest. Weak
-/// suggestions (same name only) are listed in the merged contacts settings
-/// alone, since two people can share a name.
+/// Above the chat list: the first merge suggestion, with a link to the
+/// rest. The service orders them, same phone number or email ahead of same
+/// name only.
 ///
 /// Only this widget listens to the suggestions, so a new suggestion
 /// rebuilds the banner and not the list.
@@ -27,13 +26,13 @@ class MergeSuggestionBanner extends StatelessWidget {
     return ValueListenableBuilder(
       valueListenable: service.suggestions,
       builder: (context, suggestions, _) {
-        final strong = suggestions.where((s) => s.strong).toList();
-        if (strong.isEmpty) return const SizedBox.shrink();
+        final pending = suggestions;
+        if (pending.isEmpty) return const SizedBox.shrink();
         return MergeSuggestionCard(
-          key: ValueKey(strong.first.roomIds.join()),
+          key: ValueKey(pending.first.roomIds.join()),
           client: client,
-          suggestion: strong.first,
-          footer: strong.length < 2
+          suggestion: pending.first,
+          footer: pending.length < 2
               ? null
               : Align(
                   alignment: Alignment.centerRight,
@@ -41,7 +40,7 @@ class MergeSuggestionBanner extends StatelessWidget {
                     onPressed: () =>
                         context.go('/rooms/settings/chat/merged_contacts'),
                     child: Text(
-                      L10n.of(context).moreMergeSuggestions(strong.length - 1),
+                      L10n.of(context).moreMergeSuggestions(pending.length - 1),
                     ),
                   ),
                 ),

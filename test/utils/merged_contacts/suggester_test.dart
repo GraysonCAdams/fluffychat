@@ -21,10 +21,12 @@ SuggesterChat _chat(
   ContactIdentifier? id,
   String? contact,
   bool named = true,
+  ContactIdentifier? name,
 }) => SuggesterChat(
   roomId: roomId,
   networkId: network,
   identifier: id,
+  name: name,
   contactId: contact,
   named: named,
 );
@@ -50,6 +52,25 @@ void main() {
       _chat('!c', network: _imessage, id: _phone),
     ]);
     expect(result, isEmpty);
+  });
+
+  test('a chat known by phone matches one known only by the same name', () {
+    final result = suggestMerges([
+      _chat('!a', network: _imessage, id: _phone, name: _name),
+      _chat('!b', network: _gmessages, id: _name, name: _name),
+    ]);
+    expect(result.single.roomIds, ['!a', '!b']);
+    expect(result.single.matchedOn, _name);
+    expect(result.single.strong, isFalse);
+  });
+
+  test('a shared phone is reported ahead of a shared name', () {
+    final result = suggestMerges([
+      _chat('!a', network: _imessage, id: _phone, name: _name),
+      _chat('!b', network: _gmessages, id: _phone, name: _name),
+    ]);
+    expect(result.single.matchedOn, _phone);
+    expect(result.single.strong, isTrue);
   });
 
   test('unnamed chats are never suggested', () {

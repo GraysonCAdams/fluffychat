@@ -19,7 +19,8 @@ void main() {
   setUp(() async {
     client = await fakeMergedClient();
     // Harrison: iMessage encodes the number in the user ID; the SMS chat
-    // has no number in its ID and is named after the formatted number.
+    // has no number in its ID and is titled with the formatted number, which
+    // makes it an unnamed chat that is never suggested.
     addDirectChat(
       client,
       id: '!imsg-h:x',
@@ -69,19 +70,14 @@ void main() {
   });
 
   test(
-    'finds the same number across bridges, including profile fields',
+    'finds the same number across bridges from profile fields, named only',
     () async {
       await service.refresh();
       final suggestions = service.suggestions.value;
-      expect(suggestions, hasLength(2));
       expect(suggestions.every((s) => s.strong), isTrue);
-      expect(
-        suggestions.map((s) => s.roomIds),
-        containsAll([
-          ['!imsg-h:x', '!sms-h:x'],
-          ['!imsg-p:x', '!sms-p:x'],
-        ]),
-      );
+      expect(suggestions.map((s) => s.roomIds), [
+        ['!imsg-p:x', '!sms-p:x'],
+      ]);
       expect(
         suggestions.map((s) => s.matchedOn),
         contains(const ContactIdentifier(IdentifierType.phone, '+13125550100')),
