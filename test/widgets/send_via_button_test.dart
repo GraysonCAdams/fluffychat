@@ -60,7 +60,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('tapping picks another network for the next message', (
+  testWidgets('tapping picks another network and keeps it for the contact', (
     tester,
   ) async {
     final picks = <String>[];
@@ -79,24 +79,7 @@ void main() {
     await tester.tap(find.text('SMS').last);
     await tester.pumpAndSettle();
     expect(picks, ['!sms:x']);
-    expect(defaults, isEmpty);
-  });
-
-  testWidgets('long press makes the pick the default', (tester) async {
-    final picks = <String>[];
-    final defaults = <String>[];
-    await pumpButton(
-      tester,
-      target: const SendTarget('!imsg:x'),
-      picks: picks,
-      defaults: defaults,
-    );
-    await tester.longPress(find.byKey(const Key('send_via_button')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('SMS').last);
-    await tester.pumpAndSettle();
     expect(defaults, ['!sms:x']);
-    expect(picks, ['!sms:x']);
   });
 
   testWidgets('while replying the button shows the reply\'s network, locked', (

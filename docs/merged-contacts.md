@@ -164,7 +164,8 @@ rule. The router works on room IDs only and is unit tested per action.
 
 Target room for a new message:
 
-1. A one-off pick from the send-via button, if any (resets after sending).
+1. The network picked on the send-via button. Picking also stores it as the
+   contact's network, so the next visit starts on it.
 2. `send_mode == last_received`: room of the newest incoming event.
 3. `send_via`.
 
@@ -289,7 +290,7 @@ pass.
 - Composer: a send-via button at the start, before the attachment button,
   showing only the
   network's icon; the hint text names the network. Tap opens the list of
-  networks, long press makes the pick the new default.
+  networks; the one picked is kept as the contact's network.
 - Encryption badge reflects the target room, and warns when the target is
   unencrypted while another room in the contact is encrypted.
 - Chat details: the manage sheet shows the contact, then each room with a
@@ -326,7 +327,7 @@ chips, with a link to the rest.
    room switcher in the app bar. No timeline work.
 2. **Send-via button and routing** on the single-room screen: the button
    switches which member room is shown and sent to (picking a network opens
-   that room; long press also makes it the default).
+   that room, and is kept as the contact's default).
 3. **Merged timeline.** `MergedTimeline` (a `Timeline`), the safe-horizon
    history loader, per-event routing, read markers.
 4. **Suggestions and notification grouping.**

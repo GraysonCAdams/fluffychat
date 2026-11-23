@@ -12,9 +12,9 @@ import 'package:material_ui/material_ui.dart';
 /// contact's chat: the icon of the network the next message goes out on. The
 /// network's name is in the field's hint, so the button carries no label.
 ///
-/// Tapping lists the contact's networks and [onPick] switches to the one
-/// picked for this message; long pressing does the same and [onSetDefault]
-/// also makes it the contact's default. While [target] is locked (replying,
+/// Tapping lists the contact's networks; the one picked becomes the
+/// contact's network from then on ([onSetDefault]) and [onPick] switches the
+/// composer to it. While [target] is locked (replying,
 /// editing, in a thread) the button shows the network of the message being
 /// answered with a lock and cannot be changed, so it is clear the answer does
 /// not use the default.
@@ -39,7 +39,7 @@ class SendViaButton extends StatelessWidget {
     super.key,
   });
 
-  Future<void> _choose(BuildContext context, {required bool setDefault}) async {
+  Future<void> _choose(BuildContext context) async {
     final picked = await showMergedNetworkMenu(
       context,
       networks: networks,
@@ -47,7 +47,9 @@ class SendViaButton extends StatelessWidget {
       defaultRoomId: defaultRoomId,
     );
     if (picked == null) return;
-    if (setDefault) onSetDefault(picked);
+    // Picking is remembered for the contact, whether or not a message
+    // follows.
+    onSetDefault(picked);
     if (picked != target.roomId) onPick(picked);
   }
 
@@ -80,8 +82,7 @@ class SendViaButton extends StatelessWidget {
         child: InkResponse(
           key: const Key('send_via_button'),
           radius: 20,
-          onTap: locked ? null : () => _choose(context, setDefault: false),
-          onLongPress: locked ? null : () => _choose(context, setDefault: true),
+          onTap: locked ? null : () => _choose(context),
           child: SizedBox.square(
             dimension: 40,
             child: Stack(

@@ -10,6 +10,8 @@ import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
+import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/sync_status_localization.dart';
 import 'package:fluffychat/utils/verified_room_extension.dart';
@@ -106,6 +108,20 @@ class ChatAppBarTitle extends StatelessWidget {
                   )
                 else if (contact != null)
                   _MergedRoomSwitcher(room: room, contact: contact)
+                else if (room.isDirectChat &&
+                    NetworkColors.bridgeIdOf(room) != null)
+                  // A direct chat through a bridge names its network, as a
+                  // merged contact's chat names all of its networks.
+                  Text(
+                    networkName(
+                      room,
+                      spacesByChild(room.client)[room.id],
+                      MatrixLocals(L10n.of(context)),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11),
+                  )
                 else
                   StreamBuilder(
                     stream: room.client.onSyncStatus.stream,

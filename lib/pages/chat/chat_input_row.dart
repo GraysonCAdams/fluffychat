@@ -228,11 +228,9 @@ class ChatInputRow extends StatelessWidget {
                         curve: FluffyThemes.animationCurve,
                         // Collapsed, the slot stays as the text's inset
                         // from the rounded edge of the composer.
-                        width: textMessageOnly
-                            ? 16
-                            : networks != null
-                            ? 36
-                            : 44,
+                        width: networks != null
+                            ? (textMessageOnly ? 6 : 36)
+                            : (textMessageOnly ? 16 : 44),
                         height: height,
                         alignment: Alignment.center,
                         decoration: const BoxDecoration(),
@@ -415,6 +413,24 @@ class ChatSendButton extends StatelessWidget {
 
   Widget _build(BuildContext context) {
     final theme = Theme.of(context);
+    // In a merged contact's chat the button takes the color of the network
+    // the message will go out on, as that network's bubbles do.
+    Color? networkColor;
+    if (AppSettings.networkBubbleColors.value) {
+      final networks = controller.mergedNetworks(
+        MatrixLocals(L10n.of(context)),
+      );
+      final targetRoomId = controller.composerTarget.roomId;
+      for (final network in networks ?? const <MergedNetwork>[]) {
+        if (network.room.id == targetRoomId) networkColor = network.bubbleColor;
+      }
+    }
+    final background = networkColor ?? theme.bubbleColor;
+    final foreground = networkColor == null
+        ? theme.onBubbleColor
+        : ThemeData.estimateBrightnessForColor(networkColor) == Brightness.dark
+        ? Colors.white
+        : Colors.black;
     return Container(
       height: ChatInputRow.height,
       width: ChatInputRow.height,
@@ -448,8 +464,8 @@ class ChatSendButton extends StatelessWidget {
                     recordingViewModel.startRecording(controller.room),
                 style: IconButton.styleFrom(
                   fixedSize: const Size.square(ChatInputRow.height),
-                  backgroundColor: theme.bubbleColor,
-                  foregroundColor: theme.onBubbleColor,
+                  backgroundColor: background,
+                  foregroundColor: foreground,
                 ),
                 icon: Icon(hovered ? Icons.mic : Icons.mic_none_outlined),
               ),
@@ -464,8 +480,8 @@ class ChatSendButton extends StatelessWidget {
                 onLongPress: controller.openSendOptions,
                 style: IconButton.styleFrom(
                   fixedSize: const Size.square(ChatInputRow.height),
-                  backgroundColor: theme.bubbleColor,
-                  foregroundColor: theme.onBubbleColor,
+                  backgroundColor: background,
+                  foregroundColor: foreground,
                 ),
                 icon: const Icon(Icons.send_outlined),
               ),
