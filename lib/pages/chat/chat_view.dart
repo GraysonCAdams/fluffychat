@@ -13,7 +13,6 @@ import 'package:fluffychat/pages/chat/chat_app_bar_list_tile.dart';
 import 'package:fluffychat/pages/chat/chat_app_bar_title.dart';
 import 'package:fluffychat/pages/chat/chat_event_list.dart';
 import 'package:fluffychat/pages/chat/pinned_events.dart';
-import 'package:fluffychat/pages/chat/reply_display.dart';
 import 'package:fluffychat/utils/account_config.dart';
 import 'package:fluffychat/utils/android_bubble.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
@@ -25,6 +24,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
 import '../../utils/stream_extension.dart';
+import 'attachment_panel.dart';
 import 'chat_emoji_picker.dart';
 import 'chat_input_row.dart';
 
@@ -402,14 +402,13 @@ class ChatView extends StatelessWidget {
                                     ? const SizedBox.shrink()
                                     : Material(
                                         clipBehavior: Clip.hardEdge,
+                                        // The composer draws its own pill
+                                        // beside the send button.
                                         color:
-                                            controller.selectedEvents.isNotEmpty
-                                            ? theme
-                                                  .colorScheme
-                                                  .tertiaryContainer
-                                            : theme
-                                                  .colorScheme
-                                                  .surfaceContainer,
+                                            controller.room.membership ==
+                                                .invite
+                                            ? theme.colorScheme.surfaceContainer
+                                            : Colors.transparent,
                                         borderRadius: BorderRadius.circular(32),
                                         child:
                                             controller.room.membership ==
@@ -511,9 +510,9 @@ class ChatView extends StatelessWidget {
                                             : Column(
                                                 mainAxisSize: .min,
                                                 children: [
-                                                  ReplyDisplay(controller),
-                                                  ChatInputRow(controller),
+                                                  ChatComposer(controller),
                                                   ChatEmojiPicker(controller),
+                                                  AttachmentPanel(controller),
                                                 ],
                                               ),
                                       ),

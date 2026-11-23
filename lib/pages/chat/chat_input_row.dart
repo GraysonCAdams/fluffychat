@@ -18,14 +18,29 @@ import 'package:matrix/matrix.dart';
 
 import '../../config/themes.dart';
 import 'chat.dart';
+import 'composer_attachments.dart';
 import 'input_bar.dart';
+import 'reply_display.dart';
 
 class ChatInputRow extends StatelessWidget {
   final ChatController controller;
 
   static const double height = 56.0;
 
-  const ChatInputRow(this.controller, {super.key});
+  /// Recording state shared with a [ChatSendButton] outside this row. When
+  /// null the row keeps its own.
+  final RecordingViewModelState? recording;
+
+  /// Whether the mic and send button sits at the end of this row. The
+  /// composer turns it off to draw the button outside its pill.
+  final bool showSendButton;
+
+  const ChatInputRow(
+    this.controller, {
+    this.recording,
+    this.showSendButton = true,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -52,8 +67,11 @@ class ChatInputRow extends StatelessWidget {
       foregroundColor: theme.colorScheme.onTertiaryContainer,
     );
 
-    return RecordingViewModel(
-      builder: (context, recordingViewModel) {
+    Widget buildRow(
+      BuildContext context,
+      RecordingViewModelState recordingViewModel,
+    ) {
+      {
         if (recordingViewModel.isRecording) {
           return RecordingInputRow(
             state: recordingViewModel,
@@ -132,143 +150,44 @@ class ChatInputRow extends StatelessWidget {
                       : const SizedBox.shrink(),
                 ]
               : <Widget>[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 2),
                   AnimatedContainer(
                     duration: FluffyThemes.animationDuration,
                     curve: FluffyThemes.animationCurve,
-                    width: textMessageOnly ? 0 : 48,
+                    width: textMessageOnly ? 0 : 44,
                     height: height,
                     alignment: Alignment.center,
                     decoration: const BoxDecoration(),
                     clipBehavior: Clip.hardEdge,
-                    child: PopupMenuButton<AddPopupMenuActions>(
-                      useRootNavigator: true,
-                      icon: const Icon(Icons.add_circle_outline),
-                      iconColor: theme.colorScheme.onPrimaryContainer,
-                      onSelected: controller.onAddPopupMenuButtonSelected,
-                      itemBuilder: (BuildContext context) => [
-                        if (PlatformInfos.isMobile)
-                          PopupMenuItem(
-                            value: AddPopupMenuActions.location,
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor:
-                                    theme.colorScheme.onPrimaryContainer,
-                                foregroundColor:
-                                    theme.colorScheme.primaryContainer,
-                                child: const Icon(Icons.gps_fixed_outlined),
-                              ),
-                              title: Text(L10n.of(context).shareLocation),
-                              contentPadding: const EdgeInsets.all(0),
-                            ),
-                          ),
-                        PopupMenuItem(
-                          value: AddPopupMenuActions.poll,
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor:
-                                  theme.colorScheme.onPrimaryContainer,
-                              foregroundColor:
-                                  theme.colorScheme.primaryContainer,
-                              child: const Icon(Icons.poll_outlined),
-                            ),
-                            title: Text(L10n.of(context).startPoll),
-                            contentPadding: const EdgeInsets.all(0),
-                          ),
-                        ),
-                        PopupMenuDivider(),
-                        if (PlatformInfos.isMobile) ...[
-                          PopupMenuItem(
-                            value: AddPopupMenuActions.videoCamera,
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor:
-                                    theme.colorScheme.onPrimaryContainer,
-                                foregroundColor:
-                                    theme.colorScheme.primaryContainer,
-                                child: const Icon(Icons.videocam_outlined),
-                              ),
-                              title: Text(L10n.of(context).recordAVideo),
-                              contentPadding: const EdgeInsets.all(0),
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: AddPopupMenuActions.photoCamera,
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor:
-                                    theme.colorScheme.onPrimaryContainer,
-                                foregroundColor:
-                                    theme.colorScheme.primaryContainer,
-                                child: const Icon(Icons.camera_alt_outlined),
-                              ),
-                              title: Text(L10n.of(context).takeAPhoto),
-                              contentPadding: const EdgeInsets.all(0),
-                            ),
-                          ),
-                          PopupMenuDivider(),
-                        ],
-                        PopupMenuItem(
-                          value: AddPopupMenuActions.video,
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor:
-                                  theme.colorScheme.onPrimaryContainer,
-                              foregroundColor:
-                                  theme.colorScheme.primaryContainer,
-                              child: const Icon(Icons.movie_outlined),
-                            ),
-                            title: Text(L10n.of(context).sendVideo),
-                            contentPadding: const EdgeInsets.all(0),
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: AddPopupMenuActions.image,
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor:
-                                  theme.colorScheme.onPrimaryContainer,
-                              foregroundColor:
-                                  theme.colorScheme.primaryContainer,
-                              child: const Icon(Icons.image_outlined),
-                            ),
-                            title: Text(L10n.of(context).sendImage),
-                            contentPadding: const EdgeInsets.all(0),
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: AddPopupMenuActions.file,
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor:
-                                  theme.colorScheme.onPrimaryContainer,
-                              foregroundColor:
-                                  theme.colorScheme.primaryContainer,
-                              child: const Icon(Icons.attachment_outlined),
-                            ),
-                            title: Text(L10n.of(context).sendFile),
-                            contentPadding: const EdgeInsets.all(0),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    height: height,
-                    width: 48,
-                    alignment: Alignment.center,
                     child: IconButton(
-                      tooltip: L10n.of(context).emojis,
-                      color: theme.colorScheme.onPrimaryContainer,
+                      tooltip: L10n.of(context).addAttachment,
                       icon: Icon(
-                        controller.showEmojiPicker
-                            ? Icons.keyboard
-                            : Icons.add_reaction_outlined,
-                        key: ValueKey(controller.showEmojiPicker),
+                        controller.showAttachmentPanel
+                            ? Icons.close
+                            : Icons.add_circle_outline,
                       ),
-                      onPressed: controller.emojiPickerAction,
+                      color: theme.colorScheme.onPrimaryContainer,
+                      onPressed: controller.toggleAttachmentPanel,
                     ),
                   ),
+                  // Android keyboards carry their own emoji picker.
+                  if (!PlatformInfos.isAndroid)
+                    Container(
+                      height: height,
+                      width: 48,
+                      alignment: Alignment.center,
+                      child: IconButton(
+                        tooltip: L10n.of(context).emojis,
+                        color: theme.colorScheme.onPrimaryContainer,
+                        icon: Icon(
+                          controller.showEmojiPicker
+                              ? Icons.keyboard
+                              : Icons.add_reaction_outlined,
+                          key: ValueKey(controller.showEmojiPicker),
+                        ),
+                        onPressed: controller.emojiPickerAction,
+                      ),
+                    ),
                   if (Matrix.of(context).isMultiAccount &&
                       Matrix.of(context).hasComplexBundles &&
                       Matrix.of(context).currentBundle!.length > 1)
@@ -298,7 +217,7 @@ class ChatInputRow extends StatelessWidget {
                         controller: controller.sendController,
                         decoration: InputDecoration(
                           contentPadding: const EdgeInsets.only(
-                            left: 6.0,
+                            left: 2.0,
                             right: 6.0,
                             bottom: 6.0,
                             top: 3.0,
@@ -329,69 +248,17 @@ class ChatInputRow extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Container(
-                    height: height,
-                    width: height,
-                    alignment: Alignment.center,
-                    child:
-                        PlatformInfos.platformCanRecord &&
-                            !controller.sendController.text.isNotEmpty &&
-                            controller.editEvent == null
-                        ? HoverBuilder(
-                            builder: (context, hovered) => IconButton(
-                              tooltip: L10n.of(context).voiceMessage,
-                              onPressed: hovered
-                                  ? () => recordingViewModel.startRecording(
-                                      controller.room,
-                                    )
-                                  : () => ScaffoldMessenger.of(context)
-                                        .showSnackBar(
-                                          SnackBar(
-                                            margin: EdgeInsets.only(
-                                              bottom: height + 16,
-                                              left: 16,
-                                              right: 16,
-                                              top: 16,
-                                            ),
-                                            showCloseIcon: true,
-                                            content: Text(
-                                              L10n.of(
-                                                context,
-                                              ).longPressToRecordVoiceMessage,
-                                            ),
-                                          ),
-                                        ),
-                              onLongPress: () => recordingViewModel
-                                  .startRecording(controller.room),
-                              style: IconButton.styleFrom(
-                                backgroundColor: theme.bubbleColor,
-                                foregroundColor: theme.onBubbleColor,
-                              ),
-                              icon: Icon(
-                                hovered ? Icons.mic : Icons.mic_none_outlined,
-                              ),
-                            ),
-                          )
-                        : GestureDetector(
-                            // Long press or right click offers scheduling.
-                            onSecondaryTap: controller.openSendOptions,
-                            child: IconButton(
-                              key: Key('send_button'),
-                              tooltip: L10n.of(context).send,
-                              onPressed: controller.send,
-                              onLongPress: controller.openSendOptions,
-                              style: IconButton.styleFrom(
-                                backgroundColor: theme.bubbleColor,
-                                foregroundColor: theme.onBubbleColor,
-                              ),
-                              icon: const Icon(Icons.send_outlined),
-                            ),
-                          ),
-                  ),
+                  if (showSendButton)
+                    ChatSendButton(controller, recordingViewModel),
                 ],
         );
-      },
-    );
+      }
+    }
+
+    final recording = this.recording;
+    return recording != null
+        ? buildRow(context, recording)
+        : RecordingViewModel(builder: buildRow);
   }
 }
 
@@ -451,6 +318,130 @@ class _ChatAccountPicker extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The mic and send button, a circle beside the composer's pill as in
+/// Google Messages. Long-pressing the mic records a voice message through
+/// [recordingViewModel], which the input row shares to show the recorder.
+class ChatSendButton extends StatelessWidget {
+  final ChatController controller;
+  final RecordingViewModelState recordingViewModel;
+
+  const ChatSendButton(this.controller, this.recordingViewModel, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      height: ChatInputRow.height,
+      width: ChatInputRow.height,
+      alignment: Alignment.center,
+      child:
+          PlatformInfos.platformCanRecord &&
+              !controller.sendController.text.isNotEmpty &&
+              controller.pendingAttachments.isEmpty &&
+              controller.editEvent == null
+          ? HoverBuilder(
+              builder: (context, hovered) => IconButton(
+                tooltip: L10n.of(context).voiceMessage,
+                onPressed: hovered
+                    ? () => recordingViewModel.startRecording(controller.room)
+                    : () => ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          margin: EdgeInsets.only(
+                            bottom: ChatInputRow.height + 16,
+                            left: 16,
+                            right: 16,
+                            top: 16,
+                          ),
+                          showCloseIcon: true,
+                          content: Text(
+                            L10n.of(context).longPressToRecordVoiceMessage,
+                          ),
+                        ),
+                      ),
+                onLongPress: () =>
+                    recordingViewModel.startRecording(controller.room),
+                style: IconButton.styleFrom(
+                  fixedSize: const Size.square(ChatInputRow.height),
+                  backgroundColor: theme.bubbleColor,
+                  foregroundColor: theme.onBubbleColor,
+                ),
+                icon: Icon(hovered ? Icons.mic : Icons.mic_none_outlined),
+              ),
+            )
+          : GestureDetector(
+              // Long press or right click offers scheduling.
+              onSecondaryTap: controller.openSendOptions,
+              child: IconButton(
+                key: Key('send_button'),
+                tooltip: L10n.of(context).send,
+                onPressed: controller.send,
+                onLongPress: controller.openSendOptions,
+                style: IconButton.styleFrom(
+                  fixedSize: const Size.square(ChatInputRow.height),
+                  backgroundColor: theme.bubbleColor,
+                  foregroundColor: theme.onBubbleColor,
+                ),
+                icon: const Icon(Icons.send_outlined),
+              ),
+            ),
+    );
+  }
+}
+
+/// The message composer: a pill holding the reply preview, staged
+/// attachments and the input row, with the send button outside it.
+class ChatComposer extends StatelessWidget {
+  final ChatController controller;
+
+  const ChatComposer(this.controller, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return RecordingViewModel(
+      builder: (context, recording) {
+        final showSendButton =
+            !recording.isRecording &&
+            !controller.selectMode &&
+            controller.room.otherPartyCanReceiveMessages;
+        return Row(
+          crossAxisAlignment: .end,
+          children: [
+            Expanded(
+              child: Material(
+                clipBehavior: Clip.hardEdge,
+                color: controller.selectedEvents.isNotEmpty
+                    ? theme.colorScheme.tertiaryContainer
+                    : theme.colorScheme.surfaceContainer,
+                borderRadius: BorderRadius.circular(ChatInputRow.height / 2),
+                child: Column(
+                  mainAxisSize: .min,
+                  children: [
+                    ReplyDisplay(controller),
+                    ComposerAttachmentStrip(
+                      files: controller.pendingAttachments,
+                      onRemove: controller.removePendingAttachment,
+                    ),
+                    ChatInputRow(
+                      controller,
+                      recording: recording,
+                      showSendButton: false,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (showSendButton) ...[
+              const SizedBox(width: 8),
+              ChatSendButton(controller, recording),
+            ],
+          ],
+        );
+      },
     );
   }
 }

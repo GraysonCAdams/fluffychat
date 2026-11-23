@@ -15,6 +15,7 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat_view.dart';
 import 'package:fluffychat/pages/chat/event_info_dialog.dart';
+import 'package:fluffychat/pages/chat/gallery_picker/gallery_picker_page.dart';
 import 'package:fluffychat/pages/chat/start_poll_bottom_sheet.dart';
 import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
 import 'package:fluffychat/pages/chat/utils/web_file_to_x_file.dart';
@@ -32,6 +33,7 @@ import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/pasted_file_type.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/scheduled_messages.dart';
+import 'package:fluffychat/utils/send_attachments.dart';
 import 'package:fluffychat/utils/show_scaffold_dialog.dart';
 import 'package:fluffychat/utils/windows_clipboard.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_modal_action_popup.dart';
@@ -201,6 +203,70 @@ class ChatController extends State<ChatPageWithRoom>
   String pendingText = '';
 
   bool showEmojiPicker = false;
+
+  /// Whether the add button's attachment panel is open in place of the
+  /// keyboard.
+  bool showAttachmentPanel = false;
+
+  /// Files staged in the composer, sent ahead of the text on the next send.
+  final List<XFile> pendingAttachments = [];
+
+  void addPendingAttachments(Iterable<XFile> files) =>
+      setState(() => pendingAttachments.addAll(files));
+
+  void removePendingAttachment(XFile file) =>
+      setState(() => pendingAttachments.remove(file));
+
+  void toggleAttachmentPanel() {
+    if (showAttachmentPanel) {
+      inputFocus.requestFocus();
+    } else {
+      inputFocus.unfocus();
+    }
+    setState(() {
+      showAttachmentPanel = !showAttachmentPanel;
+      showEmojiPicker = false;
+    });
+  }
+
+  void _onAttachmentError(Object error, StackTrace stackTrace) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(error.toLocalizedString(context))));
+  }
+
+  /// Picks files and stages them in the composer.
+  Future<void> pickFilesToComposer({FileType type = FileType.any}) async {
+    final files = await selectFiles(context, allowMultiple: true, type: type);
+    if (files.isEmpty || !mounted) return;
+    addPendingAttachments(files);
+  }
+
+  /// Opens the full-screen camera and gallery picker, and sends what it
+  /// returns straight away, followed by its caption.
+  Future<void> openGalleryPicker() async {
+    final result = await showGalleryPicker(
+      context,
+      recipientName: room.getLocalizedDisplayname(),
+    );
+    if (result == null || !mounted) return;
+    setState(() => showAttachmentPanel = false);
+    await sendAttachments(
+      room: room,
+      files: result.files,
+      compress: !result.hd,
+      threadRootEventId: activeThreadId,
+      threadLastEventId: threadLastEventId,
+      scaffoldMessenger: ScaffoldMessenger.of(context),
+      l10n: L10n.of(context),
+      onError: _onAttachmentError,
+    );
+    final caption = result.caption.trim();
+    if (caption.isNotEmpty) {
+      await room.sendTextEvent(caption, threadRootEventId: activeThreadId);
+    }
+  }
 
   int emojiPickerInitialTab = 0;
 
@@ -967,6 +1033,23 @@ class ChatController extends State<ChatPageWithRoom>
   Future<void> send() async {
     final proceed = await showTrustUserInRoomDialog(context, room);
     if (!mounted || !proceed) return;
+    if (pendingAttachments.isNotEmpty) {
+      final files = List.of(pendingAttachments);
+      setState(() {
+        pendingAttachments.clear();
+        showAttachmentPanel = false;
+      });
+      await sendAttachments(
+        room: room,
+        files: files,
+        threadRootEventId: activeThreadId,
+        threadLastEventId: threadLastEventId,
+        scaffoldMessenger: ScaffoldMessenger.of(context),
+        l10n: L10n.of(context),
+        onError: _onAttachmentError,
+      );
+      if (!mounted) return;
+    }
     if (sendController.text.trim().isEmpty) return;
     _storeInputTimeoutTimer?.cancel();
     final prefs = Matrix.of(context).store;
@@ -1282,12 +1365,18 @@ class ChatController extends State<ChatPageWithRoom>
     } else {
       inputFocus.unfocus();
     }
-    setState(() => showEmojiPicker = !showEmojiPicker);
+    setState(() {
+      showEmojiPicker = !showEmojiPicker;
+      showAttachmentPanel = false;
+    });
   }
 
   void _inputFocusListener() {
-    if (showEmojiPicker && inputFocus.hasFocus) {
-      setState(() => showEmojiPicker = false);
+    if ((showEmojiPicker || showAttachmentPanel) && inputFocus.hasFocus) {
+      setState(() {
+        showEmojiPicker = false;
+        showAttachmentPanel = false;
+      });
     }
     if (PlatformInfos.isWindows) _watchEmojiPanel(inputFocus.hasFocus);
   }
