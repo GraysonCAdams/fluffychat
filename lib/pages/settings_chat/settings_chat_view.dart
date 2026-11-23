@@ -156,6 +156,15 @@ class SettingsChatView extends StatelessWidget {
                     }
                   },
                 ),
+              ListTile(
+                title: Text(L10n.of(context).mergedContacts),
+                subtitle: Text(L10n.of(context).mergedContactsDescription),
+                onTap: () => context.go('/rooms/settings/chat/merged_contacts'),
+                trailing: const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Icon(Icons.chevron_right_outlined),
+                ),
+              ),
               Divider(color: theme.dividerColor),
               ListTile(
                 title: Text(

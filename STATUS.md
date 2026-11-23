@@ -7,7 +7,7 @@ Temporary file for resuming this branch; removed in the final commit.
 - Flutter wrapper for this worktree: scratchpad/bin/wflm (runs C:\src\wfl-merged.bat, which cd's here)
 
 ## Phase
-4 (suggestions and notification grouping): next
+5 (fallback offer on failed sends): next
 
 ## Done
 - phase 1 committed: model/store/merged_contact + tests, chat list collapse (MergedChatList), tile/pins/unread chip, long press menu, merge picker, manage sheet, app bar network switcher
@@ -18,8 +18,10 @@ Temporary file for resuming this branch; removed in the final commit.
 - fix commit: tile opened /rooms/contact before that route existed (opened send_via room until phase 3)
 - phase 3 committed: MergedOrder (generic, tested), MergedTimeline implements Timeline (+ tests), /rooms/contact/:id + redirect (single=1 escape), controller merged mode (room = target, one-off pick, per-room read markers, draft per contact), app bar subtitle, per-message network badge
 
+- phase 4 committed: phone/identifier/suggester modules (helper) + MergeSuggestionService (+ tests), banner, settings page + route, AppSettings (suggestions switch, region), notification conversation key per contact (push helper, desktop notifications, cancel on read), active chat for contact route
+
 ## Next
-- phase 4: settings page (contacts, suggestions, switch), suggestion banner in chat list, identifier collection (user id, profile field fetch + cache, display name) off the hot path, notification grouping by contact (Android shortcut/group, active-chat suppression for contact route)
+- phase 5: fallback offer ("Send via <next network> instead") on failed new messages when contact.fallback; switch in manage sheet; tests; then final cleanup (remove STATUS.md), full analyze + test run, report
 
 ## Notes
 - flutter commands regenerate linux/macos/windows plugin registrants: never stage them

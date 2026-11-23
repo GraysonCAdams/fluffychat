@@ -12,6 +12,9 @@ import 'package:fluffychat/utils/android_bubble.dart';
 import 'package:fluffychat/utils/client_manager.dart';
 import 'package:fluffychat/utils/init_with_restore.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_file_extension.dart';
+import 'package:fluffychat/utils/merged_contacts/conversation.dart';
+import 'package:fluffychat/utils/merged_contacts/store.dart';
+import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/push_helper.dart';
@@ -200,11 +203,11 @@ class MatrixState extends State<Matrix> {
     });
   }
 
-  String? get activeRoomId {
-    final route = FluffyChatApp.router.routeInformationProvider.value.uri.path;
-    if (!route.startsWith('/rooms/')) return null;
-    return route.split('/')[2];
-  }
+  /// The room open on screen, or for a merged contact's screen the value
+  /// from mergedContactActiveChat. Compare it through isChatActive.
+  String? get activeRoomId => activeChatOfPath(
+    FluffyChatApp.router.routeInformationProvider.value.uri.path,
+  );
 
   @override
   void initState() {
@@ -273,6 +276,8 @@ class MatrixState extends State<Matrix> {
           }
 
           _cancelSubs(c.clientName);
+          MergeSuggestionService.disposeFor(c);
+          MergedContactsStore.disposeFor(c);
           widget.clients.remove(c);
           ClientManager.removeClientNameFromStore(c.clientName, store);
           InitWithRestoreExtension.deleteSessionBackup(name);
@@ -315,6 +320,7 @@ class MatrixState extends State<Matrix> {
         // ignore: use_build_context_synchronously
         L10n.of(context),
         flutterLocalNotificationsPlugin,
+        client: c,
       ),
     );
     if (PlatformInfos.isWindows) {

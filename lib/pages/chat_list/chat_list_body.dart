@@ -18,6 +18,7 @@ import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/public_room_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
+import 'package:fluffychat/widgets/merged_contacts/merge_suggestion_banner.dart';
 import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -254,6 +255,9 @@ class ChatListViewBody extends StatelessWidget {
                         ),
                       ),
               ),
+            // Offers chats that look like the same person for merging.
+            if (!controller.isSearchMode && activeSpaceRoom == null)
+              MergeSuggestionBanner(client: client),
             if (controller.isSearchMode)
               SearchTitle(
                 title: L10n.of(context).chats,

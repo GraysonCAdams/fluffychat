@@ -112,12 +112,17 @@ class MergedContactsStore {
     _roomsSub = backend.onRoomsChanged.listen((_) => _reindex());
     _stored = MergedContactsData.fromJson(backend.read());
     _reindex();
-    backend.ready.then((_) {
+    loaded = backend.ready.then((_) {
       if (_disposed) return;
       _stored = MergedContactsData.fromJson(backend.read());
       _reindex(force: true);
     });
   }
+
+  /// Completes once the account data and rooms are loaded and indexed.
+  /// Code that runs before the app is up, like the push handler, waits for
+  /// it before asking for contacts.
+  late final Future<void> loaded;
 
   static final Expando<MergedContactsStore> _stores = Expando();
 
@@ -402,23 +407,29 @@ class MergedContactsStore {
 
   /// Remembers that [roomA] and [roomB] are not the same person, so the
   /// pair is not suggested again.
-  Future<void> dismissSuggestion(String roomA, String roomB) => _update((
+  Future<void> dismissSuggestion(String roomA, String roomB) =>
+      dismissSuggestions([(roomA, roomB)]);
+
+  /// Remembers every pair in [pairs] as not the same person, in one write.
+  Future<void> dismissSuggestions(Iterable<(String, String)> pairs) => _update((
     data,
     now,
   ) {
-    final pair = roomA.compareTo(roomB) <= 0 ? [roomA, roomB] : [roomB, roomA];
-    if (data.dismissedSuggestions.any(
-      (p) =>
-          (p[0] == pair[0] && p[1] == pair[1]) ||
-          (p[0] == pair[1] && p[1] == pair[0]),
-    )) {
-      return data;
+    final dismissed = [...data.dismissedSuggestions];
+    final known = {for (final pair in dismissed) _pairKey(pair[0], pair[1])};
+    for (final (a, b) in pairs) {
+      if (known.add(_pairKey(a, b))) {
+        dismissed.add(a.compareTo(b) <= 0 ? [a, b] : [b, a]);
+      }
     }
     return MergedContactsData(
       contacts: data.contacts,
-      dismissedSuggestions: [...data.dismissedSuggestions, pair],
+      dismissedSuggestions: dismissed,
     );
   });
+
+  static String _pairKey(String a, String b) =>
+      a.compareTo(b) <= 0 ? '$a|$b' : '$b|$a';
 
   void dispose() {
     _disposed = true;

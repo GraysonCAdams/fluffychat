@@ -211,8 +211,10 @@ Bridges format numbers differently (`+14045551234`, `tel:+1404...`,
    short codes (`83356`) and alphanumeric senders, is not a phone identifier
    and falls through to name matching.
 
-The default region comes from the user's own number where a bridge exposes
-it, else the device locale, and can be set in the merged contacts settings.
+The default region comes from the merged contacts settings ("United States
+and Canada" or "Elsewhere"), else the device locale's country, else the US.
+No bridge used here exposes the user's own number, so that source is not
+read.
 Comparison is exact on the normalised form. A full library (libphonenumber)
 is not needed for this and would add size; the function is small and unit
 tested with each bridge's real formats.
@@ -220,6 +222,17 @@ tested with each bridge's real formats.
 The matched identifier is also saved on the contact as `identifier`
 (`{"type": "phone", "value": "+1404..."}`), so a new chat with the same
 number on another network can be offered for the existing contact.
+
+`MergeSuggestionService` (`suggestion_service.dart`, one per client) runs
+the suggester off the chat list's build path: after the first sync, then
+three seconds after the direct chats (joins, leaves, `m.direct`, member or
+name changes) or the merged contacts change. Profile identifiers are only
+fetched for bridge ghosts (a `<bridge>_` localpart) whose user ID carries
+no number or email, one request at a time and at most 50 per pass, through
+`GET /profile/{user}/com.beeper.bridge.identifiers`. Answers are cached on
+the device for seven days, an empty answer for one day (the bridge may
+start publishing numbers), and a failed request is retried on the next
+pass.
 
 ## UI
 
@@ -266,17 +279,28 @@ number on another network can be offered for the existing contact.
 
 ### Settings
 
-"Merged contacts" under Chat: list of contacts, pending suggestions, and a
-switch to turn suggestions off.
+"Merged contacts" under Chat (`/rooms/settings/chat/merged_contacts`): list
+of contacts (each opens the manage sheet), pending suggestions strong and
+weak, a switch to turn suggestions off, and the phone number region.
+
+The chat list shows the first strong suggestion as a banner under the
+filter chips, with a link to the rest; weak (name only) suggestions appear
+in the settings alone.
 
 ## Notifications
 
-- Android: the conversation shortcut and notification group key use the
-  contact ID, so one conversation bubble covers all rooms. Inline reply goes
+- Android: the conversation shortcut, the conversation channel and the
+  notification ID use `contact_<id>` for a merged room
+  (`notificationConversation` in `conversation.dart`), so one conversation
+  bubble covers all rooms. A read room only clears the contact's
+  notification once every room of the contact is read. Inline reply goes
   through SendRouter (reply in the room the notification came from).
-- Windows: toast tap opens the merged route with the event; inline reply
-  the same.
-- Push payloads still name a room; the handler maps room -> contact.
+- Windows, Linux, macOS and web notifications share the same key and the
+  contact's name. A toast tap opens the room's route with the event, which
+  redirects to the merged route; inline reply the same.
+- Push payloads still name a room; the handler maps room -> contact. A
+  notification is skipped while its room is on screen, which includes the
+  merged screen of its contact (`isChatActive`).
 
 ## Phases
 

@@ -5,6 +5,7 @@
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
+import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
@@ -21,11 +22,6 @@ String mergedContactRoute(String contactId) => '/rooms/contact/$contactId';
 /// Opens [contact]'s merged chat screen: all of its rooms in one timeline.
 void openMergedContact(BuildContext context, MergedContact contact) =>
     context.go(mergedContactRoute(contact.id));
-
-/// The value the chat list gets as its active chat while a merged contact's
-/// screen is open, so the contact's tile is highlighted. It cannot clash
-/// with a room ID, which starts with "!".
-String mergedContactActiveChat(String contactId) => 'contact:$contactId';
 
 /// Whether [activeChat], the chat list's active chat, is [contact]: its
 /// merged screen or one of its rooms on its own.

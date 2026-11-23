@@ -86,6 +86,20 @@ enum AppSettings<T> {
     'chat.fluffy.suggest_contacts_from_chats',
     true,
   ),
+
+  /// Whether chats that look like the same person are offered for merging.
+  mergedContactSuggestions<bool>(
+    'chat.fluffy.merged_contacts.suggestions',
+    true,
+  ),
+
+  /// Region for phone numbers written without a country code, for matching
+  /// merged contacts: 'US' (also Canada), 'other', or empty to follow the
+  /// device's region.
+  mergedContactsPhoneRegion<String>(
+    'chat.fluffy.merged_contacts.phone_region',
+    '',
+  ),
   showThumbnailsInTimeline<bool>('chat.fluffy.showThumbnailsInTimeline', true),
   doubleTapToReact<bool>('chat.fluffy.double_tap_to_react', false),
   doubleTapReaction<String>('chat.fluffy.double_tap_reaction', '❤️'),

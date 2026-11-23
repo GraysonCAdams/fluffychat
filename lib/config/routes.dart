@@ -13,7 +13,6 @@ import 'package:fluffychat/pages/chat_access_settings/chat_access_settings_contr
 import 'package:fluffychat/pages/chat_details/chat_details.dart';
 import 'package:fluffychat/pages/chat_encryption_settings/chat_encryption_settings.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
-import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/pages/chat_members/chat_members.dart';
 import 'package:fluffychat/pages/chat_permissions_settings/chat_permissions_settings.dart';
 import 'package:fluffychat/pages/chat_search/chat_search_page.dart';
@@ -29,11 +28,13 @@ import 'package:fluffychat/pages/settings_chat/settings_chat.dart';
 import 'package:fluffychat/pages/settings_emotes/settings_emotes.dart';
 import 'package:fluffychat/pages/settings_homeserver/settings_homeserver.dart';
 import 'package:fluffychat/pages/settings_ignore_list/settings_ignore_list.dart';
+import 'package:fluffychat/pages/settings_merged_contacts/settings_merged_contacts.dart';
 import 'package:fluffychat/pages/settings_notifications/settings_notifications.dart';
 import 'package:fluffychat/pages/settings_password/settings_password.dart';
 import 'package:fluffychat/pages/settings_security/settings_security.dart';
 import 'package:fluffychat/pages/settings_style/settings_style.dart';
 import 'package:fluffychat/pages/sign_in/sign_in_page.dart';
+import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/widgets/config_viewer.dart';
 import 'package:fluffychat/widgets/layouts/empty_page.dart';
@@ -267,6 +268,15 @@ abstract class AppRoutes {
                         const SettingsChat(),
                       ),
                       routes: [
+                        GoRoute(
+                          path: 'merged_contacts',
+                          pageBuilder: (context, state) => defaultPageBuilder(
+                            context,
+                            state,
+                            const SettingsMergedContacts(),
+                          ),
+                          redirect: loggedOutRedirect,
+                        ),
                         GoRoute(
                           path: 'emotes',
                           pageBuilder: (context, state) => defaultPageBuilder(

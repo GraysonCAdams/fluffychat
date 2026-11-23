@@ -3008,5 +3008,46 @@
                 "type": "String"
             }
         }
-    }
+    },
+    "sameNumber": "Same number: {number}",
+    "@sameNumber": {
+        "type": "String",
+        "placeholders": {
+            "number": {
+                "type": "String"
+            }
+        }
+    },
+    "sameEmail": "Same email: {email}",
+    "@sameEmail": {
+        "type": "String",
+        "placeholders": {
+            "email": {
+                "type": "String"
+            }
+        }
+    },
+    "sameName": "Same name",
+    "samePersonQuestion": "Same person?",
+    "notTheSamePerson": "Not the same",
+    "moreMergeSuggestions": "{count} more suggestions",
+    "@moreMergeSuggestions": {
+        "type": "String",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "mergedContacts": "Merged contacts",
+    "mergedContactsDescription": "One person on several networks as one chat",
+    "suggestMerges": "Suggest merges",
+    "suggestMergesDescription": "Offer chats with the same phone number, email or name on different networks",
+    "phoneNumberRegion": "Phone numbers without a country code",
+    "phoneRegionAutomatic": "Follow this device's region",
+    "phoneRegionNorthAmerica": "United States and Canada (+1)",
+    "phoneRegionOther": "Elsewhere (only numbers with a country code match)",
+    "mergeSuggestions": "Suggestions",
+    "noMergeSuggestions": "No suggestions right now.",
+    "noMergedContacts": "No merged contacts yet. Long press a direct chat and choose \"Merge with…\"."
 }

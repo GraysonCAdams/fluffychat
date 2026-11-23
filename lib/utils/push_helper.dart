@@ -17,6 +17,8 @@ import 'package:fluffychat/utils/call_kit_params.dart';
 import 'package:fluffychat/utils/client_manager.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/conversation.dart';
+import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/notification_avatar_extension.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
@@ -164,6 +166,7 @@ Future<void> _tryPushHelper(
         client.userID!,
         l10n,
         flutterLocalNotificationsPlugin,
+        client: client,
       );
     }
     return;
@@ -188,8 +191,12 @@ Future<void> _tryPushHelper(
     return;
   }
 
+  // Waits for the merged contacts too, which decide below whether this room
+  // is on screen and which conversation it belongs to.
+  await MergedContactsStore.forClient(client).loaded;
+
   if (notification.roomId != null &&
-      activeRoomId == notification.roomId &&
+      isChatActive(activeRoomId, client, notification.roomId!) &&
       WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
     Logs().v('Room is in foreground. Stop push helper here.');
     return;
@@ -224,7 +231,10 @@ Future<void> _tryPushHelper(
     senderAvatar,
   );
 
-  final id = '${client.clientName}_${notification.roomId}'.hashCode;
+  // A room in a merged contact shares one conversation (notification,
+  // channel, shortcut) with the contact's other rooms.
+  final conversation = notificationConversation(client, event.room.id);
+  final id = '${client.clientName}_$conversation'.hashCode;
 
   final senderName = event.senderFromMemoryOrFallback.calcDisplayname();
   // Show notification
@@ -248,7 +258,9 @@ Future<void> _tryPushHelper(
       : null;
   messagingStyleInformation?.messages?.add(newMessage);
 
-  final roomName = event.room.getLocalizedDisplayname(MatrixLocals(l10n));
+  final roomName =
+      notificationConversationName(client, event.room.id, MatrixLocals(l10n)) ??
+      event.room.getLocalizedDisplayname(MatrixLocals(l10n));
 
   final notificationGroupId = event.room.isDirectChat
       ? 'directChats'
@@ -268,20 +280,20 @@ Future<void> _tryPushHelper(
 
   if (PlatformInfos.isAndroid) {
     await AndroidConversationNotifications.createConversationChannel(
-      id: event.room.id,
+      id: conversation,
       name: roomName,
       groupId: notificationGroupId,
       parentChannelId: AppConfig.pushNotificationsChannelId,
-      shortcutId: event.room.id,
+      shortcutId: conversation,
     );
   }
 
   final androidPlatformChannelSpecifics = AndroidNotificationDetails(
-    event.room.id,
+    conversation,
     roomName,
     number: notification.counts?.unread,
     category: AndroidNotificationCategory.message,
-    shortcutId: event.room.id,
+    shortcutId: conversation,
     // The system only bubbles chats the user allows bubbles for.
     bubbleActivity: AndroidBubble.activityClass,
     styleInformation:
@@ -340,7 +352,7 @@ Future<void> _tryPushHelper(
       ? await client.getIosNotificationAvatar(event.room.avatar)
       : null;
   final iOSPlatformChannelSpecifics = DarwinNotificationDetails(
-    threadIdentifier: '${notification.clientName}_${notification.roomId}',
+    threadIdentifier: '${notification.clientName}_$conversation',
     attachments: iOSAttachmentPath == null
         ? null
         : [
@@ -355,11 +367,11 @@ Future<void> _tryPushHelper(
     iOS: iOSPlatformChannelSpecifics,
   );
 
-  final title = event.room.getLocalizedDisplayname(MatrixLocals(l10n));
+  final title = roomName;
 
   if (PlatformInfos.isAndroid) {
     await AndroidConversationNotifications.publishShortcut(
-      id: event.room.id,
+      id: conversation,
       name: roomName,
       roomUrl: AppConfig.inviteLinkPrefix + event.room.id,
       avatar: roomAvatarFile,
@@ -370,7 +382,9 @@ Future<void> _tryPushHelper(
   final needsTitleAndBody = !PlatformInfos.isAndroid;
 
   await flutterLocalNotificationsPlugin.show(
-    id: notification.notificationId,
+    // Apple platforms show one notification per message; elsewhere one per
+    // conversation, updated as messages come in.
+    id: PlatformInfos.isCupertinoStyle ? notification.notificationId : id,
     title: needsTitleAndBody ? title : null,
     body: needsTitleAndBody ? body : null,
     notificationDetails: platformChannelSpecifics,
@@ -531,8 +545,12 @@ Future<void> cancelNotificationsOnSync(
   String clientName,
   String userId,
   L10n l10n,
-  FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin,
-) async {
+  FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin, {
+
+  /// The account, to keep a merged contact's notification until all of its
+  /// rooms are read.
+  Client? client,
+}) async {
   final newReadRoomIds =
       syncUpdate.rooms?.join?.entries
           .where(
@@ -587,7 +605,14 @@ Future<void> cancelNotificationsOnSync(
       }
       continue;
     }
-    final id = '${clientName}_$roomId'.hashCode;
+    // A merged contact's notification stays until all its rooms are read.
+    if (client != null && !notificationConversationRead(client, roomId)) {
+      continue;
+    }
+    final conversation = client == null
+        ? roomId
+        : notificationConversation(client, roomId);
+    final id = '${clientName}_$conversation'.hashCode;
     await flutterLocalNotificationsPlugin.cancel(id: id);
   }
 

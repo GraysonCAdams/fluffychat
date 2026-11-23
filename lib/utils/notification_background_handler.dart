@@ -10,6 +10,7 @@ import 'dart:ui';
 import 'package:collection/collection.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/client_manager.dart';
+import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/push_helper.dart';
 import 'package:fluffychat/utils/windows_shell.dart';
@@ -240,7 +241,13 @@ Future<void> notificationTap(
             );
           }
 
-          await room.sendTextEvent(
+          // An inline reply answers the notified message, so it goes to that
+          // message's room even when the room is part of a merged contact
+          // that sends elsewhere by default.
+          final target = SendRouter.single(
+            roomId,
+          ).route(SendAction.reply, eventRoomId: roomId);
+          await (client.getRoomById(target) ?? room).sendTextEvent(
             input,
             parseCommands: false,
             displayPendingEvent: false,

@@ -11,6 +11,7 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/client_download_content_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -58,15 +59,21 @@ extension LocalNotificationsExtension on MatrixState {
 
     final l10n = L10n.of(context);
     final roomId = event.room.id;
-    if (activeRoomId == roomId) {
+    if (isChatActive(activeRoomId, event.room.client, roomId)) {
       if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
         return;
       }
     }
 
-    final title = event.room.getLocalizedDisplayname(
-      MatrixLocals(L10n.of(context)),
-    );
+    // A merged contact's rooms share one title and one notification.
+    final conversation = notificationConversation(event.room.client, roomId);
+    final title =
+        notificationConversationName(
+          event.room.client,
+          roomId,
+          MatrixLocals(L10n.of(context)),
+        ) ??
+        event.room.getLocalizedDisplayname(MatrixLocals(L10n.of(context)));
     var body = event.calcLocalizedBody(
       MatrixLocals(L10n.of(context)),
       plaintextBody: true,
@@ -103,7 +110,7 @@ extension LocalNotificationsExtension on MatrixState {
     final id =
         PlatformInfos.isMacOS || PlatformInfos.isIOS || PlatformInfos.isWeb
         ? '${client.clientName}_${roomId}_${event.eventId}'.hashCode
-        : '${client.clientName}_$roomId'.hashCode;
+        : '${client.clientName}_$conversation'.hashCode;
 
     final unreadRooms = client.rooms.where((r) => r.isUnreadOrInvited).length;
 
@@ -194,7 +201,7 @@ extension LocalNotificationsExtension on MatrixState {
         ),
         macOS: DarwinNotificationDetails(
           badgeNumber: unreadRooms,
-          threadIdentifier: '${client.clientName}_$roomId',
+          threadIdentifier: '${client.clientName}_$conversation',
         ),
         web: WebNotificationDetails(
           renotify: true,
