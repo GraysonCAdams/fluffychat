@@ -20,6 +20,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
 import '../../config/app_config.dart';
+import 'network_bubble_colors.dart';
 import 'settings_style.dart';
 
 class SettingsStyleView extends StatelessWidget {
@@ -136,6 +137,7 @@ class SettingsStyleView extends StatelessWidget {
                 );
               },
             ),
+            NetworkBubbleColors(client: Matrix.of(context).client),
             Divider(color: theme.dividerColor),
             ListTile(
               title: Text(

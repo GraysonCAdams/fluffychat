@@ -3091,6 +3091,8 @@
     "messageSearchIndexRebuild": "Rebuild",
     "recordVoiceMessages": "Record voice messages",
     "recordVoiceMessagesDescription": "Shows a microphone in place of the send button while the message box is empty",
-    "networkBubbleColors": "Color my messages by network",
-    "networkBubbleColorsDescription": "In a merged contact's chat, your bubbles take the color of the network each message was sent on"
+    "networkBubbleColors": "One color per network",
+    "networkBubbleColorsDescription": "In a merged contact's chat, your bubbles take the color of the network each message was sent on. Off, they all use the theme color.",
+    "networkBubbleColorsTitle": "Message colors by network",
+    "networkDefaultColor": "Logo color"
 }

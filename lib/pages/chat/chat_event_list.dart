@@ -342,7 +342,7 @@ class ChatEventList extends StatelessWidget {
                                 ? null
                                 : _NetworkBadge(networks[event.roomId]),
                             networkColor: colorByNetwork
-                                ? networks[event.roomId]?.brandColor
+                                ? networks[event.roomId]?.bubbleColor
                                 : null,
                             enterThread: controller.activeThreadId == null
                                 ? controller.enterThread

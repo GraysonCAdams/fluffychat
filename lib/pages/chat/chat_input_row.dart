@@ -76,13 +76,12 @@ class ChatInputRow extends StatelessWidget {
         if (network.room.id == target.roomId) targetNetwork = network;
       }
     }
-    final hintText = targetNetwork != null
-        ? targetRoom.encrypted
-              ? L10n.of(context).encryptedMessageVia(targetNetwork.name)
-              : L10n.of(context).messageVia(targetNetwork.name)
-        : targetRoom.encrypted
-        ? L10n.of(context).encryptedMessage
-        : L10n.of(context).unencryptedMessage;
+    // In a merged contact's chat the hint is the network's name alone.
+    final hintText =
+        targetNetwork?.name ??
+        (targetRoom.encrypted
+            ? L10n.of(context).encryptedMessage
+            : L10n.of(context).unencryptedMessage);
 
     Widget buildRow(
       BuildContext context,
@@ -201,7 +200,7 @@ class ChatInputRow extends StatelessWidget {
                       // Leading, before the attachment button: inset from
                       // the composer's rounded edge, and narrow so the two
                       // icons sit close together.
-                      width: 36,
+                      width: 32,
                       padding: const EdgeInsets.only(left: 6),
                       alignment: Alignment.center,
                       child: SendViaButton(
@@ -229,7 +228,11 @@ class ChatInputRow extends StatelessWidget {
                         curve: FluffyThemes.animationCurve,
                         // Collapsed, the slot stays as the text's inset
                         // from the rounded edge of the composer.
-                        width: textMessageOnly ? 16 : 44,
+                        width: textMessageOnly
+                            ? 16
+                            : networks != null
+                            ? 36
+                            : 44,
                         height: height,
                         alignment: Alignment.center,
                         decoration: const BoxDecoration(),

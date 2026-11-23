@@ -5,6 +5,7 @@
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:material_ui/material_ui.dart';
@@ -31,32 +32,10 @@ class MergedNetwork {
     ];
   }
 
-  /// The main colour of the network's logo, for networks reached through a
-  /// bridge whose user IDs start with a known prefix (`@imessage_...`), or
-  /// null for any other network.
-  Color? get brandColor {
-    final localpart = room.directChatMatrixID?.localpart;
-    if (localpart == null) return null;
-    final underscore = localpart.indexOf('_');
-    if (underscore <= 0) return null;
-    return _brandColors[localpart.substring(0, underscore)];
-  }
-
-  static const _brandColors = <String, Color>{
-    'imessage': Color(0xFF34C759),
-    'gmessages': Color(0xFF1A73E8),
-    'whatsapp': Color(0xFF25D366),
-    'telegram': Color(0xFF2AABEE),
-    'signal': Color(0xFF3A76F0),
-    'discord': Color(0xFF5865F2),
-    'linkedin': Color(0xFF0A66C2),
-    'instagram': Color(0xFFE1306C),
-    'facebook': Color(0xFF0084FF),
-    'meta': Color(0xFF0084FF),
-    'slack': Color(0xFF4A154B),
-    'twitter': Color(0xFF1D9BF0),
-    'googlechat': Color(0xFF00AC47),
-  };
+  /// The bubble colour for this network: the user's pick, else the main
+  /// colour of the network's logo, else null for a network with neither.
+  Color? get bubbleColor =>
+      NetworkColors.colorFor(NetworkColors.bridgeIdOf(room));
 
   Widget icon({double size = 20}) => Avatar(
     mxContent: space?.avatar,
