@@ -10,6 +10,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/dummy_chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
+import 'package:fluffychat/pages/chat_list/message_search_results.dart';
 import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
 import 'package:fluffychat/pages/chat_list/search_title.dart';
 import 'package:fluffychat/pages/chat_list/space_view.dart';
@@ -411,6 +412,11 @@ class ChatListViewBody extends StatelessWidget {
             );
           },
         ),
+        if (controller.isSearchMode)
+          MessageSearchResults(
+            client: client,
+            searchField: controller.searchController,
+          ),
       ],
     );
   }

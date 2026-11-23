@@ -73,6 +73,16 @@ Future<Directory?> getFileStorageLocation() async {
   return null;
 }
 
+/// The SQLCipher key each client's database was opened with, by client name.
+/// The value is null where the platform could not provide a key and the
+/// database is stored unencrypted. Clients without an SQLite database have no
+/// entry.
+///
+/// Other databases holding the same data, such as the message search index,
+/// take their key from here. They cannot ask [getDatabaseCipher] again,
+/// because a failed read there discards the stored key.
+final Map<String, String?> databaseCiphers = {};
+
 Future<MatrixSdkDatabase> _constructDatabase(String clientName) async {
   if (kIsWeb) {
     html.window.navigator.storage?.persist();
@@ -80,6 +90,7 @@ Future<MatrixSdkDatabase> _constructDatabase(String clientName) async {
   }
 
   final cipher = await getDatabaseCipher();
+  databaseCiphers[clientName] = cipher;
 
   final fileStorageLocation = await getFileStorageLocation();
 
