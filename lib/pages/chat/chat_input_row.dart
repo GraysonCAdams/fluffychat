@@ -150,19 +150,46 @@ class ChatInputRow extends StatelessWidget {
                                   ),
                                 ),
                               )
-                            : SizedBox(
-                                height: height,
-                                child: TextButton(
-                                  style: selectedTextButtonStyle,
-                                  onPressed: controller.sendAgainAction,
-                                  child: Row(
-                                    children: <Widget>[
-                                      Text(L10n.of(context).tryToSendAgain),
-                                      const SizedBox(width: 4),
-                                      const Icon(Icons.send_outlined, size: 16),
-                                    ],
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (controller.fallbackNetworkName(
+                                        controller.selectedEvents.first,
+                                      )
+                                      case final network?)
+                                    SizedBox(
+                                      height: height,
+                                      child: TextButton(
+                                        style: selectedTextButtonStyle,
+                                        onPressed: () =>
+                                            controller.resendViaFallback(
+                                              controller.selectedEvents.first,
+                                            ),
+                                        child: Text(
+                                          L10n.of(
+                                            context,
+                                          ).sendViaInstead(network),
+                                        ),
+                                      ),
+                                    ),
+                                  SizedBox(
+                                    height: height,
+                                    child: TextButton(
+                                      style: selectedTextButtonStyle,
+                                      onPressed: controller.sendAgainAction,
+                                      child: Row(
+                                        children: <Widget>[
+                                          Text(L10n.of(context).tryToSendAgain),
+                                          const SizedBox(width: 4),
+                                          const Icon(
+                                            Icons.send_outlined,
+                                            size: 16,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                ],
                               )
                       : const SizedBox.shrink(),
                 ]

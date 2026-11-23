@@ -21,6 +21,7 @@ enum _MessageAction {
   delete,
   info,
   report,
+  resendViaFallback,
 }
 
 /// A quick reaction picked from the row at the top of the menu.
@@ -64,6 +65,7 @@ Future<void> showMessageContextMenu(
   final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
   final local = overlay.globalToLocal(position);
   final canSend = room.canSendDefaultMessages;
+  final fallbackNetwork = controller.fallbackNetworkName(event);
 
   PopupMenuItem<Object> item(
     _MessageAction value,
@@ -138,6 +140,12 @@ Future<void> showMessageContextMenu(
         ),
       if (controller.canRedactSelectedEvents)
         item(_MessageAction.delete, Icons.delete_outlined, l10n.redactMessage),
+      if (fallbackNetwork != null)
+        item(
+          _MessageAction.resendViaFallback,
+          Icons.alt_route_outlined,
+          l10n.sendViaInstead(fallbackNetwork),
+        ),
       item(_MessageAction.info, Icons.info_outlined, l10n.messageInfo),
       if (event.status.isSent)
         item(
@@ -178,6 +186,8 @@ Future<void> showMessageContextMenu(
       controller.showEventInfo(event);
     case _MessageAction.report:
       await controller.reportEventAction();
+    case _MessageAction.resendViaFallback:
+      await controller.resendViaFallback(event);
     default:
       controller.clearSelectedEvents();
   }

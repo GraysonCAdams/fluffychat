@@ -269,6 +269,15 @@ class _ManageContact extends StatelessWidget {
               ],
             ),
           ),
+          SwitchListTile.adaptive(
+            value: contact.entry.fallback,
+            title: Text(l10n.offerFallback),
+            subtitle: Text(l10n.offerFallbackDescription),
+            onChanged: (value) => showFutureLoadingDialog(
+              context: context,
+              future: () => store.setFallback(contact.id, value),
+            ),
+          ),
           const Divider(),
           ListTile(
             leading: Icon(

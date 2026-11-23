@@ -173,6 +173,27 @@ class SendRouter {
     return SendTarget(newMessageRoomId);
   }
 
+  /// Whether a message with [content] starts something new, rather than
+  /// replying to, editing or threading under another message. Only such a
+  /// message may move to another network.
+  static bool startsSomethingNew(Map<String, Object?> content) =>
+      content['m.relates_to'] == null && content['m.new_content'] == null;
+
+  /// Where a message that failed to send in [failedRoomId] can be offered
+  /// again, or null for no offer. Only with the contact's fallback turned on
+  /// ([enabled]) and only for a message that starts something new: an
+  /// answer to a message belongs to that message's network, so it is never
+  /// moved. Never automatic, since a silent move to SMS could leak a message
+  /// meant for an encrypted network.
+  String? fallbackRoomFor({
+    required String failedRoomId,
+    required Map<String, Object?> content,
+    required bool enabled,
+  }) {
+    if (!enabled || !isMerged || !startsSomethingNew(content)) return null;
+    return nextRoomAfter(failedRoomId);
+  }
+
   /// The next room after [roomId] in the contact's order, for offering to
   /// resend a failed message through another network. Null when there is
   /// no other room.

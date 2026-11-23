@@ -171,7 +171,14 @@ Target room for a new message:
 Fallback is opt-in per contact and only on a definite failure: if the send
 ends in `EventStatus.error`, offer "Send via <next network> instead" on the
 failed bubble. It does not resend by itself, since a silent SMS fallback can
-leak a message meant for an encrypted network.
+leak a message meant for an encrypted network. The switch is in the manage
+sheet (`fallback` in the data model). The offer appears in the failed
+message's selection bar and context menu, for text, emote and notice
+messages that start something new: a reply, thread reply or edit belongs to
+its message's network and is never moved, and a failed attachment may not
+have uploaded, so it is retried where it was. "Next" is the following room
+in the contact's order, wrapping around (`SendRouter.fallbackRoomFor`). The
+failed copy is removed once the new one is on its way.
 
 ### MergeSuggester (`lib/utils/merged_contacts/suggester.dart`)
 

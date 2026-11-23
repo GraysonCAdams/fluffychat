@@ -3049,5 +3049,16 @@
     "phoneRegionOther": "Elsewhere (only numbers with a country code match)",
     "mergeSuggestions": "Suggestions",
     "noMergeSuggestions": "No suggestions right now.",
-    "noMergedContacts": "No merged contacts yet. Long press a direct chat and choose \"Merge with…\"."
+    "noMergedContacts": "No merged contacts yet. Long press a direct chat and choose \"Merge with…\".",
+    "sendViaInstead": "Send via {network} instead",
+    "@sendViaInstead": {
+        "type": "String",
+        "placeholders": {
+            "network": {
+                "type": "String"
+            }
+        }
+    },
+    "offerFallback": "Offer another network when sending fails",
+    "offerFallbackDescription": "A message that could not be sent can be resent through the next network. Never automatic: the next network may not be encrypted."
 }

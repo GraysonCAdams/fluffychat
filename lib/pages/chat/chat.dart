@@ -1892,6 +1892,52 @@ class ChatController extends State<ChatPageWithRoom>
     setState(() => selectedEvents.clear());
   }
 
+  /// The room a failed [event] can be sent through instead: in a merged
+  /// contact with the fallback offer turned on, a plain message (not an
+  /// answer to another message) goes to the next network. Null for no
+  /// offer.
+  Room? fallbackRoomFor(Event event) {
+    if (!isMerged || event.status != EventStatus.error) return null;
+    if (event.type != EventTypes.Message ||
+        !{
+          MessageTypes.Text,
+          MessageTypes.Emote,
+          MessageTypes.Notice,
+        }.contains(event.messageType)) {
+      return null;
+    }
+    final contact = mergedContact;
+    final roomId = event.roomId;
+    if (contact == null || roomId == null) return null;
+    final target = sendRouter.fallbackRoomFor(
+      failedRoomId: roomId,
+      content: event.content,
+      enabled: contact.entry.fallback,
+    );
+    return target == null ? null : contact.roomById(target);
+  }
+
+  /// The name of the network [fallbackRoomFor] offers for [event].
+  String? fallbackNetworkName(Event event) {
+    final target = fallbackRoomFor(event);
+    if (target == null) return null;
+    return mergedNetworks(
+      MatrixLocals(L10n.of(context)),
+    )?.firstWhereOrNull((network) => network.room == target)?.name;
+  }
+
+  /// Sends the failed [event] again through the next network and drops the
+  /// failed copy. Only on the user's request, never by itself.
+  Future<void> resendViaFallback(Event event) async {
+    final target = fallbackRoomFor(event);
+    if (target == null) return;
+    setState(selectedEvents.clear);
+    final proceed = await showTrustUserInRoomDialog(context, target);
+    if (!mounted || !proceed) return;
+    await target.sendEvent(event.content.copy(), type: event.type);
+    await event.cancelSend();
+  }
+
   void sendAgainAction() {
     final event = selectedEvents.first;
     if (event.status.isError) {

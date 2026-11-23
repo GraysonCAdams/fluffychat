@@ -184,4 +184,73 @@ void main() {
     expect(router().nextRoomAfter(telegram), imessage);
     expect(SendRouter.single(sms).nextRoomAfter(sms), isNull);
   });
+
+  group('fallback offer on a failed send', () {
+    const text = {'msgtype': 'm.text', 'body': 'hi'};
+    test('off unless the contact turned it on', () {
+      expect(
+        router().fallbackRoomFor(
+          failedRoomId: imessage,
+          content: text,
+          enabled: false,
+        ),
+        isNull,
+      );
+    });
+    test('offers the next network in the contact\'s order', () {
+      expect(
+        router().fallbackRoomFor(
+          failedRoomId: imessage,
+          content: text,
+          enabled: true,
+        ),
+        sms,
+      );
+      expect(
+        router().fallbackRoomFor(
+          failedRoomId: telegram,
+          content: text,
+          enabled: true,
+        ),
+        imessage,
+      );
+    });
+    test('never moves a reply, thread reply or edit', () {
+      for (final content in [
+        {
+          ...text,
+          'm.relates_to': {
+            'm.in_reply_to': {'event_id': r'$x'},
+          },
+        },
+        {
+          ...text,
+          'm.relates_to': {'rel_type': 'm.thread', 'event_id': r'$x'},
+        },
+        {
+          ...text,
+          'm.new_content': text,
+          'm.relates_to': {'rel_type': 'm.replace', 'event_id': r'$x'},
+        },
+      ]) {
+        expect(
+          router().fallbackRoomFor(
+            failedRoomId: imessage,
+            content: content,
+            enabled: true,
+          ),
+          isNull,
+          reason: '$content',
+        );
+      }
+    });
+    test('a single room has nowhere to fall back to', () {
+      expect(
+        SendRouter.single(
+          sms,
+        ).fallbackRoomFor(failedRoomId: sms, content: text, enabled: true),
+        isNull,
+      );
+    });
+  });
 }
