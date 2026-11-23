@@ -2912,5 +2912,16 @@
         }
     },
     "transcriptionFailed": "Could not transcribe this voice message",
-    "noSpeechDetected": "No speech detected"
+    "noSpeechDetected": "No speech detected",
+    "senderMessage": "{sender}: {message}",
+    "@senderMessage": {
+        "placeholders": {
+            "sender": {
+                "type": "String"
+            },
+            "message": {
+                "type": "String"
+            }
+        }
+    }
 }

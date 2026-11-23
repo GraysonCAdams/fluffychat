@@ -1,4 +1,4 @@
-# flutter_local_notifications 22.3.3, patched for FluffyChat
+# flutter_local_notifications 23.0.0, patched for FluffyChat
 
 A copy of the pub.dev release (`lib/`, `android/`, `ios/`, `macos/`), used
 through `dependency_overrides` in the app's `pubspec.yaml`.

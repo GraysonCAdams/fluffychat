@@ -633,39 +633,39 @@ packages:
       path: "third_party/flutter_local_notifications"
       relative: true
     source: path
-    version: "22.3.3"
+    version: "23.0.0"
   flutter_local_notifications_linux:
     dependency: transitive
     description:
       name: flutter_local_notifications_linux
-      sha256: "3b89a4bf095fa5f8a99beeabf982c5bd506c3ad25e7b9e61da945e994dc5b615"
+      sha256: bcbcf3c15e33b6866805092308f5f6ef27e1191874f6a92ef59213a0812a79a2
       url: "https://pub.dev"
     source: hosted
-    version: "8.0.2"
+    version: "9.0.0"
   flutter_local_notifications_platform_interface:
     dependency: transitive
     description:
       name: flutter_local_notifications_platform_interface
-      sha256: "43c3761d916c9bd3d5c7ebbc44d82f4990329840c0c5d62ad5260cc1b5d399bd"
+      sha256: "4a49db4ce3d633ebc85c85b5fa959572600ec10bd097419c454579444308a0a0"
       url: "https://pub.dev"
     source: hosted
-    version: "12.2.0"
+    version: "13.0.0"
   flutter_local_notifications_web:
     dependency: transitive
     description:
       name: flutter_local_notifications_web
-      sha256: "516afaf97a2d1e67a036c6617321b00d205d72f7a67b6eccf936cd565f985878"
+      sha256: ef117694fbfcd82308ab0e324cfc9282fa50c192e24ec54a58173ae327ebc544
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.0"
+    version: "2.0.0"
   flutter_local_notifications_windows:
     dependency: transitive
     description:
       name: flutter_local_notifications_windows
-      sha256: "6f43bdd03b171b7a90f22647506fea33e2bb12294b7c7c7a3d690e960a382945"
+      sha256: c2d6efe9ba585d5f560d8b329131f00fe745834848e6221b22d1f62e0f0b16e2
       url: "https://pub.dev"
     source: hosted
-    version: "3.1.1"
+    version: "4.0.0"
   flutter_localizations:
     dependency: "direct main"
     description: flutter
@@ -1318,10 +1318,10 @@ packages:
     dependency: "direct main"
     description:
       name: matrix
-      sha256: efe7b5a456957e1292fa331c531abba89bb4867b0f0ba78642a51497e34ba3b1
+      sha256: "976b6dfeddb7d5f9821cc789b9aa1662ba31fccac1db16ee211de9fc88894a3d"
       url: "https://pub.dev"
     source: hosted
-    version: "14.2.0"
+    version: "16.0.4"
   media_kit:
     dependency: "direct main"
     description:
@@ -2475,10 +2475,10 @@ packages:
     dependency: "direct dev"
     description:
       name: vodozemac
-      sha256: "272870cb6b394499fd34e5dfe8efa819dfa388e2713140f36257b712e149ea8c"
+      sha256: "4099e87058bf7ed910e22943bcc05db229f733ac05a700e5903722be7e62fcd1"
       url: "https://pub.dev"
     source: hosted
-    version: "0.9.0"
+    version: "0.9.1"
   wakelock_plus:
     dependency: "direct main"
     description:
@@ -2579,10 +2579,10 @@ packages:
     dependency: "direct main"
     description:
       name: whisper_ggml
-      sha256: "2b478898f3db902104e6d02b66bffa4b38422ba050f227cf1c3318570bd94fd8"
+      sha256: "3b9bab1300b0985ac8fbba2d14106d57a1daa2ee05f0e30f01455f695ba4b354"
       url: "https://pub.dev"
     source: hosted
-    version: "2.9.0"
+    version: "2.10.0"
   win32:
     dependency: transitive
     description:

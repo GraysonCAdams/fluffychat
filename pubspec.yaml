@@ -7,7 +7,7 @@ name: fluffychat
 description: Chat with your friends.
 publish_to: none
 # On version bump please also increase the build number (for F-Droid)
-version: 2.11.5+3578
+version: 2.11.6+3580
 
 environment:
   sdk: ">=3.11.1 <4.0.0"
@@ -35,7 +35,7 @@ dependencies:
   flutter_callkit_incoming: ^3.1.6
   flutter_foreground_task: ^11.0.3
   flutter_linkify: ^6.0.0
-  flutter_local_notifications: ^22.3.3
+  flutter_local_notifications: ^23.0.0
   flutter_localizations:
     sdk: flutter
   flutter_map: ^8.3.2
@@ -63,7 +63,7 @@ dependencies:
   lottie: ^3.8.2
   managed_configurations: ^1.2.0
   material_ui: 1.8.0
-  matrix: ^14.2.0
+  matrix: ^16.0.4
   media_kit: ^1.2.6
   media_kit_libs_linux: ^1.2.1
   media_kit_libs_windows_video: ^1.0.11
