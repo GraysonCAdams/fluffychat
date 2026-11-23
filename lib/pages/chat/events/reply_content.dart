@@ -14,11 +14,16 @@ import '../../../config/app_config.dart';
 class ReplyContent extends StatelessWidget {
   final Event replyEvent;
   final bool ownMessage;
+
+  /// When set, the quoted sender, text and bar use this colour. For a bubble
+  /// whose background is not the theme's, such as a network's colour.
+  final Color? foregroundColor;
   final Timeline? timeline;
 
   const ReplyContent(
     this.replyEvent, {
     this.ownMessage = false,
+    this.foregroundColor,
     super.key,
     this.timeline,
   });
@@ -37,11 +42,13 @@ class ReplyContent extends StatelessWidget {
         ? replyEvent.getDisplayEvent(timeline)
         : replyEvent;
     const fontSize = AppConfig.messageFontSize;
-    final color = theme.brightness == Brightness.dark
-        ? theme.colorScheme.onTertiaryContainer
-        : ownMessage
-        ? theme.colorScheme.tertiaryContainer
-        : theme.colorScheme.tertiary;
+    final color =
+        foregroundColor ??
+        (theme.brightness == Brightness.dark
+            ? theme.colorScheme.onTertiaryContainer
+            : ownMessage
+            ? theme.colorScheme.tertiaryContainer
+            : theme.colorScheme.tertiary);
 
     return Material(
       color: Colors.transparent,
@@ -90,11 +97,13 @@ class ReplyContent extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                   style: TextStyle(
-                    color: theme.brightness == Brightness.dark
-                        ? theme.colorScheme.onSurface
-                        : ownMessage
-                        ? theme.colorScheme.onTertiary
-                        : theme.colorScheme.onSurface,
+                    color:
+                        foregroundColor ??
+                        (theme.brightness == Brightness.dark
+                            ? theme.colorScheme.onSurface
+                            : ownMessage
+                            ? theme.colorScheme.onTertiary
+                            : theme.colorScheme.onSurface),
                     fontSize: fontSize,
                   ),
                 ),

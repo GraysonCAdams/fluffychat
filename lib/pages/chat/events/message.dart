@@ -571,6 +571,8 @@ class Message extends StatelessWidget {
                                                             replyEvent,
                                                             ownMessage:
                                                                 ownMessage,
+                                                            foregroundColor:
+                                                                onNetworkColor,
                                                             timeline: timeline,
                                                           ),
                                                         ),
