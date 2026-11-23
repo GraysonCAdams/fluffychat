@@ -9,8 +9,8 @@ import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/phone_number.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/merged_contacts/suggester.dart';
+import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
 import 'package:fluffychat/widgets/avatar.dart';
-import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -25,15 +25,39 @@ String describeMatch(L10n l10n, ContactIdentifier identifier) =>
       IdentifierType.name => l10n.sameName,
     };
 
+/// Moves on to the next suggestion at once while [write] is still on its
+/// way to the server. The store shows a change before it is saved and puts
+/// the previous state back if saving fails, which brings the suggestion
+/// back; the snack bar says why it reappeared.
+void _showNextWhileSaving(
+  BuildContext context,
+  Client client,
+  Future<void> write,
+) {
+  final messenger = ScaffoldMessenger.of(context);
+  final failed = L10n.of(context).oopsSomethingWentWrong;
+  final service = MergeSuggestionService.forClient(client);
+  service.recomputeNow();
+  () async {
+    try {
+      await write;
+    } catch (_) {
+      service.recomputeNow();
+      messenger.showSnackBar(SnackBar(content: Text(failed)));
+    }
+  }();
+}
+
 /// Merges the rooms of [suggestion], into its existing contact if it has
 /// one, and keeps a phone or email match as the contact's identifier.
-Future<void> acceptSuggestion(
+void acceptSuggestion(
   BuildContext context,
   Client client,
   MergeSuggestion suggestion,
-) => showFutureLoadingDialog(
-  context: context,
-  future: () => MergedContactsStore.forClient(client).merge(
+) => _showNextWhileSaving(
+  context,
+  client,
+  MergedContactsStore.forClient(client).merge(
     suggestion.roomIds,
     intoContactId: suggestion.existingContactId,
     identifier: suggestion.strong ? suggestion.matchedOn.toJson() : null,
@@ -41,15 +65,16 @@ Future<void> acceptSuggestion(
 );
 
 /// Remembers every pair of [suggestion]'s rooms as different people.
-Future<void> dismissSuggestion(
+void dismissSuggestion(
   BuildContext context,
   Client client,
   MergeSuggestion suggestion,
 ) {
   final rooms = suggestion.roomIds;
-  return showFutureLoadingDialog(
-    context: context,
-    future: () => MergedContactsStore.forClient(client).dismissSuggestions([
+  _showNextWhileSaving(
+    context,
+    client,
+    MergedContactsStore.forClient(client).dismissSuggestions([
       for (var i = 0; i < rooms.length; i++)
         for (var j = i + 1; j < rooms.length; j++) (rooms[i], rooms[j]),
     ]),

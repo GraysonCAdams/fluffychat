@@ -146,6 +146,14 @@ class MergeSuggestionService {
     _debounceTimer = Timer(immediately ? Duration.zero : debounce, refresh);
   }
 
+  /// Recomputes the suggestions from what is already known, synchronously
+  /// and even while [refresh] is waiting on profile lookups. For a change the
+  /// user just made, so the list moves on without waiting for the debounce.
+  void recomputeNow() {
+    if (_disposed || !isEnabled()) return;
+    _compute();
+  }
+
   /// Recomputes the suggestions now, then fetches missing profile
   /// identifiers and recomputes once more if any were found.
   Future<void> refresh() async {
