@@ -25,13 +25,26 @@ class SuggesterChat {
   /// The merged contact this room already belongs to, or null.
   final String? contactId;
 
+  /// Whether the chat shows a person's name. A chat titled with a bare
+  /// phone number, short code or email address is unnamed, and unnamed chats
+  /// are never suggested: they are mostly automated senders, and a number
+  /// alone does not tell the user who they would be merging.
+  final bool named;
+
   const SuggesterChat({
     required this.roomId,
     this.networkId,
     this.identifier,
     this.contactId,
+    this.named = true,
   });
 }
+
+/// Whether [displayName] reads as a person's name rather than an address:
+/// it has at least one letter and is not an email address.
+bool isContactName(String displayName) =>
+    !displayName.contains('@') &&
+    RegExp(r'\p{L}', unicode: true).hasMatch(displayName);
 
 class MergeSuggestion {
   /// Sorted, at least two rooms. For a suggestion with
@@ -87,16 +100,17 @@ Set<String> dismissedPairKeysFromJson(Object? json) {
 
 /// Groups [chats] by identifier and returns the merges worth offering.
 ///
+/// Unnamed chats ([SuggesterChat.named] false) are left out before grouping.
 /// A group of chats sharing an identifier becomes a suggestion when:
 /// - it has at least two rooms, not all already in the same contact;
 /// - its rooms belong to at most one existing contact. With one, the
 ///   suggestion adds the other rooms to it ([MergeSuggestion.existingContactId]).
 ///   Rooms in two different contacts are skipped: the user has to unmerge
 ///   first;
-/// - for a name match only, no two rooms share a non-null network. Two
-///   chats on the same network with the same name are two people sharing a
-///   name (or a duplicate), so the whole group is skipped. Phone and email
-///   matches may span rooms on the same network.
+/// - no two rooms share a non-null network. A merged contact joins one
+///   person's chats across networks; two chats on the same network with the
+///   same identifier are a duplicate room from the bridge, or two people
+///   sharing a name, so the whole group is skipped.
 ///
 /// Dismissals: a room is dropped from a suggestion when its pair with every
 /// other room of that suggestion is in [dismissedPairs] (keys from
@@ -118,7 +132,7 @@ List<MergeSuggestion> suggestMerges(
   final groups = <ContactIdentifier, Map<String, SuggesterChat>>{};
   for (final chat in chats) {
     final identifier = chat.identifier;
-    if (identifier == null) continue;
+    if (identifier == null || !chat.named) continue;
     // Keyed by room ID so a room listed twice is counted once.
     groups.putIfAbsent(identifier, () => {})[chat.roomId] = chat;
   }
@@ -139,14 +153,12 @@ List<MergeSuggestion> suggestMerges(
       continue;
     }
 
+    final networks = <String>{};
+    final sharesNetwork = members.any(
+      (chat) => chat.networkId != null && !networks.add(chat.networkId!),
+    );
+    if (sharesNetwork) continue;
     final strong = identifier.type != IdentifierType.name;
-    if (!strong) {
-      final networks = <String>{};
-      final sharesNetwork = members.any(
-        (chat) => chat.networkId != null && !networks.add(chat.networkId!),
-      );
-      if (sharesNetwork) continue;
-    }
 
     final kept = members
         .where(

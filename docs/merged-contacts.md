@@ -192,8 +192,14 @@ user. For each chat it takes the first identifier available, in this order:
    which this feature assumes is set.
 2. **Email address**, lower-cased, from the same sources (`@imessage_
    mailto=3a...`).
-3. **Display name**, normalised (case, whitespace, punctuation), only
-   between chats on different networks.
+3. **Display name**, normalised (case, whitespace, punctuation).
+
+Two rules apply before any match. A chat titled with a bare phone number,
+short code or email address is unnamed and is never suggested: those are
+mostly automated senders, and a number alone does not say who would be
+merged. A group with two chats on the same network is skipped whatever it
+matched on, because that is a duplicate room from the bridge rather than one
+person on two networks.
 
 Chats sharing a phone number or email are a strong suggestion, shown as a
 banner. A name-only match is weak and only listed in the manage screen,

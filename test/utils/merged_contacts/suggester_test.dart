@@ -20,11 +20,13 @@ SuggesterChat _chat(
   String? network,
   ContactIdentifier? id,
   String? contact,
+  bool named = true,
 }) => SuggesterChat(
   roomId: roomId,
   networkId: network,
   identifier: id,
   contactId: contact,
+  named: named,
 );
 
 void main() {
@@ -41,12 +43,28 @@ void main() {
     expect(result.single.existingContactId, isNull);
   });
 
-  test('strong match may include rooms on the same network', () {
+  test('phone match with two rooms on the same network is rejected', () {
     final result = suggestMerges([
-      _chat('!a', network: _imessage, id: _phone),
+      _chat('!a', network: _gmessages, id: _phone),
+      _chat('!b', network: _gmessages, id: _phone),
+      _chat('!c', network: _imessage, id: _phone),
+    ]);
+    expect(result, isEmpty);
+  });
+
+  test('unnamed chats are never suggested', () {
+    final result = suggestMerges([
+      _chat('!a', network: _gmessages, id: _phone, named: false),
       _chat('!b', network: _imessage, id: _phone),
     ]);
-    expect(result.single.roomIds, ['!a', '!b']);
+    expect(result, isEmpty);
+  });
+
+  test('isContactName rejects numbers, short codes and email addresses', () {
+    expect(isContactName('(844) 764-0222'), isFalse);
+    expect(isContactName('83356'), isFalse);
+    expect(isContactName('someone@example.org'), isFalse);
+    expect(isContactName('Harrison Young'), isTrue);
   });
 
   test('email match is strong', () {

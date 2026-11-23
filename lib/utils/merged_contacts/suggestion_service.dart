@@ -178,6 +178,7 @@ class MergeSuggestionService {
     final chats = <SuggesterChat>[];
     for (final room in _directChats) {
       final partner = room.directChatMatrixID!;
+      final displayName = room.getLocalizedDisplayname();
       chats.add(
         SuggesterChat(
           roomId: room.id,
@@ -185,10 +186,11 @@ class MergeSuggestionService {
           identifier: primaryIdentifier(
             userId: partner,
             profileIdentifiers: _cachedProfile(partner),
-            displayName: room.getLocalizedDisplayname(),
+            displayName: displayName,
             defaultRegion: region,
           ),
           contactId: store.contactForRoom(room.id)?.id,
+          named: isContactName(displayName),
         ),
       );
     }
