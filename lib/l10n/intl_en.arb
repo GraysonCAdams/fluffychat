@@ -3094,5 +3094,35 @@
     "networkBubbleColors": "One color per network",
     "networkBubbleColorsDescription": "In a merged contact's chat, your bubbles take the color of the network each message was sent on. Off, they all use the theme color.",
     "networkBubbleColorsTitle": "Message colors by network",
-    "networkDefaultColor": "Logo color"
+    "networkDefaultColor": "Logo color",
+    "chatDoesNotAcceptMediaType": "Unable to send! This chat cannot receive {mimeType} files. It accepts {acceptedTypes}.",
+    "@chatDoesNotAcceptMediaType": {
+        "type": "String",
+        "placeholders": {
+            "mimeType": {
+                "type": "String"
+            },
+            "acceptedTypes": {
+                "type": "String"
+            }
+        }
+    },
+    "chatDoesNotAcceptMediaTypeAtAll": "Unable to send! This chat cannot receive {mimeType} files.",
+    "@chatDoesNotAcceptMediaTypeAtAll": {
+        "type": "String",
+        "placeholders": {
+            "mimeType": {
+                "type": "String"
+            }
+        }
+    },
+    "fileIsTooBigForChat": "Unable to send! This chat only accepts attachments up to {max}.",
+    "@fileIsTooBigForChat": {
+        "type": "String",
+        "placeholders": {
+            "max": {
+                "type": "String"
+            }
+        }
+    }
 }

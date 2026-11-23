@@ -30,6 +30,7 @@ import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart
 import 'package:fluffychat/utils/matrix_sdk_extensions/event_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/media_adaptation.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_timeline.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
@@ -38,6 +39,7 @@ import 'package:fluffychat/utils/ogg_opus_remuxer.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/pasted_file_type.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/room_features.dart';
 import 'package:fluffychat/utils/scheduled_messages.dart';
 import 'package:fluffychat/utils/send_attachments.dart';
 import 'package:fluffychat/utils/show_scaffold_dialog.dart';
@@ -1616,6 +1618,14 @@ class ChatController extends State<ChatPageWithRoom>
     );
 
     try {
+      // Voice messages are only checked against the room's bridge: one it
+      // would refuse, or over its size limit, is not sent.
+      await adaptMediaForRoom(
+        features: await RoomFeatures.load(target),
+        file: file,
+        msgType: CapabilityMsgType.voice,
+        allowFileFallback: false,
+      );
       await target.sendFileEvent(
         file,
         inReplyTo: replyEvent,

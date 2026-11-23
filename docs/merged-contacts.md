@@ -181,6 +181,19 @@ have uploaded, so it is retried where it was. "Next" is the following room
 in the contact's order, wrapping around (`SendRouter.fallbackRoomFor`). The
 failed copy is removed once the new one is on its way.
 
+Attachments are fitted to the room they actually go to, not the room on
+screen. Each mautrix bridge publishes what its network accepts in a
+`com.beeper.room_features` state event (state key is the bridge's own);
+`RoomFeatures` (`lib/utils/room_features.dart`) reads the newest one, and
+`adaptMediaForRoom` (`lib/utils/media_adaptation.dart`) applies it before
+`sendFileEvent` in `sendAttachments`, `SendFileDialog`, voice messages and
+keyboard-inserted media. An image type the room does not take is re-encoded
+as PNG, a video as MP4 where the platform can transcode (Android, iOS,
+macOS), else either goes as `m.file` if the room takes that type as a file;
+otherwise, or over the room's `max_size`, nothing is sent and a snackbar names
+what the chat accepts. A caption the room refuses is sent as its own text
+message after the media. A room without the event behaves as before.
+
 ### MergeSuggester (`lib/utils/merged_contacts/suggester.dart`)
 
 Groups direct chats that share an identifier and never merges without the
