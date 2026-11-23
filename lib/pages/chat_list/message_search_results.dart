@@ -230,12 +230,20 @@ class _MessageSearchTile extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
     final roomName = room.getLocalizedDisplayname(MatrixLocals(l10n));
-    final sender = hit.senderId == client.userID
-        ? l10n.you
-        : hit.senderName ??
-              room
-                  .unsafeGetUserFromMemoryOrFallback(hit.senderId)
-                  .calcDisplayname();
+    final String sender;
+    if (hit.senderId == client.userID) {
+      sender = l10n.you;
+    } else if (hit.senderId == room.directChatMatrixID) {
+      // In a direct chat the room is named after the other person, and that
+      // name is known even when the member list is not loaded.
+      sender = roomName;
+    } else {
+      sender =
+          hit.senderName ??
+          room
+              .unsafeGetUserFromMemoryOrFallback(hit.senderId)
+              .calcDisplayname();
+    }
     final snippet = buildSnippet(hit.body, highlights);
 
     return ListTile(

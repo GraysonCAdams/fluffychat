@@ -7,9 +7,9 @@
 /// engines understand.
 ///
 /// The words are runs of letters and digits, lower-cased. Punctuation is
-/// dropped because neither the homeserver nor the local full-text index can
-/// match it, and passing it through would let a stray quote or operator change
-/// the meaning of the local query.
+/// dropped because the local full-text index cannot match it, and passing it
+/// through would let a stray quote break the local query or turn part of it
+/// into an operator.
 class SearchQuery {
   /// The trimmed text as typed. This is what the homeserver receives.
   final String text;
@@ -50,8 +50,8 @@ class SearchQuery {
   /// on 300,000 messages, such a lookup took 480 ms where a two-letter one
   /// took 1 ms.
   ///
-  /// Each word is quoted. A bare word such as `or` or `near` would otherwise
-  /// be read as an FTS5 operator.
+  /// Each word is quoted, which makes it a plain string to FTS5 whatever
+  /// letters and digits it consists of.
   String get ftsMatch =>
       terms.map((term) => term.length < 2 ? '"$term"' : '"$term"*').join(' ');
 

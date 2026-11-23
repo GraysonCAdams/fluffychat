@@ -148,8 +148,9 @@ class MessageSearchIndexer {
 
   /// Drops the messages of rooms the account is no longer in.
   Future<void> _forgetLeftRooms(LocalMessageIndex index) async {
-    // Before the first sync the room list is not loaded, and every room
-    // would look like one that was left.
+    // Until the room list is loaded from the database, every room would
+    // look like one that was left.
+    await client.roomsLoading;
     if (client.prevBatch == null || client.rooms.isEmpty) return;
     for (final roomId in await index.roomIds()) {
       if (client.getRoomById(roomId) == null) await index.removeRoom(roomId);
