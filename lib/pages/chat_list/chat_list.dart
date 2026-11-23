@@ -208,9 +208,33 @@ class ChatListController extends State<ChatList>
 
   MergedChatList _mergedChatList = const MergedChatList([], {});
 
+  MergedContactsStore? _watchedMergedContacts;
+
+  /// Rebuilds the list when merged contacts change, since merging or
+  /// unmerging changes which tiles exist. Follows the active account.
+  void _watchMergedContacts(Client client) {
+    final store = MergedContactsStore.forClient(client);
+    if (identical(store, _watchedMergedContacts)) return;
+    _unwatchMergedContacts();
+    _watchedMergedContacts = store..revision.addListener(_onMergedContacts);
+  }
+
+  void _unwatchMergedContacts() {
+    // The store of an account that logged out is already disposed.
+    try {
+      _watchedMergedContacts?.revision.removeListener(_onMergedContacts);
+    } catch (_) {}
+    _watchedMergedContacts = null;
+  }
+
+  void _onMergedContacts() {
+    if (mounted) setState(() {});
+  }
+
   /// The chats to list under the active filter and [where], with each
   /// merged contact collapsed into one entry (see [MergedChatList]).
   List<Room> listedChats(bool Function(Room room) where) {
+    _watchMergedContacts(Matrix.of(context).client);
     final filter = getRoomFilterByActiveFilter(activeFilter);
     _mergedChatList = MergedChatList.build(
       Matrix.of(context).client,
@@ -658,6 +682,7 @@ class ChatListController extends State<ChatList>
     _intentFileStreamSubscription?.cancel();
     _callEventSubscription?.cancel();
     _onRoomTagUpdate?.cancel();
+    _unwatchMergedContacts();
     scrollController.removeListener(_onScroll);
     searchController.dispose();
     searchFocusNode.dispose();

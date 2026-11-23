@@ -15,7 +15,6 @@ import 'package:fluffychat/pages/chat_list/search_title.dart';
 import 'package:fluffychat/pages/chat_list/space_view.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
-import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/public_room_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/merged_contacts/merge_suggestion_banner.dart';
@@ -265,163 +264,152 @@ class ChatListViewBody extends StatelessWidget {
               ),
           ]),
         ),
-        // Merging or unmerging changes which tiles exist, so the list is
-        // also rebuilt when the merged contacts change.
-        ValueListenableBuilder(
-          valueListenable: MergedContactsStore.forClient(client).revision,
-          builder: (context, _, _) => RoomUpdatesBuilder(
-            client: client,
-            onUpdate: controller.markRoomsUpdated,
-            builder: (context) {
-              final spaceDelegateCandidates = <String, Room>{};
-              for (final space in client.rooms.where((r) => r.isSpace)) {
-                for (final spaceChild in space.spaceChildren) {
-                  final roomId = spaceChild.roomId;
-                  if (roomId == null) continue;
-                  spaceDelegateCandidates[roomId] = space;
-                }
+        RoomUpdatesBuilder(
+          client: client,
+          onUpdate: controller.markRoomsUpdated,
+          builder: (context) {
+            final spaceDelegateCandidates = <String, Room>{};
+            for (final space in client.rooms.where((r) => r.isSpace)) {
+              for (final spaceChild in space.spaceChildren) {
+                final roomId = spaceChild.roomId;
+                if (roomId == null) continue;
+                spaceDelegateCandidates[roomId] = space;
               }
-              final sourceSpaceId = controller.sourceSpaceId;
-              final sourceSpace = sourceSpaceId == null
-                  ? null
-                  : client.getRoomById(sourceSpaceId);
-              final filterSpace = activeSpaceRoom ?? sourceSpace;
-              final spaceRoomIds = filterSpace == null
-                  ? null
-                  : _roomIdsInSpace(client, filterSpace);
-              final hideRoomsInSpaces = AppSettings.hideRoomsInSpaces.value;
-              // A merged contact is listed once and passes when any of its
-              // rooms does (see MergedChatList).
-              final rooms = controller.listedChats(
-                (room) => spaceRoomIds != null
-                    ? spaceRoomIds.contains(room.id)
-                    : !hideRoomsInSpaces ||
-                          spaceDelegateCandidates[room.id] == null,
-              );
+            }
+            final sourceSpaceId = controller.sourceSpaceId;
+            final sourceSpace = sourceSpaceId == null
+                ? null
+                : client.getRoomById(sourceSpaceId);
+            final filterSpace = activeSpaceRoom ?? sourceSpace;
+            final spaceRoomIds = filterSpace == null
+                ? null
+                : _roomIdsInSpace(client, filterSpace);
+            final hideRoomsInSpaces = AppSettings.hideRoomsInSpaces.value;
+            // A merged contact is listed once and passes when any of its
+            // rooms does (see MergedChatList).
+            final rooms = controller.listedChats(
+              (room) => spaceRoomIds != null
+                  ? spaceRoomIds.contains(room.id)
+                  : !hideRoomsInSpaces ||
+                        spaceDelegateCandidates[room.id] == null,
+            );
 
-              // Rooms the search hides are left out here instead of being
-              // built as empty tiles, so the list only builds what it shows.
-              final matrixLocals = MatrixLocals(L10n.of(context));
-              final shownRooms = filter.isEmpty
-                  ? List.of(rooms)
-                  : rooms
-                        .where(
-                          (room) => controller.listedChatMatches(
-                            room,
-                            filter,
-                            matrixLocals,
-                          ),
-                        )
-                        .toList();
-              // Pinned chats sit in a row of large avatars above the list,
-              // and are left out of the list itself. A search shows them as
-              // normal rows so results stay in one place.
-              final pinnedRooms = filter.isEmpty
-                  ? rooms.where(controller.listedChatIsPinned).toList()
-                  : const <Room>[];
-              if (pinnedRooms.isNotEmpty) {
-                shownRooms.removeWhere(controller.listedChatIsPinned);
-              }
-              // Lets the list find a tile's new index when its chat moves,
-              // so the tile keeps its State instead of being rebuilt.
-              // The unread chip reads the listed rooms after this frame.
-              final listed = List<Room>.of(shownRooms);
-              final hasPins = pinnedRooms.isNotEmpty;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                controller.listedRooms.value = (rooms: listed, pins: hasPins);
-              });
-              final roomIndexes = <String, int>{
-                for (var i = 0; i < shownRooms.length; i++) shownRooms[i].id: i,
-              };
+            // Rooms the search hides are left out here instead of being
+            // built as empty tiles, so the list only builds what it shows.
+            final matrixLocals = MatrixLocals(L10n.of(context));
+            final shownRooms = filter.isEmpty
+                ? List.of(rooms)
+                : rooms
+                      .where(
+                        (room) => controller.listedChatMatches(
+                          room,
+                          filter,
+                          matrixLocals,
+                        ),
+                      )
+                      .toList();
+            // Pinned chats sit in a row of large avatars above the list,
+            // and are left out of the list itself. A search shows them as
+            // normal rows so results stay in one place.
+            final pinnedRooms = filter.isEmpty
+                ? rooms.where(controller.listedChatIsPinned).toList()
+                : const <Room>[];
+            if (pinnedRooms.isNotEmpty) {
+              shownRooms.removeWhere(controller.listedChatIsPinned);
+            }
+            // Lets the list find a tile's new index when its chat moves,
+            // so the tile keeps its State instead of being rebuilt.
+            // The unread chip reads the listed rooms after this frame.
+            final listed = List<Room>.of(shownRooms);
+            final hasPins = pinnedRooms.isNotEmpty;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              controller.listedRooms.value = (rooms: listed, pins: hasPins);
+            });
+            final roomIndexes = <String, int>{
+              for (var i = 0; i < shownRooms.length; i++) shownRooms[i].id: i,
+            };
 
-              return SliverMainAxisGroup(
-                slivers: [
-                  if (client.prevBatch != null &&
-                      rooms.isEmpty &&
-                      !controller.isSearchMode)
-                    SliverToBoxAdapter(
-                      child: Column(
-                        mainAxisAlignment: .center,
-                        children: [
-                          Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              const Column(
-                                mainAxisSize: .min,
-                                children: [
-                                  DummyChatListItem(
-                                    opacity: 0.5,
-                                    animate: false,
-                                  ),
-                                  DummyChatListItem(
-                                    opacity: 0.3,
-                                    animate: false,
-                                  ),
-                                ],
-                              ),
-                              Icon(
-                                CupertinoIcons.chat_bubble_text_fill,
-                                size: 128,
-                                color: theme.colorScheme.secondary,
-                              ),
-                            ],
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text(
-                              client.rooms.isEmpty
-                                  ? L10n.of(context).noChatsFoundHere
-                                  : L10n.of(context).noMoreChatsFound,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: theme.colorScheme.secondary,
-                              ),
+            return SliverMainAxisGroup(
+              slivers: [
+                if (client.prevBatch != null &&
+                    rooms.isEmpty &&
+                    !controller.isSearchMode)
+                  SliverToBoxAdapter(
+                    child: Column(
+                      mainAxisAlignment: .center,
+                      children: [
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            const Column(
+                              mainAxisSize: .min,
+                              children: [
+                                DummyChatListItem(opacity: 0.5, animate: false),
+                                DummyChatListItem(opacity: 0.3, animate: false),
+                              ],
+                            ),
+                            Icon(
+                              CupertinoIcons.chat_bubble_text_fill,
+                              size: 128,
+                              color: theme.colorScheme.secondary,
+                            ),
+                          ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            client.rooms.isEmpty
+                                ? L10n.of(context).noChatsFoundHere
+                                : L10n.of(context).noMoreChatsFound,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: theme.colorScheme.secondary,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  if (client.prevBatch == null)
-                    SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, i) => DummyChatListItem(
-                          opacity: (dummyChatCount - i) / dummyChatCount,
-                          animate: true,
                         ),
-                        childCount: dummyChatCount,
-                      ),
+                      ],
                     ),
-                  if (client.prevBatch != null && pinnedRooms.isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: _PinnedRow(
-                        rooms: pinnedRooms,
-                        spaces: spaceDelegateCandidates,
-                        controller: controller,
+                  ),
+                if (client.prevBatch == null)
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, i) => DummyChatListItem(
+                        opacity: (dummyChatCount - i) / dummyChatCount,
+                        animate: true,
                       ),
+                      childCount: dummyChatCount,
                     ),
-                  if (client.prevBatch != null)
-                    SliverSafeArea(
-                      top: false,
-                      sliver: SliverList.builder(
-                        itemCount: shownRooms.length,
-                        findChildIndexCallback: (key) => key is ValueKey<String>
-                            ? roomIndexes[key.value]
-                            : null,
-                        itemBuilder: (BuildContext context, int i) {
-                          final room = shownRooms[i];
-                          return controller.chatListTile(
-                            room,
-                            spaceDelegateCandidates[room.id],
-                            spaces: spaceDelegateCandidates,
-                          );
-                        },
-                      ),
+                  ),
+                if (client.prevBatch != null && pinnedRooms.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: _PinnedRow(
+                      rooms: pinnedRooms,
+                      spaces: spaceDelegateCandidates,
+                      controller: controller,
                     ),
-                ],
-              );
-            },
-          ),
+                  ),
+                if (client.prevBatch != null)
+                  SliverSafeArea(
+                    top: false,
+                    sliver: SliverList.builder(
+                      itemCount: shownRooms.length,
+                      findChildIndexCallback: (key) => key is ValueKey<String>
+                          ? roomIndexes[key.value]
+                          : null,
+                      itemBuilder: (BuildContext context, int i) {
+                        final room = shownRooms[i];
+                        return controller.chatListTile(
+                          room,
+                          spaceDelegateCandidates[room.id],
+                          spaces: spaceDelegateCandidates,
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ],
     );

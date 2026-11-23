@@ -317,8 +317,8 @@ in the settings alone.
 2. **Send-via chip and routing** on the single-room screen: the chip
    switches which member room is shown and sent to (picking a network opens
    that room; long press also makes it the default).
-3. **Merged timeline.** `ChatTimelineSource`, the safe-horizon history
-   loader, per-event routing, read markers.
+3. **Merged timeline.** `MergedTimeline` (a `Timeline`), the safe-horizon
+   history loader, per-event routing, read markers.
 4. **Suggestions and notification grouping.**
 5. **Fallback offer on failed sends.**
 
@@ -335,11 +335,13 @@ is the largest and carries the risk.
 - **Account data races** between two devices editing at once: last write
   wins per contact; a lost edit is a lost merge or rename, never lost
   messages.
-- **ChatController size.** It is already large; the interface extraction in
-  phase 3 should move timeline code out rather than add to it.
+- **ChatController size.** It is already large. Merging lives in
+  `lib/utils/merged_contacts/` and `MergedTimeline`; the controller only
+  picks the timeline, asks `SendRouter` for rooms and keeps the one-off
+  network pick.
 - **Upstream.** Client-only and additive, but it touches the chat list and
-  controller, which upstream changes often. Keep it behind
-  `ChatTimelineSource` and a few call sites to keep merges cheap.
+  controller, which upstream changes often. Keep it behind `MergedTimeline`,
+  `SendRouter` and a few call sites to keep merges cheap.
 
 ## Tests
 
@@ -349,3 +351,11 @@ is the largest and carries the risk.
 - SendRouter: every row of the table above.
 - Suggester: phone normalisation, dismissed pairs.
 - Widget: tile shows summed unread and newest preview; chip changes target.
+
+They live in `test/utils/merged_contacts/` (store, chat list collapse,
+`MergedOrder`, `MergedTimeline`, `SendRouter`, phone numbers, identifiers,
+suggester, suggestion service, notification conversations) and
+`test/widgets/` (`merged_contact_tile_test.dart`,
+`send_via_chip_test.dart`). Rooms in those tests come from a client that is
+never logged in (`fake_rooms.dart`), so they run without a server or the
+encryption library.
