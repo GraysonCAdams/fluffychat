@@ -86,6 +86,11 @@ class SettingsChatView extends StatelessWidget {
                 setting: AppSettings.sendOnEnter,
               ),
               SettingsSwitchListTile.adaptive(
+                title: L10n.of(context).networkBubbleColors,
+                subtitle: L10n.of(context).networkBubbleColorsDescription,
+                setting: AppSettings.networkBubbleColors,
+              ),
+              SettingsSwitchListTile.adaptive(
                 title: L10n.of(context).recordVoiceMessages,
                 subtitle: L10n.of(context).recordVoiceMessagesDescription,
                 setting: AppSettings.voiceMessages,

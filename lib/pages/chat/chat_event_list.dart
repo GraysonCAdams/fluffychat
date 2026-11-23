@@ -126,6 +126,7 @@ class ChatEventList extends StatelessWidget {
               network.room.id: network,
           }
         : const <String, MergedNetwork>{};
+    final colorByNetwork = AppSettings.networkBubbleColors.value;
 
     final hasWallpaper =
         controller.room.client.applicationAccountConfig.wallpaperUrl != null;
@@ -340,6 +341,9 @@ class ChatEventList extends StatelessWidget {
                                     nextEvent?.roomId == event.roomId
                                 ? null
                                 : _NetworkBadge(networks[event.roomId]),
+                            networkColor: colorByNetwork
+                                ? networks[event.roomId]?.brandColor
+                                : null,
                             enterThread: controller.activeThreadId == null
                                 ? controller.enterThread
                                 : null,
@@ -403,14 +407,7 @@ class _NetworkBadge extends StatelessWidget {
     final color = Theme.of(context).colorScheme.onSurfaceVariant;
     return Padding(
       padding: const EdgeInsets.only(left: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        spacing: 3,
-        children: [
-          network.icon(size: 12),
-          Text(network.name, style: TextStyle(fontSize: 11, color: color)),
-        ],
-      ),
+      child: Text(network.name, style: TextStyle(fontSize: 11, color: color)),
     );
   }
 }

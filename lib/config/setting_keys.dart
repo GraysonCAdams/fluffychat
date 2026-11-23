@@ -45,6 +45,7 @@ enum AppSettings<T> {
   swipeRightToLeftToReply<bool>('chat.fluffy.swipeRightToLeftToReply', true),
   sendOnEnter<bool>('chat.fluffy.send_on_enter', false),
   voiceMessages<bool>('chat.fluffy.voice_messages', true),
+  networkBubbleColors<bool>('chat.fluffy.network_bubble_colors', true),
   closeToTray<bool>('chat.fluffy.close_to_tray', true),
   launchAtStartup<bool>('chat.fluffy.launch_at_startup', false),
   windowBounds<String>('chat.fluffy.window_bounds', ''),

@@ -3090,5 +3090,7 @@
     "messageSearchIndexDescription": "Kept on this device so search also finds messages in encrypted chats and works offline.",
     "messageSearchIndexRebuild": "Rebuild",
     "recordVoiceMessages": "Record voice messages",
-    "recordVoiceMessagesDescription": "Shows a microphone in place of the send button while the message box is empty"
+    "recordVoiceMessagesDescription": "Shows a microphone in place of the send button while the message box is empty",
+    "networkBubbleColors": "Color my messages by network",
+    "networkBubbleColorsDescription": "In a merged contact's chat, your bubbles take the color of the network each message was sent on"
 }

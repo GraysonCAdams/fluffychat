@@ -67,6 +67,11 @@ class Message extends StatelessWidget {
   /// Shown beside the time in a merged contact's chat when this message is
   /// on a different network than the one before it.
   final Widget? networkBadge;
+
+  /// In a merged contact's chat, the colour of the network this message was
+  /// sent on. Replaces the theme's colour on the user's own bubbles, so the
+  /// thread shows at a glance which network each of their messages used.
+  final Color? networkColor;
   final Set<String> bigEmojis;
 
   const Message(
@@ -94,6 +99,7 @@ class Message extends StatelessWidget {
     required this.colors,
     this.onExpand,
     this.networkBadge,
+    this.networkColor,
     required this.enterThread,
     this.isCollapsed = false,
     super.key,
@@ -145,15 +151,24 @@ class Message extends StatelessWidget {
         previousEvent!.senderId == event.senderId &&
         previousEvent!.originServerTs.sameEnvironment(event.originServerTs);
 
+    final networkColor = ownMessage ? this.networkColor : null;
+    // Black or white, whichever reads on the network's colour.
+    final onNetworkColor = networkColor == null
+        ? null
+        : ThemeData.estimateBrightnessForColor(networkColor) == Brightness.dark
+        ? Colors.white
+        : Colors.black;
     final textColor = ownMessage
-        ? theme.onBubbleColor
+        ? onNetworkColor ?? theme.onBubbleColor
         : theme.colorScheme.onSurface;
 
-    final linkColor = ownMessage
-        ? theme.brightness == Brightness.light
-              ? theme.colorScheme.primaryFixed
-              : theme.colorScheme.onTertiaryContainer
-        : theme.colorScheme.primary;
+    final linkColor =
+        onNetworkColor ??
+        (ownMessage
+            ? theme.brightness == Brightness.light
+                  ? theme.colorScheme.primaryFixed
+                  : theme.colorScheme.onTertiaryContainer
+            : theme.colorScheme.primary);
 
     final rowMainAxisAlignment = ownMessage
         ? MainAxisAlignment.end
@@ -183,7 +198,7 @@ class Message extends StatelessWidget {
     if (ownMessage) {
       color = displayEvent.status.isError
           ? Colors.redAccent
-          : theme.bubbleColor;
+          : networkColor ?? theme.bubbleColor;
     }
 
     final sentReactions = <String>{};
@@ -478,7 +493,11 @@ class Message extends StatelessWidget {
                                     ),
                                     clipBehavior: Clip.antiAlias,
                                     child: BubbleBackground(
-                                      colors: colors,
+                                      // One flat colour for a network bubble,
+                                      // not the theme's gradient.
+                                      colors: networkColor == null
+                                          ? colors
+                                          : [networkColor, networkColor],
                                       ignore:
                                           noBubble ||
                                           !ownMessage ||
