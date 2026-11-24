@@ -226,6 +226,21 @@ class MergeSuggestionService {
         identifiersFromUserId(userId).isEmpty;
   }
 
+  /// The phone number the other person of the direct chat [room] is known
+  /// by, from their user ID, their fetched profile or the chat's name. Null
+  /// for a group chat and when no number is known.
+  ContactIdentifier? phoneOf(Room room) {
+    final partner = room.directChatMatrixID;
+    if (partner == null) return null;
+    final identifier = primaryIdentifier(
+      userId: partner,
+      profileIdentifiers: _cachedProfile(partner),
+      displayName: room.getLocalizedDisplayname(),
+      defaultRegion: phoneRegion(),
+    );
+    return identifier?.type == IdentifierType.phone ? identifier : null;
+  }
+
   Object? _cachedProfile(String userId) {
     if (_profiles.containsKey(userId)) return _profiles[userId];
     final raw = cache?.getString('$_cachePrefix$userId');

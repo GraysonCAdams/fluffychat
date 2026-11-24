@@ -3125,6 +3125,28 @@
             }
         }
     },
+    "addChatToNamed": "Add a chat to {name}",
+    "@addChatToNamed": {
+        "description": "Title of the sheet that lists chats which can be merged into the open chat.",
+        "type": "String",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            }
+        }
+    },
+    "sameNumberOtherNetworks": "Same number, other networks",
+    "@sameNumberOtherNetworks": {
+        "description": "Caption of the add-a-chat sheet in a one-to-one chat: which chats it lists."
+    },
+    "sameGroupNameOtherNetworks": "Same group name, other networks",
+    "@sameGroupNameOtherNetworks": {
+        "description": "Caption of the add-a-chat sheet in a group chat: which chats it lists."
+    },
+    "addChat": "Add",
+    "@addChat": {
+        "description": "Button that merges a listed chat into the open chat."
+    },
     "copyOneTimeCode": "Copy \"{code}\"",
     "@copyOneTimeCode": {
         "description": "Button under a chat in the chat list whose latest message holds a one-time passcode; copies the code.",

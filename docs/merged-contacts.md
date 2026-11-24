@@ -50,7 +50,7 @@ One account data event, `im.fluffychat.merged_contacts`:
 - Unmerging leaves a tombstone, `{"removed": true, "rooms": [], "updated":
   ...}`, so an older copy of the contact on another device cannot bring it
   back. Tombstones older than 30 days are dropped on the next write.
-- Rooms that are left, or no longer direct chats, are dropped from a contact
+- Rooms that are left are dropped from a contact
   when the event is read. A contact with fewer than two rooms dissolves. This
   happens in the in-memory view only: the stored contact keeps the room, so a
   room that is briefly missing (rooms not loaded yet, a stale `m.direct`)
@@ -287,6 +287,13 @@ pass.
   opens a picker of direct chats where several can be ticked at once, and
   the suggestion banner. This branch's chat list has no multi-select mode,
   so the picker takes the place of multi-selecting chats in the list.
+- The chat's app bar ends its network switcher with a dashed "+" while
+  another chat qualifies (`mergeCandidates` in
+  `lib/pages/chat/add_merged_chat.dart`): a one-to-one chat takes
+  one-to-one chats with the same phone number, a group chat takes group
+  chats with the same name, and either way only on a network the
+  conversation does not span yet. This is the one way a group chat joins a
+  contact; suggestions and the picker list direct chats only.
 
 ### Merged chat screen
 

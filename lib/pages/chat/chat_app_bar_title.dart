@@ -5,6 +5,7 @@
 
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat/add_merged_chat.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
@@ -329,6 +330,7 @@ class ChatNetworkIcons extends StatelessWidget {
                   }
                 : null,
           ),
+        AddMergedChatButton(controller, width: _width, height: _height),
       ],
     );
   }

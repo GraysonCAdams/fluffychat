@@ -28,7 +28,8 @@ abstract class MergedContactsBackend {
   /// was left or joined, or the direct chat list changed.
   Stream<void> get onRoomsChanged;
 
-  /// Whether [roomId] is a joined direct chat that can be part of a contact.
+  /// Whether [roomId] is a joined chat, one-to-one or group, that can be
+  /// part of a contact.
   bool isUsableRoom(String roomId);
 
   /// Completes once the account data and the rooms are loaded.
@@ -86,8 +87,7 @@ class ClientMergedContactsBackend extends MergedContactsBackend {
     final room = client.getRoomById(roomId);
     return room != null &&
         room.membership == Membership.join &&
-        !room.isSpace &&
-        room.isDirectChat;
+        !room.isSpace;
   }
 
   @override
