@@ -322,7 +322,9 @@ class ChatNetworkIcons extends StatelessWidget {
             name: space.getLocalizedDisplayname(locals),
             selected: roomId == selectedRoomId,
             first: index == 0,
-            last: index == entries.length - 1,
+            // The add-chat plus after the networks is the group's last
+            // segment.
+            last: false,
             onTap: merged && roomId != selectedRoomId && !locked
                 ? () {
                     controller.setMergedSendVia(roomId);

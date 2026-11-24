@@ -163,11 +163,16 @@ class _AddMergedChatButtonState extends State<AddMergedChatButton> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final radius = Radius.circular(widget.height / 2);
+    // The closing segment of the switcher's button group: a small corner
+    // towards the networks, fully round on the outside.
+    final radius = BorderRadius.horizontal(
+      left: const Radius.circular(8),
+      right: Radius.circular(widget.height / 2),
+    );
     return Tooltip(
       message: L10n.of(context).chooseChatsToMerge,
       child: InkWell(
-        customBorder: const StadiumBorder(),
+        borderRadius: radius,
         onTap: _open,
         child: CustomPaint(
           painter: _DashedBorderPainter(
@@ -193,7 +198,7 @@ class _AddMergedChatButtonState extends State<AddMergedChatButton> {
 /// buttons beside it.
 class _DashedBorderPainter extends CustomPainter {
   final Color color;
-  final Radius radius;
+  final BorderRadius radius;
 
   const _DashedBorderPainter({required this.color, required this.radius});
 
@@ -208,7 +213,7 @@ class _DashedBorderPainter extends CustomPainter {
       ..strokeWidth = 1.2;
     final outline = Path()
       ..addRRect(
-        RRect.fromRectAndRadius((Offset.zero & size).deflate(0.6), radius),
+        radius.toRRect((Offset.zero & size).deflate(0.6)),
       );
     for (final PathMetric metric in outline.computeMetrics()) {
       for (var at = 0.0; at < metric.length; at += _dash + _gap) {
