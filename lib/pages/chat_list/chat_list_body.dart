@@ -440,8 +440,9 @@ class ChatListViewBody extends StatelessWidget {
 
 /// A chip at the bottom of the chat list that counts the unread chats below
 /// the visible rows and scrolls to the next one when tapped. Row positions
-/// are estimated from the two row heights the list uses, which is close
-/// enough to count rows and to land the next unread chat on screen.
+/// are estimated from the two row heights the list uses, plus the copy code
+/// button where a row shows one, which is close enough to count rows and to
+/// land the next unread chat on screen.
 class _UnreadBelowChip extends StatelessWidget {
   final ChatListController controller;
 
@@ -475,9 +476,10 @@ class _UnreadBelowChip extends StatelessWidget {
           final contact = controller.mergedContactFor(room);
           final unread = contact?.isUnread ?? room.isUnreadOrInvited;
           final height =
-              (contact?.notificationCount ?? room.notificationCount) >= 1
-              ? _unreadRowHeight
-              : _rowHeight;
+              ((contact?.notificationCount ?? room.notificationCount) >= 1
+                  ? _unreadRowHeight
+                  : _rowHeight) +
+              controller.extraRowHeight(room);
           if (unread && top + height / 2 > bottom) {
             below++;
             firstTop ??= top;

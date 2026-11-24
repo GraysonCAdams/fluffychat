@@ -333,6 +333,19 @@ chips, with a link to the rest.
   notification is skipped while its room is on screen, which includes the
   merged screen of its contact (`isChatActive`).
 
+## Android share sheet
+
+- `AndroidShareTargets` (`lib/utils/android_share_targets.dart`) publishes
+  the eight most recent chats as conversation shortcuts in the Direct Share
+  category, a few seconds after a sync and only when the list changed. A
+  merged contact is one shortcut, `contact_<id>`, named and pictured like
+  its notification. Message notifications publish the same shortcut IDs.
+- Picking a chat in the share sheet hands its shortcut ID to Dart
+  (`MainActivity.kt`, `AndroidDirectShare`). `shareTargetRoute` turns
+  `contact_<id>` into `/rooms/contact/<id>`, and a room ID into the room,
+  or into its contact's screen when the room has since been merged. The
+  shared items go to the composer's target room.
+
 ## Phases
 
 1. **Store and list.** Store, merge/unmerge actions, one tile per contact,

@@ -7,15 +7,18 @@ import 'package:flutter/services.dart';
 import 'package:matrix/matrix.dart';
 
 /// Android Direct Share: conversation shortcuts appear in the system share
-/// sheet, and picking one names its room (see `MainActivity.kt`).
+/// sheet (published by `AndroidShareTargets` and by message notifications),
+/// and picking one names its shortcut (see `MainActivity.kt`).
 abstract final class AndroidDirectShare {
   static const _channel = MethodChannel('chat.fluffy.fluffychat/share');
 
-  /// The room picked in the share sheet for the share being received, if any.
-  static Future<String?> takeTargetRoomId() async {
+  /// The shortcut ID picked in the share sheet for the share being received,
+  /// if any: a room ID, or `contact_<id>` for a merged contact. Turn it into
+  /// a route with `shareTargetRoute`.
+  static Future<String?> takeTargetShortcutId() async {
     if (!PlatformInfos.isAndroid) return null;
     try {
-      return await _channel.invokeMethod<String>('takeShareTargetRoom');
+      return await _channel.invokeMethod<String>('takeShareTarget');
     } catch (e, s) {
       Logs().w('Unable to ask for the Direct Share target', e, s);
       return null;

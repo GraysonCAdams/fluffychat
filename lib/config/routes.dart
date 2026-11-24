@@ -397,6 +397,10 @@ abstract class AppRoutes {
                   key: ValueKey(state.uri),
                   roomId: '',
                   contactId: state.pathParameters['contactid'],
+                  // Items picked for this contact in the Android share sheet.
+                  shareItems: state.extra is List<ShareItem>
+                      ? state.extra as List<ShareItem>
+                      : null,
                   eventId: state.uri.queryParameters['event'],
                   eventRoomId: state.uri.queryParameters['room'],
                   action: state.uri.queryParameters['action'],

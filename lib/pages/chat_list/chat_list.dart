@@ -18,6 +18,7 @@ import 'package:fluffychat/pages/chat_list/chat_list_view.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_list.dart';
 import 'package:fluffychat/utils/android_direct_share.dart';
+import 'package:fluffychat/utils/android_share_targets.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
@@ -247,6 +248,14 @@ class ChatListController extends State<ChatList>
   /// The merged contact [room] stands for in the list, if it is one.
   MergedContact? mergedContactFor(Room room) =>
       _mergedChatList.contacts[room.id];
+
+  /// How much taller than its usual height a listed chat's row is drawn,
+  /// for estimates of row positions: a row offering to copy a one-time code
+  /// has a button under its preview.
+  double extraRowHeight(Room room) =>
+      chatListOneTimeCode(room, mergedContactFor(room)) == null
+      ? 0
+      : ChatListItem.oneTimeCodeHeight;
 
   /// Whether a listed chat counts as unread, across all rooms of a contact.
   bool listedChatIsUnread(Room room) =>
@@ -537,10 +546,19 @@ class ChatListController extends State<ChatList>
     }).toList();
 
     // A chat picked in the Android share sheet skips the chat picker.
-    final targetRoomId = await AndroidDirectShare.takeTargetRoomId();
+    final shortcutId = await AndroidDirectShare.takeTargetShortcutId();
     if (!mounted) return;
-    if (targetRoomId != null &&
-        Matrix.of(context).client.getRoomById(targetRoomId) != null) {
+    final client = Matrix.of(context).client;
+    final store = MergedContactsStore.forClient(client);
+    final targetRoute = shortcutId == null
+        ? null
+        : shareTargetRoute(
+            shortcutId,
+            hasRoom: (roomId) => client.getRoomById(roomId) != null,
+            hasContact: (contactId) => store.contactById(contactId) != null,
+            contactIdOf: (roomId) => store.contactForRoom(roomId)?.id,
+          );
+    if (targetRoute != null) {
       // Text is sent as soon as the chat opens, so confirm it like the
       // chat picker does.
       if (items.any((item) => item is! FileShareItem)) {
@@ -552,7 +570,7 @@ class ChatListController extends State<ChatList>
         );
         if (consent != OkCancelResult.ok || !mounted) return;
       }
-      context.go('/rooms/$targetRoomId', extra: items);
+      context.go(targetRoute, extra: items);
       return;
     }
 
