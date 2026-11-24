@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:fluffychat/utils/room_unread.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
@@ -21,7 +22,7 @@ class UnreadBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final contact = this.contact;
-    final unread = contact?.isUnread ?? room.isUnreadOrInvited;
+    final unread = contact?.isUnread ?? room.countsAsUnread;
     final notificationCount =
         contact?.notificationCount ?? room.notificationCount;
     final highlightCount = contact?.highlightCount ?? room.highlightCount;

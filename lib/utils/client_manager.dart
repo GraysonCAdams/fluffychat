@@ -127,6 +127,9 @@ abstract class ClientManager {
         if (kIsWeb || PlatformInfos.isMobile || PlatformInfos.isLinux)
           KeyVerificationMethod.emoji,
       },
+      // A reaction becomes a room's latest event, so the chat list can
+      // preview it and count it as unread.
+      roomPreviewLastEvents: {EventTypes.Reaction},
       importantStateEvents: <String>{
         // To make room emotes work
         'im.ponies.room_emotes',

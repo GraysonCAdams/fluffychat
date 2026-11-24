@@ -26,6 +26,7 @@ import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/room_unread.dart';
 import 'package:fluffychat/utils/show_scaffold_dialog.dart';
 import 'package:fluffychat/utils/show_update_snackbar.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_modal_action_popup.dart';
@@ -197,7 +198,7 @@ class ChatListController extends State<ChatList>
       case ActiveFilter.groups:
         return (room) => !room.isSpace && !room.isDirectChat;
       case ActiveFilter.unread:
-        return (room) => room.isUnreadOrInvited;
+        return (room) => room.countsAsUnread;
       case ActiveFilter.tag:
         return (room) => room.tags.keys.contains(activeTag);
     }
@@ -259,7 +260,7 @@ class ChatListController extends State<ChatList>
 
   /// Whether a listed chat counts as unread, across all rooms of a contact.
   bool listedChatIsUnread(Room room) =>
-      mergedContactFor(room)?.isUnread ?? room.isUnreadOrInvited;
+      mergedContactFor(room)?.isUnread ?? room.countsAsUnread;
 
   /// Whether a listed chat belongs in the pinned row.
   bool listedChatIsPinned(Room room) =>

@@ -15,6 +15,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/one_time_code.dart';
 import 'package:fluffychat/utils/room_status_extension.dart';
+import 'package:fluffychat/utils/room_unread.dart';
 import 'package:fluffychat/widgets/hover_builder.dart';
 import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
 import 'package:fluffychat/widgets/typing_animation.dart';
@@ -30,7 +31,7 @@ import '../../widgets/avatar.dart';
 /// read the button goes, so old codes do not linger.
 String? chatListOneTimeCode(Room room, [MergedContact? contact]) {
   if (room.membership != Membership.join) return null;
-  if (!(contact?.isUnread ?? room.isUnreadOrInvited)) return null;
+  if (!(contact?.isUnread ?? room.countsAsUnread)) return null;
   final event = contact?.lastEvent ?? room.lastEvent;
   if (event == null ||
       event.redacted ||
@@ -159,7 +160,7 @@ class _ChatListItemState extends State<ChatListItem> {
     final ownMessage = lastEvent?.senderId == room.client.userID;
     final directChatMatrixId = previewRoom.directChatMatrixID;
     final isDirectChat = directChatMatrixId != null;
-    final isUnread = contact?.isUnread ?? room.isUnreadOrInvited;
+    final isUnread = contact?.isUnread ?? room.countsAsUnread;
     final notificationCount =
         contact?.notificationCount ?? room.notificationCount;
     final highlightCount = contact?.highlightCount ?? room.highlightCount;

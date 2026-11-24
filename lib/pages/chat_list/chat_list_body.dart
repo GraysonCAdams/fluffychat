@@ -16,6 +16,7 @@ import 'package:fluffychat/pages/chat_list/search_title.dart';
 import 'package:fluffychat/pages/chat_list/space_view.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
+import 'package:fluffychat/utils/room_unread.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/public_room_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/merged_contacts/merge_suggestion_banner.dart';
@@ -474,7 +475,7 @@ class _UnreadBelowChip extends StatelessWidget {
         double? firstTop;
         for (final room in listed.rooms) {
           final contact = controller.mergedContactFor(room);
-          final unread = contact?.isUnread ?? room.isUnreadOrInvited;
+          final unread = contact?.isUnread ?? room.countsAsUnread;
           final height =
               ((contact?.notificationCount ?? room.notificationCount) >= 1
                   ? _unreadRowHeight
@@ -719,7 +720,7 @@ class _PinnedChat extends StatelessWidget {
     final contact = this.contact;
     final name =
         contact?.displayName(locals) ?? room.getLocalizedDisplayname(locals);
-    final unread = contact?.isUnread ?? room.isUnreadOrInvited;
+    final unread = contact?.isUnread ?? room.countsAsUnread;
     final space = this.space;
     final preview = unread
         ? (contact?.lastEvent ?? room.lastEvent)

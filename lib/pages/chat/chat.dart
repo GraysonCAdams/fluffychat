@@ -40,6 +40,7 @@ import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/pasted_file_type.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/room_features.dart';
+import 'package:fluffychat/utils/room_unread.dart';
 import 'package:fluffychat/utils/scheduled_messages.dart';
 import 'package:fluffychat/utils/send_attachments.dart';
 import 'package:fluffychat/utils/show_scaffold_dialog.dart';
@@ -1086,8 +1087,14 @@ class ChatController extends State<ChatPageWithRoom>
     } else {
       targets.addAll(timeline.newestShownPerRoom);
     }
-    for (final MapEntry(key: child, value: event) in targets.entries) {
+    for (final MapEntry(key: child, value: shown) in targets.entries) {
       final room = child.room;
+      // An unread reaction is newer than the newest shown message, and a
+      // receipt on that message would leave the reaction unread.
+      final reaction = eventId == null && room.hasUnreadReaction
+          ? room.lastEvent
+          : null;
+      final event = reaction ?? shown;
       if (!event.eventId.isValidMatrixIdStrict()) continue;
       if (eventId == null &&
           !room.hasNewMessages &&

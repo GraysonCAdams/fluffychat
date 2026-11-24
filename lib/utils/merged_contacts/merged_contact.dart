@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/pages/chat_list/push_rule_state_cache.dart';
+import 'package:fluffychat/utils/room_unread.dart';
 import 'package:matrix/matrix.dart';
 
 import 'model.dart';
@@ -103,7 +104,7 @@ class MergedContact {
   int get highlightCount =>
       rooms.fold(0, (sum, room) => sum + room.highlightCount);
 
-  bool get isUnread => rooms.any((room) => room.isUnreadOrInvited);
+  bool get isUnread => rooms.any((room) => room.countsAsUnread);
 
   bool get hasNewMessages => rooms.any((room) => room.hasNewMessages);
 
