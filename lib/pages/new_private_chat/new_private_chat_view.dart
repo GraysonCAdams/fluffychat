@@ -8,10 +8,12 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
+import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/layouts/max_width_body.dart';
 import 'package:fluffychat/widgets/matrix.dart';
+import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -238,7 +240,8 @@ class NewPrivateChatView extends StatelessWidget {
                               child: CircularProgressIndicator.adaptive(),
                             );
                           }
-                          if (result.isEmpty) {
+                          final chats = controller.existingChats;
+                          if (result.isEmpty && chats.isEmpty) {
                             return Column(
                               mainAxisAlignment: .center,
                               children: [
@@ -258,10 +261,37 @@ class NewPrivateChatView extends StatelessWidget {
                               ],
                             );
                           }
+                          final locals = MatrixLocals(L10n.of(context));
                           return ListView.builder(
-                            itemCount: result.length,
+                            itemCount: chats.length + result.length,
                             itemBuilder: (context, i) {
-                              final contact = result[i];
+                              if (i < chats.length) {
+                                final chat = chats[i];
+                                final name =
+                                    chat.contact?.displayName(locals) ??
+                                    chat.room.getLocalizedDisplayname(locals);
+                                return ListTile(
+                                  leading: Avatar(
+                                    name: name,
+                                    mxContent:
+                                        chat.contact?.avatar ??
+                                        chat.room.avatar,
+                                  ),
+                                  title: Text(
+                                    name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  trailing: chat.networks.isEmpty
+                                      ? null
+                                      : MonochromeNetworkIcons(
+                                          networks: chat.networks,
+                                        ),
+                                  onTap: () =>
+                                      controller.openExistingChat(chat),
+                                );
+                              }
+                              final contact = result[i - chats.length];
                               final displayname =
                                   contact.displayName ??
                                   contact.userId.localpart ??
@@ -273,13 +303,7 @@ class NewPrivateChatView extends StatelessWidget {
                                   presenceUserId: contact.userId,
                                 ),
                                 title: Text(displayname),
-                                // Bridged contacts have generated IDs that
-                                // mean nothing to read.
-                                subtitle:
-                                    controller.directChatWith(contact.userId) ==
-                                        null
-                                    ? Text(contact.userId)
-                                    : null,
+                                subtitle: Text(contact.userId),
                                 onTap: () => controller.openUserModal(contact),
                               );
                             },

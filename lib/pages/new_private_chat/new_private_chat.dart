@@ -8,19 +8,44 @@ import 'dart:async';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
+import 'package:fluffychat/pages/chat_list/merged_contact_list.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat_view.dart';
 import 'package:fluffychat/pages/new_private_chat/qr_scanner_modal.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
+import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
+import 'package:fluffychat/utils/merged_contacts/networks.dart';
+import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/url_launcher.dart';
 import 'package:fluffychat/widgets/matrix.dart';
+import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
 import '../../widgets/adaptive_dialogs/user_dialog.dart';
+
+/// A chat the user already has, as a New Chat search result.
+class ExistingChat {
+  /// The chat, or for a merged contact the room that represents it.
+  final Room room;
+
+  /// The merged contact [room] belongs to, or null.
+  final MergedContact? contact;
+
+  /// The networks (bridge spaces) the chat is on, without repeats.
+  final List<Room> networks;
+
+  const ExistingChat({
+    required this.room,
+    required this.contact,
+    required this.networks,
+  });
+}
 
 class NewPrivateChat extends StatefulWidget {
   final String? deeplink;
@@ -70,66 +95,86 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     });
   }
 
-  /// The direct chat with each person found among your chats, by user ID.
-  final Map<String, String> _directChats = {};
+  /// The chats you already have that the search found, newest first. A
+  /// merged contact is one entry, like in the chat list.
+  List<ExistingChat> existingChats = const [];
 
-  /// The direct chat already open with [userId], if one was found.
-  String? directChatWith(String userId) => _directChats[userId];
+  /// The people of [existingChats], who are left out of the directory
+  /// results.
+  final Set<String> _knownUserIds = {};
 
-  /// People from your direct chats whose name or ID contains [searchTerm].
+  /// Your chats whose name, or whose other person's ID, contains
+  /// [searchTerm]: what a chat list search for it finds.
   ///
   /// The server's user directory never returns bridged contacts, since
   /// Synapse keeps every user in an appservice namespace out of it, so they
   /// are only found here.
-  List<Profile> _searchDirectChats(String searchTerm) {
+  List<ExistingChat> _searchChats(String searchTerm) {
     final client = Matrix.of(context).client;
+    final locals = MatrixLocals(L10n.of(context));
     final needle = searchTerm.toLowerCase();
-    final profiles = <String, Profile>{};
-    for (final room in client.rooms) {
-      if (room.membership != Membership.join) continue;
-      final userId = room.directChatMatrixID;
-      if (userId == null || profiles.containsKey(userId)) continue;
-      final user = room.unsafeGetUserFromMemoryOrFallback(userId);
-      final displayname = user.calcDisplayname();
-      if (!displayname.toLowerCase().contains(needle) &&
-          !userId.toLowerCase().contains(needle)) {
-        continue;
-      }
-      _directChats[userId] = room.id;
-      profiles[userId] = Profile(
-        userId: userId,
-        displayName: displayname,
-        avatarUrl: user.avatarUrl,
-      );
-    }
-    return profiles.values.toList()
-      ..sort((a, b) => a.displayName!.compareTo(b.displayName!));
+    final rooms = client.rooms
+        .where((room) => room.membership == Membership.join && !room.isSpace)
+        .toList();
+    bool matches(Room room) =>
+        room.getLocalizedDisplayname(locals).toLowerCase().contains(needle) ||
+        (room.directChatMatrixID?.toLowerCase().contains(needle) ?? false);
+    final store = MergedContactsStore.forClient(client);
+    final named = <String>{
+      for (final entry in store.contacts)
+        if (MergedContact.resolve(client, entry)?.matchesSearch(
+              needle,
+              locals,
+            ) ??
+            false)
+          ...entry.rooms,
+    };
+    final listed = MergedChatList.build(
+      client,
+      rooms,
+      (room) => matches(room) || named.contains(room.id),
+    );
+    final spaces = spacesByChild(client);
+    return [
+      for (final room in listed.rooms)
+        ExistingChat(
+          room: room,
+          contact: listed.contacts[room.id],
+          networks: NetworkBadges.distinctOf(
+            listed.contacts[room.id]?.networks(spaces) ?? [spaces[room.id]],
+          ),
+        ),
+    ];
   }
 
   Future<List<Profile>> _searchUser(String searchTerm) async {
-    _directChats.clear();
-    final fromChats = AppSettings.suggestContactsFromChats.value
-        ? _searchDirectChats(searchTerm)
-        : <Profile>[];
+    _knownUserIds.clear();
+    existingChats = AppSettings.suggestContactsFromChats.value
+        ? _searchChats(searchTerm)
+        : const [];
+    for (final chat in existingChats) {
+      for (final room in chat.contact?.rooms ?? [chat.room]) {
+        final userId = room.directChatMatrixID;
+        if (userId != null) _knownUserIds.add(userId);
+      }
+    }
     final List<Profile> fromDirectory;
     try {
       fromDirectory = (await Matrix.of(
         context,
       ).client.searchUserDirectory(searchTerm)).results;
     } catch (e, s) {
-      if (fromChats.isEmpty) rethrow;
+      if (existingChats.isEmpty) rethrow;
       Logs().w('User directory search failed', e, s);
-      return fromChats;
+      return [];
     }
-    final profiles = [
-      ...fromChats,
-      ...fromDirectory.where(
-        (profile) => !_directChats.containsKey(profile.userId),
-      ),
-    ];
+    final profiles = fromDirectory
+        .where((profile) => !_knownUserIds.contains(profile.userId))
+        .toList();
 
     if (searchTerm.isValidMatrixIdStrict() &&
         searchTerm.sigil == '@' &&
+        !_knownUserIds.contains(searchTerm) &&
         !profiles.any((profile) => profile.userId == searchTerm)) {
       profiles.add(Profile(userId: searchTerm));
     }
@@ -173,13 +218,17 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     );
   }
 
-  void openUserModal(Profile profile) {
-    final roomId = _directChats[profile.userId];
-    if (roomId != null) {
-      context.go('/rooms/$roomId');
-      return;
-    }
-    UserDialog.show(context: context, profile: profile);
+  void openUserModal(Profile profile) =>
+      UserDialog.show(context: context, profile: profile);
+
+  /// Opens [chat]: the merged conversation for a merged contact.
+  void openExistingChat(ExistingChat chat) {
+    final contact = chat.contact;
+    context.go(
+      contact == null
+          ? '/rooms/${chat.room.id}'
+          : mergedContactRoute(contact.id),
+    );
   }
 
   @override
