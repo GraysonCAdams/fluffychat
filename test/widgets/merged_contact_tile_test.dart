@@ -106,9 +106,9 @@ void main() {
     // Unread in one room makes the whole contact unread: bold name.
     final name = tester.widget<Text>(find.text('Harrison Young'));
     expect(name.style?.fontWeight, FontWeight.w700);
-    // One badge per network.
-    final badges = tester.widget<NetworkBadges>(find.byType(NetworkBadges));
-    expect(badges.distinct.length, 2);
+    // One link badge for the contact, whatever its networks.
+    expect(find.byType(MergedBadge), findsOneWidget);
+    expect(find.byType(NetworkBadges), findsNothing);
   });
 
   testWidgets('a read contact is not bold', (tester) async {
