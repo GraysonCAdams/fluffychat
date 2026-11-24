@@ -9,6 +9,7 @@ import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/pages/chat/recording_input_row.dart';
 import 'package:fluffychat/pages/chat/recording_view_model.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -75,9 +76,17 @@ class ChatInputRow extends StatelessWidget {
         if (network.room.id == target.roomId) targetNetwork = network;
       }
     }
-    // In a merged contact's chat the hint is the network's name alone.
+    // The hint is the name of the network the message goes out on: the
+    // picked one in a merged contact's chat, otherwise the bridge space the
+    // chat belongs to. A chat outside any space keeps the generic hint.
+    final locals = MatrixLocals(L10n.of(context));
     final hintText =
         targetNetwork?.name ??
+        (networks == null
+            ? spacesByChild(
+                targetRoom.client,
+              )[targetRoom.id]?.getLocalizedDisplayname(locals)
+            : null) ??
         (targetRoom.encrypted
             ? L10n.of(context).encryptedMessage
             : L10n.of(context).unencryptedMessage);
