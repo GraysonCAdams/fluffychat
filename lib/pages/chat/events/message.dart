@@ -175,17 +175,25 @@ class Message extends StatelessWidget {
         : MainAxisAlignment.start;
 
     final displayEvent = event.getDisplayEvent(timeline);
-    const hardCorner = Radius.circular(3);
-    const roundedCorner = Radius.circular(AppConfig.borderRadius);
+    // Bubbles in a run from one sender join on the sender's side: the two
+    // corners facing a neighbor in the run are tight, the rest fully round.
+    const hardCorner = Radius.circular(4);
+    const roundedCorner = Radius.circular(20);
+    final joinAbove = nextEventSameSender ? hardCorner : roundedCorner;
+    final joinBelow = previousEventSameSender ? hardCorner : roundedCorner;
     final borderRadius = BorderRadius.only(
-      topLeft: !ownMessage ? hardCorner : roundedCorner,
-      topRight: ownMessage && nextEventSameSender ? hardCorner : roundedCorner,
-      bottomLeft: !ownMessage && previousEventSameSender
-          ? hardCorner
-          : roundedCorner,
-      bottomRight: ownMessage ? hardCorner : roundedCorner,
+      topLeft: ownMessage ? roundedCorner : joinAbove,
+      topRight: ownMessage ? joinAbove : roundedCorner,
+      bottomLeft: ownMessage ? roundedCorner : joinBelow,
+      bottomRight: ownMessage ? joinBelow : roundedCorner,
     );
     const avatarSize = Avatar.defaultSize;
+    // A group names each sender once, on a line above their run of bubbles,
+    // and indents the bubbles under it. A direct chat has no names or
+    // avatars and its bubbles start at the edge.
+    final showSender = !ownMessage && !event.room.isDirectChat;
+    const senderAvatarSize = 24.0;
+    final bubbleIndent = showSender ? 15.0 : 0.0;
     final noBubble =
         ({
           MessageTypes.Video,
@@ -329,39 +337,42 @@ class Message extends StatelessWidget {
                             onPressed: () => onSelect(event),
                           ),
                         )
-                      else if (nextEventSameSender || ownMessage)
-                        SizedBox(width: avatarSize)
                       else
-                        SenderUserBuilder(
-                          event: event,
-                          builder: (context, fetchedUser) {
-                            final user = fetchedUser ?? sender;
-                            return Avatar(
-                              mxContent: user.avatarUrl,
-                              name: user.calcDisplayname(),
-                              onTap: () => showMemberActionsPopupMenu(
-                                context: context,
-                                user: user,
-                                onMention: onMention,
-                              ),
-                              size: avatarSize,
-                              presenceUserId: user.stateKey,
-                              presenceBackgroundColor: wallpaperMode
-                                  ? Colors.transparent
-                                  : null,
-                            );
-                          },
-                        ),
+                        SizedBox(width: bubbleIndent),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: .start,
                           mainAxisSize: .min,
                           children: [
-                            Padding(
-                              padding: EdgeInsets.only(left: 8.0),
+                            Transform.translate(
+                              offset: Offset(-bubbleIndent, 0),
                               child: Row(
                                 mainAxisAlignment: ownMessage ? .end : .start,
                                 children: [
+                                  if (showSender && !nextEventSameSender)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        right: 9,
+                                        bottom: 4,
+                                      ),
+                                      child: SenderUserBuilder(
+                                        event: event,
+                                        builder: (context, fetchedUser) {
+                                          final user = fetchedUser ?? sender;
+                                          return Avatar(
+                                            mxContent: user.avatarUrl,
+                                            name: user.calcDisplayname(),
+                                            onTap: () =>
+                                                showMemberActionsPopupMenu(
+                                                  context: context,
+                                                  user: user,
+                                                  onMention: onMention,
+                                                ),
+                                            size: senderAvatarSize,
+                                          );
+                                        },
+                                      ),
+                                    ),
                                   if (sender.powerLevel.role !=
                                           PowerLevelRole.user &&
                                       !nextEventSameSender &&
@@ -382,7 +393,12 @@ class Message extends StatelessWidget {
                                             .onPrimaryContainer,
                                       ),
                                     ),
-                                  if ((!nextEventSameSender) && !ownMessage)
+                                  // A direct chat has one other sender, so
+                                  // no name line: the bubble starts level
+                                  // with the avatar.
+                                  if (!nextEventSameSender &&
+                                      !ownMessage &&
+                                      !event.room.isDirectChat)
                                     SenderUserBuilder(
                                       event: event,
                                       builder: (context, fetchedUser) {
@@ -407,7 +423,7 @@ class Message extends StatelessWidget {
                                                         : displayname
                                                               .colorScheme
                                                               .primaryContainer),
-                                              fontSize: 11,
+                                              fontSize: 13,
                                               shadows: event.room.isDirectChat
                                                   ? null
                                                   : wallpaperTextShadow,
@@ -424,7 +440,6 @@ class Message extends StatelessWidget {
 
                             Container(
                               alignment: alignment,
-                              padding: const EdgeInsets.only(left: 8),
                               child: GestureDetector(
                                 onDoubleTap:
                                     AppSettings.doubleTapToReact.value &&
@@ -510,8 +525,7 @@ class Message extends StatelessWidget {
                                           ),
                                         ),
                                         constraints: const BoxConstraints(
-                                          maxWidth:
-                                              FluffyThemes.columnWidth * 1.5,
+                                          maxWidth: 325,
                                         ),
                                         child: Column(
                                           mainAxisSize: .min,
@@ -622,10 +636,10 @@ class Message extends StatelessWidget {
                               mainAxisAlignment: ownMessage ? .end : .start,
                               children: [
                                 const SizedBox(width: 8),
-                                if (event.status.isSent &&
-                                    (displayTime ||
-                                        !previousEventSameSender ||
-                                        selected))
+                                // The time of a message shows on demand,
+                                // when it is selected; the timeline's
+                                // separators carry the time otherwise.
+                                if (event.status.isSent && selected)
                                   Text(
                                     ' ${selected ? event.originServerTs.localizedDetailedTime(context) : event.originServerTs.localizedTimeOfDay(context)}',
                                     style: TextStyle(

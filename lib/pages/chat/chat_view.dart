@@ -93,7 +93,7 @@ class ChatView extends StatelessWidget {
                 backgroundColor: controller.selectedEvents.isEmpty
                     ? controller.activeThreadId != null
                           ? theme.colorScheme.secondaryContainer
-                          : theme.colorScheme.surface.withAlpha(240)
+                          : theme.colorScheme.surface
                     : theme.colorScheme.tertiaryContainer,
                 automaticallyImplyLeading: false,
                 leading: controller.selectMode
@@ -253,6 +253,7 @@ class ChatView extends StatelessWidget {
                         icon: Icon(Icons.call_outlined),
                         onPressed: controller.startOrJoinVideoCall,
                       ),
+                    ChatNetworkIcons(controller),
                     ChatSettingsPopupMenu(controller.room, true),
                   ],
                 ],

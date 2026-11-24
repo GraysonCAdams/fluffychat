@@ -245,10 +245,23 @@ class ChatEventList extends StatelessWidget {
                         previousEvent?.isCollapsedState == true &&
                         !controller.expandedEventIds.contains(event.eventId);
 
+                    // A separator names the time wherever the
+                    // conversation paused for an hour or crossed midnight.
                     final displayDate =
                         event.type == EventTypes.RoomCreate ||
                         nextEvent == null ||
-                        !event.originServerTs.sameDay(nextEvent.originServerTs);
+                        !event.originServerTs.sameDay(
+                          nextEvent.originServerTs,
+                        ) ||
+                        event.originServerTs
+                                .difference(nextEvent.originServerTs)
+                                .abs() >=
+                            const Duration(hours: 1);
+                    final now = DateTime.now();
+                    final separatorText = event.originServerTs.sameDay(now)
+                        ? event.originServerTs.localizedTimeOfDay(context)
+                        : '${event.originServerTs.localizedDate(context)} \u2022 '
+                              '${event.originServerTs.localizedTimeOfDay(context)}';
 
                     return AutoScrollTag(
                       key: ValueKey(event.transactionId ?? event.eventId),
@@ -260,35 +273,15 @@ class ChatEventList extends StatelessWidget {
                           if (!isCollapsed && displayDate)
                             Padding(
                               padding: const EdgeInsets.only(
-                                top: 8.0,
-                                bottom: 16.0,
+                                top: 22.0,
+                                bottom: 8.0,
                               ),
                               child: Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 4.0),
-                                  child: Material(
-                                    borderRadius: BorderRadius.circular(
-                                      AppConfig.borderRadius * 2,
-                                    ),
-                                    color: theme.colorScheme.inverseSurface
-                                        .withAlpha(200),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8.0,
-                                        vertical: 2.0,
-                                      ),
-                                      child: Text(
-                                        event.originServerTs.localizedDate(
-                                          context,
-                                        ),
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: theme
-                                              .colorScheme
-                                              .onInverseSurface,
-                                        ),
-                                      ),
-                                    ),
+                                child: Text(
+                                  separatorText,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                               ),
@@ -336,8 +329,11 @@ class ChatEventList extends StatelessWidget {
                             scrollController: controller.scrollController,
                             colors: colors,
                             isCollapsed: isCollapsed,
+                            // The bubble's color already names the network
+                            // when colors by network are on.
                             networkBadge:
                                 networks.isEmpty ||
+                                    colorByNetwork ||
                                     nextEvent?.roomId == event.roomId
                                 ? null
                                 : _NetworkBadge(networks[event.roomId]),

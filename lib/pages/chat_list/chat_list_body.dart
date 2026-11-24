@@ -102,7 +102,7 @@ class ChatListViewBody extends StatelessWidget {
   ) {
     final theme = Theme.of(context);
     const dummyChatCount = 4;
-    return CustomScrollView(
+    final scrollView = CustomScrollView(
       // A different account starts from fresh tile state.
       key: ValueKey(client.userID.toString()),
       controller: controller.scrollController,
@@ -418,6 +418,21 @@ class ChatListViewBody extends StatelessWidget {
             searchField: controller.searchController,
           ),
       ],
+    );
+    if (!FluffyThemes.isColumnMode(context)) return scrollView;
+    // With a mouse the list has a scrollbar. It starts below the header,
+    // which stays pinned in this layout, so the thumb never sits beside the
+    // search field and account button.
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+      child: RawScrollbar(
+        controller: controller.scrollController,
+        thickness: 6,
+        radius: const Radius.circular(3),
+        thumbColor: theme.colorScheme.onSurface.withAlpha(70),
+        padding: const EdgeInsets.only(top: 72 + 4, bottom: 4, right: 2),
+        child: scrollView,
+      ),
     );
   }
 }

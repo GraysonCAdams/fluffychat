@@ -10,13 +10,13 @@ import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
-import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/sync_status_localization.dart';
 import 'package:fluffychat/utils/verified_room_extension.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/merged_contacts/manage_merged_contact_sheet.dart';
+import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
 import 'package:fluffychat/widgets/presence_builder.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -41,6 +41,17 @@ class ChatAppBarTitle extends StatelessWidget {
     final title =
         contact?.displayName(MatrixLocals(L10n.of(context))) ??
         room.getLocalizedDisplayname(MatrixLocals(L10n.of(context)));
+    final theme = Theme.of(context);
+    // The networks this chat reaches: each of a merged contact's, or the one
+    // space a single chat belongs to.
+    final networkSpaces = contact != null && controller.isMerged
+        ? [
+            for (final network
+                in controller.mergedNetworks(MatrixLocals(L10n.of(context))) ??
+                    const <MergedNetwork>[])
+              network.space,
+          ]
+        : [spacesByChild(room.client)[room.id]];
     if (controller.selectedEvents.isNotEmpty) {
       return Text(
         controller.selectedEvents.length.toString(),
@@ -62,13 +73,18 @@ class ChatAppBarTitle extends StatelessWidget {
                 : context.go('/rooms/${room.id}/details'),
       child: Row(
         children: [
-          Hero(
-            tag: 'content_banner',
-            child: Avatar(
-              mxContent: contact?.avatar ?? room.avatar,
-              name: title,
-              size: 32,
-            ),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Hero(
+                tag: 'content_banner',
+                child: Avatar(
+                  mxContent: contact?.avatar ?? room.avatar,
+                  name: title,
+                  size: 32,
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -96,32 +112,11 @@ class ChatAppBarTitle extends StatelessWidget {
                   ],
                 ),
                 if (contact != null && controller.isMerged)
-                  Text(
-                    controller
-                            .mergedNetworks(MatrixLocals(L10n.of(context)))
-                            ?.map((network) => network.name)
-                            .join(', ') ??
-                        '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11),
-                  )
+                  const SizedBox.shrink()
                 else if (contact != null)
                   _MergedRoomSwitcher(room: room, contact: contact)
-                else if (room.isDirectChat &&
-                    NetworkColors.bridgeIdOf(room) != null)
-                  // A direct chat through a bridge names its network, as a
-                  // merged contact's chat names all of its networks.
-                  Text(
-                    networkName(
-                      room,
-                      spacesByChild(room.client)[room.id],
-                      MatrixLocals(L10n.of(context)),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11),
-                  )
+                else if (networkSpaces.isNotEmpty)
+                  const SizedBox.shrink()
                 else
                   StreamBuilder(
                     stream: room.client.onSyncStatus.stream,
@@ -269,6 +264,116 @@ class _MergedRoomSwitcher extends StatelessWidget {
             ),
             const Icon(Icons.arrow_drop_down, size: 16),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The chat's networks in the app bar, before the menu, as a Material
+/// connected button group of toggle icon buttons: extra-small buttons (32
+/// high, 20 icon) 2 apart, the group's outer corners fully round and its
+/// inner corners 8. The selected button is the network the next message goes
+/// out on and takes the selected tonal color; tapping another one switches
+/// to it. While replying, editing or in a thread the network is fixed by the
+/// message being answered, so the buttons do not respond.
+class ChatNetworkIcons extends StatelessWidget {
+  final ChatController controller;
+
+  const ChatNetworkIcons(this.controller, {super.key});
+
+  static const _height = 32.0;
+  static const _width = 40.0;
+  static const _iconSize = 20.0;
+  static const _outer = Radius.circular(_height / 2);
+  static const _inner = Radius.circular(8);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final room = controller.room;
+    final locals = MatrixLocals(L10n.of(context));
+    final merged = controller.mergedContact != null && controller.isMerged;
+    // (space, room to send to) per network.
+    final entries = <(Room, String)>[];
+    if (merged) {
+      for (final network
+          in controller.mergedNetworks(locals) ?? const <MergedNetwork>[]) {
+        final space = network.space;
+        if (space != null) entries.add((space, network.room.id));
+      }
+    } else {
+      final space = spacesByChild(room.client)[room.id];
+      if (space != null) entries.add((space, room.id));
+    }
+    if (entries.isEmpty) return const SizedBox.shrink();
+    final selectedRoomId = merged ? controller.composerTarget.roomId : room.id;
+    final locked = merged && controller.composerTarget.locked;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      spacing: 2,
+      children: [
+        for (final (index, (space, roomId)) in entries.indexed)
+          _button(
+            context,
+            theme,
+            space: space,
+            name: space.getLocalizedDisplayname(locals),
+            selected: roomId == selectedRoomId,
+            first: index == 0,
+            last: index == entries.length - 1,
+            onTap: merged && roomId != selectedRoomId && !locked
+                ? () {
+                    controller.setMergedSendVia(roomId);
+                    controller.pickSendViaRoom(roomId);
+                  }
+                : null,
+          ),
+      ],
+    );
+  }
+
+  Widget _button(
+    BuildContext context,
+    ThemeData theme, {
+    required Room space,
+    required String name,
+    required bool selected,
+    required bool first,
+    required bool last,
+    required void Function()? onTap,
+  }) {
+    final radius = BorderRadius.horizontal(
+      left: first ? _outer : _inner,
+      right: last ? _outer : _inner,
+    );
+    return Tooltip(
+      message: name,
+      child: AnimatedContainer(
+        duration: FluffyThemes.animationDuration,
+        curve: FluffyThemes.animationCurve,
+        height: _height,
+        width: _width,
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.colorScheme.secondary
+              : theme.colorScheme.secondaryContainer,
+          borderRadius: radius,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: onTap,
+            child: Center(
+              child: Avatar(
+                mxContent: space.avatar,
+                name: name,
+                size: _iconSize,
+                borderRadius: BorderRadius.circular(5),
+              ),
+            ),
+          ),
         ),
       ),
     );

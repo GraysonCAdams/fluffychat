@@ -22,7 +22,6 @@ import 'chat.dart';
 import 'composer_attachments.dart';
 import 'input_bar.dart';
 import 'reply_display.dart';
-import 'send_via_button.dart';
 
 class ChatInputRow extends StatelessWidget {
   final ChatController controller;
@@ -194,26 +193,6 @@ class ChatInputRow extends StatelessWidget {
                 ]
               : <Widget>[
                   const SizedBox(width: 2),
-                  if (networks != null)
-                    Container(
-                      height: height,
-                      // Leading, before the attachment button: inset from
-                      // the composer's rounded edge, and narrow so the two
-                      // icons sit close together.
-                      width: 32,
-                      padding: const EdgeInsets.only(left: 6),
-                      alignment: Alignment.center,
-                      child: SendViaButton(
-                        networks: networks,
-                        target: target,
-                        defaultRoomId: controller.mergedDefaultRoomId!,
-                        onPick: controller.pickSendViaRoom,
-                        onSetDefault: controller.setMergedSendVia,
-                        unencryptedWarning:
-                            !targetRoom.encrypted &&
-                            networks.any((network) => network.room.encrypted),
-                      ),
-                    ),
                   // Hides once there is text, which the chat does not
                   // rebuild for (see ChatController.inputTextIsEmpty).
                   ValueListenableBuilder(
@@ -228,9 +207,7 @@ class ChatInputRow extends StatelessWidget {
                         curve: FluffyThemes.animationCurve,
                         // Collapsed, the slot stays as the text's inset
                         // from the rounded edge of the composer.
-                        width: networks != null
-                            ? (textMessageOnly ? 6 : 36)
-                            : (textMessageOnly ? 16 : 44),
+                        width: textMessageOnly ? 16 : 44,
                         height: height,
                         alignment: Alignment.center,
                         decoration: const BoxDecoration(),
@@ -319,7 +296,14 @@ class ChatInputRow extends StatelessWidget {
                     ),
                   ),
                   if (showSendButton)
-                    ChatSendButton(controller, recordingViewModel),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: ChatSendButton(
+                        controller,
+                        recordingViewModel,
+                        compact: true,
+                      ),
+                    ),
                 ],
         );
       }
@@ -403,7 +387,15 @@ class ChatSendButton extends StatelessWidget {
   final ChatController controller;
   final RecordingViewModelState recordingViewModel;
 
-  const ChatSendButton(this.controller, this.recordingViewModel, {super.key});
+  /// A smaller button for inside the composer's pill.
+  final bool compact;
+
+  const ChatSendButton(
+    this.controller,
+    this.recordingViewModel, {
+    this.compact = false,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) => ValueListenableBuilder(
@@ -431,9 +423,10 @@ class ChatSendButton extends StatelessWidget {
         : ThemeData.estimateBrightnessForColor(networkColor) == Brightness.dark
         ? Colors.white
         : Colors.black;
+    final size = compact ? 40.0 : ChatInputRow.height;
     return Container(
       height: ChatInputRow.height,
-      width: ChatInputRow.height,
+      width: compact ? 48 : ChatInputRow.height,
       alignment: Alignment.center,
       child:
           PlatformInfos.platformCanRecord &&
@@ -463,7 +456,9 @@ class ChatSendButton extends StatelessWidget {
                 onLongPress: () =>
                     recordingViewModel.startRecording(controller.room),
                 style: IconButton.styleFrom(
-                  fixedSize: const Size.square(ChatInputRow.height),
+                  fixedSize: Size.square(size),
+                  minimumSize: Size.square(size),
+                  padding: EdgeInsets.zero,
                   backgroundColor: background,
                   foregroundColor: foreground,
                 ),
@@ -479,7 +474,9 @@ class ChatSendButton extends StatelessWidget {
                 onPressed: controller.send,
                 onLongPress: controller.openSendOptions,
                 style: IconButton.styleFrom(
-                  fixedSize: const Size.square(ChatInputRow.height),
+                  fixedSize: Size.square(size),
+                  minimumSize: Size.square(size),
+                  padding: EdgeInsets.zero,
                   backgroundColor: background,
                   foregroundColor: foreground,
                 ),
@@ -491,7 +488,7 @@ class ChatSendButton extends StatelessWidget {
 }
 
 /// The message composer: a pill holding the reply preview, staged
-/// attachments and the input row, with the send button outside it.
+/// attachments and the input row, with the send button at its end.
 class ChatComposer extends StatelessWidget {
   final ChatController controller;
 
@@ -527,16 +524,12 @@ class ChatComposer extends StatelessWidget {
                     ChatInputRow(
                       controller,
                       recording: recording,
-                      showSendButton: false,
+                      showSendButton: showSendButton,
                     ),
                   ],
                 ),
               ),
             ),
-            if (showSendButton) ...[
-              const SizedBox(width: 8),
-              ChatSendButton(controller, recording),
-            ],
           ],
         );
       },

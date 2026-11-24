@@ -42,7 +42,7 @@ enum AppSettings<T> {
   autoplayImages<bool>('chat.fluffy.autoplay_images', true),
   sendTypingNotifications<bool>('chat.fluffy.send_typing_notifications', true),
   sendPublicReadReceipts<bool>('chat.fluffy.send_public_read_receipts', true),
-  swipeRightToLeftToReply<bool>('chat.fluffy.swipeRightToLeftToReply', true),
+  swipeRightToLeftToReply<bool>('chat.fluffy.swipeRightToLeftToReply', false),
   sendOnEnter<bool>('chat.fluffy.send_on_enter', false),
   voiceMessages<bool>('chat.fluffy.voice_messages', true),
   networkBubbleColors<bool>('chat.fluffy.network_bubble_colors', true),

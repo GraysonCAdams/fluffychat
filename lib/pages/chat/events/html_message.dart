@@ -722,7 +722,8 @@ class _HtmlMessageState extends State<HtmlMessage> {
     final configuredMaxLines = AppSettings.messagePreviewMaxLines.value;
     final maxLines = configuredMaxLines <= 0 ? null : configuredMaxLines;
     final span = _renderHtml(element, context);
-    final style = TextStyle(fontSize: fontSize, color: textColor);
+    // 1.5 gives a 24 line at the default size of 16.
+    final style = TextStyle(fontSize: fontSize, color: textColor, height: 1.5);
 
     if (maxLines == null) {
       return Text.rich(
