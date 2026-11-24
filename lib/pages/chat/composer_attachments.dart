@@ -39,6 +39,7 @@ const double _hitTarget = 48;
 ///
 /// Each file becomes a rounded square tile: a picture for images, a video
 /// placeholder for videos, and an icon with the file name for anything else.
+/// Tapping a picture opens it full screen.
 /// A small round badge on the tile's top-right corner removes it through
 /// [onRemove]. The strip collapses to nothing when [files] is empty and
 /// animates its height as the first file arrives or the last one leaves.
@@ -100,7 +101,16 @@ class _AttachmentChip extends StatelessWidget {
     final mimeType = file.mimeType ?? lookupMimeType(file.name) ?? '';
     final Widget preview;
     if (mimeType.startsWith('image/')) {
-      preview = _ImagePreview(file: file);
+      // Tapping a picture opens it full screen, as a sent one would.
+      preview = GestureDetector(
+        onTap: () => Navigator.of(context, rootNavigator: true).push(
+          MaterialPageRoute<void>(
+            fullscreenDialog: true,
+            builder: (_) => _FullScreenImage(file: file),
+          ),
+        ),
+        child: _ImagePreview(file: file),
+      );
     } else if (mimeType.startsWith('video/')) {
       preview = const _VideoPreview();
     } else {
@@ -249,6 +259,54 @@ class _ImagePreviewState extends State<_ImagePreview> {
           errorBuilder: errorBuilder,
         );
       },
+    );
+  }
+}
+
+/// A staged picture on its own page, at full size with pinch to zoom.
+class _FullScreenImage extends StatelessWidget {
+  final XFile file;
+
+  const _FullScreenImage({required this.file});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget errorBuilder(BuildContext context, Object error, StackTrace? _) =>
+        const Icon(Icons.broken_image_outlined, color: Colors.white, size: 48);
+    final hasNativePath = !kIsWeb && file.path.isNotEmpty;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: const CloseButton(),
+      ),
+      body: InteractiveViewer(
+        minScale: 1,
+        maxScale: 10,
+        child: Center(
+          child: hasNativePath
+              ? Image.file(
+                  File(file.path),
+                  fit: BoxFit.contain,
+                  errorBuilder: errorBuilder,
+                )
+              : FutureBuilder<Uint8List>(
+                  future: file.readAsBytes(),
+                  builder: (context, snapshot) {
+                    final data = snapshot.data;
+                    if (data == null) return const SizedBox.shrink();
+                    return Image.memory(
+                      data,
+                      fit: BoxFit.contain,
+                      errorBuilder: errorBuilder,
+                    );
+                  },
+                ),
+        ),
+      ),
     );
   }
 }
