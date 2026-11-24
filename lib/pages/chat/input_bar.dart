@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:cross_file/cross_file.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
@@ -40,6 +41,10 @@ class InputBar extends StatelessWidget {
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
   final ValueChanged<Uint8List?>? onSubmitImage;
+
+  /// Receives an image or GIF the keyboard inserted, to stage it as an
+  /// attachment. Without it the file is sent at once.
+  final ValueChanged<XFile>? onInsertFile;
   final FocusNode? focusNode;
   final TextEditingController? controller;
   final InputDecoration decoration;
@@ -56,6 +61,7 @@ class InputBar extends StatelessWidget {
     this.keyboardType,
     this.onSubmitted,
     this.onSubmitImage,
+    this.onInsertFile,
     this.focusNode,
     this.controller,
     required this.decoration,
@@ -448,6 +454,17 @@ class InputBar extends StatelessWidget {
               if (!proceed) return;
               final data = content.data;
               if (data == null) return;
+              final onInsertFile = this.onInsertFile;
+              if (onInsertFile != null) {
+                onInsertFile(
+                  XFile.fromData(
+                    data,
+                    mimeType: content.mimeType,
+                    name: content.uri.split('/').last,
+                  ),
+                );
+                return;
+              }
 
               final file = MatrixFile(
                 mimeType: content.mimeType,

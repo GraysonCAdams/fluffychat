@@ -66,7 +66,6 @@ import 'package:universal_html/universal_html.dart' as web;
 import '../../utils/account_bundles.dart';
 import '../../utils/localized_exception_extension.dart';
 import '../../utils/stream_extension.dart';
-import 'send_file_dialog.dart';
 import 'send_location_dialog.dart';
 
 class ChatPage extends StatelessWidget {
@@ -361,16 +360,7 @@ class ChatController extends State<ChatPageWithRoom>
     setState(() => dragging = false);
     if (details.files.isEmpty) return;
 
-    await showAdaptiveDialog(
-      context: context,
-      builder: (c) => SendFileDialog(
-        files: details.files,
-        room: composerRoom,
-        outerContext: context,
-        threadRootEventId: activeThreadId,
-        threadLastEventId: threadLastEventId,
-      ),
-    );
+    addPendingAttachments(details.files);
   }
 
   bool get canSaveSelectedEvent =>
@@ -414,6 +404,9 @@ class ChatController extends State<ChatPageWithRoom>
   /// Files staged in the composer, sent ahead of the text on the next send.
   final List<XFile> pendingAttachments = [];
 
+  /// Whether the staged files were picked to send at full quality.
+  bool _pendingAttachmentsInHd = false;
+
   void addPendingAttachments(Iterable<XFile> files) =>
       setState(() => pendingAttachments.addAll(files));
 
@@ -446,29 +439,22 @@ class ChatController extends State<ChatPageWithRoom>
     addPendingAttachments(files);
   }
 
-  /// Opens the full-screen camera and gallery picker, and sends what it
-  /// returns straight away, followed by its caption.
+  /// Opens the full-screen camera and gallery picker and stages what it
+  /// returns in the composer, with its caption as the message text.
   Future<void> openGalleryPicker() async {
     final result = await showGalleryPicker(
       context,
       recipientName: room.getLocalizedDisplayname(),
     );
     if (result == null || !mounted) return;
-    setState(() => showAttachmentPanel = false);
-    final target = composerRoom;
-    await sendAttachments(
-      room: target,
-      files: result.files,
-      compress: !result.hd,
-      threadRootEventId: activeThreadId,
-      threadLastEventId: threadLastEventId,
-      scaffoldMessenger: ScaffoldMessenger.of(context),
-      l10n: L10n.of(context),
-      onError: _onAttachmentError,
-    );
+    setState(() {
+      showAttachmentPanel = false;
+      pendingAttachments.addAll(result.files);
+      _pendingAttachmentsInHd = result.hd;
+    });
     final caption = result.caption.trim();
-    if (caption.isNotEmpty) {
-      await target.sendTextEvent(caption, threadRootEventId: activeThreadId);
+    if (caption.isNotEmpty && sendController.text.trim().isEmpty) {
+      sendController.text = caption;
     }
   }
 
@@ -643,16 +629,7 @@ class ChatController extends State<ChatPageWithRoom>
         .map((item) => item.value)
         .toList();
     if (files.isEmpty) return;
-    showAdaptiveDialog(
-      context: context,
-      builder: (c) => SendFileDialog(
-        files: files,
-        room: composerRoom,
-        outerContext: context,
-        threadRootEventId: activeThreadId,
-        threadLastEventId: threadLastEventId,
-      ),
-    );
+    addPendingAttachments(files);
   }
 
   void _toggleEmojiPickerTab(int tab) {
@@ -1322,13 +1299,16 @@ class ChatController extends State<ChatPageWithRoom>
     if (!mounted || !proceed) return;
     if (pendingAttachments.isNotEmpty) {
       final files = List.of(pendingAttachments);
+      final hd = _pendingAttachmentsInHd;
       setState(() {
         pendingAttachments.clear();
+        _pendingAttachmentsInHd = false;
         showAttachmentPanel = false;
       });
       await sendAttachments(
         room: target,
         files: files,
+        compress: !hd,
         threadRootEventId: activeThreadId,
         threadLastEventId: threadLastEventId,
         scaffoldMessenger: ScaffoldMessenger.of(context),
@@ -1391,30 +1371,12 @@ class ChatController extends State<ChatPageWithRoom>
     final files = await selectFiles(context, allowMultiple: true, type: type);
     if (files.isEmpty) return;
     if (!mounted) return;
-    await showAdaptiveDialog(
-      context: context,
-      builder: (c) => SendFileDialog(
-        files: files,
-        room: composerRoom,
-        outerContext: context,
-        threadRootEventId: activeThreadId,
-        threadLastEventId: threadLastEventId,
-      ),
-    );
+    addPendingAttachments(files);
   }
 
   Future<void> sendImageFromClipBoard(Uint8List? image) async {
     if (image == null) return;
-    await showAdaptiveDialog(
-      context: context,
-      builder: (c) => SendFileDialog(
-        files: [pastedImageData(image)],
-        room: composerRoom,
-        outerContext: context,
-        threadRootEventId: activeThreadId,
-        threadLastEventId: threadLastEventId,
-      ),
-    );
+    addPendingAttachments([pastedImageData(image)]);
   }
 
   Future<void> openGalleryAction() async {
@@ -1425,16 +1387,7 @@ class ChatController extends State<ChatPageWithRoom>
     if (files.isEmpty) return;
     if (!mounted) return;
 
-    await showAdaptiveDialog(
-      context: context,
-      builder: (c) => SendFileDialog(
-        files: files,
-        room: composerRoom,
-        outerContext: context,
-        threadRootEventId: activeThreadId,
-        threadLastEventId: threadLastEventId,
-      ),
-    );
+    addPendingAttachments(files);
   }
 
   Future<void> openCameraAction() async {
@@ -1443,16 +1396,7 @@ class ChatController extends State<ChatPageWithRoom>
     if (file == null) return;
     if (!mounted) return;
 
-    await showAdaptiveDialog(
-      context: context,
-      builder: (c) => SendFileDialog(
-        files: [file],
-        room: composerRoom,
-        outerContext: context,
-        threadRootEventId: activeThreadId,
-        threadLastEventId: threadLastEventId,
-      ),
-    );
+    addPendingAttachments([file]);
   }
 
   Future<void> _handleClipboardFilePasteWeb(web.Event event) async {
@@ -1486,16 +1430,7 @@ class ChatController extends State<ChatPageWithRoom>
     if (xFiles == null || xFiles.isEmpty) return;
 
     if (!mounted) return;
-    showAdaptiveDialog(
-      context: context,
-      builder: (c) => SendFileDialog(
-        files: xFiles,
-        room: composerRoom,
-        outerContext: context,
-        threadRootEventId: activeThreadId,
-        threadLastEventId: threadLastEventId,
-      ),
-    );
+    addPendingAttachments(xFiles);
   }
 
   /// Offers the GIF linked from the clipboard for sending, returning false
@@ -1504,16 +1439,7 @@ class ChatController extends State<ChatPageWithRoom>
     final gif = await clipboardLinkedGif();
     if (gif == null) return false;
     if (!mounted) return true;
-    await showAdaptiveDialog(
-      context: context,
-      builder: (c) => SendFileDialog(
-        files: [gif],
-        room: composerRoom,
-        outerContext: context,
-        threadRootEventId: activeThreadId,
-        threadLastEventId: threadLastEventId,
-      ),
-    );
+    addPendingAttachments([gif]);
     return true;
   }
 
@@ -1523,16 +1449,7 @@ class ChatController extends State<ChatPageWithRoom>
     if (paths.isNotEmpty) {
       final files = await Future.wait(paths.map(pastedFile));
       if (!mounted) return;
-      await showAdaptiveDialog(
-        context: context,
-        builder: (c) => SendFileDialog(
-          files: files,
-          room: composerRoom,
-          outerContext: context,
-          threadRootEventId: activeThreadId,
-          threadLastEventId: threadLastEventId,
-        ),
-      );
+      addPendingAttachments(files);
       return;
     }
     final image = await Pasteboard.image;
@@ -1569,16 +1486,7 @@ class ChatController extends State<ChatPageWithRoom>
     if (file == null) return;
     if (!mounted) return;
 
-    await showAdaptiveDialog(
-      context: context,
-      builder: (c) => SendFileDialog(
-        files: [file],
-        room: composerRoom,
-        outerContext: context,
-        threadRootEventId: activeThreadId,
-        threadLastEventId: threadLastEventId,
-      ),
-    );
+    addPendingAttachments([file]);
   }
 
   Future<void> onVoiceMessageSend(

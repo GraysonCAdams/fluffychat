@@ -70,6 +70,8 @@ class AttachmentPanel extends StatelessWidget {
       duration: FluffyThemes.animationDuration,
       curve: FluffyThemes.animationCurve,
       clipBehavior: Clip.hardEdge,
+      // Keeps the panel clear of the composer above it.
+      margin: EdgeInsets.only(top: isOpen ? 8 : 0),
       decoration: const BoxDecoration(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
