@@ -3143,6 +3143,10 @@
     "@sameGroupNameOtherNetworks": {
         "description": "Caption of the add-a-chat sheet in a group chat: which chats it lists."
     },
+    "noChatsToAdd": "No chats to add",
+    "@noChatsToAdd": {
+        "description": "Title of the dialog shown when no chat can be merged into the open chat."
+    },
     "addChat": "Add",
     "@addChat": {
         "description": "Button that merges a listed chat into the open chat."

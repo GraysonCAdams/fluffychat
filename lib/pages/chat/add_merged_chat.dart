@@ -12,6 +12,7 @@ import 'package:fluffychat/utils/merged_contacts/contact_identifiers.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
+import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -60,8 +61,8 @@ List<Room> mergeCandidates(Client client, List<Room> current) {
 }
 
 /// The last segment of the app bar's network switcher: a dashed plus that
-/// offers to merge another chat into the open one. Takes no space while no
-/// chat qualifies (see [mergeCandidates]).
+/// offers to merge another chat into the open one. With no chat that
+/// qualifies (see [mergeCandidates]) it says so in a dialog.
 class AddMergedChatButton extends StatefulWidget {
   final ChatController controller;
   final double width;
@@ -113,6 +114,17 @@ class _AddMergedChatButtonState extends State<AddMergedChatButton> {
 
   Future<void> _open() async {
     final controller = widget.controller;
+    if (_candidates.isEmpty) {
+      final l10n = L10n.of(context);
+      await showOkAlertDialog(
+        context: context,
+        title: l10n.noChatsToAdd,
+        message: controller.room.isDirectChat
+            ? l10n.sameNumberOtherNetworks
+            : l10n.sameGroupNameOtherNetworks,
+      );
+      return;
+    }
     final picked = await showModalBottomSheet<Room>(
       context: context,
       useRootNavigator: true,
@@ -150,7 +162,6 @@ class _AddMergedChatButtonState extends State<AddMergedChatButton> {
 
   @override
   Widget build(BuildContext context) {
-    if (_candidates.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
     final radius = Radius.circular(widget.height / 2);
     return Tooltip(

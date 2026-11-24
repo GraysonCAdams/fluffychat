@@ -253,7 +253,12 @@ class ChatView extends StatelessWidget {
                         icon: Icon(Icons.call_outlined),
                         onPressed: controller.startOrJoinVideoCall,
                       ),
-                    ChatNetworkIcons(controller),
+                    // Keeps a long name, cut short with an ellipsis, clear
+                    // of the first network button.
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: ChatNetworkIcons(controller),
+                    ),
                     ChatSettingsPopupMenu(controller.room, true),
                   ],
                 ],

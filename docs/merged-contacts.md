@@ -287,12 +287,13 @@ pass.
   opens a picker of direct chats where several can be ticked at once, and
   the suggestion banner. This branch's chat list has no multi-select mode,
   so the picker takes the place of multi-selecting chats in the list.
-- The chat's app bar ends its network switcher with a dashed "+" while
-  another chat qualifies (`mergeCandidates` in
+- The chat's app bar ends its network switcher with a dashed "+" that
+  lists the chats which qualify (`mergeCandidates` in
   `lib/pages/chat/add_merged_chat.dart`): a one-to-one chat takes
   one-to-one chats with the same phone number, a group chat takes group
   chats with the same name, and either way only on a network the
-  conversation does not span yet. This is the one way a group chat joins a
+  conversation does not span yet. With none, the "+" opens a dialog saying
+  so. This is the one way a group chat joins a
   contact; suggestions and the picker list direct chats only.
 
 ### Merged chat screen
