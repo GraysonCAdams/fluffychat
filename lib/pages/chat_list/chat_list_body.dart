@@ -20,6 +20,7 @@ import 'package:fluffychat/widgets/adaptive_dialogs/public_room_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/merged_contacts/merge_suggestion_banner.dart';
 import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -461,7 +462,10 @@ class _UnreadBelowChip extends StatelessWidget {
       ]),
       builder: (context, _) {
         final scroll = controller.scrollController;
-        if (!scroll.hasClients) return const SizedBox.shrink();
+        // The list reports no size until its first layout.
+        if (!scroll.hasClients || !scroll.position.hasViewportDimension) {
+          return const SizedBox.shrink();
+        }
         final listed = controller.listedRooms.value;
         final bottom = scroll.offset + scroll.position.viewportDimension;
         var top = _headerHeight + (listed.pins ? _pinsHeight : 0);
@@ -540,14 +544,35 @@ class _PinnedRowState extends State<_PinnedRow> {
 
   int _unreadCount = 0;
 
+  late final AppLifecycleListener _lifecycle;
+  GoRouterDelegate? _router;
+
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_updateHiddenUnread);
+    _lifecycle = AppLifecycleListener(onResume: _scrollToStart);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final router = GoRouter.of(context).routerDelegate;
+    if (router == _router) return;
+    _router?.removeListener(_scrollToStart);
+    _router = router..addListener(_scrollToStart);
+  }
+
+  /// The row starts over from its first pin whenever the user comes back to
+  /// it: on every navigation and when the app returns to the foreground.
+  void _scrollToStart() {
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
   }
 
   @override
   void dispose() {
+    _router?.removeListener(_scrollToStart);
+    _lifecycle.dispose();
     _scrollController.dispose();
     _hiddenUnread.dispose();
     super.dispose();
@@ -769,8 +794,8 @@ class _PinnedChat extends StatelessWidget {
                     Positioned(
                       right: -2,
                       bottom: -2,
-                      child: NetworkBadges(
-                        networks: contact.networks(spaces),
+                      child: MergedBadge(
+                        contact: contact,
                         size: 24,
                         outlineColor: theme.colorScheme.surface,
                       ),

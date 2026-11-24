@@ -2,8 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:math' as math;
+
 import 'package:fluffychat/config/app_config.dart';
+import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/widgets/avatar.dart';
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -35,7 +40,10 @@ class NetworkBadges extends StatelessWidget {
   });
 
   /// The distinct networks, in order.
-  List<Room> get distinct {
+  List<Room> get distinct => distinctOf(networks);
+
+  /// [networks] without nulls and repeats, in order.
+  static List<Room> distinctOf(List<Room?> networks) {
     final seen = <String>{};
     return [
       for (final network in networks)
@@ -106,4 +114,156 @@ class NetworkBadges extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The networks a chat is on as a row of small icons with their colour
+/// taken out, for the trailing edge of a list row where the brand colours
+/// would compete with the avatars.
+class MonochromeNetworkIcons extends StatelessWidget {
+  final List<Room> networks;
+  final double size;
+
+  const MonochromeNetworkIcons({
+    required this.networks,
+    this.size = 18,
+    super.key,
+  });
+
+  /// Maps every colour to its luminance.
+  static const _greyscale = ColorFilter.matrix(<double>[
+    0.2126, 0.7152, 0.0722, 0, 0, //
+    0.2126, 0.7152, 0.0722, 0, 0, //
+    0.2126, 0.7152, 0.0722, 0, 0, //
+    0, 0, 0, 1, 0, //
+  ]);
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(size * 0.25);
+    return Opacity(
+      opacity: 0.6,
+      child: ColorFiltered(
+        colorFilter: _greyscale,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: 6,
+          children: [
+            for (final network in networks)
+              Avatar(
+                borderRadius: radius,
+                mxContent: network.avatar,
+                size: size,
+                name: network.getLocalizedDisplayname(),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The corner badge of a merged contact's avatar in the chat list: one
+/// neutral link icon inside a ring split evenly between the contact's
+/// networks, each segment in that network's bubble colour. Round, so it
+/// cannot be taken for the square badge of a single network.
+class MergedBadge extends StatelessWidget {
+  final MergedContact contact;
+  final double size;
+
+  /// The colour behind the avatar, drawn around the badge to cut it out of
+  /// the avatar.
+  final Color outlineColor;
+  final void Function()? onTap;
+
+  const MergedBadge({
+    required this.contact,
+    required this.size,
+    required this.outlineColor,
+    this.onTap,
+    super.key,
+  });
+
+  /// One colour per network of the contact, in room order. Networks without
+  /// a known colour are left out.
+  List<Color> get _ringColors {
+    final seen = <String>{};
+    return [
+      for (final room in contact.rooms)
+        if (NetworkColors.bridgeIdOf(room) case final id?)
+          if (seen.add(id)) ?NetworkColors.colorFor(id),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(color: outlineColor, shape: BoxShape.circle),
+        padding: const EdgeInsets.all(2),
+        child: CustomPaint(
+          painter: _SplitRingPainter(
+            colors: _ringColors,
+            fill: theme.colorScheme.surfaceContainerHighest,
+            gap: outlineColor,
+          ),
+          child: Center(
+            child: Icon(
+              Icons.link,
+              size: size * 0.5,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A filled disc with a ring just inside its edge, cut into equal arcs of
+/// [colors] starting at the top.
+class _SplitRingPainter extends CustomPainter {
+  final List<Color> colors;
+  final Color fill;
+  final Color gap;
+
+  const _SplitRingPainter({
+    required this.colors,
+    required this.fill,
+    required this.gap,
+  });
+
+  static const double _ringWidth = 2;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.shortestSide / 2;
+    canvas.drawCircle(center, radius, Paint()..color = fill);
+    if (colors.isEmpty) return;
+    final ring = Rect.fromCircle(
+      center: center,
+      radius: radius - _ringWidth / 2,
+    );
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _ringWidth;
+    final sweep = 2 * math.pi / colors.length;
+    for (var i = 0; i < colors.length; i++) {
+      canvas.drawArc(
+        ring,
+        -math.pi / 2 + sweep * i,
+        sweep,
+        false,
+        paint..color = colors[i],
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SplitRingPainter old) =>
+      !listEquals(old.colors, colors) || old.fill != fill || old.gap != gap;
 }

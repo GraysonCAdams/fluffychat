@@ -238,8 +238,8 @@ class _ChatListItemState extends State<ChatListItem> {
                             Positioned(
                               right: -4,
                               bottom: -4,
-                              child: NetworkBadges(
-                                networks: widget.networks,
+                              child: MergedBadge(
+                                contact: contact,
                                 size: Avatar.defaultSize * 0.42,
                                 outlineColor:
                                     backgroundColor ??
