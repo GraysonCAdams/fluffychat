@@ -85,10 +85,11 @@ abstract class FluffyThemes {
           disabledIconColor: colorScheme.onSurface,
         ),
       ),
-      // Android 14+ previews the previous page during the back gesture.
+      // Pages slide sideways and stay opaque, so the page underneath never
+      // shows through the one leaving.
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+          TargetPlatform.android: _SolidSlidePageTransitionsBuilder(),
         },
       ),
       // Menus hang below the button that opened them rather than covering
@@ -189,4 +190,33 @@ extension BubbleColorTheme on ThemeData {
         ? colorScheme.tertiary
         : colorScheme.tertiaryContainer,
   ).withSaturation(0.5).toColor();
+}
+
+/// Slides a page in from the right and back out again without ever changing
+/// its opacity, and leaves the page underneath untouched.
+class _SolidSlidePageTransitionsBuilder extends PageTransitionsBuilder {
+  const _SolidSlidePageTransitionsBuilder();
+
+  static final _offset = Tween<Offset>(
+    begin: const Offset(1, 0),
+    end: Offset.zero,
+  );
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => SlideTransition(
+    position: _offset.animate(
+      CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
+    ),
+    child: child,
+  );
 }
