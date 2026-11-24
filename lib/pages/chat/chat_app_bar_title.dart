@@ -274,7 +274,7 @@ class _MergedRoomSwitcher extends StatelessWidget {
 /// connected button group of toggle icon buttons: extra-small buttons (32
 /// high, 20 icon) 2 apart, the group's outer corners fully round and its
 /// inner corners 8. The selected button is the network the next message goes
-/// out on and takes the selected tonal color; tapping another one switches
+/// out on and takes the brighter fill; tapping another one switches
 /// to it. While replying, editing or in a thread the network is fixed by the
 /// message being answered, so the buttons do not respond.
 class ChatNetworkIcons extends StatelessWidget {
@@ -355,9 +355,11 @@ class ChatNetworkIcons extends StatelessWidget {
         height: _height,
         width: _width,
         decoration: BoxDecoration(
+          // Quieter than the spec's selected tonal color, which outshines
+          // a network's own logo.
           color: selected
-              ? theme.colorScheme.secondary
-              : theme.colorScheme.secondaryContainer,
+              ? theme.colorScheme.secondaryContainer
+              : theme.colorScheme.surfaceContainerHigh,
           borderRadius: radius,
         ),
         clipBehavior: Clip.antiAlias,
