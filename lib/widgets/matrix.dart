@@ -9,9 +9,11 @@ import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/android_bubble.dart';
+import 'package:fluffychat/utils/android_share_targets.dart';
 import 'package:fluffychat/utils/client_manager.dart';
 import 'package:fluffychat/utils/init_with_restore.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_file_extension.dart';
+import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
@@ -230,6 +232,7 @@ class MatrixState extends State<Matrix> {
       return;
     }
     MessageSearchIndexer.of(c).start();
+    AndroidShareTargets.start(c, () => MatrixLocals(L10n.of(context)));
     onRoomKeyRequestSub[name] ??= c.onRoomKeyRequest.stream.listen((
       RoomKeyRequest request,
     ) async {
@@ -270,10 +273,17 @@ class MatrixState extends State<Matrix> {
           final loggedInWithMultipleClients = widget.clients.length > 1;
 
           if (PlatformInfos.isAndroid) {
-            final roomIds = c.rooms.map((r) => r.id).toList();
-            AndroidConversationNotifications.removeShortcuts(roomIds).ignore();
+            AndroidShareTargets.stop(c);
+            final conversations = [
+              ...c.rooms.map((r) => r.id),
+              for (final contact in MergedContactsStore.forClient(c).contacts)
+                conversationId('', contact.id),
+            ];
+            AndroidConversationNotifications.removeShortcuts(
+              conversations,
+            ).ignore();
             AndroidConversationNotifications.removeConversationChannels(
-              roomIds,
+              conversations,
             ).ignore();
           }
 

@@ -32,12 +32,27 @@ bool isChatActive(String? activeChat, Client client, String roomId) {
   return contact != null && activeChat == mergedContactActiveChat(contact.id);
 }
 
+const _contactConversationPrefix = 'contact_';
+
+/// The Android conversation (shortcut, channel, notification key) of
+/// [roomId]: the room ID, or `contact_<id>` when the room is part of the
+/// merged contact [contactId].
+String conversationId(String roomId, String? contactId) =>
+    contactId == null ? roomId : '$_contactConversationPrefix$contactId';
+
+/// The merged contact a [conversationId] stands for, or null when it is a
+/// room ID.
+String? contactIdOfConversation(String conversationId) =>
+    conversationId.startsWith(_contactConversationPrefix)
+    ? conversationId.substring(_contactConversationPrefix.length)
+    : null;
+
 /// The conversation a notification for [roomId] belongs to: the room, or the
 /// merged contact it is part of, so one contact gets one Android
 /// conversation, shortcut and notification however many networks write.
 String notificationConversation(Client client, String roomId) {
   final contact = MergedContactsStore.forClient(client).contactForRoom(roomId);
-  return contact == null ? roomId : 'contact_${contact.id}';
+  return conversationId(roomId, contact?.id);
 }
 
 /// The display name of [roomId]'s conversation: the merged contact's name,

@@ -33,11 +33,14 @@ class MainActivity : FlutterFragmentActivity() {
         super.onNewIntent(intent)
     }
 
-    /** A Direct Share names the chosen conversation's shortcut, i.e. room ID. */
+    /**
+     * A Direct Share names the chosen conversation's shortcut: a room ID, or
+     * `contact_<id>` for a merged contact.
+     */
     private fun rememberShareTarget(intent: Intent?) {
         if (intent == null) return
         if (intent.action != Intent.ACTION_SEND && intent.action != Intent.ACTION_SEND_MULTIPLE) return
-        pendingShareRoomId = intent.getStringExtra(Intent.EXTRA_SHORTCUT_ID)
+        pendingShareShortcutId = intent.getStringExtra(Intent.EXTRA_SHORTCUT_ID)
     }
 
     override fun onRestart() {
@@ -73,8 +76,8 @@ class MainActivity : FlutterFragmentActivity() {
 
         const val SHARE_CHANNEL_NAME = "chat.fluffy.fluffychat/share"
 
-        /** The room a Direct Share picked, until Dart takes it. */
-        var pendingShareRoomId: String? = null
+        /** The shortcut a Direct Share picked, until Dart takes it. */
+        var pendingShareShortcutId: String? = null
         fun provideEngine(context: Context): FlutterEngine {
             engine?.let { return it }
             val eng = FlutterEngine(context, emptyArray(), true, false)
@@ -94,9 +97,9 @@ class MainActivity : FlutterFragmentActivity() {
             MethodChannel(eng.dartExecutor.binaryMessenger, SHARE_CHANNEL_NAME)
                 .setMethodCallHandler { call, result ->
                     when (call.method) {
-                        "takeShareTargetRoom" -> {
-                            result.success(pendingShareRoomId)
-                            pendingShareRoomId = null
+                        "takeShareTarget" -> {
+                            result.success(pendingShareShortcutId)
+                            pendingShareShortcutId = null
                         }
                         else -> result.notImplemented()
                     }
