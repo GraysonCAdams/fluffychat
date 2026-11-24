@@ -9,9 +9,11 @@ import 'package:fluffychat/pages/chat_list/active_call_indicator.dart';
 import 'package:fluffychat/pages/chat_list/message_preview_cache.dart';
 import 'package:fluffychat/pages/chat_list/push_rule_state_cache.dart';
 import 'package:fluffychat/pages/chat_list/unread_bubble.dart';
+import 'package:fluffychat/utils/fluffy_share.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
+import 'package:fluffychat/utils/one_time_code.dart';
 import 'package:fluffychat/utils/room_status_extension.dart';
 import 'package:fluffychat/widgets/hover_builder.dart';
 import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
@@ -23,7 +25,28 @@ import '../../config/themes.dart';
 import '../../utils/date_time_extension.dart';
 import '../../widgets/avatar.dart';
 
+/// The one-time passcode a chat list row offers to copy, from the latest
+/// message of an unread chat when someone else sent it. Once the chat is
+/// read the button goes, so old codes do not linger.
+String? chatListOneTimeCode(Room room, [MergedContact? contact]) {
+  if (room.membership != Membership.join) return null;
+  if (!(contact?.isUnread ?? room.isUnreadOrInvited)) return null;
+  final event = contact?.lastEvent ?? room.lastEvent;
+  if (event == null ||
+      event.redacted ||
+      event.type != EventTypes.Message ||
+      event.senderId == room.client.userID ||
+      !{MessageTypes.Text, MessageTypes.Notice}.contains(event.messageType)) {
+    return null;
+  }
+  return findOneTimeCode(event.body);
+}
+
 class ChatListItem extends StatefulWidget {
+  /// How much taller a row is while it shows the copy code button, see
+  /// [chatListOneTimeCode].
+  static const double oneTimeCodeHeight = 40;
+
   final Room room;
   final Room? space;
 
@@ -156,6 +179,7 @@ class _ChatListItemState extends State<ChatListItem> {
         ? DirectChatMatrixLocals(L10n.of(context), displayname)
         : MatrixLocals(L10n.of(context));
     final space = widget.space;
+    final oneTimeCode = chatListOneTimeCode(room, contact);
 
     final tile = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -166,6 +190,7 @@ class _ChatListItemState extends State<ChatListItem> {
         child: FutureBuilder(
           future: _heroUsers(room),
           builder: (context, _) => _mergeSemantics(
+            hasOwnActions: oneTimeCode != null,
             ListTile(
               minVerticalPadding: 16,
               // The wider left side is the gutter the unread dot sits in.
@@ -342,148 +367,165 @@ class _ChatListItemState extends State<ChatListItem> {
                     ),
                 ],
               ),
-              subtitle: Row(
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (room.hasActiveMatrixRtcCall)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4.0),
-                      child: ActiveCallIndicator(room: room),
-                    ),
-                  if (typingText.isEmpty &&
-                      ownMessage &&
-                      lastEvent?.status.isSending == true) ...[
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                  AnimatedSize(
-                    clipBehavior: Clip.hardEdge,
-                    duration: FluffyThemes.animationDuration,
-                    curve: FluffyThemes.animationCurve,
-                    child: typingText.isNotEmpty
-                        ? Padding(
-                            padding: const EdgeInsets.only(right: 4.0),
-                            child: TypingAnimation(size: 4.0),
-                          )
-                        : lastEvent?.relationshipType ==
-                              RelationshipTypes.thread
-                        ? Container(
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: theme.colorScheme.outline,
-                              ),
-                              borderRadius: BorderRadius.circular(
-                                AppConfig.borderRadius,
-                              ),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8.0,
-                            ),
-                            margin: const EdgeInsets.only(right: 4.0),
-                            child: Row(
-                              mainAxisSize: .min,
-                              children: [
-                                Icon(
-                                  Icons.message_outlined,
-                                  size: 12,
-                                  color: theme.colorScheme.outline,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  L10n.of(context).thread,
-                                  style: TextStyle(fontSize: 11),
-                                ),
-                              ],
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                  Expanded(
-                    child: room.isSpace && room.membership == Membership.join
-                        ? Text(
-                            L10n.of(
-                              context,
-                            ).countChats(room.spaceChildren.length),
-                          )
-                        : typingText.isNotEmpty
-                        ? Text(
-                            typingText,
-                            style: TextStyle(color: theme.colorScheme.primary),
-                            maxLines: 1,
-                            softWrap: false,
-                          )
-                        : FutureBuilder(
-                            key: ValueKey(
-                              '${lastEvent?.eventId}_${lastEvent?.type}_${lastEvent?.redacted}',
-                            ),
-                            future: _sender(lastEvent, needLastEventSender),
-                            builder: (context, snapshot) {
-                              // An invite shows its reason instead of the
-                              // last message, so the body is not needed.
-                              var body =
-                                  lastEvent == null ||
-                                      room.membership == Membership.invite
-                                  ? null
-                                  : MessagePreviewCache.localizedBody(
-                                      lastEvent,
-                                      L10n.of(context),
-                                      previewLocals,
-                                    );
-                              if (lastEvent != null &&
-                                  body != null &&
-                                  (!isDirectChat ||
-                                      directChatMatrixId !=
-                                          lastEvent.senderId)) {
-                                body = L10n.of(context).senderMessage(
-                                  lastEvent.senderId == room.client.userID
-                                      ? L10n.of(context).you
-                                      : snapshot.data?.calcDisplayname() ??
-                                            lastEvent.senderFromMemoryOrFallback
-                                                .calcDisplayname(),
-                                  body,
-                                );
-                              }
-                              return Text(
-                                room.membership == Membership.invite
-                                    ? room
-                                              .getState(
-                                                EventTypes.RoomMember,
-                                                room.client.userID!,
-                                              )
-                                              ?.content
-                                              .tryGet<String>('reason') ??
-                                          (isDirectChat
-                                              ? L10n.of(context).newChatRequest
-                                              : L10n.of(
-                                                  context,
-                                                ).inviteGroupChat)
-                                    : body?.trim().replaceAll('\n', ' ') ??
-                                          L10n.of(context).noMessagesYet,
-                                softWrap: false,
-                                maxLines: notificationCount >= 1 ? 2 : 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  decoration: lastEvent?.redacted == true
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                  fontWeight: isUnread ? FontWeight.w600 : null,
-                                  color: isUnread
-                                      ? theme.colorScheme.onSurface
-                                      : null,
-                                ),
-                              );
-                            },
+                  Row(
+                    children: [
+                      if (room.hasActiveMatrixRtcCall)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4.0),
+                          child: ActiveCallIndicator(room: room),
+                        ),
+                      if (typingText.isEmpty &&
+                          ownMessage &&
+                          lastEvent?.status.isSending == true) ...[
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
                           ),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      AnimatedSize(
+                        clipBehavior: Clip.hardEdge,
+                        duration: FluffyThemes.animationDuration,
+                        curve: FluffyThemes.animationCurve,
+                        child: typingText.isNotEmpty
+                            ? Padding(
+                                padding: const EdgeInsets.only(right: 4.0),
+                                child: TypingAnimation(size: 4.0),
+                              )
+                            : lastEvent?.relationshipType ==
+                                  RelationshipTypes.thread
+                            ? Container(
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: theme.colorScheme.outline,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    AppConfig.borderRadius,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8.0,
+                                ),
+                                margin: const EdgeInsets.only(right: 4.0),
+                                child: Row(
+                                  mainAxisSize: .min,
+                                  children: [
+                                    Icon(
+                                      Icons.message_outlined,
+                                      size: 12,
+                                      color: theme.colorScheme.outline,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      L10n.of(context).thread,
+                                      style: TextStyle(fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                      Expanded(
+                        child:
+                            room.isSpace && room.membership == Membership.join
+                            ? Text(
+                                L10n.of(
+                                  context,
+                                ).countChats(room.spaceChildren.length),
+                              )
+                            : typingText.isNotEmpty
+                            ? Text(
+                                typingText,
+                                style: TextStyle(
+                                  color: theme.colorScheme.primary,
+                                ),
+                                maxLines: 1,
+                                softWrap: false,
+                              )
+                            : FutureBuilder(
+                                key: ValueKey(
+                                  '${lastEvent?.eventId}_${lastEvent?.type}_${lastEvent?.redacted}',
+                                ),
+                                future: _sender(lastEvent, needLastEventSender),
+                                builder: (context, snapshot) {
+                                  // An invite shows its reason instead of the
+                                  // last message, so the body is not needed.
+                                  var body =
+                                      lastEvent == null ||
+                                          room.membership == Membership.invite
+                                      ? null
+                                      : MessagePreviewCache.localizedBody(
+                                          lastEvent,
+                                          L10n.of(context),
+                                          previewLocals,
+                                        );
+                                  if (lastEvent != null &&
+                                      body != null &&
+                                      (!isDirectChat ||
+                                          directChatMatrixId !=
+                                              lastEvent.senderId)) {
+                                    body = L10n.of(context).senderMessage(
+                                      lastEvent.senderId == room.client.userID
+                                          ? L10n.of(context).you
+                                          : snapshot.data?.calcDisplayname() ??
+                                                lastEvent
+                                                    .senderFromMemoryOrFallback
+                                                    .calcDisplayname(),
+                                      body,
+                                    );
+                                  }
+                                  return Text(
+                                    room.membership == Membership.invite
+                                        ? room
+                                                  .getState(
+                                                    EventTypes.RoomMember,
+                                                    room.client.userID!,
+                                                  )
+                                                  ?.content
+                                                  .tryGet<String>('reason') ??
+                                              (isDirectChat
+                                                  ? L10n.of(
+                                                      context,
+                                                    ).newChatRequest
+                                                  : L10n.of(
+                                                      context,
+                                                    ).inviteGroupChat)
+                                        : body?.trim().replaceAll('\n', ' ') ??
+                                              L10n.of(context).noMessagesYet,
+                                    softWrap: false,
+                                    maxLines: notificationCount >= 1 ? 2 : 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      decoration: lastEvent?.redacted == true
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                      fontWeight: isUnread
+                                          ? FontWeight.w600
+                                          : null,
+                                      color: isUnread
+                                          ? theme.colorScheme.onSurface
+                                          : null,
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                      // The dot beside the avatar marks unread chats; a count
+                      // is only shown for mentions.
+                      if (highlightCount > 0) ...[
+                        const SizedBox(width: 8),
+                        UnreadBubble(room: room, contact: contact),
+                      ],
+                    ],
                   ),
-                  // The dot beside the avatar marks unread chats; a count
-                  // is only shown for mentions.
-                  if (highlightCount > 0) ...[
-                    const SizedBox(width: 8),
-                    UnreadBubble(room: room, contact: contact),
-                  ],
+                  if (oneTimeCode != null) _CopyCodeButton(oneTimeCode),
                 ],
               ),
               onTap: widget.onTap,
@@ -507,8 +549,43 @@ class _ChatListItemState extends State<ChatListItem> {
 
   /// Joins everything the tile shows into one screen reader stop: name,
   /// preview, time and unread count read as one chat, and the tile's tap and
-  /// long press stay its actions. The archive's delete button is a second
-  /// action of its own, so a tile that has one is left unmerged.
-  Widget _mergeSemantics(Widget child) =>
-      widget.onForget == null ? MergeSemantics(child: child) : child;
+  /// long press stay its actions. The archive's delete button and the copy
+  /// code button ([hasOwnActions]) are actions of their own, so a tile that
+  /// has one is left unmerged.
+  Widget _mergeSemantics(Widget child, {bool hasOwnActions = false}) =>
+      widget.onForget == null && !hasOwnActions
+      ? MergeSemantics(child: child)
+      : child;
+}
+
+/// An outlined pill under the preview that copies a one-time passcode. As a
+/// button of its own it takes the tap, so the chat does not open.
+class _CopyCodeButton extends StatelessWidget {
+  final String code;
+
+  const _CopyCodeButton(this.code);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: SizedBox(
+        height: ChatListItem.oneTimeCodeHeight - 8,
+        child: OutlinedButton.icon(
+          onPressed: () => FluffyShare.share(code, context, copyOnly: true),
+          icon: const Icon(Icons.copy_outlined, size: 16),
+          label: Text(L10n.of(context).copyOneTimeCode(code)),
+          style: OutlinedButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            minimumSize: const Size(0, ChatListItem.oneTimeCodeHeight - 8),
+            shape: const StadiumBorder(),
+            textStyle: theme.textTheme.labelLarge,
+          ),
+        ),
+      ),
+    );
+  }
 }

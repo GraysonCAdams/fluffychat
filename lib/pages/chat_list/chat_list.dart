@@ -249,6 +249,14 @@ class ChatListController extends State<ChatList>
   MergedContact? mergedContactFor(Room room) =>
       _mergedChatList.contacts[room.id];
 
+  /// How much taller than its usual height a listed chat's row is drawn,
+  /// for estimates of row positions: a row offering to copy a one-time code
+  /// has a button under its preview.
+  double extraRowHeight(Room room) =>
+      chatListOneTimeCode(room, mergedContactFor(room)) == null
+      ? 0
+      : ChatListItem.oneTimeCodeHeight;
+
   /// Whether a listed chat counts as unread, across all rooms of a contact.
   bool listedChatIsUnread(Room room) =>
       mergedContactFor(room)?.isUnread ?? room.isUnreadOrInvited;

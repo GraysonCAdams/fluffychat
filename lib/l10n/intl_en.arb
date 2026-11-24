@@ -3124,5 +3124,15 @@
                 "type": "String"
             }
         }
+    },
+    "copyOneTimeCode": "Copy \"{code}\"",
+    "@copyOneTimeCode": {
+        "description": "Button under a chat in the chat list whose latest message holds a one-time passcode; copies the code.",
+        "type": "String",
+        "placeholders": {
+            "code": {
+                "type": "String"
+            }
+        }
     }
 }
