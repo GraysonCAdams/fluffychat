@@ -197,4 +197,98 @@ void main() {
       throwsA(isA<BridgeProvisioningException>()),
     );
   });
+
+  test('capabilities lists the group types the bridge creates', () async {
+    // The answer of mautrix-gmessages v0.2611.0.
+    final types = await api(
+      (_) async => _json(200, {
+        'resolve_identifier': {'create_dm': true, 'lookup_phone': true},
+        'group_creation': {
+          'group': {
+            'type_description': 'mms/rcs group',
+            'name': {'allowed': true},
+            'username': {'allowed': false},
+            'avatar': {'allowed': false},
+            'topic': {'allowed': false},
+            'disappear': {'allowed': false},
+            'participants': {
+              'allowed': true,
+              'required': true,
+              'min_length': 2,
+            },
+            'parent': {'allowed': false},
+          },
+        },
+      }),
+    ).groupTypes(gmessages);
+    expect(requests.single.method, 'GET');
+    expect(requests.single.url.path, '$_base/gmessages/v3/capabilities');
+    final type = types.single;
+    expect(type.id, 'group');
+    expect(type.description, 'mms/rcs group');
+    expect(type.nameAllowed, isTrue);
+    expect(type.nameRequired, isFalse);
+    expect(type.minParticipants, 2);
+    expect(type.maxParticipants, 0);
+  });
+
+  test('capabilities without group_creation creates no groups', () async {
+    final types = await api(
+      (_) async => _json(200, {'resolve_identifier': <String, Object?>{}}),
+    ).groupTypes(gmessages);
+    expect(types, isEmpty);
+  });
+
+  test('create_group posts the participants and name to its type', () async {
+    final created =
+        await api(
+          (_) async => _json(200, {
+            'id': 'portal-1',
+            'mxid': '!group:hs',
+            'failed_participants': {
+              '+13125550188': {'reason': 'not reachable'},
+            },
+          }),
+        ).createGroup(
+          gmessages,
+          const BridgeGroupType(id: 'group', nameAllowed: true),
+          participants: ['1.2', '+13125550188'],
+          name: 'Trip',
+        );
+    expect(created.roomId, '!group:hs');
+    expect(created.failedParticipants, {'+13125550188': 'not reachable'});
+    final request = requests.single;
+    expect(request.method, 'POST');
+    expect(request.url.path, '$_base/gmessages/v3/create_group/group');
+    expect(request.url.queryParameters['login_id'], 'login-gm');
+    expect(request.url.queryParameters['user_id'], '@me:example.com');
+    expect(request.headers['Authorization'], 'Bearer token');
+    expect(jsonDecode(request.body), {
+      'participants': ['1.2', '+13125550188'],
+      'name': {'name': 'Trip'},
+    });
+  });
+
+  test('create_group leaves out an empty name', () async {
+    await api((_) async => _json(200, {'mxid': '!group:hs'})).createGroup(
+      gmessages,
+      const BridgeGroupType(id: 'group'),
+      participants: ['1.2', '1.3'],
+      name: '',
+    );
+    expect(jsonDecode(requests.single.body), {
+      'participants': ['1.2', '1.3'],
+    });
+  });
+
+  test('create_group without a room ID is an error', () async {
+    expect(
+      api((_) async => _json(200, {'id': 'portal-1'})).createGroup(
+        gmessages,
+        const BridgeGroupType(id: 'group'),
+        participants: ['1.2', '1.3'],
+      ),
+      throwsA(isA<BridgeProvisioningException>()),
+    );
+  });
 }
