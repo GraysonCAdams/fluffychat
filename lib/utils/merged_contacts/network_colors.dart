@@ -29,6 +29,7 @@ abstract class NetworkColors {
     'slack': Color(0xFF4A154B),
     'twitter': Color(0xFF1D9BF0),
     'googlechat': Color(0xFF00AC47),
+    'xbox': Color(0xFF107C10),
   };
 
   /// The bridge a direct chat goes through, or null for a chat with a plain
