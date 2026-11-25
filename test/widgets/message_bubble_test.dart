@@ -80,6 +80,7 @@ void main() {
     Event event, {
     List<Event> others = const [],
     Event? below,
+    bool deliveryStatus = false,
   }) async {
     final timeline = Timeline(
       room: room,
@@ -116,6 +117,7 @@ void main() {
                         () =>
                             revealed = revealed == e.eventId ? null : e.eventId,
                       ),
+                      showDeliveryStatus: deliveryStatus && e == event,
                       onInfoTab: (_) {},
                       scrollToEventId: (_) {},
                       onSwipe: () {},
@@ -290,6 +292,45 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.check_circle), findsOneWidget);
       expect(time(), findsOneWidget);
+    });
+  });
+
+  group('delivery status', () {
+    Finder sentMark() => find.byIcon(Icons.check_circle_outline);
+
+    testWidgets('the newest own message shows it was sent', (tester) async {
+      await pumpMessage(
+        tester,
+        textEvent('\$msg', 'Mine', status: EventStatus.synced),
+        deliveryStatus: true,
+      );
+      expect(sentMark(), findsOneWidget);
+      expect(find.byTooltip('Sent'), findsOneWidget);
+    });
+
+    testWidgets('other own messages show no mark', (tester) async {
+      await pumpMessage(tester, textEvent('\$msg', 'Older'));
+      expect(sentMark(), findsNothing);
+    });
+
+    testWidgets('a message from someone else shows no mark', (tester) async {
+      await pumpMessage(
+        tester,
+        textEvent('\$msg', 'Theirs', senderId: '@alice:example.org'),
+        deliveryStatus: true,
+      );
+      expect(sentMark(), findsNothing);
+    });
+
+    testWidgets('a failed message says so instead', (tester) async {
+      await pumpMessage(
+        tester,
+        textEvent('\$msg', 'Failed', status: EventStatus.error),
+        deliveryStatus: true,
+      );
+      expect(sentMark(), findsNothing);
+      expect(find.text('Could not be sent'), findsOneWidget);
+      expect(find.byIcon(Icons.error_outlined), findsOneWidget);
     });
   });
 }

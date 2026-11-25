@@ -2810,6 +2810,7 @@
     "messageNotDecryptable": "Message not decryptable",
     "today": "Today",
     "sending": "Sending",
+    "sent": "Sent",
     "generatingThumbnail": "Generating thumbnail",
     "encrypting": "Encrypting",
     "uploading": "Uploading",

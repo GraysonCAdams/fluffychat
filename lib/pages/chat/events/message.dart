@@ -82,6 +82,10 @@ class Message extends StatelessWidget {
   /// hide its time.
   final void Function(Event)? onToggleTime;
 
+  /// Marks the user's newest message as sent once the server has it. Read
+  /// receipts are not shown.
+  final bool showDeliveryStatus;
+
   const Message(
     this.event, {
     this.nextEvent,
@@ -112,6 +116,7 @@ class Message extends StatelessWidget {
     this.isCollapsed = false,
     this.timeRevealed = false,
     this.onToggleTime,
+    this.showDeliveryStatus = false,
     super.key,
   });
 
@@ -269,7 +274,19 @@ class Message extends StatelessWidget {
               color: theme.colorScheme.surface,
             ),
           ];
-    final eventStateTextColor = theme.colorScheme.onSurface;
+    final eventStateTextColor = theme.colorScheme.onSurfaceVariant;
+    final showTime = event.status.isSent && (selected || timeRevealed);
+    final showSentMark =
+        ownMessage && showDeliveryStatus && event.status.isSent;
+    // The line under the bubble: its time, network, edit mark and delivery
+    // state, each only when there is something to say.
+    final hasStatusLine =
+        showTime ||
+        showSentMark ||
+        networkBadge != null ||
+        isEdited ||
+        event.status == EventStatus.error ||
+        event.status == EventStatus.sending;
 
     final rowPaddingTop = nextEventSameSender ? 1.0 : 8.0;
     final rowPaddingBottom = previousEventSameSender || previousEvent == null
@@ -640,83 +657,104 @@ class Message extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            Row(
-                              mainAxisAlignment: ownMessage ? .end : .start,
-                              children: [
-                                const SizedBox(width: 8),
-                                // The time of a message shows on demand,
-                                // when it is selected or its bubble was
-                                // tapped; the timeline's separators carry
-                                // the time otherwise.
-                                if (event.status.isSent &&
-                                    (selected || timeRevealed))
-                                  Text(
-                                    ' ${selected ? event.originServerTs.localizedDetailedTime(context) : event.originServerTs.localizedTimeOfDay(context)}',
-                                    style: TextStyle(
-                                      color: eventStateTextColor,
-                                      fontSize: 11,
-                                      shadows: wallpaperTextShadow,
-                                    ),
-                                  ),
-                                ?networkBadge,
-                                if (isEdited) ...[
-                                  Text(' ', style: TextStyle(fontSize: 11)),
-                                  Text(
-                                    L10n.of(context).edited,
-                                    style: TextStyle(
-                                      color: eventStateTextColor,
-                                      fontSize: 11,
-                                      shadows: wallpaperTextShadow,
-                                    ),
-                                  ),
-                                ],
-                                if (event.status == EventStatus.error) ...[
-                                  Text(' ', style: TextStyle(fontSize: 11)),
-                                  Text(
-                                    L10n.of(context).couldNotBeSent,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: theme.colorScheme.error,
-                                      shadows: wallpaperTextShadow,
-                                    ),
-                                  ),
-                                  Text(' ', style: TextStyle(fontSize: 11)),
-                                  Icon(
-                                    Icons.error_outlined,
-                                    size: 14,
-                                    color: theme.colorScheme.error,
-                                    shadows: wallpaperTextShadow,
-                                  ),
-                                ],
-                                if (event.status == EventStatus.sending) ...[
-                                  Text(
-                                    switch (event.fileSendingStatus) {
-                                      null => L10n.of(context).sending,
-                                      FileSendingStatus.generatingThumbnail =>
-                                        L10n.of(context).generatingThumbnail,
-                                      FileSendingStatus.encrypting => L10n.of(
-                                        context,
-                                      ).encrypting,
-                                      FileSendingStatus.uploading => L10n.of(
-                                        context,
-                                      ).uploading,
-                                    },
-                                    style: TextStyle(
-                                      color: eventStateTextColor,
-                                      fontSize: 11,
-                                      shadows: wallpaperTextShadow,
-                                    ),
-                                  ),
-                                  Text(' ', style: TextStyle(fontSize: 11)),
-                                  SizedBox.square(
-                                    dimension: 11,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 1,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
+                            if (hasStatusLine)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  top: 4,
+                                  left: 8,
+                                  right: 8,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: ownMessage ? .end : .start,
+                                  children: [
+                                    // The time of a message shows on demand,
+                                    // when it is selected or its bubble was
+                                    // tapped; the timeline's separators carry
+                                    // the time otherwise.
+                                    if (showTime)
+                                      Text(
+                                        ' ${selected ? event.originServerTs.localizedDetailedTime(context) : event.originServerTs.localizedTimeOfDay(context)}',
+                                        style: TextStyle(
+                                          color: eventStateTextColor,
+                                          fontSize: 12,
+                                          shadows: wallpaperTextShadow,
+                                        ),
+                                      ),
+                                    ?networkBadge,
+                                    if (isEdited) ...[
+                                      Text(' ', style: TextStyle(fontSize: 12)),
+                                      Text(
+                                        L10n.of(context).edited,
+                                        style: TextStyle(
+                                          color: eventStateTextColor,
+                                          fontSize: 12,
+                                          shadows: wallpaperTextShadow,
+                                        ),
+                                      ),
+                                    ],
+                                    if (event.status == EventStatus.error) ...[
+                                      Text(' ', style: TextStyle(fontSize: 12)),
+                                      Text(
+                                        L10n.of(context).couldNotBeSent,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: theme.colorScheme.error,
+                                          shadows: wallpaperTextShadow,
+                                        ),
+                                      ),
+                                      Text(' ', style: TextStyle(fontSize: 12)),
+                                      Icon(
+                                        Icons.error_outlined,
+                                        size: 16,
+                                        color: theme.colorScheme.error,
+                                        shadows: wallpaperTextShadow,
+                                      ),
+                                    ],
+                                    if (event.status ==
+                                        EventStatus.sending) ...[
+                                      Text(
+                                        switch (event.fileSendingStatus) {
+                                          null => L10n.of(context).sending,
+                                          FileSendingStatus
+                                              .generatingThumbnail =>
+                                            L10n.of(
+                                              context,
+                                            ).generatingThumbnail,
+                                          FileSendingStatus.encrypting =>
+                                            L10n.of(context).encrypting,
+                                          FileSendingStatus.uploading =>
+                                            L10n.of(context).uploading,
+                                        },
+                                        style: TextStyle(
+                                          color: eventStateTextColor,
+                                          fontSize: 12,
+                                          shadows: wallpaperTextShadow,
+                                        ),
+                                      ),
+                                      Text(' ', style: TextStyle(fontSize: 12)),
+                                      SizedBox.square(
+                                        dimension: 12,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 1,
+                                        ),
+                                      ),
+                                    ],
+                                    if (showSentMark) ...[
+                                      Text(' ', style: TextStyle(fontSize: 12)),
+                                      Tooltip(
+                                        message: L10n.of(context).sent,
+                                        child: Icon(
+                                          Icons.check_circle_outline,
+                                          size: 16,
+                                          color: eventStateTextColor,
+                                          shadows: wallpaperTextShadow,
+                                          semanticLabel: L10n.of(context).sent,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
                             Align(
                               alignment: ownMessage
                                   ? Alignment.bottomRight

@@ -128,6 +128,14 @@ class ChatEventList extends StatelessWidget {
         : const <String, MergedNetwork>{};
     final colorByNetwork = AppSettings.networkBubbleColors.value;
 
+    // The user's newest message, which shows under its bubble that it was
+    // sent.
+    final newestOwnEvent = events.firstWhereOrNull(
+      (event) =>
+          event.senderId == event.room.client.userID &&
+          {EventTypes.Message, EventTypes.Sticker}.contains(event.type),
+    );
+
     final hasWallpaper =
         controller.room.client.applicationAccountConfig.wallpaperUrl != null;
 
@@ -300,6 +308,10 @@ class ChatEventList extends StatelessWidget {
                                 event.eventId,
                             onSelect: controller.onSelectMessage,
                             onToggleTime: controller.toggleMessageTime,
+                            showDeliveryStatus: identical(
+                              event,
+                              newestOwnEvent,
+                            ),
                             timeRevealed:
                                 controller.timeRevealedEventId == event.eventId,
                             onContextMenu: (event, position) =>
