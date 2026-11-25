@@ -65,7 +65,7 @@ MergedContact              rooms, send_via, derived name/avatar/unread/last even
 MergedTimeline             k-way merge of the rooms' Timelines
 SendRouter                 which room a new message, reply, reaction goes to
 MergeSuggester             finds rooms that look like the same person
-UI                         chat list tile, merged chat screen, send-via button, manage sheet
+UI                         chat list tile, merged chat screen, app bar network buttons, manage sheet
 ```
 
 ### MergedContactsStore (`lib/utils/merged_contacts/store.dart`)
@@ -152,8 +152,9 @@ new goes. Anything that acts on an existing message (reply, reaction, edit,
 redaction, thread reply) must go out on the network that message is on, from
 the account the user has on that network, whatever `send_via` says: an
 iMessage reaction cannot be delivered through SMS. While the user is
-replying, the send-via button shows the reply's network and is locked, so it
-is clear the reply will not use the default.
+replying, editing or writing in a thread, the network buttons in the app bar
+show that message's network and do not respond, so it is clear the answer
+will not use the default.
 
 Every send in the chat screen asks `SendRouter` (`route(action,
 eventRoomId:)` and `composerTarget(editRoomId:, replyRoomId:,
@@ -164,8 +165,8 @@ rule. The router works on room IDs only and is unit tested per action.
 
 Target room for a new message:
 
-1. The network picked on the send-via button. Picking also stores it as the
-   contact's network, so the next visit starts on it.
+1. The network picked in the app bar (`ChatNetworkIcons`). Picking also
+   stores it as the contact's `send_via`, so the next visit starts on it.
 2. `send_mode == last_received`: room of the newest incoming event.
 3. `send_via`.
 
@@ -303,15 +304,26 @@ pass.
   links land in the merged view. Only the room's own page redirects, not
   its details or settings; `?single=1` and shared items keep a room on its
   own.
-- App bar: contact name, subtitle "iMessage, SMS". Tapping it opens the
-  manage sheet.
-- Each message carries a small network badge beside its timestamp when it
-  is from a different network than the one before it (the older message
-  above it).
-- Composer: a send-via button at the start, before the attachment button,
-  showing only the
-  network's icon; the hint text names the network. Tap opens the list of
-  networks; the one picked is kept as the contact's network.
+- App bar: the contact's avatar and name, with no subtitle. Tapping them
+  opens the manage sheet. Before the menu, `ChatNetworkIcons`
+  (`lib/pages/chat/chat_app_bar_title.dart`) shows one toggle button per
+  network, the network's logo in a connected button group, ending in the
+  add-chat "+". The selected button is the network the next message goes
+  out on; tapping another switches to it and keeps it as the contact's
+  network. A chat that is not merged shows its own network's button the same
+  way, and a member room opened on its own (`?single=1`) has a network menu
+  under its title that switches to the contact's other rooms.
+- Composer: the hint text is the name of the network the message goes out
+  on (`chat_input_row.dart`), and the send button inside the composer takes
+  that network's bubble colour.
+- Bubbles: with "One color per network" on (`networkBubbleColors`, the
+  default),
+  the user's own bubbles take the colour of the network each message went
+  out on (`MergedNetwork.bubbleColor`, passed to `Message` as
+  `networkColor`), so the network of every message shows at a glance. With
+  it off, a message from a different network than the one before it (the
+  older message above it) carries the network's name under the bubble
+  instead.
 - Encryption badge reflects the target room, and warns when the target is
   unencrypted while another room in the contact is encrypted.
 - Chat details: the manage sheet shows the contact, then each room with a
@@ -359,9 +371,9 @@ chips, with a link to the rest.
 1. **Store and list.** Store, merge/unmerge actions, one tile per contact,
    member rooms hidden. Opening the tile opens the `send_via` room with a
    room switcher in the app bar. No timeline work.
-2. **Send-via button and routing** on the single-room screen: the button
-   switches which member room is shown and sent to (picking a network opens
-   that room, and is kept as the contact's default).
+2. **Network picker and routing** on the single-room screen: picking a
+   network switches which member room is shown and sent to (picking a
+   network opens that room, and is kept as the contact's default).
 3. **Merged timeline.** `MergedTimeline` (a `Timeline`), the safe-horizon
    history loader, per-event routing, read markers.
 4. **Suggestions and notification grouping.**
@@ -395,12 +407,12 @@ is the largest and carries the risk.
   choice.
 - SendRouter: every row of the table above.
 - Suggester: phone normalisation, dismissed pairs.
-- Widget: tile shows summed unread and newest preview; button changes target.
+- Widget: tile shows summed unread and newest preview.
 
 They live in `test/utils/merged_contacts/` (store, chat list collapse,
 `MergedOrder`, `MergedTimeline`, `SendRouter`, phone numbers, identifiers,
 suggester, suggestion service, notification conversations) and
-`test/widgets/` (`merged_contact_tile_test.dart`,
-`send_via_button_test.dart`). Rooms in those tests come from a client that is
+`test/widgets/merged_contact_tile_test.dart`. The app bar's network buttons
+have no widget test. Rooms in those tests come from a client that is
 never logged in (`fake_rooms.dart`), so they run without a server or the
 encryption library.
