@@ -3,14 +3,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:math';
+
 import 'package:collection/collection.dart' show IterableExtension;
-import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/utils/merged_contacts/routed_event.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -128,34 +130,183 @@ class _Reaction extends StatelessWidget {
       }
       content = Text(renderKey.toString(), style: TextStyle(fontSize: 14));
     }
-    return Badge(
-      isLabelVisible: count > 1,
-      label: Text(count.toString()),
-      textStyle: TextStyle(fontSize: 10),
-      textColor: theme.colorScheme.onPrimary,
-      backgroundColor: theme.colorScheme.primary.withAlpha(200),
+    // A pill as tall as [reactionChipHeight], ringed in the page colour so it
+    // stands apart from the bubble it overlaps. The user's own reactions fill
+    // with the secondary container colour.
+    final borderRadius = BorderRadius.circular(reactionChipHeight / 2);
+    final foreground = reacted == true
+        ? theme.colorScheme.onSecondaryContainer
+        : theme.colorScheme.onSurface;
+    return Material(
+      color: reacted == true
+          ? theme.colorScheme.secondaryContainer
+          : theme.colorScheme.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(
+        borderRadius: borderRadius,
+        side: BorderSide(color: theme.colorScheme.surface, width: 2),
+      ),
       child: InkWell(
         onTap: () => onTap != null ? onTap!() : null,
         onLongPress: () => onLongPress != null ? onLongPress!() : null,
-        borderRadius: BorderRadius.circular(AppConfig.borderRadius / 2),
+        customBorder: RoundedRectangleBorder(borderRadius: borderRadius),
         child: Container(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.secondaryContainer,
-            border: Border.all(
-              color: reacted == true
-                  ? theme.colorScheme.secondary
-                  : theme.colorScheme.secondaryContainer,
-              width: 1,
-            ),
-            borderRadius: BorderRadius.circular(AppConfig.borderRadius / 2),
+          constraints: const BoxConstraints(
+            minWidth: reactionChipHeight,
+            minHeight: reactionChipHeight,
+            maxHeight: reactionChipHeight,
           ),
-          height: 24,
-          padding: const EdgeInsets.symmetric(horizontal: 3),
-          child: content,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Row(
+            mainAxisSize: .min,
+            mainAxisAlignment: .center,
+            children: [
+              content,
+              if (count > 1) ...[
+                const SizedBox(width: 4),
+                Text(
+                  count.toString(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: foreground,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+/// Height of one reaction chip.
+const double reactionChipHeight = 28;
+
+/// How far a reaction chip reaches up over the bubble's bottom edge.
+const double reactionChipOverlap = 8;
+
+/// Lays a message bubble out with its reaction chips hanging off the
+/// bubble's bottom corner: the chips overlap the bubble by
+/// [reactionChipOverlap] and the rest of their height is added below the
+/// bubble, so they never cover the next message.
+///
+/// With [reactionsAtEnd] the chips line up with the bubble's right edge,
+/// otherwise with its left edge. Chips wider than the bubble start at the
+/// bubble's edge and run past its other side, and the bubble keeps its own
+/// alignment: left for another sender's message, right for the user's own.
+/// Without [reactions] the bubble is returned as it is.
+class BubbleWithReactions extends StatelessWidget {
+  final Widget bubble;
+  final Widget? reactions;
+  final bool reactionsAtEnd;
+
+  const BubbleWithReactions({
+    required this.bubble,
+    required this.reactions,
+    required this.reactionsAtEnd,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final reactions = this.reactions;
+    if (reactions == null) return bubble;
+    return _BubbleWithReactionsLayout(
+      reactionsAtEnd: reactionsAtEnd,
+      children: [bubble, reactions],
+    );
+  }
+}
+
+class _BubbleWithReactionsLayout extends MultiChildRenderObjectWidget {
+  final bool reactionsAtEnd;
+
+  const _BubbleWithReactionsLayout({
+    required this.reactionsAtEnd,
+    required super.children,
+  });
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderBubbleWithReactions(reactionsAtEnd);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderBubbleWithReactions renderObject,
+  ) => renderObject.reactionsAtEnd = reactionsAtEnd;
+}
+
+class _BubbleWithReactionsParentData
+    extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderBubbleWithReactions extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _BubbleWithReactionsParentData>,
+        RenderBoxContainerDefaultsMixin<
+          RenderBox,
+          _BubbleWithReactionsParentData
+        > {
+  _RenderBubbleWithReactions(this._reactionsAtEnd);
+
+  bool _reactionsAtEnd;
+  set reactionsAtEnd(bool value) {
+    if (value == _reactionsAtEnd) return;
+    _reactionsAtEnd = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _BubbleWithReactionsParentData) {
+      child.parentData = _BubbleWithReactionsParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final bubble = firstChild!;
+    final reactions = childAfter(bubble)!;
+    final loose = constraints.loosen();
+    bubble.layout(loose, parentUsesSize: true);
+    reactions.layout(
+      BoxConstraints(maxWidth: constraints.maxWidth),
+      parentUsesSize: true,
+    );
+    final double width = max(bubble.size.width, reactions.size.width);
+    final overlap = min(reactionChipOverlap, bubble.size.height);
+    size = constraints.constrain(
+      Size(width, bubble.size.height + reactions.size.height - overlap),
+    );
+
+    // The bubble keeps the side it would have without reactions: another
+    // sender's (chips at the end) on the left, the user's own on the right.
+    final bubbleX = _reactionsAtEnd ? 0.0 : size.width - bubble.size.width;
+    final reactionsX = _reactionsAtEnd
+        ? max(0.0, bubbleX + bubble.size.width - reactions.size.width)
+        : min(bubbleX, size.width - reactions.size.width);
+    (bubble.parentData! as _BubbleWithReactionsParentData).offset = Offset(
+      bubbleX,
+      0,
+    );
+    (reactions.parentData! as _BubbleWithReactionsParentData).offset = Offset(
+      reactionsX,
+      bubble.size.height - overlap,
+    );
+  }
+
+  @override
+  double? computeDistanceToActualBaseline(TextBaseline baseline) =>
+      defaultComputeDistanceToFirstActualBaseline(baseline);
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
 
 class _ReactionEntry {
