@@ -560,8 +560,7 @@ class ChatListController extends State<ChatList>
             contactIdOf: (roomId) => store.contactForRoom(roomId)?.id,
           );
     if (targetRoute != null) {
-      // Text is sent as soon as the chat opens, so confirm it like the
-      // chat picker does.
+      // Text is sent as soon as the chat opens, so confirm it first.
       if (items.any((item) => item is! FileShareItem)) {
         final consent = await showOkCancelAlertDialog(
           context: context,
