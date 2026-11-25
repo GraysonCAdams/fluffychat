@@ -552,7 +552,11 @@ class ChatListController extends State<ChatList>
     return header;
   }
 
-  final Map<String, (int, int, Room, Room?, bool, ChatListItem)> _tiles = {};
+  /// Built tiles, reused while nothing they show has changed: the view,
+  /// merged contacts, the room and its space, whether it is the open chat,
+  /// and whether network badges are shown.
+  final Map<String, (int, int, Room, Room?, bool, bool, ChatListItem)> _tiles =
+      {};
 
   /// The chat list tile for [room], shown below [space] when it has one.
   /// A room standing for a merged contact gets the contact's tile, with a
@@ -569,14 +573,16 @@ class ChatListController extends State<ChatList>
     final mergedRevision = MergedContactsStore.forClient(
       room.client,
     ).revision.value;
+    final badges = AppSettings.chatListNetworkBadges.value;
     final cached = _tiles[room.id];
     if (cached != null &&
         cached.$1 == _viewGeneration &&
         cached.$2 == mergedRevision &&
         identical(cached.$3, room) &&
         identical(cached.$4, space) &&
-        cached.$5 == active) {
-      return cached.$6;
+        cached.$5 == active &&
+        cached.$6 == badges) {
+      return cached.$7;
     }
     final tile = ChatListItem(
       room,
@@ -595,6 +601,7 @@ class ChatListController extends State<ChatList>
       room,
       space,
       active,
+      badges,
       tile,
     );
     return tile;
