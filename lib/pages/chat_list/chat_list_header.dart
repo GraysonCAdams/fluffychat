@@ -5,7 +5,6 @@
 
 import 'dart:async';
 
-import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
@@ -96,20 +95,11 @@ class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
                               )
                             // Sources are picked from the filter chips, so narrow
                             // layouts have no navigation rail to open.
-                            : true
-                            ? IconButton(
+                            : IconButton(
                                 tooltip: L10n.of(context).search,
                                 onPressed: controller.startSearch,
                                 icon: Icon(
                                   Icons.search_outlined,
-                                  color: theme.colorScheme.onPrimaryContainer,
-                                ),
-                              )
-                            : IconButton(
-                                tooltip: L10n.of(context).displayNavigationRail,
-                                onPressed: controller.openNavrail,
-                                icon: Icon(
-                                  Icons.menu,
                                   color: theme.colorScheme.onPrimaryContainer,
                                 ),
                               )

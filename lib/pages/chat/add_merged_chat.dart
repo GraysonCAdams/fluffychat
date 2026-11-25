@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:ui';
-
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
@@ -212,10 +210,8 @@ class _DashedBorderPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
     final outline = Path()
-      ..addRRect(
-        radius.toRRect((Offset.zero & size).deflate(0.6)),
-      );
-    for (final PathMetric metric in outline.computeMetrics()) {
+      ..addRRect(radius.toRRect((Offset.zero & size).deflate(0.6)));
+    for (final metric in outline.computeMetrics()) {
       for (var at = 0.0; at < metric.length; at += _dash + _gap) {
         canvas.drawPath(metric.extractPath(at, at + _dash), paint);
       }

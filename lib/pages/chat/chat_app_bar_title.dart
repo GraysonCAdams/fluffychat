@@ -16,7 +16,6 @@ import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/sync_status_localization.dart';
 import 'package:fluffychat/utils/verified_room_extension.dart';
 import 'package:fluffychat/widgets/avatar.dart';
-import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
 import 'package:fluffychat/widgets/presence_builder.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -41,7 +40,6 @@ class ChatAppBarTitle extends StatelessWidget {
     final title =
         contact?.displayName(MatrixLocals(L10n.of(context))) ??
         room.getLocalizedDisplayname(MatrixLocals(L10n.of(context)));
-    final theme = Theme.of(context);
     // The networks this chat reaches: each of a merged contact's, or the one
     // space a single chat belongs to.
     final networkSpaces = contact != null && controller.isMerged
