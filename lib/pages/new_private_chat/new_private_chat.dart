@@ -12,14 +12,23 @@ import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_list.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat_view.dart';
 import 'package:fluffychat/pages/new_private_chat/qr_scanner_modal.dart';
+import 'package:fluffychat/pages/new_private_chat/start_chat_sheet.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
+import 'package:fluffychat/utils/bridge_provisioning.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/contact_identifiers.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
+import 'package:fluffychat/utils/merged_contacts/model.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
+import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
+import 'package:fluffychat/utils/new_chat/bridge_directory.dart';
+import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
+import 'package:fluffychat/utils/new_chat/phone_contacts.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/url_launcher.dart';
+import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
 import 'package:flutter/services.dart';
@@ -65,6 +74,25 @@ class NewPrivateChatController extends State<NewPrivateChat> {
 
   static const Duration _coolDown = Duration(milliseconds: 500);
 
+  /// The user's bridges, once their `whoami` answered.
+  List<BridgeInfo> bridges = const [];
+
+  List<BridgeContactInput> _bridgeContacts = const [];
+
+  List<PhoneBookEntry> _phoneBook = const [];
+
+  /// Whether to show the row that asks to read the phone's contacts.
+  bool offerPhoneContacts = false;
+
+  /// The search's results from chats, bridge contacts and the phone's
+  /// contacts, one row per person. Directory results follow them.
+  List<NewChatPerson<ExistingChat>> people = const [];
+
+  /// The search [people] was built for, and its chats, for rebuilding
+  /// [people] when a slower source arrives.
+  String _peopleQuery = '';
+  List<ChatPersonInput<ExistingChat>> _chatInputs = const [];
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +103,100 @@ class NewPrivateChatController extends State<NewPrivateChat> {
         UrlLauncher(context, deeplink).openMatrixToUrl();
       });
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSources());
+  }
+
+  /// Starts reading the bridges and, when allowed, the phone's contacts.
+  /// Each updates the results when it arrives.
+  Future<void> _loadSources() async {
+    final client = Matrix.of(context).client;
+    final directory = BridgeDirectory.forClient(client);
+    if (directory != null) {
+      directory.bridges().then((value) {
+        if (mounted) setState(() => bridges = value);
+      });
+      directory.contacts().then((value) {
+        if (!mounted) return;
+        _bridgeContacts = value;
+        _rebuildPeople();
+      });
+    }
+    if (await PhoneContacts.shouldOffer()) {
+      if (mounted) setState(() => offerPhoneContacts = true);
+    } else {
+      await _loadPhoneBook();
+    }
+  }
+
+  Future<void> _loadPhoneBook() async {
+    final entries = await PhoneContacts.load();
+    if (!mounted || entries.isEmpty) return;
+    _phoneBook = entries;
+    _rebuildPeople();
+  }
+
+  /// Asks for the contacts permission from the offer row.
+  Future<void> allowPhoneContacts() async {
+    final granted = await PhoneContacts.request();
+    if (!mounted) return;
+    setState(() => offerPhoneContacts = false);
+    if (granted) await _loadPhoneBook();
+  }
+
+  /// Hides the offer row for good.
+  Future<void> declinePhoneContacts() async {
+    setState(() => offerPhoneContacts = false);
+    await PhoneContacts.decline();
+  }
+
+  String get _phoneRegion => MergeSuggestionService.defaultPhoneRegion();
+
+  List<NewChatPerson<ExistingChat>> _mergePeople() => mergeNewChatPeople(
+    query: _peopleQuery,
+    chats: _chatInputs,
+    bridgeContacts: _bridgeContacts,
+    phoneBook: _phoneBook,
+    defaultRegion: _phoneRegion,
+  );
+
+  void _rebuildPeople() {
+    if (searchResponse == null || _peopleQuery.isEmpty) return;
+    setState(() => people = _mergePeople());
+  }
+
+  /// What New Chat knows about the other person of [chat].
+  ChatPersonInput<ExistingChat> _chatInput(
+    ExistingChat chat,
+    MatrixLocals locals,
+  ) {
+    final client = chat.room.client;
+    final rooms = chat.contact?.rooms ?? [chat.room];
+    final suggestions = MergeSuggestionService.forClient(client);
+    final stored = chat.contact?.entry.identifier;
+    var phone = stored?['type'] == IdentifierType.phone.name
+        ? stored!['value'] as String?
+        : null;
+    for (final room in rooms) {
+      if (phone != null) break;
+      phone = suggestions.phoneOf(room)?.value;
+    }
+    return ChatPersonInput(
+      chat: chat,
+      name:
+          chat.contact?.displayName(locals) ??
+          chat.room.getLocalizedDisplayname(locals),
+      avatar: chat.contact?.avatar ?? chat.room.avatar,
+      phone: phone,
+      userIds: [for (final room in rooms) ?room.directChatMatrixID],
+      networks: [
+        for (final network in chat.networks)
+          NetworkRef(
+            key: network.id,
+            name: network.getLocalizedDisplayname(locals),
+            icon: network.avatar,
+          ),
+      ],
+    );
   }
 
   Future<void> searchUsers([String? input]) async {
@@ -99,8 +221,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// merged contact is one entry, like in the chat list.
   List<ExistingChat> existingChats = const [];
 
-  /// The people of [existingChats], who are left out of the directory
-  /// results.
+  /// The Matrix IDs of [people], who are left out of the directory results.
   final Set<String> _knownUserIds = {};
 
   /// Your chats whose name, or whose other person's ID, contains
@@ -122,10 +243,10 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     final store = MergedContactsStore.forClient(client);
     final named = <String>{
       for (final entry in store.contacts)
-        if (MergedContact.resolve(client, entry)?.matchesSearch(
-              needle,
-              locals,
-            ) ??
+        if (MergedContact.resolve(
+              client,
+              entry,
+            )?.matchesSearch(needle, locals) ??
             false)
           ...entry.rooms,
     };
@@ -152,11 +273,12 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     existingChats = AppSettings.suggestContactsFromChats.value
         ? _searchChats(searchTerm)
         : const [];
-    for (final chat in existingChats) {
-      for (final room in chat.contact?.rooms ?? [chat.room]) {
-        final userId = room.directChatMatrixID;
-        if (userId != null) _knownUserIds.add(userId);
-      }
+    final locals = MatrixLocals(L10n.of(context));
+    _peopleQuery = searchTerm;
+    _chatInputs = [for (final chat in existingChats) _chatInput(chat, locals)];
+    people = _mergePeople();
+    for (final person in people) {
+      _knownUserIds.addAll(person.userIds);
     }
     final List<Profile> fromDirectory;
     try {
@@ -164,7 +286,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
         context,
       ).client.searchUserDirectory(searchTerm)).results;
     } catch (e, s) {
-      if (existingChats.isEmpty) rethrow;
+      if (people.isEmpty) rethrow;
       Logs().w('User directory search failed', e, s);
       return [];
     }
@@ -229,6 +351,101 @@ class NewPrivateChatController extends State<NewPrivateChat> {
           ? '/rooms/${chat.room.id}'
           : mergedContactRoute(contact.id),
     );
+  }
+
+  /// Opens [person]'s chat, or lets the user pick a network to start one on.
+  Future<void> openPerson(NewChatPerson<ExistingChat> person) async {
+    final chat = person.chat;
+    if (chat != null) return openExistingChat(chat);
+    final client = Matrix.of(context).client;
+    final directory = BridgeDirectory.forClient(client);
+    if (directory == null) return;
+    final bridges = await directory.bridges();
+    if (!mounted) return;
+    final choice = await showAdaptiveBottomSheet<StartChatChoice>(
+      context: context,
+      builder: (_) => StartChatSheet(
+        person: person,
+        bridges: bridges,
+        resolve: directory.api.resolveIdentifier,
+      ),
+    );
+    if (choice == null || !mounted) return;
+    final result = await showFutureLoadingDialog<String>(
+      context: context,
+      future: () => _startChat(client, directory.api, choice),
+    );
+    final roomId = result.asValue?.value;
+    if (roomId == null || !mounted) return;
+    final contactId = await _addToMergedContact(client, person, roomId);
+    if (!mounted) return;
+    context.go(
+      contactId == null ? '/rooms/$roomId' : mergedContactRoute(contactId),
+    );
+  }
+
+  /// How long [_startChat] waits for a new room to come down the sync.
+  static const Duration _roomTimeout = Duration(seconds: 30);
+
+  /// The room of [choice]: the existing direct chat the bridge reported, or
+  /// one `create_dm` starts. Waits until the room is on this client and
+  /// joins it if the bridge only invited the user.
+  Future<String> _startChat(
+    Client client,
+    BridgeProvisioning api,
+    StartChatChoice choice,
+  ) async {
+    final known = choice.resolved.dmRoomId;
+    final roomId = known != null && client.getRoomById(known) != null
+        ? known
+        : await api.createDm(choice.bridge, choice.identifier);
+    if (client.getRoomById(roomId) == null) {
+      await client
+          .waitForRoomInSync(roomId, join: true, invite: true)
+          .timeout(_roomTimeout);
+    }
+    final room = client.getRoomById(roomId);
+    if (room != null && room.membership == Membership.invite) {
+      await room.join();
+    }
+    return roomId;
+  }
+
+  /// Adds [roomId] to the merged contact with [person]'s phone number, if
+  /// there is one, and returns that contact's ID.
+  Future<String?> _addToMergedContact(
+    Client client,
+    NewChatPerson person,
+    String roomId,
+  ) async {
+    final phone = person.phone;
+    if (phone == null) return null;
+    final store = MergedContactsStore.forClient(client);
+    final suggestions = MergeSuggestionService.forClient(client);
+    bool hasPhone(MergedContactEntry entry) {
+      final stored = entry.identifier;
+      if (stored?['type'] == IdentifierType.phone.name &&
+          stored?['value'] == phone) {
+        return true;
+      }
+      final contact = MergedContact.resolve(client, entry);
+      return contact?.rooms.any(
+            (room) => suggestions.phoneOf(room)?.value == phone,
+          ) ??
+          false;
+    }
+
+    final entry = store.contacts.where(hasPhone).firstOrNull;
+    if (entry == null) return null;
+    if (!entry.rooms.contains(roomId)) {
+      try {
+        await store.merge([roomId], intoContactId: entry.id);
+      } catch (e, s) {
+        Logs().w('Unable to add the new chat to its contact', e, s);
+        return null;
+      }
+    }
+    return entry.id;
   }
 
   @override

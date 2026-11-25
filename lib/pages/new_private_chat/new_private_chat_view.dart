@@ -8,7 +8,8 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
-import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/phone_number.dart';
+import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/layouts/max_width_body.dart';
@@ -127,6 +128,8 @@ class NewPrivateChatView extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 8),
+                          if (controller.offerPhoneContacts)
+                            PhoneContactsOfferTile(controller),
                           ListTile(
                             leading: CircleAvatar(
                               backgroundColor:
@@ -240,8 +243,9 @@ class NewPrivateChatView extends StatelessWidget {
                               child: CircularProgressIndicator.adaptive(),
                             );
                           }
-                          final chats = controller.existingChats;
-                          if (result.isEmpty && chats.isEmpty) {
+                          final people = controller.people;
+                          final offer = controller.offerPhoneContacts ? 1 : 0;
+                          if (result.isEmpty && people.isEmpty && offer == 0) {
                             return Column(
                               mainAxisAlignment: .center,
                               children: [
@@ -261,37 +265,21 @@ class NewPrivateChatView extends StatelessWidget {
                               ],
                             );
                           }
-                          final locals = MatrixLocals(L10n.of(context));
                           return ListView.builder(
-                            itemCount: chats.length + result.length,
+                            itemCount: offer + people.length + result.length,
                             itemBuilder: (context, i) {
-                              if (i < chats.length) {
-                                final chat = chats[i];
-                                final name =
-                                    chat.contact?.displayName(locals) ??
-                                    chat.room.getLocalizedDisplayname(locals);
-                                return ListTile(
-                                  leading: Avatar(
-                                    name: name,
-                                    mxContent:
-                                        chat.contact?.avatar ??
-                                        chat.room.avatar,
-                                  ),
-                                  title: Text(
-                                    name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  trailing: chat.networks.isEmpty
-                                      ? null
-                                      : MonochromeNetworkIcons(
-                                          networks: chat.networks,
-                                        ),
-                                  onTap: () =>
-                                      controller.openExistingChat(chat),
+                              if (i < offer) {
+                                return PhoneContactsOfferTile(controller);
+                              }
+                              i -= offer;
+                              if (i < people.length) {
+                                final person = people[i];
+                                return NewChatPersonTile(
+                                  person: person,
+                                  onTap: () => controller.openPerson(person),
                                 );
                               }
-                              final contact = result[i - chats.length];
+                              final contact = result[i - people.length];
                               final displayname =
                                   contact.displayName ??
                                   contact.userId.localpart ??
@@ -315,6 +303,84 @@ class NewPrivateChatView extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// One person in New Chat's results: their chat, or someone the user's
+/// networks or phone contacts know, with the networks that reach them as
+/// grey icons at the end.
+class NewChatPersonTile extends StatelessWidget {
+  final NewChatPerson person;
+  final void Function() onTap;
+
+  const NewChatPersonTile({
+    required this.person,
+    required this.onTap,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final phone = person.phone;
+    final detail = person.typed
+        ? L10n.of(context).phoneNumber
+        : person.chat != null
+        ? null
+        : phone != null
+        ? formatPhoneForDisplay(phone)
+        : person.email;
+    return ListTile(
+      leading: person.typed
+          ? CircleAvatar(
+              backgroundColor: theme.colorScheme.secondaryContainer,
+              foregroundColor: theme.colorScheme.onSecondaryContainer,
+              child: const Icon(Icons.dialpad_outlined),
+            )
+          : Avatar(name: person.name, mxContent: person.avatar),
+      title: Text(person.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: detail == null || detail == person.name
+          ? null
+          : Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis),
+      trailing: person.networks.isEmpty
+          ? null
+          : MonochromeNetworkIcons.icons(
+              icons: [
+                for (final network in person.networks)
+                  (icon: network.icon, name: network.name),
+              ],
+            ),
+      onTap: onTap,
+    );
+  }
+}
+
+/// The row that offers to list the phone's contacts, on Android until the
+/// user answers.
+class PhoneContactsOfferTile extends StatelessWidget {
+  final NewPrivateChatController controller;
+
+  const PhoneContactsOfferTile(this.controller, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = L10n.of(context);
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: theme.colorScheme.primaryContainer,
+        foregroundColor: theme.colorScheme.onPrimaryContainer,
+        child: const Icon(Icons.contacts_outlined),
+      ),
+      title: Text(l10n.showPhoneContacts),
+      subtitle: Text(l10n.showPhoneContactsHint),
+      trailing: IconButton(
+        icon: const Icon(Icons.close_outlined),
+        tooltip: l10n.notNow,
+        onPressed: controller.declinePhoneContacts,
+      ),
+      onTap: controller.allowPhoneContacts,
     );
   }
 }

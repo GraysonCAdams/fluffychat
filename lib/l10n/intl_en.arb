@@ -3160,5 +3160,33 @@
                 "type": "String"
             }
         }
+    },
+    "showPhoneContacts": "Show your phone contacts",
+    "@showPhoneContacts": {
+        "description": "Row in New Chat on Android that asks for the contacts permission so people from the phone's address book are listed."
+    },
+    "showPhoneContactsHint": "Find anyone in your contacts on any network",
+    "@showPhoneContactsHint": {
+        "description": "Second line of the row that asks for the contacts permission in New Chat."
+    },
+    "notNow": "Not now",
+    "@notNow": {
+        "description": "Tooltip of the button that dismisses the phone contacts row in New Chat for good."
+    },
+    "phoneNumber": "Phone number",
+    "@phoneNumber": {
+        "description": "Second line of the New Chat row for a phone number typed into the search."
+    },
+    "startChatOn": "Start a chat on",
+    "@startChatOn": {
+        "description": "Title of the sheet listing the networks (iMessage, Google Messages, ...) a new chat with a person can be started on."
+    },
+    "notOnThisNetwork": "Not reachable here",
+    "@notOnThisNetwork": {
+        "description": "Second line of a network in the start chat sheet when that network cannot reach the person."
+    },
+    "noNetworkCanReach": "None of your networks can reach this person",
+    "@noNetworkCanReach": {
+        "description": "Shown in the start chat sheet when no connected network can reach the person."
     }
 }
