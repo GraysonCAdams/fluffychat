@@ -2,226 +2,39 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// ignore_for_file: depend_on_referenced_packages, deprecated_member_use
+// ignore_for_file: depend_on_referenced_packages
 
-import 'package:fluffychat/config/setting_keys.dart';
-import 'package:fluffychat/l10n/l10n.dart';
-import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
-import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
-import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
-import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../utils/merged_contacts/fake_rooms.dart' show setMergedContacts;
-
-/// A client that is never logged in but looks synced, and keeps account
-/// data writes (the merged contacts) locally.
-class _FakeClient extends Client {
-  _FakeClient(super.clientName, {required super.database});
-
-  final accountDataWrites = <String>[];
-
-  @override
-  String? get userID => '@me:x';
-
-  @override
-  String? get prevBatch => 'synced';
-
-  @override
-  Future<void> setAccountData(
-    String userId,
-    String type,
-    Map<String, Object?> body,
-  ) async {
-    accountDataWrites.add(type);
-    accountData[type] = BasicEvent(type: type, content: body);
-  }
-}
-
-/// A room that records the changes asked of it instead of sending them.
-class _FakeRoom extends Room {
-  _FakeRoom({
-    required super.id,
-    required super.client,
-    super.notificationCount,
-  });
-
-  final calls = <String>[];
-
-  @override
-  Future<void> setFavourite(bool favourite) async =>
-      calls.add('favourite:$favourite');
-
-  @override
-  Future<void> setLowPriority(bool lowPriority) async =>
-      calls.add('lowPriority:$lowPriority');
-
-  @override
-  Future<void> setPushRuleState(PushRuleState newState) async =>
-      calls.add('push:${newState.name}');
-
-  @override
-  Future<void> markUnread(bool unread) async => calls.add('unread:$unread');
-
-  @override
-  Future<void> setReadMarker(
-    String? eventId, {
-    String? mRead,
-    bool? public,
-  }) async => calls.add('read');
-
-  @override
-  Future<void> leave({bool waitForSync = false}) async => calls.add('leave');
-}
-
-/// Stands in for the app's Matrix widget with one client and no bundles.
-class _FakeMatrix extends MatrixState {
-  final Client fakeClient;
-  final SharedPreferences prefs;
-
-  _FakeMatrix(this.fakeClient, this.prefs);
-
-  @override
-  Client get client => fakeClient;
-
-  @override
-  SharedPreferences get store => prefs;
-
-  @override
-  bool get hasComplexBundles => false;
-
-  @override
-  Map<String?, List<Client?>> get accountBundles => {
-    null: [fakeClient],
-  };
-
-  @override
-  List<Client?>? get currentBundle => [fakeClient];
-}
+import 'chat_list_fakes.dart';
 
 void main() {
-  late _FakeClient client;
-  late SharedPreferences prefs;
-  late Map<String, _FakeRoom> rooms;
+  late FakeChatListClient client;
+  late Map<String, FakeChatListRoom> rooms;
 
-  Room space(String id, String name, List<String> children) {
-    final space = Room(id: id, client: client);
-    space.setState(
-      StrippedStateEvent(
-        type: EventTypes.RoomCreate,
-        content: {'type': RoomCreationTypes.mSpace},
-        senderId: '@bridge:x',
-        stateKey: '',
-      ),
-    );
-    space.setState(
-      StrippedStateEvent(
-        type: EventTypes.RoomName,
-        content: {'name': name},
-        senderId: '@bridge:x',
-        stateKey: '',
-      ),
-    );
-    for (final child in children) {
-      space.setState(
-        StrippedStateEvent(
-          type: EventTypes.SpaceChild,
-          content: {
-            'via': ['x'],
-          },
-          senderId: '@bridge:x',
-          stateKey: child,
-        ),
-      );
-    }
-    client.rooms.add(space);
-    return space;
-  }
-
-  /// A joined chat named [name]; one-to-one with [partner] when given,
-  /// else a group.
-  _FakeRoom chat(
+  void chat(
     String id,
     String name, {
     String? partner,
-    int notificationCount = 0,
     DateTime? lastMessageTime,
-  }) {
-    final room = _FakeRoom(
-      id: id,
-      client: client,
-      notificationCount: notificationCount,
-    );
-    final sender = partner ?? '@someone:x';
-    room.setState(
-      StrippedStateEvent(
-        type: EventTypes.RoomName,
-        content: {'name': name},
-        senderId: sender,
-        stateKey: '',
-      ),
-    );
-    room.setState(
-      StrippedStateEvent(
-        type: EventTypes.RoomMember,
-        content: {'membership': 'join', 'displayname': name},
-        senderId: sender,
-        stateKey: sender,
-      ),
-    );
-    room.lastEvent = Event(
-      content: {'msgtype': 'm.text', 'body': 'hello from $name'},
-      type: EventTypes.Message,
-      eventId: '\$$id-last',
-      senderId: sender,
-      originServerTs: lastMessageTime ?? DateTime(2026),
-      room: room,
-    );
-    client.rooms.add(room);
-    if (partner != null) {
-      // Known presence, so the avatar does not read it from the database.
-      client.presences[partner] = CachedPresence.neverSeen(partner);
-      final direct = Map<String, Object?>.from(
-        client.accountData['m.direct']?.content ?? {},
-      );
-      direct[partner] = [...?(direct[partner] as List?), id];
-      client.accountData['m.direct'] = BasicEvent(
-        type: 'm.direct',
-        content: direct,
-      );
-    }
-    rooms[id] = room;
-    return room;
-  }
+  }) => rooms[id] = addFakeChat(
+    client,
+    id,
+    name,
+    partner: partner,
+    lastMessageTime: lastMessageTime,
+  );
 
   setUp(() async {
-    SharedPreferences.setMockInitialValues({});
-    await AppSettings.init(loadWebConfigFile: false);
-    prefs = await SharedPreferences.getInstance();
-    await AppSettings.checkForUpdates.setItem(false);
-    await AppSettings.mergedContactSuggestions.setItem(false);
-    await AppSettings.mergedContactsPhoneRegion.setItem('US');
-
-    sqfliteFfiInit();
-    client = _FakeClient(
-      'chat list selection test',
-      database: await MatrixSdkDatabase.init(
-        'chat list selection test',
-        database: await databaseFactoryFfi.openDatabase(':memory:'),
-        sqfliteFactory: databaseFactoryFfi,
-      ),
-    );
-    // Looks synced to the header, which otherwise shows a spinner.
-    client.onSync.add(SyncUpdate(nextBatch: 'synced'));
+    client = await setUpFakeChatList('chat list selection test');
     rooms = {};
     // Harrison on iMessage and twice on SMS (one number, two chats), and
     // a group of the same name on iMessage and Telegram.
@@ -245,60 +58,24 @@ void main() {
     );
     chat('!grp-imsg:x', 'Squad Goals', lastMessageTime: DateTime(2026, 1, 2));
     chat('!grp-tg:x', 'Squad Goals TG', lastMessageTime: DateTime(2026, 1, 1));
-    space('!imsgspace:x', 'iMessage', ['!imsg:x', '!grp-imsg:x']);
-    space('!smsspace:x', 'SMS', ['!sms:x', '!sms2:x']);
-    space('!tgspace:x', 'Telegram', ['!grp-tg:x']);
+    addFakeSpace(client, '!imsgspace:x', 'iMessage', [
+      '!imsg:x',
+      '!grp-imsg:x',
+    ]);
+    addFakeSpace(client, '!smsspace:x', 'SMS', ['!sms:x', '!sms2:x']);
+    addFakeSpace(client, '!tgspace:x', 'Telegram', ['!grp-tg:x']);
   });
 
-  tearDown(() {
-    MergeSuggestionService.disposeFor(client);
-    MergedContactsStore.disposeFor(client);
-  });
+  tearDown(() => tearDownFakeChatList(client));
 
   late GoRouter router;
 
   Future<void> pumpChatList(WidgetTester tester) async {
-    router = GoRouter(
-      initialLocation: '/rooms',
-      routes: [
-        GoRoute(
-          path: '/rooms',
-          builder: (context, state) => const ChatList(activeChat: null),
-          routes: [
-            GoRoute(
-              path: ':roomid',
-              builder: (context, state) =>
-                  Text('opened ${state.pathParameters['roomid']}'),
-            ),
-          ],
-        ),
-      ],
-    );
-    await tester.pumpWidget(
-      Provider<MatrixState>.value(
-        value: _FakeMatrix(client, prefs),
-        child: MaterialApp.router(
-          theme: ThemeData(
-            appBarTheme: const AppBarTheme(
-              systemOverlayStyle: SystemUiOverlayStyle.dark,
-            ),
-          ),
-          localizationsDelegates: L10n.localizationsDelegates,
-          supportedLocales: L10n.supportedLocales,
-          routerConfig: router,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+    router = await pumpFakeChatList(tester, client);
   }
 
-  /// Ends the test with nothing pending: the list is taken down and the
-  /// merge suggestion service, which it starts, is stopped.
-  Future<void> finish(WidgetTester tester) async {
-    await tester.pumpWidget(const SizedBox());
-    MergeSuggestionService.disposeFor(client);
-    await tester.pump(const Duration(seconds: 5));
-  }
+  Future<void> finish(WidgetTester tester) =>
+      finishFakeChatList(tester, client);
 
   Finder selectedMarks() => find.byType(SelectedChatMark);
 

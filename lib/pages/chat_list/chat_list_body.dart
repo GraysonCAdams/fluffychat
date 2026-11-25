@@ -537,7 +537,16 @@ class _PinnedRow extends StatefulWidget {
 
 class _PinnedRowState extends State<_PinnedRow> {
   static const double _itemWidth = 104;
-  static const double _sidePadding = 12;
+
+  /// How far the avatars of the chat list below start from the edge: the
+  /// tile's 8dp margin plus its 8dp content padding (see `ChatListItem`).
+  static const double _listAvatarInset = 16;
+
+  /// Lines the first avatar up with the list avatars below. Each avatar is
+  /// centred in its item, so the padding is the inset less the space beside
+  /// the avatar.
+  static const double _sidePadding =
+      _listAvatarInset - (_itemWidth - _PinnedChat._avatarSize) / 2;
 
   final _scrollController = ScrollController();
 
