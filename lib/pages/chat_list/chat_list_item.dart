@@ -309,39 +309,19 @@ class _ChatListItemState extends State<ChatListItem> {
               title: Row(
                 children: <Widget>[
                   Expanded(
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            displayname,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            softWrap: false,
-                            // Unread chats stand out with heavier, brighter
-                            // text.
-                            style: isUnread
-                                ? TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: theme.colorScheme.onSurface,
-                                  )
-                                : null,
-                          ),
-                        ),
-                        // A dot after the name marks an unread chat, red when
-                        // it mentions the user.
-                        if (isUnread)
-                          Container(
-                            margin: const EdgeInsets.only(left: 6),
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: highlightCount > 0
-                                  ? theme.colorScheme.error
-                                  : theme.colorScheme.primary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                      ],
+                    child: Text(
+                      displayname,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      // Unread chats stand out with heavier, brighter
+                      // text.
+                      style: isUnread
+                          ? TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onSurface,
+                            )
+                          : null,
                     ),
                   ),
                   if (isMuted)
@@ -541,9 +521,9 @@ class _ChatListItemState extends State<ChatListItem> {
                                 },
                               ),
                       ),
-                      // The dot after the name marks unread chats; a count
-                      // is only shown for mentions.
-                      if (highlightCount > 0) ...[
+                      // Unread chats show how many messages are unread, in
+                      // red when one mentions the user.
+                      if (isUnread) ...[
                         const SizedBox(width: 8),
                         UnreadBubble(room: room, contact: contact),
                       ],
