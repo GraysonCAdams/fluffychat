@@ -601,10 +601,18 @@ class ChatListController extends State<ChatList>
   }
 
   Future<void> _processIncomingSharedMedia(List<SharedMediaFile> files) async {
+    // Links the app opens itself are not shared content: deep links, matrix:
+    // links, and the address a notification bubble starts with (one per
+    // conversation, see bubbleActivity in third_party/flutter_local_notifications),
+    // which the plugin reports as shared text because it reads every VIEW
+    // intent's data.
     files.removeWhere(
       (file) =>
           file.path.startsWith(AppConfig.deepLinkPrefix) ||
-          Uri.tryParse(file.path)?.scheme == 'matrix',
+          const {
+            'matrix',
+            'fluffychat-bubble',
+          }.contains(Uri.tryParse(file.path)?.scheme),
     );
     if (files.isEmpty) return;
 
