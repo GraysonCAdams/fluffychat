@@ -16,7 +16,6 @@ import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/sync_status_localization.dart';
 import 'package:fluffychat/utils/verified_room_extension.dart';
 import 'package:fluffychat/widgets/avatar.dart';
-import 'package:fluffychat/widgets/merged_contacts/manage_merged_contact_sheet.dart';
 import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
 import 'package:fluffychat/widgets/presence_builder.dart';
 import 'package:go_router/go_router.dart';
@@ -67,11 +66,7 @@ class ChatAppBarTitle extends StatelessWidget {
       highlightColor: Colors.transparent,
       onTap: controller.room.membership != .join
           ? null
-          : controller.isMerged && contact != null
-          ? () => showManageMergedContactSheet(context, contact.id)
-          : () => FluffyThemes.isThreeColumnMode(context)
-                ? controller.toggleDisplayChatDetailsColumn()
-                : context.go('/rooms/${room.id}/details'),
+          : controller.openDetails,
       child: Row(
         children: [
           Stack(

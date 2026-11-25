@@ -303,8 +303,9 @@ pass.
   links land in the merged view. Only the room's own page redirects, not
   its details or settings; `?single=1` and shared items keep a room on its
   own.
-- App bar: contact name, subtitle "iMessage, SMS". Tapping it opens the
-  manage sheet.
+- App bar: contact name, with the networks as a row of icon buttons before
+  the menu. Tapping the name, or "Chat details" in the menu, opens the chat
+  details sheet (below).
 - Each message carries a small network badge beside its timestamp when it
   is from a different network than the one before it (the older message
   above it).
@@ -314,8 +315,13 @@ pass.
   networks; the one picked is kept as the contact's network.
 - Encryption badge reflects the target room, and warns when the target is
   unencrypted while another room in the contact is encrypted.
-- Chat details: the manage sheet shows the contact, then each room with a
-  link to that room's own details page, instead of a merged details page.
+- Chat details: a sheet titled "Chat details", "Choose a network", lists
+  one row per network (its icon, its name, and the person's phone number
+  there when known, else the chat's name); a row opens that room's own
+  details page, as there is no merged details page. A last "Linked chats"
+  row opens the manage sheet. The details page is pushed over the merged
+  chat, so going back returns to the merged view with the send-via pick
+  unchanged. A chat on one network opens its details directly.
 
 ### Settings
 

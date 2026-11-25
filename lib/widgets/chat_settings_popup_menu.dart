@@ -20,7 +20,16 @@ class ChatSettingsPopupMenu extends StatefulWidget {
   final Room room;
   final bool displayChatDetails;
 
-  const ChatSettingsPopupMenu(this.room, this.displayChatDetails, {super.key});
+  /// Opens the chat details in place of going to [room]'s details page, for
+  /// a chat that shows more than [room] (a merged contact).
+  final VoidCallback? onChatDetails;
+
+  const ChatSettingsPopupMenu(
+    this.room,
+    this.displayChatDetails, {
+    this.onChatDetails,
+    super.key,
+  });
 
   @override
   ChatSettingsPopupMenuState createState() => ChatSettingsPopupMenuState();
@@ -77,7 +86,12 @@ class ChatSettingsPopupMenuState extends State<ChatSettingsPopupMenu> {
 
                 break;
               case ChatPopupMenuActions.details:
-                _showChatDetails();
+                final onChatDetails = widget.onChatDetails;
+                if (onChatDetails != null) {
+                  onChatDetails();
+                } else {
+                  _showChatDetails();
+                }
                 break;
               case ChatPopupMenuActions.search:
                 context.go('/rooms/${widget.room.id}/search');

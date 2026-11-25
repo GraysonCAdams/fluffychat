@@ -205,7 +205,9 @@ class _ManageContact extends StatelessWidget {
                         switch (action) {
                           case 'details':
                             Navigator.of(context).pop();
-                            context.go('/rooms/${room.id}/details');
+                            // Pushed, so going back returns to the merged
+                            // chat (or chat list) it was opened from.
+                            context.push('/rooms/${room.id}/details');
                           case 'up':
                             store.reorderRoom(
                               contact.id,

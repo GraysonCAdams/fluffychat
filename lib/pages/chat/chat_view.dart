@@ -259,7 +259,13 @@ class ChatView extends StatelessWidget {
                       padding: const EdgeInsets.only(left: 8),
                       child: ChatNetworkIcons(controller),
                     ),
-                    ChatSettingsPopupMenu(controller.room, true),
+                    ChatSettingsPopupMenu(
+                      controller.room,
+                      true,
+                      onChatDetails: controller.isMerged
+                          ? controller.openDetails
+                          : null,
+                    ),
                   ],
                 ],
                 bottom: PreferredSize(
