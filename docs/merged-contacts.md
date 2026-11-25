@@ -297,6 +297,40 @@ pass.
   so. This is the one way a group chat joins a
   contact; suggestions and the picker list direct chats only.
 
+### New chat
+
+New chat (`lib/pages/new_private_chat/`) merges three sources into one
+row per person (`mergeNewChatPeople` in
+`lib/utils/new_chat/new_chat_people.dart`), followed by the server's user
+directory:
+
+1. The user's chats the search finds, a merged contact as one row.
+2. The contacts each bridge lists through its provisioning API
+   (`lib/utils/bridge_provisioning.dart`). The homeserver's front end
+   proxies `{homeserver}/_matrix/client/unstable/net.graysons.bridge/{name}/v3/...`
+   to the bridge's `/_matrix/provision/v3/...`; the bridges tried are the
+   `provisionedBridgeNames` list, and one whose `whoami` fails is skipped.
+   A bridge that answers `contacts` with `M_UNRECOGNIZED` (iMessage) has
+   no list. Requests carry the user's access token and `user_id`.
+3. On Android, the phone's address book (`flutter_contacts`), once the
+   user allows it from a row in the list. Saying no is remembered
+   (`phoneContactsDeclined`) and the row is not shown again.
+
+A bridge contact or address book entry joins a row with the same phone
+number (`normalizePhone`), then email, then bridge ghost; two chats are
+never merged here. Each row ends with grey icons of the networks that reach
+the person. A typed phone number nobody has gets a row of its own.
+
+Tapping a row with a chat opens it. Any other row opens a sheet of the
+user's networks, iMessage first, then Google Messages, then the rest; each
+is asked `resolve_identifier` for the person (the ghost's ID when that
+bridge listed them, else the number, else the email) and only those that
+can reach them are tappable. Numbers from the address book are sent only to
+these bridges, and only for the person tapped. Picking a network reuses the
+direct chat the bridge reports, else calls `create_dm`, waits for the room,
+and adds it to the merged contact with the same number when there is one
+(opening that contact), else opens the room.
+
 ### Merged chat screen
 
 - Route `/rooms/contact/:id` (with `?event=` and `?room=` for a jump).
@@ -408,6 +442,10 @@ is the largest and carries the risk.
 - SendRouter: every row of the table above.
 - Suggester: phone normalisation, dismissed pairs.
 - Widget: tile shows summed unread and newest preview.
+- New chat: the provisioning API wrapper against a fake HTTP client
+  (`test/utils/bridge_provisioning_test.dart`), the merge of the three
+  sources and typed numbers (`test/utils/new_chat_people_test.dart`), and
+  the result rows and network sheet (`test/widgets/new_chat_people_test.dart`).
 
 They live in `test/utils/merged_contacts/` (store, chat list collapse,
 `MergedOrder`, `MergedTimeline`, `SendRouter`, phone numbers, identifiers,

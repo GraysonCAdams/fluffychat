@@ -109,6 +109,7 @@ dependencies:
   webcrypto: ^0.6.1
   whisper_ggml: ^2.9.0
   window_manager: ^0.5.2
+  flutter_contacts: 2.6.0
 
 dev_dependencies:
   dart_code_linter: ^4.4.4

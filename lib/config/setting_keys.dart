@@ -106,6 +106,10 @@ enum AppSettings<T> {
     'chat.fluffy.merged_contacts.phone_region',
     '',
   ),
+
+  /// Whether the user said no to showing the phone's contacts in New Chat,
+  /// so it does not offer again.
+  phoneContactsDeclined<bool>('chat.fluffy.new_chat.contacts_declined', false),
   showThumbnailsInTimeline<bool>('chat.fluffy.showThumbnailsInTimeline', true),
   doubleTapToReact<bool>('chat.fluffy.double_tap_to_react', false),
   doubleTapReaction<String>('chat.fluffy.double_tap_reaction', '❤️'),

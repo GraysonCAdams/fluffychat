@@ -120,11 +120,23 @@ class NetworkBadges extends StatelessWidget {
 /// taken out, for the trailing edge of a list row where the brand colours
 /// would compete with the avatars.
 class MonochromeNetworkIcons extends StatelessWidget {
-  final List<Room> networks;
+  /// Each network's icon (an `mxc://` URI) and name, for the initials shown
+  /// while the icon loads or when there is none.
+  final List<({Uri? icon, String name})> icons;
   final double size;
 
-  const MonochromeNetworkIcons({
-    required this.networks,
+  /// The icons of [networks], network (space) rooms.
+  MonochromeNetworkIcons({
+    required List<Room> networks,
+    this.size = 18,
+    super.key,
+  }) : icons = [
+         for (final network in networks)
+           (icon: network.avatar, name: network.getLocalizedDisplayname()),
+       ];
+
+  const MonochromeNetworkIcons.icons({
+    required this.icons,
     this.size = 18,
     super.key,
   });
@@ -148,12 +160,12 @@ class MonochromeNetworkIcons extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           spacing: 6,
           children: [
-            for (final network in networks)
+            for (final network in icons)
               Avatar(
                 borderRadius: radius,
-                mxContent: network.avatar,
+                mxContent: network.icon,
                 size: size,
-                name: network.getLocalizedDisplayname(),
+                name: network.name,
               ),
           ],
         ),
