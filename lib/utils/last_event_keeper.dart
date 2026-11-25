@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:matrix/matrix.dart';
@@ -24,8 +25,8 @@ import 'package:matrix/matrix.dart';
 /// place. A reaction that was the last event and is then taken back is
 /// replaced the same way, by the last event before it that is not a
 /// reaction. The SDK's own refresh still replaces it when the server knows a
-/// newer event. Once the rooms are loaded at start, previews of either kind
-/// stored earlier are fetched again from the server.
+/// newer event. After the first sync, previews of either kind stored
+/// earlier are fetched again from the server.
 class LastEventKeeper {
   final Client client;
 
@@ -42,7 +43,6 @@ class LastEventKeeper {
       if (update.status == SyncStatus.waitingForResponse) _rememberAll();
     });
     client.onSync.stream.listen(_afterSync);
-    client.roomsLoading?.then((_) => _repairStored());
   }
 
   /// Rooms whose stored last event is a placeholder or a removed reaction,
@@ -112,7 +112,16 @@ class LastEventKeeper {
     if (event.type != EventTypes.Reaction) _keptMessage[room.id] = event;
   }
 
+  /// Whether stored previews were checked yet. The keeper is attached when
+  /// the client is created, before its rooms are loaded, so this happens
+  /// after the first sync, when they are.
+  bool _repairedStored = false;
+
   Future<void> _afterSync(SyncUpdate sync) async {
+    if (!_repairedStored) {
+      _repairedStored = true;
+      unawaited(_repairStored());
+    }
     final roomIds = sync.rooms?.join?.keys;
     if (roomIds == null) return;
     final restored = <String>[];
