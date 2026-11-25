@@ -3209,5 +3209,87 @@
     "linkedChatsDescription": "Add, remove or unlink",
     "@linkedChatsDescription": {
         "description": "Subtitle of the Linked chats row in the chat details sheet of a merged chat."
+    },
+    "shareSearchHint": "Search chats, contacts or a number",
+    "@shareSearchHint": {
+        "description": "Hint of the search field on the share page, which finds existing chats, contacts without a chat and typed phone numbers."
+    },
+    "recentConversations": "Recent conversations",
+    "@recentConversations": {
+        "description": "Header above the most recent chats on the share page."
+    },
+    "moreRecentConversations": "More recent conversations",
+    "@moreRecentConversations": {
+        "description": "Text button under the recent chats on the share page that lists more of them."
+    },
+    "yourChats": "Your chats",
+    "@yourChats": {
+        "description": "Header above the existing chats a search on the share page found."
+    },
+    "contacts": "Contacts",
+    "@contacts": {
+        "description": "Header above the people a search on the share page found who have no chat yet: bridge and phone contacts, and a typed number."
+    },
+    "typedNumber": "Typed number",
+    "@typedNumber": {
+        "description": "Second line of the share page row for the phone number typed into the search."
+    },
+    "addAMessage": "Add a message",
+    "@addAMessage": {
+        "description": "Hint of the message field on the share page when sharing files or forwarding messages."
+    },
+    "sendToChats": "{count, plural, =1{Send to 1 chat} other{Send to {count} chats}}",
+    "@sendToChats": {
+        "description": "Label of the send button on the share page; count is the number of ticked chats.",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "sentToChats": "{count, plural, =1{Sent to 1 chat} other{Sent to {count} chats}}",
+    "@sentToChats": {
+        "description": "Snackbar after the share page sent to several chats.",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "notSentTo": "Could not send to {names}",
+    "@notSentTo": {
+        "description": "Snackbar when the share page could not send to some chats; names is a comma separated list of chat names.",
+        "placeholders": {
+            "names": {
+                "type": "String"
+            }
+        }
+    },
+    "countPhotos": "{count, plural, =1{1 photo} other{{count} photos}}",
+    "@countPhotos": {
+        "description": "Summary of the photos being shared on the share page.",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "countSharedFiles": "{count, plural, =1{1 file} other{{count} files}}",
+    "@countSharedFiles": {
+        "description": "Summary of the files being shared on the share page when they are not all photos.",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "countForwardedMessages": "{count, plural, =1{1 message} other{{count} messages}}",
+    "@countForwardedMessages": {
+        "description": "Summary of the messages being forwarded on the share page.",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
     }
 }

@@ -331,6 +331,43 @@ direct chat the bridge reports, else calls `create_dm`, waits for the room,
 and adds it to the merged contact with the same number when there is one
 (opening that contact), else opens the room.
 
+The search, the sources and starting a chat live in
+`lib/utils/new_chat/new_chat_search.dart` (`searchExistingChats`,
+`NewChatSources`, `startBridgeChat`, `addNewChatToMergedContact`) and the
+network sheet in `start_chat_sheet.dart` (`pickStartChatNetwork`), so the
+share page uses the same code.
+
+### Share page
+
+`ShareScaffoldDialog` (`lib/widgets/share_scaffold_dialog.dart`) is the
+page for the Android share sheet (when no chat shortcut was picked),
+forwarding messages from a chat and sharing from the image viewer. On a
+wide screen it is the same page in a dialog (`showScaffoldDialog`).
+
+- At rest: "Recent conversations", the first five chats in chat list
+  order with their last message, then "More recent conversations" (ten
+  more per tap), then the other chats A to Z under letter headers, with
+  the phone number as the second line when one is known. A merged contact
+  is one row (`existingChatsOf`, built on `MergedChatList`). Only chats the
+  user can write in are listed.
+- Typing searches like New Chat: "Your chats" (`searchExistingChats`)
+  and "Contacts" (bridge and phone contacts with no chat, and a typed
+  number, from `NewChatSources.people`). The user directory is not asked.
+- Tapping a row ticks it; several can be ticked. Ticking a contact opens
+  New Chat's network sheet and remembers the network (its icon replaces
+  the row's network icons); closing the sheet leaves it unticked.
+- The bottom bar holds the shared text in an editable field, or
+  thumbnails and a count for files ("Add a message" field), or a count of
+  forwarded messages, and one "Send to N chats" button.
+- Send, for each ticked row in turn: a merged contact sends to its
+  `send_via` room; a contact gets its chat started on the picked network
+  (`startBridgeChat`, then `addNewChatToMergedContact`). Files go first
+  through `sendAttachments`, then forwarded messages, then the text as its
+  own message. With one target the page opens that chat; with several it
+  goes to the chat list and says "Sent to N chats". A target that fails is
+  named in a snackbar and stays ticked, and the page stays open; the
+  others are already sent and are unticked.
+
 ### Merged chat screen
 
 - Route `/rooms/contact/:id` (with `?event=` and `?room=` for a jump).
@@ -405,6 +442,8 @@ chips, with a link to the rest.
   `contact_<id>` into `/rooms/contact/<id>`, and a room ID into the room,
   or into its contact's screen when the room has since been merged. The
   shared items go to the composer's target room.
+- Sharing to FluffyChat itself, without a chat shortcut, opens the share
+  page (above).
 
 ## Phases
 
