@@ -94,4 +94,51 @@ void main() {
     expect(client.getRoomById(_bridged)!.lastEvent?.body, 'newest message');
     expect(_rank(client, _bridged), lessThan(_rank(client, _other)));
   });
+
+  test(
+    'a reaction taken back leaves the message before it as the preview',
+    () async {
+      // The app counts reactions as a chat's latest event.
+      client.roomPreviewLastEvents.add(EventTypes.Reaction);
+      final room = client.getRoomById(_bridged)!;
+      client.onSyncStatus.add(SyncStatusUpdate(SyncStatus.waitingForResponse));
+      await pumpEventQueue();
+      await client.handleSync(
+        _sync(_bridged, [
+          MatrixEvent(
+            type: EventTypes.Reaction,
+            content: {
+              'm.relates_to': {
+                'rel_type': RelationshipTypes.reaction,
+                'event_id': '\$old',
+                'key': '\u2764\ufe0f',
+              },
+            },
+            senderId: client.userID!,
+            eventId: '\$heart',
+            originServerTs: DateTime(2026, 1, 3),
+          ),
+        ]),
+      );
+      await pumpEventQueue();
+      expect(room.lastEvent?.eventId, '\$heart');
+      client.onSyncStatus.add(SyncStatusUpdate(SyncStatus.waitingForResponse));
+      await pumpEventQueue();
+      await client.handleSync(
+        _sync(_bridged, [
+          MatrixEvent(
+            type: EventTypes.Redaction,
+            content: {'redacts': '\$heart'},
+            redacts: '\$heart',
+            senderId: client.userID!,
+            eventId: '\$unheart',
+            originServerTs: DateTime(2026, 1, 3, 0, 0, 3),
+          ),
+        ]),
+      );
+      await pumpEventQueue();
+      expect(room.lastEvent?.redacted, isNot(true));
+      expect(room.lastEvent?.body, 'old message');
+    },
+  );
 }

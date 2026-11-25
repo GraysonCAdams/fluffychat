@@ -19,13 +19,19 @@ import 'package:matrix/matrix.dart';
 ///
 /// This puts back the room's last real event, remembered before each sync,
 /// and stores it, so the placeholder is never shown and the room keeps its
-/// place. The SDK's own refresh still replaces it when the server knows a
+/// place. A reaction that was the last event and is then taken back is
+/// replaced the same way, by the last event before it that is not a
+/// reaction. The SDK's own refresh still replaces it when the server knows a
 /// newer event.
 class LastEventKeeper {
   final Client client;
 
   /// The last real event of each room, as of before the running sync.
   final Map<String, Event> _kept = {};
+
+  /// The last real event of each room that is not a reaction, to fall back
+  /// on when a reaction that became the last event is taken back.
+  final Map<String, Event> _keptMessage = {};
 
   LastEventKeeper._(this.client) {
     client.onSyncStatus.stream.listen((update) {
@@ -44,6 +50,11 @@ class LastEventKeeper {
   static bool _isPlaceholder(Event? event) =>
       event?.type == EventTypes.refreshingLastEvent;
 
+  /// A removed reaction: the SDK keeps it as the last event, redacted, and
+  /// the chat list would preview it as "Redacted by ...".
+  static bool _isRemovedReaction(Event? event) =>
+      event?.type == EventTypes.Reaction && event!.redacted;
+
   void _rememberAll() {
     for (final room in client.rooms) {
       _remember(room);
@@ -52,7 +63,11 @@ class LastEventKeeper {
 
   void _remember(Room room) {
     final event = room.lastEvent;
-    if (event != null && !_isPlaceholder(event)) _kept[room.id] = event;
+    if (event == null || _isPlaceholder(event) || _isRemovedReaction(event)) {
+      return;
+    }
+    _kept[room.id] = event;
+    if (event.type != EventTypes.Reaction) _keptMessage[room.id] = event;
   }
 
   Future<void> _afterSync(SyncUpdate sync) async {
@@ -62,11 +77,12 @@ class LastEventKeeper {
     for (final roomId in roomIds) {
       final room = client.getRoomById(roomId);
       if (room == null) continue;
-      if (!_isPlaceholder(room.lastEvent)) {
+      final removedReaction = _isRemovedReaction(room.lastEvent);
+      if (!_isPlaceholder(room.lastEvent) && !removedReaction) {
         _remember(room);
         continue;
       }
-      final kept = _kept[roomId];
+      final kept = removedReaction ? _keptMessage[roomId] : _kept[roomId];
       if (kept == null) continue;
       room.lastEvent = kept;
       restored.add(roomId);
