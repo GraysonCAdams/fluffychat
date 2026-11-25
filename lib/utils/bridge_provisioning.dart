@@ -152,6 +152,71 @@ class BridgeUser {
   }
 }
 
+/// One kind of group a bridge can create: an entry of `group_creation` in
+/// its `GET /v3/capabilities` (`GroupTypeCapabilities` in mautrix-go).
+class BridgeGroupType {
+  /// The key in `group_creation`, sent as `{type}` in `create_group`.
+  final String id;
+
+  /// `type_description`, such as "mms/rcs group".
+  final String? description;
+
+  /// Whether the create request may carry a name (`name.allowed`), and
+  /// whether it must (`name.required`).
+  final bool nameAllowed;
+  final bool nameRequired;
+
+  /// How many people the group needs besides the user
+  /// (`participants.min_length`), and at most (`participants.max_length`,
+  /// 0 for no limit).
+  final int minParticipants;
+  final int maxParticipants;
+
+  const BridgeGroupType({
+    required this.id,
+    this.description,
+    this.nameAllowed = false,
+    this.nameRequired = false,
+    this.minParticipants = 0,
+    this.maxParticipants = 0,
+  });
+
+  static BridgeGroupType fromJson(String id, Object? json) {
+    final map = json is Map ? json : const {};
+    Map field(String key) => map[key] is Map ? map[key] as Map : const {};
+    int number(Map field, String key) {
+      final value = field[key];
+      return value is int ? value : 0;
+    }
+
+    final name = field('name');
+    final participants = field('participants');
+    final description = map['type_description'];
+    return BridgeGroupType(
+      id: id,
+      description: description is String && description.isNotEmpty
+          ? description
+          : null,
+      nameAllowed: name['allowed'] == true,
+      nameRequired: name['required'] == true,
+      minParticipants: number(participants, 'min_length'),
+      maxParticipants: number(participants, 'max_length'),
+    );
+  }
+}
+
+/// The answer of `create_group` (`RespCreateGroup` in mautrix-go).
+class CreatedGroup {
+  /// The new room (`mxid`).
+  final String roomId;
+
+  /// The people the network could not add, by network user ID, with the
+  /// bridge's reason (`failed_participants`).
+  final Map<String, String> failedParticipants;
+
+  const CreatedGroup(this.roomId, {this.failedParticipants = const {}});
+}
+
 class BridgeProvisioning {
   final http.Client httpClient;
   final Uri homeserver;
@@ -313,5 +378,57 @@ class BridgeProvisioning {
       );
     }
     return roomId;
+  }
+
+  /// The kinds of group [bridge] can create, from `GET /v3/capabilities`
+  /// (`group_creation`). Empty when it creates none.
+  Future<List<BridgeGroupType>> groupTypes(BridgeInfo bridge) async {
+    final json = await _send(bridge.name, 'GET', ['capabilities']);
+    final types = json['group_creation'];
+    if (types is! Map) return const [];
+    return [
+      for (final MapEntry(:key, :value) in types.entries)
+        if (key is String) BridgeGroupType.fromJson(key, value),
+    ];
+  }
+
+  /// `POST /v3/create_group/{type}`: creates a group of [type] with
+  /// [participants] (network user IDs, as `resolve_identifier` answers
+  /// them in `id`) on [bridge], named [name] when given.
+  Future<CreatedGroup> createGroup(
+    BridgeInfo bridge,
+    BridgeGroupType type, {
+    required List<String> participants,
+    String? name,
+  }) async {
+    final json = await _send(
+      bridge.name,
+      'POST',
+      ['create_group', type.id],
+      query: {'login_id': bridge.loginId},
+      body: <String, Object?>{
+        'participants': participants,
+        if (name != null && name.isNotEmpty) 'name': {'name': name},
+      },
+    );
+    final roomId = json['mxid'];
+    if (roomId is! String || roomId.isEmpty) {
+      throw BridgeProvisioningException(
+        bridge.name,
+        error: 'create_group returned no mxid',
+      );
+    }
+    final failed = json['failed_participants'];
+    return CreatedGroup(
+      roomId,
+      failedParticipants: {
+        if (failed is Map)
+          for (final MapEntry(:key, :value) in failed.entries)
+            if (key is String)
+              key: value is Map && value['reason'] is String
+                  ? value['reason'] as String
+                  : '',
+      },
+    );
   }
 }

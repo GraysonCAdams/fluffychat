@@ -44,6 +44,9 @@ class ChatPersonInput<C> {
   final List<String> userIds;
   final List<NetworkRef> networks;
 
+  /// Whether the chat is a group rather than a chat with one person.
+  final bool group;
+
   const ChatPersonInput({
     required this.chat,
     required this.name,
@@ -52,6 +55,7 @@ class ChatPersonInput<C> {
     this.email,
     this.userIds = const [],
     this.networks = const [],
+    this.group = false,
   });
 }
 
@@ -101,6 +105,10 @@ class NewChatPerson<C> {
 
   /// Whether this row is only the number typed into the search.
   bool typed = false;
+
+  /// Whether [chat] is a group chat, which is not one person to add to a
+  /// new group.
+  bool group = false;
 
   NewChatPerson(this.name);
 
@@ -219,7 +227,8 @@ List<NewChatPerson<C>> mergeNewChatPeople<C>({
   for (final input in chats) {
     final person = NewChatPerson<C>(input.name)
       ..chat = input.chat
-      ..avatar = input.avatar;
+      ..avatar = input.avatar
+      ..group = input.group;
     person._addPhone(input.phone);
     person._addEmail(input.email);
     person.userIds.addAll(input.userIds);
@@ -332,8 +341,19 @@ List<BridgeInfo> orderBridgesForPicker(List<BridgeInfo> bridges) {
 
 /// What to pass [bridge]'s `resolve_identifier` and `create_dm` for
 /// [person]: the ghost's Matrix ID when that bridge lists them, else their
-/// phone number, else their email. Null when there is nothing to try.
+/// phone number, else their email, else the other person's Matrix ID when
+/// [person] is a chat with one person on [bridge]'s network. Null when
+/// there is nothing to try.
 String? identifierForBridge(NewChatPerson person, BridgeInfo bridge) {
   final known = person.bridgeUsers[bridge.name];
-  return known?.mxid ?? person.phone ?? person.email;
+  final onBridge =
+      !person.group &&
+      person.userIds.length == 1 &&
+      person.networks.any(
+        (network) => network.key == NetworkRef.ofBridge(bridge).key,
+      );
+  return known?.mxid ??
+      person.phone ??
+      person.email ??
+      (onBridge ? person.userIds.single : null);
 }

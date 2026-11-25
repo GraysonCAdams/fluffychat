@@ -8,12 +8,17 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/pages/chat_list/message_preview_cache.dart';
+import 'package:fluffychat/pages/new_private_chat/new_group_widgets.dart';
 import 'package:fluffychat/pages/new_private_chat/start_chat_sheet.dart';
+import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
+import 'package:fluffychat/utils/bridge_provisioning.dart';
+import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/phone_number.dart';
 import 'package:fluffychat/utils/new_chat/bridge_directory.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
+import 'package:fluffychat/utils/new_chat/new_group.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/send_attachments.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -102,24 +107,11 @@ class SharePayload {
   });
 }
 
-/// How the share page reaches the network and the chats: picking a network
-/// for a person, starting their chat, and sending. Widget tests replace it
-/// with a fake.
-class ShareDelivery {
+/// How the share page reaches the network and the chats: what New Chat
+/// does (picking a network for a person, starting groups), plus starting a
+/// person's chat and sending. Widget tests replace it with a fake.
+class ShareDelivery extends NewChatDelivery {
   const ShareDelivery();
-
-  /// Starts reading the bridges' contact lists and the phone's contacts
-  /// into [sources], for the search.
-  Future<void> loadSources(Client client, NewChatSources sources) =>
-      sources.load(client);
-
-  /// The network to start a chat with [person] on, from New Chat's network
-  /// picker; null when the user closed it.
-  Future<StartChatChoice?> pickNetwork(
-    BuildContext context,
-    Client client,
-    NewChatPerson person,
-  ) => pickStartChatNetwork(context, client, person);
 
   /// The room [target]'s messages go to and the route that opens its chat.
   /// For a person without a chat, starts the chat on the picked network
@@ -220,6 +212,11 @@ class _MoreLine extends _Line {
   const _MoreLine();
 }
 
+/// The row that switches the page to picking people for a new group.
+class _NewGroupLine extends _Line {
+  const _NewGroupLine();
+}
+
 class _ChatLine extends _Line {
   final ExistingChat chat;
   final _Position position;
@@ -264,6 +261,17 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
   /// The ticked targets, in the order they were ticked.
   final Map<String, ShareTarget> _selected = {};
 
+  /// Whether the page is picking people for a new group to send to, after
+  /// a tap on "New group". The ticks of [_selected] are kept for when the
+  /// user leaves it, but only the group is sent to.
+  bool _groupMode = false;
+
+  /// The people picked for the new group.
+  late final GroupDraft _group = GroupDraft()
+    ..addListener(() {
+      if (mounted) setState(() {});
+    });
+
   static final RegExp _letter = RegExp(r'\p{L}', unicode: true);
 
   int _recentShown = recentCount;
@@ -281,6 +289,7 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
 
   @override
   void dispose() {
+    _group.dispose();
     _sources.dispose();
     _search.dispose();
     _message.dispose();
@@ -314,6 +323,104 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
     final choice = await widget.delivery.pickNetwork(context, _client, person);
     if (choice == null || !mounted) return;
     setState(() => _selected[key] = NewChatShareTarget(person, choice));
+  }
+
+  /// A one-to-one [chat] as a person to add to the group; its other person
+  /// counts as that contact.
+  NewChatPerson<ExistingChat> _personOf(
+    ExistingChat chat,
+    MatrixLocals locals,
+  ) => mergeNewChatPeople<ExistingChat>(
+    query: '',
+    chats: [chatPersonInput(chat, locals)],
+  ).single;
+
+  void _setGroupMode(bool on) {
+    setState(() {
+      _groupMode = on;
+      _search.clear();
+    });
+    if (!on) _group.clear();
+  }
+
+  Future<void> _toggleGroupMember(NewChatPerson person) async {
+    final added = await toggleGroupMember(
+      context,
+      _client,
+      widget.delivery,
+      _group,
+      person,
+    );
+    if (added && mounted) setState(_search.clear);
+  }
+
+  /// Confirms the group in a [NewGroupSheet], creates it, then sends the
+  /// payload there as [_send] does for a chat, and opens it.
+  Future<void> _createGroupAndSend() async {
+    final network = _group.network;
+    if (network == null || !_group.isGroup || _sending) return;
+    final l10n = L10n.of(context);
+    final members = _group.members;
+    final confirmed = await showAdaptiveBottomSheet<NewGroupConfirmation>(
+      context: context,
+      builder: (_) => NewGroupSheet(
+        network: network,
+        members: members,
+        actionLabel: l10n.createGroupAndSend,
+      ),
+    );
+    if (confirmed == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+    final client = _client;
+    final payload = _payload;
+    setState(() => _sending = true);
+    final CreatedGroup created;
+    try {
+      created = await widget.delivery.createGroup(
+        client,
+        network,
+        members,
+        confirmed.name,
+      );
+    } catch (e, s) {
+      Logs().w('Unable to create the group', e, s);
+      if (!mounted) return;
+      setState(() => _sending = false);
+      messenger.showSnackBar(
+        SnackBar(content: Text(e.toLocalizedString(context))),
+      );
+      return;
+    }
+    if (!mounted) return;
+    final room = client.getRoomById(created.roomId);
+    Object? failure;
+    try {
+      if (room == null) throw StateError('Room ${created.roomId} is not known');
+      await widget.delivery.send(context, room, payload);
+    } catch (e, s) {
+      Logs().w('Unable to share to the new group', e, s);
+      failure = e;
+    }
+    if (!mounted) return;
+    showGroupMembersNotAdded(context, members, created);
+    if (failure != null) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.notSentTo(
+              confirmed.name.isNotEmpty
+                  ? confirmed.name
+                  : members.map((member) => member.person.name).join(', '),
+            ),
+          ),
+        ),
+      );
+    }
+    while (router.canPop()) {
+      router.pop();
+    }
+    router.go('/rooms/${created.roomId}');
   }
 
   SharePayload get _payload => SharePayload(
@@ -390,7 +497,7 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
           locals,
         ).toLowerCase().compareTo(_nameOf(b, locals).toLowerCase()),
       );
-    final lines = <_Line>[];
+    final lines = <_Line>[if (!_groupMode) const _NewGroupLine()];
     if (recent.isNotEmpty) {
       lines.add(_HeaderLine(l10n.recentConversations));
       for (final (i, chat) in recent.indexed) {
@@ -433,6 +540,7 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
     ]);
     final contacts = people.where((person) => person.chat == null).toList();
     return [
+      if (!_groupMode) const _NewGroupLine(),
       if (chats.isNotEmpty) _HeaderLine(l10n.yourChats),
       for (final (i, chat) in chats.indexed)
         _ChatLine(chat, _positionIn(i, chats.length)),
@@ -456,6 +564,24 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
             ),
           ),
         );
+      case _NewGroupLine():
+        return ShareTargetCard(
+          key: const ValueKey('share-new-group'),
+          avatar: CircleAvatar(
+            radius: ShareTargetCard.avatarSize / 2,
+            backgroundColor: theme.colorScheme.tertiaryContainer,
+            foregroundColor: theme.colorScheme.onTertiaryContainer,
+            child: const Icon(Icons.group_add_outlined),
+          ),
+          title: L10n.of(context).newGroup,
+          subtitle: L10n.of(context).newGroupShareHint,
+          networks: const [],
+          selected: false,
+          tick: false,
+          first: true,
+          last: true,
+          onTap: _sending ? null : () => _setGroupMode(true),
+        );
       case _MoreLine():
         return Center(
           child: TextButton(
@@ -466,6 +592,35 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
       case _ChatLine(:final chat, :final position, :final preferPhone):
         final name = _nameOf(chat, locals);
         final phone = preferPhone ? phoneOfChat(chat) : null;
+        if (_groupMode) {
+          final person = _personOf(chat, locals);
+          final block = _group.blockOf(person);
+          return ShareTargetCard(
+            key: ValueKey(ChatShareTarget.keyOf(chat)),
+            avatar: Avatar(
+              mxContent: chat.contact?.avatar ?? chat.room.avatar,
+              name: name,
+              size: ShareTargetCard.avatarSize,
+            ),
+            title: name,
+            subtitle: block != null
+                ? groupBlockReason(L10n.of(context), block, _group.network)
+                : phone != null
+                ? formatPhoneForDisplay(phone)
+                : _preview(context, chat),
+            networks: [
+              for (final network in chat.networks)
+                (icon: network.avatar, name: network.getLocalizedDisplayname()),
+            ],
+            selected: _group.contains(person),
+            enabled: block == null,
+            first: position.first,
+            last: position.last,
+            onTap: _sending || block != null
+                ? null
+                : () => _toggleGroupMember(person),
+          );
+        }
         return ShareTargetCard(
           key: ValueKey(ChatShareTarget.keyOf(chat)),
           avatar: Avatar(
@@ -488,11 +643,12 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
         );
       case _PersonLine(:final person, :final position):
         final key = NewChatShareTarget.keyOf(person);
-        final picked = _selected[key];
+        final picked = _groupMode ? null : _selected[key];
         final phone = person.phone;
         final networks = picked is NewChatShareTarget
             ? [NetworkRef.ofBridge(picked.choice.bridge)]
             : person.networks;
+        final block = _groupMode ? _group.blockOf(person) : null;
         return ShareTargetCard(
           key: ValueKey(key),
           avatar: person.typed
@@ -508,7 +664,9 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
                   size: ShareTargetCard.avatarSize,
                 ),
           title: person.name,
-          subtitle: person.typed
+          subtitle: block != null
+              ? groupBlockReason(L10n.of(context), block, _group.network)
+              : person.typed
               ? L10n.of(context).typedNumber
               : phone != null
               ? formatPhoneForDisplay(phone)
@@ -518,10 +676,15 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
             for (final network in networks)
               (icon: network.icon, name: network.name),
           ],
-          selected: picked != null,
+          selected: _groupMode ? _group.contains(person) : picked != null,
+          enabled: block == null,
           first: position.first,
           last: position.last,
-          onTap: _sending ? null : () => _togglePerson(person),
+          onTap: _sending || block != null
+              ? null
+              : _groupMode
+              ? () => _toggleGroupMember(person)
+              : () => _togglePerson(person),
         );
     }
   }
@@ -561,9 +724,19 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
       appBar: AppBar(
         scrolledUnderElevation: 0,
         leading: Center(
-          child: BackButton(onPressed: () => Navigator.of(context).pop()),
+          child: BackButton(
+            onPressed: _groupMode
+                ? () => _setGroupMode(false)
+                : () => Navigator.of(context).pop(),
+          ),
         ),
-        title: Text(l10n.share),
+        title: Text(
+          !_groupMode
+              ? l10n.share
+              : _group.isGroup
+              ? l10n.newGroupChat
+              : l10n.newGroup,
+        ),
         backgroundColor: theme.scaffoldBackgroundColor,
       ),
       body: Column(
@@ -581,7 +754,9 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
                   borderSide: BorderSide.none,
                   borderRadius: BorderRadius.circular(99),
                 ),
-                hintText: l10n.shareSearchHint,
+                hintText: _groupMode && !_group.isEmpty
+                    ? l10n.anyoneElse
+                    : l10n.shareSearchHint,
                 hintStyle: TextStyle(
                   color: theme.colorScheme.onPrimaryContainer,
                   fontWeight: FontWeight.normal,
@@ -597,6 +772,7 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
               ),
             ),
           ),
+          if (_groupMode) GroupRecipientsBar(_group),
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.only(bottom: 16),
@@ -610,9 +786,11 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
       bottomNavigationBar: _ShareBottomBar(
         items: widget.items,
         message: _message,
-        count: _selected.length,
+        count: _groupMode ? _group.members.length : _selected.length,
+        group: _groupMode,
+        canSend: _groupMode ? _group.isGroup : _selected.isNotEmpty,
         sending: _sending,
-        onSend: _send,
+        onSend: _groupMode ? _createGroupAndSend : _send,
       ),
     );
   }
@@ -633,6 +811,12 @@ class ShareTargetCard extends StatelessWidget {
   final List<({Uri? icon, String name})> networks;
   final bool selected;
 
+  /// Whether the round tick shows at the end.
+  final bool tick;
+
+  /// Whether the card can be picked; one that cannot is greyed out.
+  final bool enabled;
+
   /// Whether the card starts or ends its group, which rounds that side.
   final bool first;
   final bool last;
@@ -647,6 +831,8 @@ class ShareTargetCard extends StatelessWidget {
     required this.first,
     required this.last,
     required this.onTap,
+    this.tick = true,
+    this.enabled = true,
     super.key,
   });
 
@@ -660,7 +846,7 @@ class ShareTargetCard extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, last ? 0 : gap),
       child: Semantics(
-        checked: selected,
+        checked: tick ? selected : null,
         child: Material(
           color: selected
               ? theme.colorScheme.secondaryContainer
@@ -676,7 +862,7 @@ class ShareTargetCard extends StatelessWidget {
                 child: Row(
                   spacing: 16,
                   children: [
-                    avatar,
+                    Opacity(opacity: enabled ? 1 : 0.38, child: avatar),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -686,7 +872,13 @@ class ShareTargetCard extends StatelessWidget {
                             title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyLarge,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: enabled
+                                  ? null
+                                  : theme.colorScheme.onSurface.withValues(
+                                      alpha: 0.38,
+                                    ),
+                            ),
                           ),
                           if (subtitle.isNotEmpty)
                             Text(
@@ -702,14 +894,15 @@ class ShareTargetCard extends StatelessWidget {
                     ),
                     if (networks.isNotEmpty)
                       MonochromeNetworkIcons.icons(icons: networks),
-                    Icon(
-                      selected
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked,
-                      color: selected
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
+                    if (tick)
+                      Icon(
+                        selected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        color: selected
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
                   ],
                 ),
               ),
@@ -723,11 +916,13 @@ class ShareTargetCard extends StatelessWidget {
 
 /// The fixed bar under the list: what is shared (thumbnails of files, or
 /// the number of forwarded messages), the message field and the send
-/// button.
+/// button, which reads "Create group and send" while a [group] is picked.
 class _ShareBottomBar extends StatelessWidget {
   final List<ShareItem> items;
   final TextEditingController message;
   final int count;
+  final bool group;
+  final bool canSend;
   final bool sending;
   final void Function() onSend;
 
@@ -735,6 +930,8 @@ class _ShareBottomBar extends StatelessWidget {
     required this.items,
     required this.message,
     required this.count,
+    required this.group,
+    required this.canSend,
     required this.sending,
     required this.onSend,
   });
@@ -818,7 +1015,7 @@ class _ShareBottomBar extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
                 ),
-                onPressed: count == 0 || sending ? null : onSend,
+                onPressed: !canSend || sending ? null : onSend,
                 child: sending
                     ? const SizedBox.square(
                         dimension: 20,
@@ -826,7 +1023,13 @@ class _ShareBottomBar extends StatelessWidget {
                           strokeWidth: 2,
                         ),
                       )
-                    : Text(count == 0 ? l10n.send : l10n.sendToChats(count)),
+                    : Text(
+                        group
+                            ? l10n.createGroupAndSend
+                            : count == 0
+                            ? l10n.send
+                            : l10n.sendToChats(count),
+                      ),
               ),
             ],
           ),

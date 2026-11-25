@@ -6,9 +6,9 @@ import 'package:fluffychat/utils/bridge_provisioning.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:matrix/matrix.dart';
 
-/// The user's bridges and their contact lists for New Chat, one per client,
-/// kept for [lifetime] so reopening New Chat does not ask every bridge
-/// again.
+/// The user's bridges, their contact lists and the groups they create, for
+/// New Chat, one per client. Bridges and contacts are kept for [lifetime]
+/// so reopening New Chat does not ask every bridge again.
 class BridgeDirectory {
   final BridgeProvisioning api;
 
@@ -58,6 +58,19 @@ class BridgeDirectory {
     }
     return _bridges!;
   }
+
+  final Map<String, Future<List<BridgeGroupType>>> _groupTypes = {};
+
+  /// The kinds of group [bridge] can create, asked once per directory. A
+  /// bridge whose capabilities cannot be read creates none.
+  Future<List<BridgeGroupType>> groupTypes(BridgeInfo bridge) =>
+      _groupTypes[bridge.name] ??= api.groupTypes(bridge).catchError((
+        Object e,
+      ) {
+        Logs().w('Unable to read the capabilities of ${bridge.name}', e);
+        _groupTypes.remove(bridge.name);
+        return const <BridgeGroupType>[];
+      });
 
   /// Every contact of every bridge that lists them. A bridge that fails or
   /// has no contact list adds none.

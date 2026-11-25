@@ -9,6 +9,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
+import 'package:fluffychat/pages/new_private_chat/new_group_widgets.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat_view.dart';
 import 'package:fluffychat/pages/new_private_chat/qr_scanner_modal.dart';
 import 'package:fluffychat/pages/new_private_chat/start_chat_sheet.dart';
@@ -19,6 +20,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/new_chat/bridge_directory.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
+import 'package:fluffychat/utils/new_chat/new_group.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/url_launcher.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
@@ -32,7 +34,13 @@ import '../../widgets/adaptive_dialogs/user_dialog.dart';
 
 class NewPrivateChat extends StatefulWidget {
   final String? deeplink;
-  const NewPrivateChat({super.key, required this.deeplink});
+  final NewChatDelivery delivery;
+
+  const NewPrivateChat({
+    super.key,
+    required this.deeplink,
+    this.delivery = const NewChatDelivery(),
+  });
 
   @override
   NewPrivateChatController createState() => NewPrivateChatController();
@@ -53,6 +61,13 @@ class NewPrivateChatController extends State<NewPrivateChat> {
 
   /// The user's bridges, once their `whoami` answered.
   List<BridgeInfo> get bridges => sources.bridges;
+
+  /// The people picked for a new group. A long-press on a person starts
+  /// it; while it has anyone, a tap adds or removes people too.
+  late final GroupDraft group = GroupDraft()
+    ..addListener(() {
+      if (mounted) setState(() {});
+    });
 
   /// Whether to show the row that asks to read the phone's contacts.
   bool get offerPhoneContacts => sources.offerPhoneContacts;
@@ -81,7 +96,8 @@ class NewPrivateChatController extends State<NewPrivateChat> {
 
   /// Starts reading the bridges and, when allowed, the phone's contacts.
   /// Each updates the results when it arrives.
-  Future<void> _loadSources() => sources.load(Matrix.of(context).client);
+  Future<void> _loadSources() =>
+      widget.delivery.loadSources(Matrix.of(context).client, sources);
 
   /// Asks for the contacts permission from the offer row.
   Future<void> allowPhoneContacts() => sources.allowPhoneContacts();
@@ -218,7 +234,9 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   }
 
   /// Opens [person]'s chat, or lets the user pick a network to start one on.
+  /// While a group is being picked, adds or removes [person] instead.
   Future<void> openPerson(NewChatPerson<ExistingChat> person) async {
+    if (!group.isEmpty) return pickForGroup(person);
     final chat = person.chat;
     if (chat != null) return openExistingChat(chat);
     final client = Matrix.of(context).client;
@@ -239,8 +257,70 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     );
   }
 
+  /// Adds [person] to the group being picked, or removes them, and clears
+  /// the search after an add so the next person can be typed.
+  Future<void> pickForGroup(NewChatPerson<ExistingChat> person) async {
+    final added = await toggleGroupMember(
+      context,
+      Matrix.of(context).client,
+      widget.delivery,
+      group,
+      person,
+    );
+    if (!added || !mounted) return;
+    controller.clear();
+    searchUsers();
+  }
+
+  /// Enter in the search field: while a group is being picked, a typed
+  /// phone number is added to it.
+  void submitSearch(String text) {
+    if (group.isEmpty) return;
+    final people = sources.people(text, const []);
+    final typed = people.where((person) => person.typed).firstOrNull;
+    if (typed != null) pickForGroup(typed);
+  }
+
+  /// Why [person] cannot be added to the group being picked, or null.
+  String? groupBlockOf(NewChatPerson person) {
+    if (group.isEmpty) return null;
+    final block = group.blockOf(person);
+    return block == null
+        ? null
+        : groupBlockReason(L10n.of(context), block, group.network);
+  }
+
+  /// The Next button: confirms the group in a [NewGroupSheet], creates it
+  /// through the network's bridge and opens it.
+  Future<void> createGroup() async {
+    final network = group.network;
+    if (network == null || !group.isGroup) return;
+    final members = group.members;
+    final l10n = L10n.of(context);
+    final confirmed = await showAdaptiveBottomSheet<NewGroupConfirmation>(
+      context: context,
+      builder: (_) => NewGroupSheet(
+        network: network,
+        members: members,
+        actionLabel: l10n.createGroup,
+      ),
+    );
+    if (confirmed == null || !mounted) return;
+    final client = Matrix.of(context).client;
+    final result = await showFutureLoadingDialog<CreatedGroup>(
+      context: context,
+      future: () =>
+          widget.delivery.createGroup(client, network, members, confirmed.name),
+    );
+    final created = result.asValue?.value;
+    if (created == null || !mounted) return;
+    showGroupMembersNotAdded(context, members, created);
+    context.go('/rooms/${created.roomId}');
+  }
+
   @override
   void dispose() {
+    group.dispose();
     sources.dispose();
     controller.dispose();
     textFieldFocus.dispose();

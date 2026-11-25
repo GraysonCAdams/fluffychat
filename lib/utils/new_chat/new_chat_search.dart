@@ -135,6 +135,7 @@ ChatPersonInput<ExistingChat> chatPersonInput(
     avatar: chat.contact?.avatar ?? chat.room.avatar,
     phone: phoneOfChat(chat),
     userIds: [for (final room in rooms) ?room.directChatMatrixID],
+    group: chat.contact == null && chat.room.directChatMatrixID == null,
     networks: [
       for (final network in chat.networks)
         NetworkRef(
@@ -228,7 +229,7 @@ class NewChatSources {
   void dispose() => _disposed = true;
 }
 
-/// How long [startBridgeChat] waits for a new room to come down the sync.
+/// How long [awaitBridgedRoom] waits for a new room to come down the sync.
 const Duration newChatRoomTimeout = Duration(seconds: 30);
 
 /// The room of [choice]: the existing direct chat the bridge reported, or
@@ -243,6 +244,13 @@ Future<String> startBridgeChat(
   final roomId = known != null && client.getRoomById(known) != null
       ? known
       : await api.createDm(choice.bridge, choice.identifier);
+  await awaitBridgedRoom(client, roomId);
+  return roomId;
+}
+
+/// Waits until [roomId], which a bridge just made, is on this client, and
+/// joins it if the bridge only invited the user.
+Future<void> awaitBridgedRoom(Client client, String roomId) async {
   if (client.getRoomById(roomId) == null) {
     await client
         .waitForRoomInSync(roomId, join: true, invite: true)
@@ -252,7 +260,6 @@ Future<String> startBridgeChat(
   if (room != null && room.membership == Membership.invite) {
     await room.join();
   }
-  return roomId;
 }
 
 /// Adds [roomId] to the merged contact with [person]'s phone number, if
