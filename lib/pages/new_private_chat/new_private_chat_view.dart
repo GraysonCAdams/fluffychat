@@ -6,6 +6,7 @@
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/new_private_chat/new_group_widgets.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/merged_contacts/phone_number.dart';
@@ -33,18 +34,32 @@ class NewPrivateChatView extends StatelessWidget {
 
     final searchResponse = controller.searchResponse;
     final userId = Matrix.of(context).client.userID!;
+    final group = controller.group;
+    final groupNetwork = group.network;
     return Scaffold(
       appBar: AppBar(
         scrolledUnderElevation: 0,
         leading: const Center(child: BackButton()),
-        title: Text(L10n.of(context).newChat),
+        title: Text(
+          group.isGroup
+              ? L10n.of(context).newGroupChat
+              : L10n.of(context).newChat,
+        ),
         backgroundColor: theme.scaffoldBackgroundColor,
       ),
+      floatingActionButton: group.isGroup
+          ? FloatingActionButton.extended(
+              onPressed: controller.createGroup,
+              icon: const Icon(Icons.arrow_forward_outlined),
+              label: Text(L10n.of(context).next),
+            )
+          : null,
       body: MaxWidthBody(
         withScrolling: false,
         innerPadding: const EdgeInsets.symmetric(vertical: 8),
         child: Column(
           children: [
+            GroupRecipientsBar(group),
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: 16.0,
@@ -53,8 +68,11 @@ class NewPrivateChatView extends StatelessWidget {
               child: TextField(
                 controller: controller.controller,
                 onChanged: controller.searchUsers,
+                onSubmitted: controller.submitSearch,
                 decoration: InputDecoration(
-                  hintText: L10n.of(context).searchForUsers,
+                  hintText: group.isEmpty
+                      ? L10n.of(context).searchForUsers
+                      : L10n.of(context).anyoneElse,
                   filled: true,
                   fillColor: theme.colorScheme.secondaryContainer,
                   border: OutlineInputBorder(
@@ -100,7 +118,9 @@ class NewPrivateChatView extends StatelessWidget {
             Expanded(
               child: AnimatedSwitcher(
                 duration: FluffyThemes.animationDuration,
-                child: searchResponse == null
+                child: searchResponse == null && !group.isEmpty
+                    ? const SizedBox.shrink()
+                    : searchResponse == null
                     ? ListView(
                         children: [
                           Padding(
@@ -277,6 +297,12 @@ class NewPrivateChatView extends StatelessWidget {
                                 return NewChatPersonTile(
                                   person: person,
                                   onTap: () => controller.openPerson(person),
+                                  onLongPress: () =>
+                                      controller.pickForGroup(person),
+                                  picked: group.contains(person),
+                                  blockedReason: controller.groupBlockOf(
+                                    person,
+                                  ),
                                 );
                               }
                               final contact = result[i - people.length];
@@ -284,14 +310,23 @@ class NewPrivateChatView extends StatelessWidget {
                                   contact.displayName ??
                                   contact.userId.localpart ??
                                   contact.userId;
+                              // A Matrix user is on none of the networks a
+                              // group starts on.
                               return ListTile(
+                                enabled: groupNetwork == null,
                                 leading: Avatar(
                                   name: displayname,
                                   mxContent: contact.avatarUrl,
                                   presenceUserId: contact.userId,
                                 ),
                                 title: Text(displayname),
-                                subtitle: Text(contact.userId),
+                                subtitle: Text(
+                                  groupNetwork == null
+                                      ? contact.userId
+                                      : L10n.of(context).notOnNetwork(
+                                          groupNetwork.bridge.displayName,
+                                        ),
+                                ),
                                 onTap: () => controller.openUserModal(contact),
                               );
                             },
@@ -310,13 +345,22 @@ class NewPrivateChatView extends StatelessWidget {
 /// One person in New Chat's results: their chat, or someone the user's
 /// networks or phone contacts know, with the networks that reach them as
 /// grey icons at the end.
+///
+/// While a group is being picked, a person in it shows a tick, and one who
+/// cannot join it is greyed out with [blockedReason] as the second line.
 class NewChatPersonTile extends StatelessWidget {
   final NewChatPerson person;
   final void Function() onTap;
+  final void Function()? onLongPress;
+  final bool picked;
+  final String? blockedReason;
 
   const NewChatPersonTile({
     required this.person,
     required this.onTap,
+    this.onLongPress,
+    this.picked = false,
+    this.blockedReason,
     super.key,
   });
 
@@ -331,7 +375,10 @@ class NewChatPersonTile extends StatelessWidget {
         : phone != null
         ? formatPhoneForDisplay(phone)
         : person.email;
+    final reason = blockedReason;
     return ListTile(
+      enabled: reason == null,
+      selected: picked,
       leading: person.typed
           ? CircleAvatar(
               backgroundColor: theme.colorScheme.secondaryContainer,
@@ -340,10 +387,14 @@ class NewChatPersonTile extends StatelessWidget {
             )
           : Avatar(name: person.name, mxContent: person.avatar),
       title: Text(person.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: detail == null || detail == person.name
+      subtitle: reason != null
+          ? Text(reason, maxLines: 1, overflow: TextOverflow.ellipsis)
+          : detail == null || detail == person.name
           ? null
           : Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: person.networks.isEmpty
+      trailing: picked
+          ? const Icon(Icons.check_circle)
+          : person.networks.isEmpty
           ? null
           : MonochromeNetworkIcons.icons(
               icons: [
@@ -352,6 +403,7 @@ class NewChatPersonTile extends StatelessWidget {
               ],
             ),
       onTap: onTap,
+      onLongPress: onLongPress,
     );
   }
 }

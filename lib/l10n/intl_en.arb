@@ -3331,5 +3331,59 @@
                 "type": "int"
             }
         }
+    },
+    "newGroupChat": "New group chat",
+    "@newGroupChat": {
+        "description": "Title of New Chat once two or more people are picked for a group, and heading of the sheet that confirms a new group."
+    },
+    "anyoneElse": "Anyone else?",
+    "@anyoneElse": {
+        "description": "Hint of the search field in New Chat once someone is picked for a new group."
+    },
+    "notOnNetwork": "Not on {network}",
+    "@notOnNetwork": {
+        "description": "Why a person cannot be added to a new group: the group's network, such as iMessage, cannot reach them.",
+        "placeholders": {
+            "network": {
+                "type": "String"
+            }
+        }
+    },
+    "groupChatNotAPerson": "Group chats can't be added",
+    "@groupChatNotAPerson": {
+        "description": "Why a group chat in the results cannot be added to a new group."
+    },
+    "startGroupOn": "Start the group on",
+    "@startGroupOn": {
+        "description": "Second line of the network picker when it picks the network of a new group."
+    },
+    "groupNameOptional": "Group name (optional)",
+    "@groupNameOptional": {
+        "description": "Label of the name field when confirming a new group on a network where the name may be left empty."
+    },
+    "groupNameRcsOnly": "Only RCS groups keep a name",
+    "@groupNameRcsOnly": {
+        "description": "Helper under the group name field for Google Messages, whose MMS groups have no name."
+    },
+    "newGroup": "New group",
+    "@newGroup": {
+        "description": "Row at the top of the share page that switches it to picking people for a new group."
+    },
+    "newGroupShareHint": "Start a group and send there",
+    "@newGroupShareHint": {
+        "description": "Second line of the New group row on the share page."
+    },
+    "createGroupAndSend": "Create group and send",
+    "@createGroupAndSend": {
+        "description": "Button of the share page in New group mode: creates the group, then sends what is shared to it."
+    },
+    "groupMembersNotAdded": "Could not add {names}",
+    "@groupMembersNotAdded": {
+        "description": "Snackbar after creating a group when the network could not add some people; names is a comma separated list.",
+        "placeholders": {
+            "names": {
+                "type": "String"
+            }
+        }
     }
 }

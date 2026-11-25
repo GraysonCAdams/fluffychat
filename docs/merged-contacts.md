@@ -351,6 +351,42 @@ The search, the sources and starting a chat live in
 network sheet in `start_chat_sheet.dart` (`pickStartChatNetwork`), so the
 share page uses the same code.
 
+#### New group chat
+
+Starting a group on one network follows Google Messages:
+
+- A long-press on a person adds them as a chip above the search field;
+  while anyone is picked, a tap adds or removes people too, and the search
+  hint reads "Anyone else?". Enter adds a typed phone number. With two or
+  more people the title reads "New group chat" and a "Next" button shows.
+  A tap with nobody picked opens or starts the one-to-one chat as above.
+- The first person fixes the network. The network sheet lists only the
+  bridges whose `GET /v3/capabilities` has a `group_creation` type (the
+  type `group` when there is one, else the first), iMessage first, and
+  picks by itself when one network reaches the person. The network's icon
+  leads the chips. Removing every chip clears the network.
+- After that, a person the network cannot reach is greyed out with "Not on
+  iMessage" (or the network's name): someone with no phone number, email
+  or ghost on that network, a Matrix user, or someone `resolve_identifier`
+  answered `M_NOT_FOUND` for when picked. People are asked about one at a
+  time, on the pick, never for the whole list. A group chat in the results
+  is greyed out too; a one-to-one chat counts as its other person.
+- "Next" opens a sheet with the network, the people and, when the group
+  type allows a name (`name.allowed`), a name field ("Group name
+  (optional)" unless `name.required`). Google Messages allows a name, but
+  only RCS groups keep it, which the field says. "Create group" calls
+  `POST /v3/create_group/{type}?login_id=...` with
+  `{"participants": [...], "name": {"name": ...}}` (each participant is the
+  `id` `resolve_identifier` returned, or the bridge contact's `id`), waits
+  for the room (`awaitBridgedRoom`) and opens it. People the bridge
+  reports in `failed_participants` are named in a snackbar. A group is not
+  added to any merged contact.
+
+The picking rules (`GroupDraft`), the bridge calls (`NewChatDelivery`) and
+the add flow (`toggleGroupMember`) are in
+`lib/utils/new_chat/new_group.dart`; the chips and the confirm sheet are
+in `lib/pages/new_private_chat/new_group_widgets.dart`.
+
 ### Share page
 
 `ShareScaffoldDialog` (`lib/widgets/share_scaffold_dialog.dart`) is the
@@ -381,6 +417,16 @@ wide screen it is the same page in a dialog (`showScaffoldDialog`).
   goes to the chat list and says "Sent to N chats". A target that fails is
   named in a snackbar and stays ticked, and the page stays open; the
   others are already sent and are unticked.
+- "New group", the first row at rest and when searching, switches the page
+  to picking people for one new group, with New Chat's rules: the first
+  person fixes the network, others it cannot reach are greyed out with the
+  reason, chips show above the list, and the title reads "New group", then
+  "New group chat" from two people. Only one-to-one chats and contacts can
+  be picked. The button reads "Create group and send"; it opens New Chat's
+  confirm sheet, creates the group, sends the files, forwarded messages and
+  text there in the order above, and opens the group. The back button
+  leaves the mode and forgets the group; ticks made before it are kept and
+  still send to each chat separately.
 
 ### Merged chat screen
 
@@ -505,6 +551,10 @@ is the largest and carries the risk.
   (`test/utils/bridge_provisioning_test.dart`), the merge of the three
   sources and typed numbers (`test/utils/new_chat_people_test.dart`), and
   the result rows and network sheet (`test/widgets/new_chat_people_test.dart`).
+- New group chat: picking, the one-network rule, the confirm sheet and the
+  `create_group` call through a fake `NewChatDelivery`
+  (`test/widgets/new_group_chat_test.dart`), and the share page's New group
+  mode (`test/widgets/share_page_test.dart`).
 
 They live in `test/utils/merged_contacts/` (store, chat list collapse,
 `MergedOrder`, `MergedTimeline`, `SendRouter`, phone numbers, identifiers,

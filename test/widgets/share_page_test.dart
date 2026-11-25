@@ -4,11 +4,13 @@
 
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/new_private_chat/new_group_widgets.dart';
 import 'package:fluffychat/pages/new_private_chat/start_chat_sheet.dart';
 import 'package:fluffychat/utils/bridge_provisioning.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
+import 'package:fluffychat/utils/new_chat/new_group.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/share_scaffold_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -54,6 +56,53 @@ class _FakeDelivery extends ShareDelivery {
 
   /// One entry per send: the room and the text.
   final List<String> sent = [];
+
+  /// The first people of new groups, which fix the network (iMessage).
+  final List<String> groupPicks = [];
+
+  /// What `resolve_identifier` on the group's network knows.
+  final Map<String, BridgeUser> reachable = {};
+
+  /// One entry per `create_group`: network, participants and name.
+  final List<String> created = [];
+
+  @override
+  Future<(GroupNetwork, BridgeUser)?> pickGroupNetwork(
+    BuildContext context,
+    Client client,
+    NewChatPerson person,
+  ) async {
+    groupPicks.add(person.name);
+    return (
+      GroupNetwork(
+        _bridge('imessage', 'iMessage'),
+        const BridgeGroupType(id: 'group', nameAllowed: true),
+      ),
+      BridgeUser(id: 'id-${person.name}'),
+    );
+  }
+
+  @override
+  Future<BridgeUser?> resolveOnNetwork(
+    Client client,
+    BridgeInfo bridge,
+    String identifier,
+  ) async => reachable[identifier];
+
+  @override
+  Future<CreatedGroup> createGroup(
+    Client client,
+    GroupNetwork network,
+    List<GroupMember> members,
+    String? name,
+  ) async {
+    created.add(
+      '${network.bridge.name} '
+      '${members.map((member) => member.user.id).join(',')} "$name"',
+    );
+    addDirectChat(client, id: '!group:x', partner: '@group:x', name: 'G');
+    return const CreatedGroup('!group:x');
+  }
 
   @override
   Future<void> loadSources(Client client, NewChatSources sources) async {
@@ -424,5 +473,93 @@ void main() {
     ]);
     expect(find.text('2 messages'), findsOneWidget);
     expect(find.text('Add a message'), findsOneWidget);
+  });
+
+  String title(WidgetTester tester) => tester
+      .widget<Text>(
+        find.descendant(of: find.byType(AppBar), matching: find.byType(Text)),
+      )
+      .data!;
+
+  testWidgets('New group creates one group on one network, then sends '
+      'there once', (tester) async {
+    delivery.bridgeContacts = [
+      BridgeContactInput(
+        _bridge('gmessages', 'Google Messages'),
+        const BridgeUser(
+          id: '1',
+          name: 'Drew Morales',
+          identifiers: ['tel:+13125550188'],
+        ),
+      ),
+    ];
+    delivery.reachable['+13125550188'] = const BridgeUser(
+      id: 'tel:+13125550188',
+    );
+    await pump(tester);
+    await tester.tap(find.text('New group'));
+    await tester.pumpAndSettle();
+    expect(title(tester), 'New group');
+    expect(find.text('New group'), findsOneWidget);
+    expect(_buttonLabel(tester), 'Create group and send');
+    expect(tester.widget<FilledButton>(_sendButton()).onPressed, isNull);
+
+    await tester.tap(find.text('Harrison Young'));
+    await tester.pumpAndSettle();
+    expect(delivery.groupPicks, ['Harrison Young']);
+    expect(find.byType(InputChip), findsOneWidget);
+    // A Matrix chat is not on the group's network.
+    expect(find.text('Not on iMessage'), findsWidgets);
+    await tester.tap(find.text('Payton Adams'));
+    await tester.pumpAndSettle();
+    expect(find.byType(InputChip), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, 'morales');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Drew Morales'));
+    await tester.pumpAndSettle();
+    expect(find.byType(InputChip), findsNWidgets(2));
+    expect(title(tester), 'New group chat');
+    expect(tester.widget<FilledButton>(_sendButton()).onPressed, isNotNull);
+
+    await tester.tap(_sendButton());
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('group-name')), findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NewGroupSheet),
+        matching: find.widgetWithText(FilledButton, 'Create group and send'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(delivery.created, [
+      'imessage id-Harrison Young,tel:+13125550188 ""',
+    ]);
+    expect(delivery.sent, ['!group:x share-sheet-check']);
+    expect(find.text('chat !group:x'), findsOneWidget);
+  });
+
+  testWidgets('leaving New group keeps the ticks, which send separately', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.tap(find.text('Payton Adams'));
+    await tester.tap(find.text('Drew Andersen'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('New group'));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.radio_button_checked), findsNothing);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(title(tester), 'Share');
+    expect(_buttonLabel(tester), 'Send to 2 chats');
+
+    await tester.tap(_sendButton());
+    await tester.pumpAndSettle();
+    expect(delivery.created, isEmpty);
+    expect(delivery.sent, [
+      '!payton:x share-sheet-check',
+      '!drew:x share-sheet-check',
+    ]);
   });
 }

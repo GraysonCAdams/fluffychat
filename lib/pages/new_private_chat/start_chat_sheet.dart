@@ -24,21 +24,28 @@ class StartChatChoice {
 /// Asks which of [client]'s networks to start a chat with [person] on, in
 /// a [StartChatSheet]. Null when the user closes the sheet or [client] has
 /// no bridges to ask.
+///
+/// With [group], the sheet offers only [bridges] (the networks that create
+/// groups) and picks the network by itself when exactly one reaches the
+/// person.
 Future<StartChatChoice?> pickStartChatNetwork(
   BuildContext context,
   Client client,
-  NewChatPerson person,
-) async {
+  NewChatPerson person, {
+  List<BridgeInfo>? bridges,
+  bool group = false,
+}) async {
   final directory = BridgeDirectory.forClient(client);
   if (directory == null) return null;
-  final bridges = await directory.bridges();
+  final offered = bridges ?? await directory.bridges();
   if (!context.mounted) return null;
   return showAdaptiveBottomSheet<StartChatChoice>(
     context: context,
     builder: (_) => StartChatSheet(
       person: person,
-      bridges: bridges,
+      bridges: offered,
       resolve: directory.api.resolveIdentifier,
+      group: group,
     ),
   );
 }
@@ -56,10 +63,15 @@ class StartChatSheet extends StatefulWidget {
   final Future<BridgeUser?> Function(BridgeInfo bridge, String identifier)
   resolve;
 
+  /// Whether the network is for a new group: the heading says so, and the
+  /// only network that reaches the person is picked without a tap.
+  final bool group;
+
   const StartChatSheet({
     required this.person,
     required this.bridges,
     required this.resolve,
+    this.group = false,
     super.key,
   });
 
@@ -96,8 +108,26 @@ class _StartChatSheetState extends State<StartChatSheet> {
     } catch (_) {
       user = null;
     }
-    if (mounted) setState(() => _resolved[bridge.name] = user);
+    if (!mounted) return;
+    setState(() => _resolved[bridge.name] = user);
+    if (widget.group && _resolved.length == _bridges.length) {
+      final reachable = [
+        for (final bridge in _bridges)
+          if (_resolved[bridge.name] case final user?) (bridge, user),
+      ];
+      if (reachable.length == 1) {
+        final (bridge, user) = reachable.single;
+        Navigator.of(context).pop(_choice(bridge, user));
+      }
+    }
   }
+
+  StartChatChoice _choice(BridgeInfo bridge, BridgeUser user) =>
+      StartChatChoice(
+        bridge,
+        identifierForBridge(widget.person, bridge)!,
+        user,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +149,7 @@ class _StartChatSheetState extends State<StartChatSheet> {
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.titleMedium,
             ),
-            subtitle: Text(l10n.startChatOn),
+            subtitle: Text(widget.group ? l10n.startGroupOn : l10n.startChatOn),
           ),
           for (final bridge in _bridges)
             Builder(
@@ -148,13 +178,7 @@ class _StartChatSheetState extends State<StartChatSheet> {
                         ),
                   onTap: user == null
                       ? null
-                      : () => Navigator.of(context).pop(
-                          StartChatChoice(
-                            bridge,
-                            identifierForBridge(widget.person, bridge)!,
-                            user,
-                          ),
-                        ),
+                      : () => Navigator.of(context).pop(_choice(bridge, user)),
                 );
               },
             ),
