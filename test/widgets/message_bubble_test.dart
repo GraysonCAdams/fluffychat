@@ -73,6 +73,8 @@ void main() {
     room: room,
   );
 
+  /// Shows [event] with [below] (the newer message) under it, and keeps
+  /// the tapped and selected messages the way the chat screen does.
   Future<void> pumpMessage(
     WidgetTester tester,
     Event event, {
@@ -85,6 +87,8 @@ void main() {
     );
     final scrollController = ScrollController();
     addTearDown(scrollController.dispose);
+    String? revealed;
+    final selected = <String>{};
     await tester.pumpWidget(
       Provider<MatrixState>.value(
         value: _FakeMatrix(client),
@@ -92,43 +96,46 @@ void main() {
           localizationsDelegates: L10n.localizationsDelegates,
           supportedLocales: L10n.supportedLocales,
           home: Scaffold(
-            body: ListView(
-              controller: scrollController,
-              children: [
-                Message(
-                  event,
-                  previousEvent: below,
-                  bigEmojis: const {},
-                  onSelect: (_) {},
-                  onInfoTab: (_) {},
-                  scrollToEventId: (_) {},
-                  onSwipe: () {},
-                  onMention: () {},
-                  onEdit: () {},
-                  enterThread: null,
-                  singleSelected: false,
-                  timeline: timeline,
-                  scrollController: scrollController,
-                  colors: const [Colors.blue, Colors.blue],
-                ),
-                if (below != null)
-                  Message(
-                    below,
-                    nextEvent: event,
-                    bigEmojis: const {},
-                    onSelect: (_) {},
-                    onInfoTab: (_) {},
-                    scrollToEventId: (_) {},
-                    onSwipe: () {},
-                    onMention: () {},
-                    onEdit: () {},
-                    enterThread: null,
-                    singleSelected: false,
-                    timeline: timeline,
-                    scrollController: scrollController,
-                    colors: const [Colors.blue, Colors.blue],
-                  ),
-              ],
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                Widget message(Event e, {Event? next, Event? previous}) =>
+                    Message(
+                      e,
+                      nextEvent: next,
+                      previousEvent: previous,
+                      bigEmojis: const {},
+                      onSelect: (e) => setState(
+                        () => selected.remove(e.eventId)
+                            ? null
+                            : selected.add(e.eventId),
+                      ),
+                      selected: selected.contains(e.eventId),
+                      longPressSelect: selected.isNotEmpty,
+                      timeRevealed: revealed == e.eventId,
+                      onToggleTime: (e) => setState(
+                        () =>
+                            revealed = revealed == e.eventId ? null : e.eventId,
+                      ),
+                      onInfoTab: (_) {},
+                      scrollToEventId: (_) {},
+                      onSwipe: () {},
+                      onMention: () {},
+                      onEdit: () {},
+                      enterThread: null,
+                      singleSelected: false,
+                      hideReactionPicker: true,
+                      timeline: timeline,
+                      scrollController: scrollController,
+                      colors: const [Colors.blue, Colors.blue],
+                    );
+                return ListView(
+                  controller: scrollController,
+                  children: [
+                    message(event, previous: below),
+                    if (below != null) message(below, next: event),
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -245,6 +252,44 @@ void main() {
         ],
       );
       expect(find.text('2'), findsOneWidget);
+    });
+  });
+
+  group('tap to show the time', () {
+    Finder time() => find.textContaining('10:58');
+
+    testWidgets('a tap shows the time and a second tap hides it', (
+      tester,
+    ) async {
+      await pumpMessage(
+        tester,
+        textEvent('\$msg', 'Tap me', senderId: '@alice:example.org'),
+      );
+      expect(time(), findsNothing);
+
+      await tester.tap(find.text('Tap me', findRichText: true));
+      await tester.pumpAndSettle();
+      expect(time(), findsOneWidget);
+
+      await tester.tap(find.text('Tap me', findRichText: true));
+      await tester.pumpAndSettle();
+      expect(time(), findsNothing);
+    });
+
+    testWidgets('a long press still selects the message', (tester) async {
+      await pumpMessage(tester, textEvent('\$msg', 'Hold me'));
+
+      await tester.longPress(find.text('Hold me', findRichText: true));
+      await tester.pumpAndSettle();
+      // Selection mode shows the select toggle beside the message.
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      expect(time(), findsOneWidget);
+
+      // In selection mode a tap on the bubble does not toggle the time.
+      await tester.tap(find.text('Hold me', findRichText: true));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      expect(time(), findsOneWidget);
     });
   });
 }

@@ -74,6 +74,14 @@ class Message extends StatelessWidget {
   final Color? networkColor;
   final Set<String> bigEmojis;
 
+  /// Shows the message's time under its bubble, as a tap on the bubble
+  /// asks for.
+  final bool timeRevealed;
+
+  /// Called when the bubble is tapped outside selection mode, to show or
+  /// hide its time.
+  final void Function(Event)? onToggleTime;
+
   const Message(
     this.event, {
     this.nextEvent,
@@ -102,6 +110,8 @@ class Message extends StatelessWidget {
     this.networkColor,
     required this.enterThread,
     this.isCollapsed = false,
+    this.timeRevealed = false,
+    this.onToggleTime,
     super.key,
   });
 
@@ -491,6 +501,9 @@ class Message extends StatelessWidget {
                                           }
                                         }
                                       : null,
+                                  onTap: longPressSelect || onToggleTime == null
+                                      ? null
+                                      : () => onToggleTime!(event),
                                   onLongPress: longPressSelect
                                       ? null
                                       : () {
@@ -632,9 +645,11 @@ class Message extends StatelessWidget {
                               children: [
                                 const SizedBox(width: 8),
                                 // The time of a message shows on demand,
-                                // when it is selected; the timeline's
-                                // separators carry the time otherwise.
-                                if (event.status.isSent && selected)
+                                // when it is selected or its bubble was
+                                // tapped; the timeline's separators carry
+                                // the time otherwise.
+                                if (event.status.isSent &&
+                                    (selected || timeRevealed))
                                   Text(
                                     ' ${selected ? event.originServerTs.localizedDetailedTime(context) : event.originServerTs.localizedTimeOfDay(context)}',
                                     style: TextStyle(

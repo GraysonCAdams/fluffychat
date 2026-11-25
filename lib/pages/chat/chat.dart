@@ -2127,6 +2127,17 @@ class ChatController extends State<ChatPageWithRoom>
     await showFutureLoadingDialog(context: context, future: room.leave);
   }
 
+  /// The message whose time shows under its bubble after a tap, if any.
+  String? timeRevealedEventId;
+
+  /// Shows the time under [event]'s bubble, or hides it when it already
+  /// shows. One message at a time shows its time this way.
+  void toggleMessageTime(Event event) => setState(
+    () => timeRevealedEventId = timeRevealedEventId == event.eventId
+        ? null
+        : event.eventId,
+  );
+
   void onSelectMessage(Event event) {
     if (!event.redacted) {
       if (selectedEvents.contains(event)) {

@@ -299,6 +299,9 @@ class ChatEventList extends StatelessWidget {
                                 controller.scrollToEventIdMarker ==
                                 event.eventId,
                             onSelect: controller.onSelectMessage,
+                            onToggleTime: controller.toggleMessageTime,
+                            timeRevealed:
+                                controller.timeRevealedEventId == event.eventId,
                             onContextMenu: (event, position) =>
                                 showMessageContextMenu(
                                   controller,
