@@ -113,7 +113,10 @@ enum AppSettings<T> {
   /// so it does not offer again.
   phoneContactsDeclined<bool>('chat.fluffy.new_chat.contacts_declined', false),
   showThumbnailsInTimeline<bool>('chat.fluffy.showThumbnailsInTimeline', true),
-  doubleTapToReact<bool>('chat.fluffy.double_tap_to_react', false),
+  // Off on every platform. A tap on a bubble shows its time, so two quick
+  // taps would otherwise send a reaction by accident. The key is new so a
+  // value stored by the earlier phone default (on) no longer applies.
+  doubleTapToReact<bool>('chat.fluffy.double_tap_to_react_v2', false),
   doubleTapReaction<String>('chat.fluffy.double_tap_reaction', '❤️'),
   benchmarksInLogs<bool>('chat.fluffy.benchmarks_in_logs', false),
   autoSendErrorReports<bool?>('chat.fluffy.auto_send_eror_reports', null),
@@ -165,12 +168,6 @@ enum AppSettings<T> {
 
     if (store.getBool(AppSettings.sendOnEnter.key) == null) {
       await store.setBool(AppSettings.sendOnEnter.key, !PlatformInfos.isMobile);
-    }
-    if (store.getBool(AppSettings.doubleTapToReact.key) == null) {
-      await store.setBool(
-        AppSettings.doubleTapToReact.key,
-        PlatformInfos.isMobile,
-      );
     }
 
     // Load configuration from config.json file or MDM:
