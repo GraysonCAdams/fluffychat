@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:convert';
+
 import 'package:matrix/matrix.dart';
 
 /// Keeps a chat's preview, and so its place in the chat list, when a sync
@@ -22,7 +24,8 @@ import 'package:matrix/matrix.dart';
 /// place. A reaction that was the last event and is then taken back is
 /// replaced the same way, by the last event before it that is not a
 /// reaction. The SDK's own refresh still replaces it when the server knows a
-/// newer event.
+/// newer event. Once the rooms are loaded at start, previews of either kind
+/// stored earlier are fetched again from the server.
 class LastEventKeeper {
   final Client client;
 
@@ -39,6 +42,45 @@ class LastEventKeeper {
       if (update.status == SyncStatus.waitingForResponse) _rememberAll();
     });
     client.onSync.stream.listen(_afterSync);
+    client.roomsLoading?.then((_) => _repairStored());
+  }
+
+  /// Rooms whose stored last event is a placeholder or a removed reaction,
+  /// saved before this keeper existed or while the app was closed, get the
+  /// newest previewable event from the server that is neither.
+  Future<void> _repairStored() async {
+    final types = client.roomPreviewLastEvents
+        .where((type) => type != EventTypes.Reaction)
+        .toList();
+    final repaired = <String>[];
+    for (final room in client.rooms) {
+      if (room.membership != Membership.join) continue;
+      final last = room.lastEvent;
+      if (!_isPlaceholder(last) && !_isRemovedReaction(last)) continue;
+      try {
+        final result = await client.getRoomEvents(
+          room.id,
+          Direction.b,
+          limit: 1,
+          filter: jsonEncode(StateFilter(types: types).toJson()),
+        );
+        final found = result.chunk.firstOrNull;
+        if (found == null) continue;
+        var event = Event.fromMatrixEvent(
+          found,
+          room,
+          status: EventStatus.synced,
+        );
+        if (event.type == EventTypes.Encrypted) {
+          event = await client.encryption?.decryptRoomEvent(event) ?? event;
+        }
+        room.lastEvent = event;
+        repaired.add(room.id);
+      } catch (e, s) {
+        Logs().w('Unable to repair the preview of ${room.id}', e, s);
+      }
+    }
+    if (repaired.isNotEmpty) await _store(repaired);
   }
 
   static final Expando<LastEventKeeper> _keepers = Expando();
@@ -88,8 +130,12 @@ class LastEventKeeper {
       restored.add(roomId);
     }
     if (restored.isEmpty) return;
-    // The same empty sync the SDK runs after refreshing a last event: it
-    // stores the event put back, sorts the rooms and tells the chat list.
+    await _store(restored);
+  }
+
+  /// Runs the same empty sync the SDK runs after refreshing a last event:
+  /// it stores the events put back, sorts the rooms and tells the chat list.
+  Future<void> _store(List<String> restored) async {
     await client.database.transaction(
       () => client.handleSync(
         SyncUpdate(
