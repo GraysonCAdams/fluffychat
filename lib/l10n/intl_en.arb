@@ -3291,5 +3291,37 @@
                 "type": "int"
             }
         }
+    },
+    "manageLinkedChats": "Manage linked chats",
+    "@manageLinkedChats": {
+        "description": "Overflow menu item of the chat list selection bar with one merged chat selected; opens the sheet that manages the chats merged into it."
+    },
+    "mergeTheseChats": "Merge these chats",
+    "@mergeTheseChats": {
+        "description": "Overflow menu item of the chat list selection bar with several chats selected that are the same person or group on different networks; merges them into one conversation."
+    },
+    "leaveChatsQuestion": "{count, plural, =1{Leave 1 chat?} other{Leave {count} chats?}}",
+    "@leaveChatsQuestion": {
+        "description": "Title of the confirmation before leaving the chats selected in the chat list, when that is several chats or the chats of a merged conversation.",
+        "type": "String",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "clearSelection": "Clear selection",
+    "@clearSelection": {
+        "description": "Tooltip of the close button of the chat list selection bar."
+    },
+    "countSelected": "{count} selected",
+    "@countSelected": {
+        "description": "Screen reader label of the number of chats selected in the chat list selection bar.",
+        "type": "String",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
     }
 }

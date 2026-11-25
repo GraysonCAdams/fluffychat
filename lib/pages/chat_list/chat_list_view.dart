@@ -20,9 +20,16 @@ class ChatListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !controller.isSearchMode && controller.activeSpaceId == null,
+      canPop:
+          !controller.selectionMode &&
+          !controller.isSearchMode &&
+          controller.activeSpaceId == null,
       onPopInvokedWithResult: (pop, _) {
         if (pop) return;
+        if (controller.selectionMode) {
+          controller.clearSelection();
+          return;
+        }
         if (controller.activeSpaceId != null) {
           controller.clearActiveSpace();
           return;

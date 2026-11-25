@@ -6,57 +6,14 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
-import 'package:fluffychat/utils/merged_contacts/contact_identifiers.dart';
+import 'package:fluffychat/utils/merged_contacts/merge_rules.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
-import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
-
-/// The chats that may be merged into the conversation made of [current]
-/// (one room, or the rooms of a merged contact).
-///
-/// A one-to-one conversation takes one-to-one chats whose other person has
-/// the same phone number; a shared name alone does not count. A group
-/// conversation takes group chats with the same name. Either way the chat
-/// must be on a network the conversation does not span yet, since a merged
-/// conversation holds one room per network.
-List<Room> mergeCandidates(Client client, List<Room> current) {
-  if (current.isEmpty) return const [];
-  final spaces = spacesByChild(client);
-  final currentIds = {for (final room in current) room.id};
-  final networks = {for (final room in current) spaces[room.id]?.id};
-  final isGroup = !current.first.isDirectChat;
-
-  final Set<String> keys;
-  String? Function(Room room) keyOf;
-  if (isGroup) {
-    keyOf = (room) {
-      final name = normalizeName(room.getLocalizedDisplayname());
-      return name.isEmpty ? null : name;
-    };
-  } else {
-    final service = MergeSuggestionService.forClient(client);
-    keyOf = (room) => service.phoneOf(room)?.value;
-  }
-  keys = {for (final room in current) ?keyOf(room)};
-  if (keys.isEmpty) return const [];
-
-  return [
-    for (final room in client.rooms)
-      if (room.membership == Membership.join &&
-          !room.isSpace &&
-          room.isDirectChat != isGroup &&
-          !currentIds.contains(room.id) &&
-          spaces[room.id] != null &&
-          !networks.contains(spaces[room.id]!.id) &&
-          keys.contains(keyOf(room)))
-        room,
-  ];
-}
 
 /// The last segment of the app bar's network switcher: a dashed plus that
 /// offers to merge another chat into the open one. With no chat that
