@@ -203,8 +203,9 @@ class _ChatListItemState extends State<ChatListItem> {
             selected: selected,
             ListTile(
               minVerticalPadding: 16,
-              // The wider left side is the gutter the unread dot sits in.
-              contentPadding: const EdgeInsets.only(left: 18, right: 8),
+              // With the tile's own 8dp margin the avatar starts 16dp from the
+              // edge, as in Google Messages.
+              contentPadding: const EdgeInsets.only(left: 8, right: 8),
               onLongPress: () => onLongPress?.call(context),
               // The avatars show a picture or initials of the chat named in
               // the title and of its space, plus a presence dot, and their
@@ -223,22 +224,6 @@ class _ChatListItemState extends State<ChatListItem> {
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          // A dot in the left margin marks an unread chat.
-                          if (isUnread)
-                            Positioned(
-                              left: -14,
-                              top: Avatar.defaultSize / 2 - 4,
-                              child: Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: highlightCount > 0
-                                      ? theme.colorScheme.error
-                                      : theme.colorScheme.primary,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            ),
                           // The chat itself gets the full-size avatar; the
                           // space it belongs to (for bridges, the network) is
                           // a small badge in the corner, outlined in the
@@ -324,18 +309,39 @@ class _ChatListItemState extends State<ChatListItem> {
               title: Row(
                 children: <Widget>[
                   Expanded(
-                    child: Text(
-                      displayname,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      softWrap: false,
-                      // Unread chats stand out with heavier, brighter text.
-                      style: isUnread
-                          ? TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: theme.colorScheme.onSurface,
-                            )
-                          : null,
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            displayname,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            softWrap: false,
+                            // Unread chats stand out with heavier, brighter
+                            // text.
+                            style: isUnread
+                                ? TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: theme.colorScheme.onSurface,
+                                  )
+                                : null,
+                          ),
+                        ),
+                        // A dot after the name marks an unread chat, red when
+                        // it mentions the user.
+                        if (isUnread)
+                          Container(
+                            margin: const EdgeInsets.only(left: 6),
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: highlightCount > 0
+                                  ? theme.colorScheme.error
+                                  : theme.colorScheme.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   if (isMuted)
@@ -535,7 +541,7 @@ class _ChatListItemState extends State<ChatListItem> {
                                 },
                               ),
                       ),
-                      // The dot beside the avatar marks unread chats; a count
+                      // The dot after the name marks unread chats; a count
                       // is only shown for mentions.
                       if (highlightCount > 0) ...[
                         const SizedBox(width: 8),
