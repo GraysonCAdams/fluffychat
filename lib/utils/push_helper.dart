@@ -15,6 +15,7 @@ import 'package:fluffychat/utils/android_bubble.dart';
 import 'package:fluffychat/utils/android_conversation_notifications.dart';
 import 'package:fluffychat/utils/call_kit_params.dart';
 import 'package:fluffychat/utils/client_manager.dart';
+import 'package:fluffychat/utils/fallback_avatar_image.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
@@ -237,6 +238,8 @@ Future<void> _tryPushHelper(
   final id = '${client.clientName}_$conversation'.hashCode;
 
   final senderName = event.senderFromMemoryOrFallback.calcDisplayname();
+  // A sender without a picture gets their initials, as in the app.
+  final senderIcon = senderAvatarFile ?? await renderFallbackAvatar(senderName);
   // Show notification
 
   final newMessage = Message(
@@ -246,9 +249,7 @@ Future<void> _tryPushHelper(
       bot: event.messageType == MessageTypes.Notice,
       key: event.senderId,
       name: senderName,
-      icon: senderAvatarFile == null
-          ? null
-          : ByteArrayAndroidIcon(senderAvatarFile),
+      icon: senderIcon == null ? null : ByteArrayAndroidIcon(senderIcon),
     ),
   );
 
@@ -374,7 +375,10 @@ Future<void> _tryPushHelper(
       id: conversation,
       name: roomName,
       roomUrl: AppConfig.inviteLinkPrefix + event.room.id,
-      avatar: roomAvatarFile,
+      // Without a picture the shortcut gets the chat's initials, as in the
+      // app; given none, its bubble and share target show the app's logo or
+      // an empty circle.
+      avatar: roomAvatarFile ?? await renderFallbackAvatar(roomName),
       isImportant: event.room.isFavourite,
     );
   }
