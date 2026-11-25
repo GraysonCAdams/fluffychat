@@ -9,6 +9,7 @@ import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
+import 'package:fluffychat/utils/inserted_content_file.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/markdown_context_builder.dart';
 import 'package:fluffychat/utils/media_adaptation.dart';
@@ -457,11 +458,7 @@ class InputBar extends StatelessWidget {
               final onInsertFile = this.onInsertFile;
               if (onInsertFile != null) {
                 onInsertFile(
-                  XFile.fromData(
-                    data,
-                    mimeType: content.mimeType,
-                    name: content.uri.split('/').last,
-                  ),
+                  insertedContentFile(data, content.uri, content.mimeType),
                 );
                 return;
               }
@@ -469,7 +466,7 @@ class InputBar extends StatelessWidget {
               final file = MatrixFile(
                 mimeType: content.mimeType,
                 bytes: data,
-                name: content.uri.split('/').last,
+                name: insertedContentFileName(content.uri, content.mimeType),
               );
               if (!context.mounted) return;
               final scaffoldMessenger = ScaffoldMessenger.of(context);
