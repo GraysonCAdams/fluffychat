@@ -279,8 +279,11 @@ pass.
   viewed) when any of its rooms does, and counts as unread for the
   unread-below chip and the pinned row when any room is unread. It sits in
   the pinned row when any of its rooms is pinned.
-- Avatar full size, with up to two network badges in the corner and "+N"
-  beyond that.
+- Avatar full size, with a round link badge in the corner whose ring is
+  split between the contact's network colours (`MergedBadge`). A chat on one
+  network shows that network's square badge instead. "Network badges in the
+  chat list" in style settings (`AppSettings.chatListNetworkBadges`, on by
+  default) hides both, in the main chat list and its pinned row only.
 - Search matches the contact name and each member room's name.
 - Long press (or right-click) selects chats, as in Google Messages
   (`lib/pages/chat_list/chat_list_selection.dart`). The selection bar

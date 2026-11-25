@@ -797,7 +797,7 @@ class _PinnedChat extends StatelessWidget {
                       ),
                     ),
                   // A selected chat shows only the check, without badges.
-                  if (selected)
+                  if (selected || !AppSettings.chatListNetworkBadges.value)
                     const SizedBox.shrink()
                   else if (contact != null)
                     Positioned(

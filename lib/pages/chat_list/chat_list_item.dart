@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/config/app_config.dart';
+import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/active_call_indicator.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
@@ -273,7 +274,8 @@ class _ChatListItemState extends State<ChatListItem> {
                               onTap: () => onLongPress?.call(context),
                             ),
                           ),
-                          if (selected)
+                          if (selected ||
+                              !AppSettings.chatListNetworkBadges.value)
                             const SizedBox.shrink()
                           else if (contact != null)
                             Positioned(

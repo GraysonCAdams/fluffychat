@@ -3093,6 +3093,14 @@
     "recordVoiceMessages": "Record voice messages",
     "recordVoiceMessagesDescription": "Shows a microphone in place of the send button while the message box is empty",
     "networkBubbleColors": "One color per network",
+    "chatListNetworkBadges": "Network badges in the chat list",
+    "@chatListNetworkBadges": {
+        "description": "Switch in style settings that shows or hides the network and linked-chat badges on avatars in the main chat list."
+    },
+    "chatListNetworkBadgesDescription": "Show which network each chat is on, or that chats are linked, on its picture.",
+    "@chatListNetworkBadgesDescription": {
+        "description": "Subtitle of the chat list network badges switch."
+    },
     "networkBubbleColorsDescription": "In a merged contact's chat, your bubbles take the color of the network each message was sent on. Off, they all use the theme color.",
     "networkBubbleColorsTitle": "Message colors by network",
     "networkDefaultColor": "Logo color",

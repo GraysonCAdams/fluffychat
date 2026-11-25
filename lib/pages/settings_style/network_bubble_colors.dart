@@ -105,6 +105,11 @@ class _NetworkBubbleColorsState extends State<NetworkBubbleColors> {
           ),
         ),
         SettingsSwitchListTile.adaptive(
+          title: l10n.chatListNetworkBadges,
+          subtitle: l10n.chatListNetworkBadgesDescription,
+          setting: AppSettings.chatListNetworkBadges,
+        ),
+        SettingsSwitchListTile.adaptive(
           title: l10n.networkBubbleColors,
           subtitle: l10n.networkBubbleColorsDescription,
           setting: AppSettings.networkBubbleColors,
