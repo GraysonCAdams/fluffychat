@@ -10,7 +10,9 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/dummy_chat_list_item.dart';
+import 'package:fluffychat/pages/chat_list/hold_then_drag.dart';
 import 'package:fluffychat/pages/chat_list/message_search_results.dart';
+import 'package:fluffychat/pages/chat_list/pinned_order.dart';
 import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
 import 'package:fluffychat/pages/chat_list/search_title.dart';
 import 'package:fluffychat/pages/chat_list/space_view.dart';
@@ -21,6 +23,7 @@ import 'package:fluffychat/widgets/adaptive_dialogs/public_room_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/merged_contacts/merge_suggestion_banner.dart';
 import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -517,9 +520,11 @@ class _UnreadBelowChip extends StatelessWidget {
   }
 }
 
-/// The pinned chats as one row that scrolls sideways, unread ones first.
-/// While unread pins lie beyond the right edge, a dot on that edge says so
-/// and scrolls to them when tapped.
+/// The pinned chats as one row that scrolls sideways, in the order the user
+/// gave them (see `pinned_order.dart`). Holding a pin still selects it;
+/// moving it after the hold drags it to a new place in the row. While
+/// unread pins lie beyond the right edge, a count on that edge says so and
+/// scrolls to the next one when tapped.
 class _PinnedRow extends StatefulWidget {
   final List<Room> rooms;
   final Map<String, Room> spaces;
@@ -553,7 +558,17 @@ class _PinnedRowState extends State<_PinnedRow> {
   /// How many unread pins are fully or partly past the right edge.
   final _hiddenUnread = ValueNotifier<int>(0);
 
-  int _unreadCount = 0;
+  /// The row positions of the unread pins, in row order.
+  List<int> _unreadIndexes = const [];
+
+  /// Whether a pin is being dragged, which hides the unread count.
+  bool _dragging = false;
+
+  /// Orders written by a drop but not yet back from the server, by room
+  /// ID, with the order the room had before. One is dropped as soon as the
+  /// room's stored order differs from that earlier order, whichever device
+  /// changed it.
+  final Map<String, ({double? before, double order})> _sentOrders = {};
 
   late final AppLifecycleListener _lifecycle;
   GoRouterDelegate? _router;
@@ -589,25 +604,116 @@ class _PinnedRowState extends State<_PinnedRow> {
     super.dispose();
   }
 
-  void _updateHiddenUnread() {
-    if (!_scrollController.hasClients) return;
+  /// The first row position that is not fully on screen.
+  int _firstCutOff() {
     final position = _scrollController.position;
     final rightEdge = position.pixels + position.viewportDimension;
-    // Unread pins come first, so they fill the first slots of the row.
-    final shown = ((rightEdge - _sidePadding) / _itemWidth).floor();
-    _hiddenUnread.value = (_unreadCount - shown).clamp(0, _unreadCount);
+    return ((rightEdge - _sidePadding) / _itemWidth).floor();
   }
+
+  void _updateHiddenUnread() {
+    if (!_scrollController.hasClients) return;
+    final cutOff = _firstCutOff();
+    _hiddenUnread.value = _unreadIndexes.where((i) => i >= cutOff).length;
+  }
+
+  /// Scrolls the next unread pin past the right edge fully into view.
+  void _showNextHiddenUnread() {
+    final cutOff = _firstCutOff();
+    final next = _unreadIndexes.firstWhere(
+      (i) => i >= cutOff,
+      orElse: () => -1,
+    );
+    if (next == -1) return;
+    final position = _scrollController.position;
+    _scrollController.animateTo(
+      (2 * _sidePadding + (next + 1) * _itemWidth - position.viewportDimension)
+          .clamp(0.0, position.maxScrollExtent),
+      duration: FluffyThemes.animationDuration,
+      curve: FluffyThemes.animationCurve,
+    );
+  }
+
+  /// The order a pinned room has in the row: one this row sent while the
+  /// server has not answered, else the stored one.
+  double? _roomOrder(Room room) =>
+      _sentOrders[room.id]?.order ?? storedPinOrder(room);
+
+  /// The order of a listed chat: the lowest of its pinned rooms' orders.
+  double? _chatOrder(Room room) => lowestPinOrder(
+    pinnedRoomsOf(
+      room,
+      widget.controller.mergedContactFor(room),
+    ).map(_roomOrder),
+  );
+
+  /// Stores the order of the row after a pin moved from [from] to [to], on
+  /// every pinned room of each chat whose order changes.
+  void _onReorder(List<Room> sorted, int from, int to) {
+    final orders = sorted.map(_chatOrder).toList();
+    final moved = List.of(sorted);
+    moved.insert(to, moved.removeAt(from));
+    final writes = pinOrdersAfterMove(orders, from, to);
+    final sent = <Room>[];
+    final futures = <Future<void>>[];
+    for (final MapEntry(key: index, value: order) in writes.entries) {
+      final chat = moved[index];
+      for (final room in pinnedRoomsOf(
+        chat,
+        widget.controller.mergedContactFor(chat),
+      )) {
+        _sentOrders[room.id] = (before: storedPinOrder(room), order: order);
+        sent.add(room);
+        futures.add(room.addTag(TagType.favourite, order: order));
+      }
+    }
+    setState(() {});
+    Future.wait(futures).catchError((Object e, StackTrace s) {
+      Logs().w('Could not store the order of the pinned chats', e, s);
+      if (!mounted) return const <void>[];
+      setState(() {
+        for (final room in sent) {
+          _sentOrders.remove(room.id);
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(L10n.of(context).oopsSomethingWentWrong)),
+      );
+      return const <void>[];
+    });
+  }
+
+  /// The dragged pin, lifted a little off the row.
+  Widget _decorateDragged(Widget child, int index, Animation<double> lift) =>
+      AnimatedBuilder(
+        animation: lift,
+        builder: (context, child) => Transform.scale(
+          scale: 1 + 0.1 * Curves.easeOut.transform(lift.value),
+          child: child,
+        ),
+        child: Material(type: MaterialType.transparency, child: child),
+      );
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final controller = widget.controller;
-    final unread = widget.rooms.where(controller.listedChatIsUnread);
-    final read = widget.rooms.where(
-      (room) => !controller.listedChatIsUnread(room),
-    );
-    final sorted = [...unread, ...read];
-    _unreadCount = unread.length;
+    for (final room in widget.rooms) {
+      for (final pinned in pinnedRoomsOf(
+        room,
+        controller.mergedContactFor(room),
+      )) {
+        final sent = _sentOrders[pinned.id];
+        if (sent != null && storedPinOrder(pinned) != sent.before) {
+          _sentOrders.remove(pinned.id);
+        }
+      }
+    }
+    final sorted = sortPins(widget.rooms, _chatOrder);
+    _unreadIndexes = [
+      for (var i = 0; i < sorted.length; i++)
+        if (controller.listedChatIsUnread(sorted[i])) i,
+    ];
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _updateHiddenUnread();
     });
@@ -616,7 +722,7 @@ class _PinnedRowState extends State<_PinnedRow> {
       height: 146,
       child: Stack(
         children: [
-          ListView.builder(
+          ReorderableList(
             controller: _scrollController,
             scrollDirection: Axis.horizontal,
             // Extra room above for the unread preview bubbles.
@@ -628,8 +734,13 @@ class _PinnedRowState extends State<_PinnedRow> {
             ),
             itemExtent: _itemWidth,
             itemCount: sorted.length,
+            onReorderStart: (_) => setState(() => _dragging = true),
+            onReorderEnd: (_) => setState(() => _dragging = false),
+            onReorderItem: (from, to) => _onReorder(sorted, from, to),
+            proxyDecorator: _decorateDragged,
             itemBuilder: (context, i) => _PinnedChat(
               key: ValueKey(sorted[i].id),
+              index: i,
               room: sorted[i],
               space: widget.spaces[sorted[i].id],
               spaces: widget.spaces,
@@ -643,20 +754,10 @@ class _PinnedRowState extends State<_PinnedRow> {
             bottom: 0,
             child: ValueListenableBuilder(
               valueListenable: _hiddenUnread,
-              builder: (context, hidden, _) => hidden == 0
+              builder: (context, hidden, _) => hidden == 0 || _dragging
                   ? const SizedBox.shrink()
                   : GestureDetector(
-                      onTap: () => _scrollController.animateTo(
-                        (_scrollController.offset +
-                                _scrollController.position.viewportDimension -
-                                _itemWidth)
-                            .clamp(
-                              0.0,
-                              _scrollController.position.maxScrollExtent,
-                            ),
-                        duration: FluffyThemes.animationDuration,
-                        curve: FluffyThemes.animationCurve,
-                      ),
+                      onTap: _showNextHiddenUnread,
                       child: Container(
                         width: 44,
                         alignment: Alignment.centerRight,
@@ -710,7 +811,11 @@ class _PinnedChat extends StatelessWidget {
   final Map<String, Room> spaces;
   final ChatListController controller;
 
+  /// The chat's position in the row, for dragging it.
+  final int index;
+
   const _PinnedChat({
+    required this.index,
     required this.room,
     required this.space,
     required this.controller,
@@ -720,6 +825,29 @@ class _PinnedChat extends StatelessWidget {
   });
 
   static const double _avatarSize = 76;
+
+  /// Hands a press to the row's reordering: a hold selects the chat as a
+  /// long press does, and moving after it lifts the chat to drag it, with
+  /// the selection put back as it was.
+  void _startDrag(BuildContext context, PointerDownEvent event) {
+    final list = SliverReorderableList.maybeOf(context);
+    if (list == null) return;
+    list.startItemDragReorder(
+      index: index,
+      event: event,
+      recognizer: HoldThenDragGestureRecognizer(
+        debugOwner: this,
+        onHold: () {
+          Feedback.forLongPress(context);
+          controller.toggleSelection(room);
+        },
+        onLift: () {
+          controller.toggleSelection(room);
+          HapticFeedback.selectionClick();
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -744,132 +872,140 @@ class _PinnedChat extends StatelessWidget {
               .replaceAll('\n', ' ')
         : null;
     return Center(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppConfig.borderRadius),
-        onTap: () => controller.onListedChatTap(room),
+      child: Semantics(
         onLongPress: () => controller.toggleSelection(room),
-        onSecondaryTap: () => controller.toggleSelection(room),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
+        child: Listener(
+          onPointerDown: (event) => _startDrag(context, event),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppConfig.borderRadius),
+            onTap: () => controller.onListedChatTap(room),
+            onSecondaryTap: () => controller.toggleSelection(room),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  SelectableAvatar(
-                    selected: selected,
-                    size: _avatarSize,
-                    child: Avatar(
-                      mxContent: contact?.avatar ?? room.avatar,
-                      name: name,
-                      size: _avatarSize,
-                      presenceUserId:
-                          (contact?.sendViaRoom ?? room).directChatMatrixID,
-                    ),
-                  ),
-                  // An unread pin shows its newest message in a small speech
-                  // bubble over the top of the avatar.
-                  if (preview != null)
-                    Positioned(
-                      top: -14,
-                      left: -10,
-                      right: -10,
-                      child: Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: theme.colorScheme.shadow.withAlpha(60),
-                                blurRadius: 4,
-                                offset: const Offset(0, 1),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      SelectableAvatar(
+                        selected: selected,
+                        size: _avatarSize,
+                        child: Avatar(
+                          mxContent: contact?.avatar ?? room.avatar,
+                          name: name,
+                          size: _avatarSize,
+                          presenceUserId:
+                              (contact?.sendViaRoom ?? room).directChatMatrixID,
+                        ),
+                      ),
+                      // An unread pin shows its newest message in a small speech
+                      // bubble over the top of the avatar.
+                      if (preview != null)
+                        Positioned(
+                          top: -14,
+                          left: -10,
+                          right: -10,
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
                               ),
-                            ],
-                          ),
-                          child: Text(
-                            preview,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurface,
-                              height: 1.15,
+                              decoration: BoxDecoration(
+                                color:
+                                    theme.colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: theme.colorScheme.shadow.withAlpha(
+                                      60,
+                                    ),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                preview,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurface,
+                                  height: 1.15,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  // A selected chat shows only the check, without badges.
-                  if (selected || !AppSettings.chatListNetworkBadges.value)
-                    const SizedBox.shrink()
-                  else if (contact != null)
-                    Positioned(
-                      right: -2,
-                      bottom: -2,
-                      child: MergedBadge(
-                        contact: contact,
-                        size: 24,
-                        outlineColor: theme.colorScheme.surface,
-                      ),
-                    )
-                  else if (space != null)
-                    Positioned(
-                      right: -2,
-                      bottom: -2,
-                      child: Avatar(
-                        shapeBorder: RoundedSuperellipseBorder(
-                          side: BorderSide(
-                            width: 2,
-                            color: theme.colorScheme.surface,
+                      // A selected chat shows only the check, without badges.
+                      if (selected || !AppSettings.chatListNetworkBadges.value)
+                        const SizedBox.shrink()
+                      else if (contact != null)
+                        Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: MergedBadge(
+                            contact: contact,
+                            size: 24,
+                            outlineColor: theme.colorScheme.surface,
                           ),
-                          borderRadius: BorderRadius.circular(
-                            AppConfig.spaceBorderRadius * 0.5,
+                        )
+                      else if (space != null)
+                        Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: Avatar(
+                            shapeBorder: RoundedSuperellipseBorder(
+                              side: BorderSide(
+                                width: 2,
+                                color: theme.colorScheme.surface,
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                AppConfig.spaceBorderRadius * 0.5,
+                              ),
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              AppConfig.spaceBorderRadius * 0.5,
+                            ),
+                            mxContent: space.avatar,
+                            size: 24,
+                            name: space.getLocalizedDisplayname(locals),
                           ),
                         ),
-                        borderRadius: BorderRadius.circular(
-                          AppConfig.spaceBorderRadius * 0.5,
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (unread)
+                        Container(
+                          width: 8,
+                          height: 8,
+                          margin: const EdgeInsets.only(right: 4),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                        mxContent: space.avatar,
-                        size: 24,
-                        name: space.getLocalizedDisplayname(locals),
+                      Flexible(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: unread ? FontWeight.w700 : null,
+                            color: unread ? theme.colorScheme.onSurface : null,
+                          ),
+                        ),
                       ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (unread)
-                    Container(
-                      width: 8,
-                      height: 8,
-                      margin: const EdgeInsets.only(right: 4),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  Flexible(
-                    child: Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: unread ? FontWeight.w700 : null,
-                        color: unread ? theme.colorScheme.onSurface : null,
-                      ),
-                    ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),

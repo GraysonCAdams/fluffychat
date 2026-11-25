@@ -6,7 +6,10 @@
 
 import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../utils/merged_contacts/fake_rooms.dart' show setMergedContacts;
 
 import 'chat_list_fakes.dart';
 
@@ -40,6 +43,38 @@ void main() {
     (widget) => widget is SelectableAvatar && widget.size == 76,
   );
 
+  /// The names of [names] in the order the pinned row shows them, left to
+  /// right. Pinned chats are left out of the list below it.
+  List<String> rowOrder(WidgetTester tester, List<String> names) =>
+      List.of(names)..sort(
+        (a, b) => tester
+            .getCenter(find.text(a))
+            .dx
+            .compareTo(tester.getCenter(find.text(b)).dx),
+      );
+
+  /// Presses the pin named [name], holds it still when [hold] is set, and
+  /// moves it [dx] sideways before letting go.
+  Future<void> drag(
+    WidgetTester tester,
+    String name,
+    double dx, {
+    bool hold = true,
+    PointerDeviceKind kind = PointerDeviceKind.touch,
+  }) async {
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text(name)),
+      kind: kind,
+    );
+    if (hold) await tester.pump(const Duration(milliseconds: 600));
+    for (var i = 0; i < 10; i++) {
+      await gesture.moveBy(Offset(dx / 10, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('the first pinned avatar lines up with the list avatars', (
     tester,
   ) async {
@@ -58,6 +93,145 @@ void main() {
       tester.getTopLeft(pinnedAvatars()).dx,
       tester.getTopLeft(listAvatar).dx,
     );
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('the row follows the stored order, not unread state', (
+    tester,
+  ) async {
+    chat('Ada', 3).pin(0.5);
+    chat('Bea', 2).pin(0.25);
+    chat('Cy', 1, unread: 2).pin(0.75);
+    await pumpFakeChatList(tester, client);
+
+    expect(rowOrder(tester, ['Ada', 'Bea', 'Cy']), ['Bea', 'Ada', 'Cy']);
+    // The unread pin keeps its unread look where it stands.
+    expect(find.text('hello from Cy'), findsOneWidget);
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('pins without an order follow the ordered ones, newest first', (
+    tester,
+  ) async {
+    chat('Ada', 5).pin();
+    chat('Bea', 4).pin();
+    chat('Cy', 1).pin(0.5);
+    await pumpFakeChatList(tester, client);
+
+    expect(rowOrder(tester, ['Ada', 'Bea', 'Cy']), ['Cy', 'Ada', 'Bea']);
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('a drop stores the midpoint of the new neighbours', (
+    tester,
+  ) async {
+    final ada = chat('Ada', 3)..pin(0.25);
+    final bea = chat('Bea', 2)..pin(0.5);
+    final cy = chat('Cy', 1)..pin(0.75);
+    await pumpFakeChatList(tester, client);
+
+    await drag(tester, 'Cy', -120);
+    expect(cy.calls, ['tag:m.favourite:0.375']);
+    expect(ada.calls, isEmpty);
+    expect(bea.calls, isEmpty);
+    // The row shows the new order before the server echoes it, and the
+    // hold's selection was put back when the pin lifted.
+    expect(rowOrder(tester, ['Ada', 'Bea', 'Cy']), ['Ada', 'Cy', 'Bea']);
+    expect(find.byType(ChatListSelectionBar), findsNothing);
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('a mouse drags a pin without holding it first', (tester) async {
+    chat('Ada', 3).pin(0.25);
+    final bea = chat('Bea', 2)..pin(0.5);
+    await pumpFakeChatList(tester, client);
+
+    await drag(tester, 'Bea', -120, hold: false, kind: PointerDeviceKind.mouse);
+    expect(bea.calls, ['tag:m.favourite:0.125']);
+    expect(rowOrder(tester, ['Ada', 'Bea']), ['Bea', 'Ada']);
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('a finger that moves before the hold scrolls instead', (
+    tester,
+  ) async {
+    chat('Ada', 3).pin(0.25);
+    final bea = chat('Bea', 2)..pin(0.5);
+    await pumpFakeChatList(tester, client);
+
+    await drag(tester, 'Bea', -120, hold: false);
+    expect(bea.calls, isEmpty);
+    expect(find.byType(ChatListSelectionBar), findsNothing);
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('a merged contact stores the order on each pinned room', (
+    tester,
+  ) async {
+    final imsg = chat('Harrison', 5)..pin(0.125);
+    final sms = chat('Harrison SMS', 4)..pin(0.125);
+    final sms2 = chat('Harrison SMS 2', 3);
+    final bea = chat('Bea', 2)..pin(0.5);
+    final cy = chat('Cy', 1)..pin(0.75);
+    setMergedContacts(client, {
+      'c_1': {
+        'rooms': [imsg.id, sms.id, sms2.id],
+        'send_via': imsg.id,
+        'updated': 1,
+      },
+    });
+    await pumpFakeChatList(tester, client);
+    expect(rowOrder(tester, ['Harrison', 'Bea', 'Cy']), [
+      'Harrison',
+      'Bea',
+      'Cy',
+    ]);
+
+    await drag(tester, 'Harrison', 120);
+    expect(imsg.calls, ['tag:m.favourite:0.625']);
+    expect(sms.calls, ['tag:m.favourite:0.625']);
+    // The contact's unpinned room stays unpinned.
+    expect(sms2.calls, isEmpty);
+    expect(bea.calls, isEmpty);
+    expect(cy.calls, isEmpty);
+    expect(rowOrder(tester, ['Harrison', 'Bea', 'Cy']), [
+      'Bea',
+      'Harrison',
+      'Cy',
+    ]);
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('a long press that does not move selects the pin', (
+    tester,
+  ) async {
+    final ada = chat('Ada', 3)..pin(0.25);
+    chat('Bea', 2).pin(0.5);
+    await pumpFakeChatList(tester, client);
+
+    await tester.longPress(find.text('Ada'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatListSelectionBar), findsOneWidget);
+    expect(find.byType(SelectedChatMark), findsOneWidget);
+    expect(ada.calls, isEmpty);
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('an unread pin past the right edge shows a count there', (
+    tester,
+  ) async {
+    // Ten pins are wider than the 800dp test screen; the unread one is
+    // last.
+    for (var i = 0; i < 10; i++) {
+      chat('Pin$i', 20 - i, unread: i == 9 ? 1 : 0).pin((i + 1) / 11);
+    }
+    await pumpFakeChatList(tester, client);
+    expect(find.text('1'), findsOneWidget);
+
+    await tester.tap(find.text('1'));
+    await tester.pumpAndSettle();
+    expect(find.text('1'), findsNothing);
+    expect(tester.getTopRight(find.text('Pin9')).dx, lessThanOrEqualTo(800));
     await finishFakeChatList(tester, client);
   });
 }
