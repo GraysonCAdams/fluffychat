@@ -41,7 +41,9 @@ enum AppSettings<T> {
   hideUnknownEvents<bool>('chat.fluffy.hideUnknownEvents', true),
   autoplayImages<bool>('chat.fluffy.autoplay_images', true),
   sendTypingNotifications<bool>('chat.fluffy.send_typing_notifications', true),
-  sendPublicReadReceipts<bool>('chat.fluffy.send_public_read_receipts', true),
+  // Off: reads are still marked with a private receipt, which clears unread
+  // counts on the account's own devices without telling the other side.
+  sendPublicReadReceipts<bool>('chat.fluffy.send_public_read_receipts', false),
   swipeRightToLeftToReply<bool>('chat.fluffy.swipeRightToLeftToReply', false),
   sendOnEnter<bool>('chat.fluffy.send_on_enter', false),
   voiceMessages<bool>('chat.fluffy.voice_messages', true),

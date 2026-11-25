@@ -3,7 +3,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
@@ -20,8 +19,6 @@ class ChatListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Narrow layouts pick a source from the filter chips, not a rail.
-    const oneColumnSpacesMode = false;
     return PopScope(
       canPop: !controller.isSearchMode && controller.activeSpaceId == null,
       onPopInvokedWithResult: (pop, _) {
@@ -65,29 +62,7 @@ class ChatListView extends StatelessWidget {
               excludeFromSemantics: true,
               behavior: HitTestBehavior.translucent,
               child: Scaffold(
-                backgroundColor: oneColumnSpacesMode
-                    ? Theme.of(context).colorScheme.surfaceContainer
-                    : null,
-                body: SafeArea(
-                  top: oneColumnSpacesMode,
-                  bottom: false,
-                  left: false,
-                  right: false,
-                  child: Material(
-                    clipBehavior: oneColumnSpacesMode
-                        ? Clip.hardEdge
-                        : Clip.none,
-                    borderRadius: oneColumnSpacesMode
-                        ? BorderRadius.only(
-                            topLeft: Radius.circular(AppConfig.borderRadius),
-                          )
-                        : null,
-                    color: oneColumnSpacesMode
-                        ? Theme.of(context).colorScheme.surface
-                        : null,
-                    child: ChatListViewBody(controller),
-                  ),
-                ),
+                body: Material(child: ChatListViewBody(controller)),
                 floatingActionButton:
                     !controller.isSearchMode &&
                         controller.activeSpaceId == null &&

@@ -12,6 +12,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/custom_http_client.dart';
 import 'package:fluffychat/utils/custom_image_resizer.dart';
 import 'package:fluffychat/utils/init_with_restore.dart';
+import 'package:fluffychat/utils/last_event_keeper.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call_member.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -119,7 +120,7 @@ abstract class ClientManager {
     final shareKeysWith = AppSettings.shareKeysWith.value;
     final enableSoftLogout = AppSettings.enableSoftLogout.value;
 
-    return Client(
+    final client = Client(
       clientName,
       httpClient: CustomHttpClient.createHTTPClient(),
       verificationMethods: {
@@ -162,6 +163,9 @@ abstract class ClientManager {
         seconds: AppSettings.sendTimelineEventTimeout.value,
       ),
     );
+    // Bridge bookkeeping in a limited sync must not replace a chat's preview.
+    LastEventKeeper.attach(client);
+    return client;
   }
 
   static WindowsInitializationSettings get windowsNotificationSettings =>

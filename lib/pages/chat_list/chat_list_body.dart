@@ -36,8 +36,6 @@ class ChatListViewBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     final client = Matrix.of(context).client;
     final activeSpace = controller.activeSpaceId;
     final spacesAsChatList = AppSettings.openSpacesAsChatList.value;
@@ -65,7 +63,6 @@ class ChatListViewBody extends StatelessWidget {
         .where((room) => room.roomType == 'm.space')
         .toList();
     final userSearchResult = controller.userSearchResult;
-    const dummyChatCount = 4;
     final filter = controller.searchController.text.toLowerCase();
     // Only the parts that show room data listen to the sync, each through
     // its own RoomUpdatesBuilder. The header and the search results depend on
@@ -724,7 +721,7 @@ class _PinnedChat extends StatelessWidget {
     final space = this.space;
     final preview = unread
         ? (contact?.lastEvent ?? room.lastEvent)
-              ?.calcLocalizedBodyFallback(
+              ?.calcLocalizedBody(
                 locals,
                 hideReply: true,
                 hideEdit: true,

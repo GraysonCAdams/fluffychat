@@ -146,11 +146,6 @@ class Message extends StatelessWidget {
     final alignment = ownMessage ? Alignment.topRight : Alignment.topLeft;
 
     var color = theme.colorScheme.surfaceContainerHigh;
-    final displayTime =
-        event.type == EventTypes.RoomCreate ||
-        previousEvent == null ||
-        !event.originServerTs.sameEnvironment(previousEvent!.originServerTs);
-
     final nextEventSameSender =
         nextEvent != null &&
         {EventTypes.Message, EventTypes.Sticker}.contains(nextEvent!.type) &&

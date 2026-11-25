@@ -14,6 +14,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat/chat_details_network_sheet.dart';
 import 'package:fluffychat/pages/chat/chat_view.dart';
 import 'package:fluffychat/pages/chat/event_info_dialog.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/gallery_picker_page.dart';
@@ -2402,6 +2403,16 @@ class ChatController extends State<ChatPageWithRoom>
   }
 
   late final ValueNotifier<bool> _displayChatDetailsColumn;
+
+  /// Opens this chat's details from its title or menu: for a merged chat,
+  /// the sheet that asks which network's details to open (see
+  /// [openChatDetails]).
+  void openDetails() => openChatDetails(
+    context,
+    room: room,
+    mergedContact: isMerged ? mergedContact : null,
+    toggleDetailsColumn: toggleDisplayChatDetailsColumn,
+  );
 
   Future<void> toggleDisplayChatDetailsColumn() async {
     await AppSettings.displayChatDetailsColumn.setItem(

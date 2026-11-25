@@ -3189,5 +3189,17 @@
     "noNetworkCanReach": "None of your networks can reach this person",
     "@noNetworkCanReach": {
         "description": "Shown in the start chat sheet when no connected network can reach the person."
+    },
+    "chooseNetwork": "Choose a network",
+    "@chooseNetwork": {
+        "description": "Subtitle of the chat details sheet of a merged chat, which lists the chat's networks to open one's details."
+    },
+    "linkedChats": "Linked chats",
+    "@linkedChats": {
+        "description": "Last row of the chat details sheet of a merged chat; opens the sheet that manages the chats merged into it."
+    },
+    "linkedChatsDescription": "Add, remove or unlink",
+    "@linkedChatsDescription": {
+        "description": "Subtitle of the Linked chats row in the chat details sheet of a merged chat."
     }
 }
