@@ -3,10 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/bridge_provisioning.dart';
+import 'package:fluffychat/utils/new_chat/bridge_directory.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:matrix/matrix.dart';
 
 /// The network the user picked in [StartChatSheet], with what that bridge
 /// resolved the person to.
@@ -16,6 +19,28 @@ class StartChatChoice {
   final BridgeUser resolved;
 
   const StartChatChoice(this.bridge, this.identifier, this.resolved);
+}
+
+/// Asks which of [client]'s networks to start a chat with [person] on, in
+/// a [StartChatSheet]. Null when the user closes the sheet or [client] has
+/// no bridges to ask.
+Future<StartChatChoice?> pickStartChatNetwork(
+  BuildContext context,
+  Client client,
+  NewChatPerson person,
+) async {
+  final directory = BridgeDirectory.forClient(client);
+  if (directory == null) return null;
+  final bridges = await directory.bridges();
+  if (!context.mounted) return null;
+  return showAdaptiveBottomSheet<StartChatChoice>(
+    context: context,
+    builder: (_) => StartChatSheet(
+      person: person,
+      bridges: bridges,
+      resolve: directory.api.resolveIdentifier,
+    ),
+  );
 }
 
 /// A bottom sheet listing the user's networks for [person], one row each,
