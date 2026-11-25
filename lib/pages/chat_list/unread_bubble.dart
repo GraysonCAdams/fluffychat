@@ -70,6 +70,15 @@ class UnreadBubble extends StatelessWidget {
                     : theme.colorScheme.onPrimaryContainer,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
+                // The line box is the glyph height with its spare leading
+                // split evenly above and below, so the digits sit in the
+                // middle of the badge whatever the platform font's ascent
+                // and descent (Segoe UI on Windows leaves them low).
+                height: 1,
+                leadingDistribution: TextLeadingDistribution.even,
+              ),
+              textHeightBehavior: const TextHeightBehavior(
+                leadingDistribution: TextLeadingDistribution.even,
               ),
               textAlign: .center,
             )
