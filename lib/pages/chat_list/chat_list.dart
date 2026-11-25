@@ -14,9 +14,11 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_view.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_list.dart';
+import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
 import 'package:fluffychat/utils/android_direct_share.dart';
 import 'package:fluffychat/utils/android_share_targets.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
@@ -32,7 +34,6 @@ import 'package:fluffychat/utils/show_update_snackbar.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_modal_action_popup.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_text_input_dialog.dart';
-import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/share_scaffold_dialog.dart';
 import 'package:flutter/services.dart';
@@ -271,6 +272,70 @@ class ChatListController extends State<ChatList>
       mergedContactFor(room)?.matchesSearch(filter, locals) ??
       room.getLocalizedDisplayname(locals).toLowerCase().contains(filter);
 
+  /// The chats picked by a long press, by [selectionKey]. While any are
+  /// picked, the selection bar replaces the header and a tap on a chat
+  /// picks or drops it instead of opening it.
+  final Set<String> _selection = {};
+
+  bool get selectionMode => _selection.isNotEmpty;
+
+  /// What identifies a listed chat in the selection. A merged contact is
+  /// keyed by its ID, since the room it is listed under changes with every
+  /// new message.
+  String selectionKey(Room room) {
+    final contact = mergedContactFor(room);
+    return contact == null ? room.id : 'contact:${contact.id}';
+  }
+
+  bool isSelected(Room room) => _selection.contains(selectionKey(room));
+
+  void toggleSelection(Room room) {
+    final key = selectionKey(room);
+    setState(() {
+      if (!_selection.remove(key)) _selection.add(key);
+    });
+  }
+
+  void clearSelection() {
+    if (_selection.isEmpty || !mounted) return;
+    setState(_selection.clear);
+  }
+
+  /// Drops selected chats that are not among [shown], the chats the list
+  /// shows now, for example after they were left or merged away.
+  void keepSelectedOnly(Iterable<Room> shown) {
+    if (_selection.isEmpty || !mounted) return;
+    final keys = {for (final room in shown) selectionKey(room)};
+    if (_selection.every(keys.contains)) return;
+    setState(() => _selection.retainWhere(keys.contains));
+  }
+
+  /// The selected chats, in list order.
+  List<SelectedChat> get selectedChats => [
+    for (final room in _mergedChatList.rooms)
+      if (_selection.contains(selectionKey(room)))
+        SelectedChat(room, mergedContactFor(room)),
+  ];
+
+  /// Escape on a keyboard clears the selection, as back does, unless a
+  /// dialog or menu is open over the list.
+  bool _onKey(KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.escape ||
+        !selectionMode ||
+        !mounted ||
+        ModalRoute.of(context)?.isCurrent == false) {
+      return false;
+    }
+    clearSelection();
+    return true;
+  }
+
+  /// A tap on a listed chat: opens it, or while chats are selected, picks
+  /// or drops it.
+  void onListedChatTap(Room room) =>
+      selectionMode ? toggleSelection(room) : onChatTap(room);
+
   bool isSearchMode = false;
   Future<QueryPublicRoomsResponse>? publicRoomsResponse;
   String? searchServer;
@@ -470,12 +535,19 @@ class ChatListController extends State<ChatList>
   /// so the tiles are built again with the new room data.
   void markRoomsUpdated() => _viewGeneration++;
 
-  (int, ChatListHeader)? _header;
+  (int, Widget)? _header;
 
-  ChatListHeader get header {
+  /// The list's app bar: the search header, or the selection bar while
+  /// chats are selected.
+  Widget get header {
     final cached = _header;
     if (cached != null && cached.$1 == _viewGeneration) return cached.$2;
-    final header = ChatListHeader(controller: this);
+    final header = selectionMode
+        ? RoomUpdatesBuilder(
+            client: Matrix.of(context).client,
+            builder: (context) => ChatListSelectionBar(controller: this),
+          )
+        : ChatListHeader(controller: this);
     _header = (_viewGeneration, header);
     return header;
   }
@@ -512,11 +584,10 @@ class ChatListController extends State<ChatList>
       contact: contact,
       networks: contact == null ? const [] : contact.networks(spaces),
       key: ValueKey(room.id),
-      onTap: () => onChatTap(room),
-      onLongPress: (context, [globalPosition]) => contact == null
-          ? chatContextAction(room, context, space, globalPosition)
-          : mergedContactContextAction(this, contact, context, globalPosition),
+      onTap: () => onListedChatTap(room),
+      onLongPress: (context, [position]) => toggleSelection(room),
       activeChat: active,
+      selected: isSelected(room),
     );
     _tiles[room.id] = (
       _viewGeneration,
@@ -629,6 +700,7 @@ class ChatListController extends State<ChatList>
     _initReceiveSharingIntent();
 
     scrollController.addListener(_onScroll);
+    HardwareKeyboard.instance.addHandler(_onKey);
     _waitForFirstSync();
     if (PlatformInfos.isMobile) {
       _callEventSubscription = FlutterCallkitIncoming.onEvent.listen(
@@ -702,6 +774,7 @@ class ChatListController extends State<ChatList>
     _callEventSubscription?.cancel();
     _onRoomTagUpdate?.cancel();
     _unwatchMergedContacts();
+    HardwareKeyboard.instance.removeHandler(_onKey);
     scrollController.removeListener(_onScroll);
     searchController.dispose();
     searchFocusNode.dispose();
@@ -721,405 +794,6 @@ class ChatListController extends State<ChatList>
       context,
       'Push Helper has been crashed',
     ).onErrorCallback(report.first, StackTrace.fromString(report.last));
-  }
-
-  /// Opens the chat's context menu at [globalPosition] (a right-click) or,
-  /// without one, hanging below the widget that [posContext] belongs to.
-  Future<void> chatContextAction(
-    Room room,
-    BuildContext posContext, [
-    Room? space,
-    Offset? globalPosition,
-  ]) async {
-    final overlay =
-        Overlay.of(posContext).context.findRenderObject() as RenderBox;
-
-    final Rect anchor;
-    if (globalPosition != null) {
-      anchor = overlay.globalToLocal(globalPosition) & Size.zero;
-    } else {
-      final button = posContext.findRenderObject() as RenderBox;
-      anchor =
-          button.localToGlobal(
-            button.size.bottomLeft(Offset.zero),
-            ancestor: overlay,
-          ) &
-          Size(button.size.width, 0);
-    }
-    final position = RelativeRect.fromRect(anchor, Offset.zero & overlay.size);
-
-    final spacesWithPowerLevels = room.client.rooms
-        .where(
-          (space) =>
-              space.isSpace &&
-              space.canChangeStateEvent(EventTypes.SpaceChild) &&
-              !space.spaceChildren.any((c) => c.roomId == room.id),
-        )
-        .toList();
-
-    var action = await showMenu<ChatContextAction>(
-      context: posContext,
-      position: position,
-      items: [
-        if (space != null) ...[
-          // The space labels the menu as a small, muted section header. It
-          // still opens the space when clicked, which the trailing icon hints.
-          PopupMenuItem(
-            value: ChatContextAction.goToSpace,
-            height: 32,
-            child: Semantics(
-              label: L10n.of(
-                context,
-              ).goToSpace(space.getLocalizedDisplayname()),
-              excludeSemantics: true,
-              child: Row(
-                mainAxisSize: .min,
-                children: [
-                  Avatar(
-                    mxContent: space.avatar,
-                    size: 16,
-                    name: space.getLocalizedDisplayname(),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      space.getLocalizedDisplayname(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.open_in_new,
-                    size: 12,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const PopupMenuDivider(),
-        ],
-        if (room.membership == Membership.join) ...[
-          PopupMenuItem(
-            value: ChatContextAction.mute,
-            child: Row(
-              mainAxisSize: .min,
-              children: [
-                Icon(
-                  room.pushRuleState == PushRuleState.notify
-                      ? Icons.notifications_off_outlined
-                      : Icons.notifications_off,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  room.pushRuleState == PushRuleState.notify
-                      ? L10n.of(context).muteChat
-                      : L10n.of(context).unmuteChat,
-                ),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: ChatContextAction.markUnread,
-            child: Row(
-              mainAxisSize: .min,
-              children: [
-                Icon(
-                  room.markedUnread
-                      ? Icons.mark_as_unread
-                      : Icons.mark_as_unread_outlined,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  room.markedUnread
-                      ? L10n.of(context).markAsRead
-                      : L10n.of(context).markAsUnread,
-                ),
-              ],
-            ),
-          ),
-          if (!room.isLowPriority)
-            PopupMenuItem(
-              value: ChatContextAction.favorite,
-              child: Row(
-                mainAxisSize: .min,
-                children: [
-                  Icon(
-                    room.isFavourite ? Icons.push_pin : Icons.push_pin_outlined,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    room.isFavourite
-                        ? L10n.of(context).unpin
-                        : L10n.of(context).pin,
-                  ),
-                ],
-              ),
-            ),
-          if (room.isDirectChat && !room.isSpace)
-            PopupMenuItem(
-              value: ChatContextAction.mergeWith,
-              child: Row(
-                mainAxisSize: .min,
-                children: [
-                  const Icon(Icons.call_merge_outlined),
-                  const SizedBox(width: 12),
-                  Text(L10n.of(context).mergeWith),
-                ],
-              ),
-            ),
-        ],
-        PopupMenuItem(
-          value: ChatContextAction.leave,
-          child: Row(
-            mainAxisSize: .min,
-            children: [
-              Icon(
-                Icons.delete_outlined,
-                color: Theme.of(context).colorScheme.onErrorContainer,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                room.membership == Membership.invite
-                    ? L10n.of(context).delete
-                    : L10n.of(context).leave,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onErrorContainer,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (room.membership == Membership.invite)
-          PopupMenuItem(
-            value: ChatContextAction.block,
-            child: Row(
-              mainAxisSize: .min,
-              children: [
-                Icon(
-                  Icons.block_outlined,
-                  color: Theme.of(context).colorScheme.onErrorContainer,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  L10n.of(context).block,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onErrorContainer,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        if (room.membership == Membership.join)
-          PopupMenuItem(
-            value: ChatContextAction.showMore,
-            child: Row(
-              mainAxisSize: .min,
-              children: [
-                Icon(Icons.adaptive.more_outlined),
-                const SizedBox(width: 12),
-                Text(L10n.of(context).more),
-              ],
-            ),
-          ),
-      ],
-    );
-    if (!posContext.mounted || !mounted) return;
-    if (action == ChatContextAction.showMore) {
-      action = await showMenu<ChatContextAction>(
-        context: posContext,
-        position: position,
-        items: [
-          if (!room.isFavourite)
-            PopupMenuItem(
-              value: ChatContextAction.lowPriority,
-              child: Row(
-                mainAxisSize: .min,
-                children: [
-                  Icon(
-                    room.isLowPriority
-                        ? Icons.low_priority
-                        : Icons.low_priority_outlined,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    room.isLowPriority
-                        ? L10n.of(context).unsetLowPriority
-                        : L10n.of(context).setLowPriority,
-                  ),
-                ],
-              ),
-            ),
-          if (activeTag == null)
-            PopupMenuItem(
-              value: ChatContextAction.addTag,
-              child: Row(
-                mainAxisSize: .min,
-                children: [
-                  Icon(Icons.bookmark_add_outlined),
-                  const SizedBox(width: 12),
-                  Text(L10n.of(context).addTag),
-                ],
-              ),
-            )
-          else
-            PopupMenuItem(
-              value: ChatContextAction.removeTag,
-              child: Row(
-                mainAxisSize: .min,
-                children: [
-                  Icon(Icons.bookmark_remove_outlined),
-                  const SizedBox(width: 12),
-                  Text(L10n.of(context).removeTag),
-                ],
-              ),
-            ),
-          if (spacesWithPowerLevels.isNotEmpty)
-            PopupMenuItem(
-              value: ChatContextAction.addToSpace,
-              child: Row(
-                mainAxisSize: .min,
-                children: [
-                  const Icon(Icons.group_work_outlined),
-                  const SizedBox(width: 12),
-                  Text(L10n.of(context).addToSpace),
-                ],
-              ),
-            ),
-        ],
-      );
-    }
-
-    if (action == null) return;
-    if (!mounted) return;
-
-    switch (action) {
-      case ChatContextAction.goToSpace:
-        setActiveSpace(space!.id);
-        return;
-      case ChatContextAction.favorite:
-        await showFutureLoadingDialog(
-          context: context,
-          future: () => room.setFavourite(!room.isFavourite),
-        );
-        return;
-      case ChatContextAction.markUnread:
-        await showFutureLoadingDialog(
-          context: context,
-          future: () => room.markUnread(!room.markedUnread),
-        );
-        return;
-      case ChatContextAction.mute:
-        await showFutureLoadingDialog(
-          context: context,
-          future: () => room.setPushRuleState(
-            room.pushRuleState == PushRuleState.notify
-                ? PushRuleState.mentionsOnly
-                : PushRuleState.notify,
-          ),
-        );
-        return;
-      case ChatContextAction.block:
-        final inviteEvent = await room.requestUser(room.client.userID!);
-        if (!mounted) return;
-        context.go(
-          '/rooms/settings/security/ignorelist',
-          extra: inviteEvent?.senderId,
-        );
-      case ChatContextAction.leave:
-        final confirmed = await showOkCancelAlertDialog(
-          context: context,
-          title: L10n.of(context).areYouSure,
-          message: L10n.of(context).archiveRoomDescription,
-          okLabel: L10n.of(context).leave,
-          cancelLabel: L10n.of(context).cancel,
-          isDestructive: true,
-        );
-        if (confirmed == OkCancelResult.cancel) return;
-        if (!mounted) return;
-
-        await showFutureLoadingDialog(context: context, future: room.leave);
-
-        return;
-      case ChatContextAction.addToSpace:
-        final space = await showModalActionPopup(
-          context: context,
-          title: L10n.of(context).space,
-          actions: spacesWithPowerLevels
-              .map(
-                (space) => AdaptiveModalAction(
-                  value: space,
-                  label: space.getLocalizedDisplayname(
-                    MatrixLocals(L10n.of(context)),
-                  ),
-                ),
-              )
-              .toList(),
-        );
-        if (space == null) return;
-        if (!mounted) return;
-        await showFutureLoadingDialog(
-          context: context,
-          future: () => space.setSpaceChild(room.id),
-        );
-      case ChatContextAction.lowPriority:
-        await showFutureLoadingDialog(
-          context: context,
-          future: () => room.setLowPriority(!room.isLowPriority),
-        );
-        return;
-      case ChatContextAction.addTag:
-        final existingTags = List.of(roomTags.keys);
-        existingTags.removeWhere(room.tags.containsKey);
-        String? tag;
-        if (existingTags.isNotEmpty) {
-          tag = await showModalActionPopup<String?>(
-            context: context,
-            actions: [
-              ...existingTags.map((tag) {
-                final displayTag = tag.replaceFirst('u.', '');
-                return AdaptiveModalAction(
-                  label: displayTag,
-                  value: displayTag,
-                );
-              }),
-              AdaptiveModalAction(
-                label: L10n.of(context).createNewTag,
-                value: null,
-              ),
-            ],
-          );
-          if (!mounted) return;
-        }
-        tag ??= await showTextInputDialog(
-          context: context,
-          title: L10n.of(context).addTag,
-          hintText: L10n.of(context).tagName,
-        );
-        final newTag = tag;
-        if (!mounted) return;
-        if (newTag == null) return;
-        await showFutureLoadingDialog(
-          context: context,
-          future: () => room.addTag('u.$newTag'),
-        );
-        return;
-      case ChatContextAction.removeTag:
-        await showFutureLoadingDialog(
-          context: context,
-          future: () => room.removeTag(activeTag!),
-        );
-        return;
-      case ChatContextAction.mergeWith:
-        await mergeChatWith(this, room);
-        return;
-      case ChatContextAction.showMore:
-        throw ('Should not be handled!');
-    }
   }
 
   Map<String, int> roomTags = {};
@@ -1412,18 +1086,3 @@ class ChatListController extends State<ChatList>
 }
 
 enum EditBundleAction { addToBundle, removeFromBundle }
-
-enum ChatContextAction {
-  goToSpace,
-  favorite,
-  lowPriority,
-  addTag,
-  removeTag,
-  markUnread,
-  mute,
-  leave,
-  addToSpace,
-  block,
-  mergeWith,
-  showMore,
-}

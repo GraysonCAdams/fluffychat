@@ -6,6 +6,7 @@
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/active_call_indicator.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/message_preview_cache.dart';
 import 'package:fluffychat/pages/chat_list/push_rule_state_cache.dart';
 import 'package:fluffychat/pages/chat_list/unread_bubble.dart';
@@ -58,8 +59,12 @@ class ChatListItem extends StatefulWidget {
   final List<Room?> networks;
   final bool activeChat;
 
-  /// Opens the context menu below [context]'s widget, or at [globalPosition]
-  /// when the item was right-clicked.
+  /// Whether the chat is picked in the chat list's selection mode: the row
+  /// is highlighted and a check stands in for the avatar.
+  final bool selected;
+
+  /// Called on a long press, a tap on the avatar, and a right-click, which
+  /// passes its [globalPosition]. [context] is the tile's.
   final void Function(BuildContext context, [Offset? globalPosition])?
   onLongPress;
   final void Function()? onForget;
@@ -69,6 +74,7 @@ class ChatListItem extends StatefulWidget {
   const ChatListItem(
     this.room, {
     this.activeChat = false,
+    this.selected = false,
     required this.onTap,
     this.onLongPress,
     this.onForget,
@@ -168,7 +174,8 @@ class _ChatListItemState extends State<ChatListItem> {
     final isFavourite = contact?.isFavourite ?? room.isFavourite;
     final isLowPriority = contact?.isLowPriority ?? room.isLowPriority;
     final hasNotifications = notificationCount > 0;
-    final backgroundColor = activeChat
+    final selected = widget.selected;
+    final backgroundColor = activeChat || selected
         ? theme.colorScheme.secondaryContainer
         : null;
 
@@ -192,6 +199,7 @@ class _ChatListItemState extends State<ChatListItem> {
           future: _heroUsers(room),
           builder: (context, _) => _mergeSemantics(
             hasOwnActions: oneTimeCode != null,
+            selected: selected,
             ListTile(
               minVerticalPadding: 16,
               // The wider left side is the gutter the unread dot sits in.
@@ -199,9 +207,9 @@ class _ChatListItemState extends State<ChatListItem> {
               onLongPress: () => onLongPress?.call(context),
               // The avatars show a picture or initials of the chat named in
               // the title and of its space, plus a presence dot, and their
-              // only action opens the same context menu as the tile's long
-              // press. Left in the tree each would become a separate screen
-              // reader stop that announces bare initials.
+              // only action selects the chat like the tile's long press.
+              // Left in the tree each would become a separate screen reader
+              // stop that announces bare initials.
               leading: ExcludeSemantics(
                 child: HoverBuilder(
                   builder: (context, hovered) => AnimatedScale(
@@ -233,34 +241,41 @@ class _ChatListItemState extends State<ChatListItem> {
                           // The chat itself gets the full-size avatar; the
                           // space it belongs to (for bridges, the network) is
                           // a small badge in the corner, outlined in the
-                          // tile's background so it reads as separate.
-                          Avatar(
-                            shapeBorder: room.isSpace
-                                ? RoundedSuperellipseBorder(
-                                    side: BorderSide(
-                                      width: 1,
-                                      color: theme.dividerColor,
-                                    ),
-                                    borderRadius: BorderRadius.circular(
-                                      AppConfig.spaceBorderRadius,
-                                    ),
-                                  )
-                                : null,
-                            borderRadius: room.isSpace
-                                ? BorderRadius.circular(
-                                    AppConfig.spaceBorderRadius,
-                                  )
-                                : null,
-                            mxContent: contact?.avatar ?? room.avatar,
+                          // tile's background so it reads as separate. A
+                          // selected chat shows a check instead of both.
+                          SelectableAvatar(
+                            selected: selected,
                             size: Avatar.defaultSize,
-                            name: displayname,
-                            presenceUserId:
-                                contact?.sendViaRoom.directChatMatrixID ??
-                                room.directChatMatrixID,
-                            presenceBackgroundColor: backgroundColor,
-                            onTap: () => onLongPress?.call(context),
+                            child: Avatar(
+                              shapeBorder: room.isSpace
+                                  ? RoundedSuperellipseBorder(
+                                      side: BorderSide(
+                                        width: 1,
+                                        color: theme.dividerColor,
+                                      ),
+                                      borderRadius: BorderRadius.circular(
+                                        AppConfig.spaceBorderRadius,
+                                      ),
+                                    )
+                                  : null,
+                              borderRadius: room.isSpace
+                                  ? BorderRadius.circular(
+                                      AppConfig.spaceBorderRadius,
+                                    )
+                                  : null,
+                              mxContent: contact?.avatar ?? room.avatar,
+                              size: Avatar.defaultSize,
+                              name: displayname,
+                              presenceUserId:
+                                  contact?.sendViaRoom.directChatMatrixID ??
+                                  room.directChatMatrixID,
+                              presenceBackgroundColor: backgroundColor,
+                              onTap: () => onLongPress?.call(context),
+                            ),
                           ),
-                          if (contact != null)
+                          if (selected)
+                            const SizedBox.shrink()
+                          else if (contact != null)
                             Positioned(
                               right: -4,
                               bottom: -4,
@@ -550,13 +565,20 @@ class _ChatListItemState extends State<ChatListItem> {
 
   /// Joins everything the tile shows into one screen reader stop: name,
   /// preview, time and unread count read as one chat, and the tile's tap and
-  /// long press stay its actions. The archive's delete button and the copy
-  /// code button ([hasOwnActions]) are actions of their own, so a tile that
-  /// has one is left unmerged.
-  Widget _mergeSemantics(Widget child, {bool hasOwnActions = false}) =>
-      widget.onForget == null && !hasOwnActions
-      ? MergeSemantics(child: child)
-      : child;
+  /// long press stay its actions. It reads as selected while picked in the
+  /// selection mode. The archive's delete button and the copy code button
+  /// ([hasOwnActions]) are actions of their own, so a tile that has one is
+  /// left unmerged.
+  Widget _mergeSemantics(
+    Widget child, {
+    bool hasOwnActions = false,
+    bool selected = false,
+  }) {
+    final tile = Semantics(selected: selected, child: child);
+    return widget.onForget == null && !hasOwnActions
+        ? MergeSemantics(child: tile)
+        : tile;
+  }
 }
 
 /// An outlined pill under the preview that copies a one-time passcode. As a

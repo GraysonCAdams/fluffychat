@@ -8,8 +8,8 @@ import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/dummy_chat_list_item.dart';
-import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/pages/chat_list/message_search_results.dart';
 import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
 import 'package:fluffychat/pages/chat_list/search_title.dart';
@@ -106,7 +106,7 @@ class ChatListViewBody extends StatelessWidget {
       key: ValueKey(client.userID.toString()),
       controller: controller.scrollController,
       slivers: [
-        if (activeSpaceRoom == null)
+        if (activeSpaceRoom == null || controller.selectionMode)
           controller.header
         else
           RoomUpdatesBuilder(
@@ -324,6 +324,8 @@ class ChatListViewBody extends StatelessWidget {
             final hasPins = pinnedRooms.isNotEmpty;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               controller.listedRooms.value = (rooms: listed, pins: hasPins);
+              // A selected chat that left the list is no longer selected.
+              controller.keepSelectedOnly([...listed, ...pinnedRooms]);
             });
             final roomIndexes = <String, int>{
               for (var i = 0; i < shownRooms.length; i++) shownRooms[i].id: i,
@@ -719,6 +721,7 @@ class _PinnedChat extends StatelessWidget {
         contact?.displayName(locals) ?? room.getLocalizedDisplayname(locals);
     final unread = contact?.isUnread ?? room.countsAsUnread;
     final space = this.space;
+    final selected = controller.isSelected(room);
     final preview = unread
         ? (contact?.lastEvent ?? room.lastEvent)
               ?.calcLocalizedBody(
@@ -734,10 +737,9 @@ class _PinnedChat extends StatelessWidget {
     return Center(
       child: InkWell(
         borderRadius: BorderRadius.circular(AppConfig.borderRadius),
-        onTap: () => controller.onChatTap(room),
-        onLongPress: () => contact == null
-            ? controller.chatContextAction(room, context, space)
-            : mergedContactContextAction(controller, contact, context),
+        onTap: () => controller.onListedChatTap(room),
+        onLongPress: () => controller.toggleSelection(room),
+        onSecondaryTap: () => controller.toggleSelection(room),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Column(
@@ -746,12 +748,16 @@ class _PinnedChat extends StatelessWidget {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Avatar(
-                    mxContent: contact?.avatar ?? room.avatar,
-                    name: name,
+                  SelectableAvatar(
+                    selected: selected,
                     size: _avatarSize,
-                    presenceUserId:
-                        (contact?.sendViaRoom ?? room).directChatMatrixID,
+                    child: Avatar(
+                      mxContent: contact?.avatar ?? room.avatar,
+                      name: name,
+                      size: _avatarSize,
+                      presenceUserId:
+                          (contact?.sendViaRoom ?? room).directChatMatrixID,
+                    ),
                   ),
                   // An unread pin shows its newest message in a small speech
                   // bubble over the top of the avatar.
@@ -790,7 +796,10 @@ class _PinnedChat extends StatelessWidget {
                         ),
                       ),
                     ),
-                  if (contact != null)
+                  // A selected chat shows only the check, without badges.
+                  if (selected)
+                    const SizedBox.shrink()
+                  else if (contact != null)
                     Positioned(
                       right: -2,
                       bottom: -2,

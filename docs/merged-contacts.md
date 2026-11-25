@@ -282,20 +282,31 @@ pass.
 - Avatar full size, with up to two network badges in the corner and "+N"
   beyond that.
 - Search matches the contact name and each member room's name.
-- Long press: Unmerge, Manage, plus the usual actions applied to every room
-  (mute, pin, mark read).
-- Entry points to merge: long press a direct chat -> "Merge with...", which
-  opens a picker of direct chats where several can be ticked at once, and
-  the suggestion banner. This branch's chat list has no multi-select mode,
-  so the picker takes the place of multi-selecting chats in the list.
+- Long press (or right-click) selects chats, as in Google Messages
+  (`lib/pages/chat_list/chat_list_selection.dart`). The selection bar
+  replaces the search header: close, count, then pin, mute, mark read or
+  unread, and leave, each applied to every room of a selected contact. Its
+  overflow menu holds the rest: for one contact Manage linked chats and
+  Unmerge; for one chat Merge with..., Go to space, tags and Block (invites);
+  for several, "Merge these chats" when they qualify. Add to space and low
+  priority apply to any selection of joined chats.
+- Entry points to merge: select a direct chat -> More -> "Merge with...",
+  which opens a picker of direct chats where several can be ticked at once;
+  select several chats -> More -> "Merge these chats"; and the suggestion
+  banner.
+- Which chats may merge is decided in one place
+  (`lib/utils/merged_contacts/merge_rules.dart`): a one-to-one conversation
+  takes one-to-one chats with the same phone number, a group takes group
+  chats with the same name, never both kinds, and either way only on a
+  network the conversation does not span yet. `mergeCandidates` lists the
+  chats that qualify for one conversation; `canMergeTogether` checks a set
+  of selected chats, treating a selected contact as its rooms and merging
+  into the first selected contact.
 - The chat's app bar ends its network switcher with a dashed "+" that
-  lists the chats which qualify (`mergeCandidates` in
-  `lib/pages/chat/add_merged_chat.dart`): a one-to-one chat takes
-  one-to-one chats with the same phone number, a group chat takes group
-  chats with the same name, and either way only on a network the
-  conversation does not span yet. With none, the "+" opens a dialog saying
-  so. This is the one way a group chat joins a
-  contact; suggestions and the picker list direct chats only.
+  lists `mergeCandidates` (`lib/pages/chat/add_merged_chat.dart`). With
+  none, the "+" opens a dialog saying so. The "+" and "Merge these chats"
+  are the ways a group chat joins a contact; suggestions and the picker
+  list direct chats only.
 
 ### New chat
 
