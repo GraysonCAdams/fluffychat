@@ -118,8 +118,8 @@ class _AddMergedChatButtonState extends State<AddMergedChatButton> {
         context: context,
         title: l10n.noChatsToAdd,
         message: controller.room.isDirectChat
-            ? l10n.sameNumberOtherNetworks
-            : l10n.sameGroupNameOtherNetworks,
+            ? l10n.noMatchingChatByNumber
+            : l10n.noMatchingChatByGroupName,
       );
       return;
     }

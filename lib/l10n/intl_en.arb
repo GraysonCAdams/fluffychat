@@ -3144,7 +3144,15 @@
     "@sameGroupNameOtherNetworks": {
         "description": "Caption of the add-a-chat sheet in a group chat: which chats it lists."
     },
-    "noChatsToAdd": "No chats to add",
+    "noChatsToAdd": "No other chats found",
+    "noMatchingChatByNumber": "You don't have a chat with this number on any other network.",
+    "@noMatchingChatByNumber": {
+        "description": "Body of the dialog shown when the add-chat plus of a one-to-one chat finds nothing to merge in."
+    },
+    "noMatchingChatByGroupName": "You don't have a group with this name on any other network.",
+    "@noMatchingChatByGroupName": {
+        "description": "Body of the dialog shown when the add-chat plus of a group chat finds nothing to merge in."
+    },
     "@noChatsToAdd": {
         "description": "Title of the dialog shown when no chat can be merged into the open chat."
     },
