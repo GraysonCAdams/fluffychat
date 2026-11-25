@@ -279,6 +279,18 @@ pass.
   viewed) when any of its rooms does, and counts as unread for the
   unread-below chip and the pinned row when any room is unread. It sits in
   the pinned row when any of its rooms is pinned.
+- The pinned row above the list keeps the order the user drags it into,
+  whatever is unread (`_PinnedRow` in `lib/pages/chat_list/chat_list_body.dart`,
+  ordering in `lib/pages/chat_list/pinned_order.dart`). The order is the
+  `order` of each room's `m.favourite` tag, a number from 0 to 1, so it
+  reaches the user's other devices and clients that read it. A drop gives
+  the moved chat the midpoint of its new neighbours and numbers every pin
+  evenly only when no room is left between them. A contact takes the lowest
+  order of its pinned rooms, and a drop writes the same order to each of
+  them. Pins without an order (from a client that sets none) follow the
+  ordered ones in the SDK's room order, newest first, until moved. A
+  count on the row's right edge tells how many unread pins lie past it, and
+  a tap scrolls the next one into view.
 - Avatar full size, with a round link badge in the corner whose ring is
   split between the contact's network colours (`MergedBadge`). A chat on one
   network shows that network's square badge instead. "Network badges in the
@@ -286,8 +298,10 @@ pass.
   default) hides both, in the main chat list and its pinned row only.
 - Search matches the contact name and each member room's name.
 - Long press (or right-click) selects chats, as in Google Messages
-  (`lib/pages/chat_list/chat_list_selection.dart`). The selection bar
-  replaces the search header: close, count, then pin, mute, mark read or
+  (`lib/pages/chat_list/chat_list_selection.dart`). In the pinned row,
+  moving the finger after the hold lifts the chat to drag it and undoes the
+  hold's selection; a mouse drags at once. The selection bar replaces the
+  search header: close, count, then pin, mute, mark read or
   unread, and leave, each applied to every room of a selected contact. Its
   overflow menu holds the rest: for one contact Manage linked chats and
   Unmerge; for one chat Merge with..., Go to space, tags and Block (invites);
