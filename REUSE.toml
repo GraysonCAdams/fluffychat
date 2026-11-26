@@ -93,7 +93,7 @@ path = [
     "windows/runner/resources/app_icon.ico",
 ]
 precedence = "override"
-SPDX-FileCopyrightText = "2026 Grayson Adams"
+SPDX-FileCopyrightText = "2026 312.dev LLC"
 SPDX-License-Identifier = "LicenseRef-All-Rights-Reserved"
 
 [[annotations]]

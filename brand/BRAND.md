@@ -89,5 +89,5 @@ It needs Python 3 with Pillow, and Google Chrome to rasterise the SVGs. It rewri
 
 ## Licence
 
-The Seam name and these assets belong to Grayson Adams; all rights reserved (see `REUSE.toml`). They are
+The Seam name and these assets belong to 312.dev LLC; all rights reserved (see `REUSE.toml`). They are
 not covered by the app's AGPL licence.
