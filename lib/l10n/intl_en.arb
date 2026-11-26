@@ -3200,17 +3200,9 @@
     "@phoneNumber": {
         "description": "Second line of the New Chat row for a phone number typed into the search."
     },
-    "startChatOn": "Start a chat on",
-    "@startChatOn": {
-        "description": "Title of the sheet listing the networks (iMessage, Google Messages, ...) a new chat with a person can be started on."
-    },
-    "notOnThisNetwork": "Not reachable here",
-    "@notOnThisNetwork": {
-        "description": "Second line of a network in the start chat sheet when that network cannot reach the person."
-    },
     "noNetworkCanReach": "None of your networks can reach this person",
     "@noNetworkCanReach": {
-        "description": "Shown in the start chat sheet when no connected network can reach the person."
+        "description": "Shown in the empty conversation of the compose screen when every network answered that it cannot reach the person picked."
     },
     "chooseNetwork": "Choose a network",
     "@chooseNetwork": {
@@ -3294,10 +3286,6 @@
     "@groupChatNotAPerson": {
         "description": "Why a group chat in the results cannot be added to a new group."
     },
-    "startGroupOn": "Start the group on",
-    "@startGroupOn": {
-        "description": "Second line of the network picker when it picks the network of a new group."
-    },
     "groupNameOptional": "Group name (optional)",
     "@groupNameOptional": {
         "description": "Title of the compose screen's group name dialog, and label of the share page's group name field, on a network where the name may be left empty."
@@ -3316,7 +3304,7 @@
     },
     "networkCheckFailed": "Couldn't check: {error}",
     "@networkCheckFailed": {
-        "description": "Second line of a network in the start-chat network picker when its bridge failed to answer whether it reaches the person, with the bridge's reason. The row has a retry button.",
+        "description": "On the compose screen, under the To field next to a network's logo, when its bridge failed to answer whether it reaches the person picked, with the bridge's reason. A retry button follows it.",
         "placeholders": {
             "error": {
                 "type": "String"
@@ -3329,7 +3317,7 @@
     },
     "personNetworkCheckFailed": "{network} couldn't check {name}: {error}",
     "@personNetworkCheckFailed": {
-        "description": "Body of the dialog shown when a group's network failed to answer whether it reaches a person being added, with the bridge's reason. Its buttons are Try again and Cancel.",
+        "description": "Body of the dialog shown when a group's network failed to answer whether it reaches a person being added, with the bridge's reason; its buttons are Try again and Cancel. Also the tooltip of a faded network in the compose screen's network switcher when it failed to answer about someone in the group.",
         "placeholders": {
             "name": {
                 "type": "String"
@@ -3342,18 +3330,26 @@
             }
         }
     },
-    "composeChatOn": "On {network}",
-    "@composeChatOn": {
-        "description": "Label under the To field of the compose screen naming the network of the existing chat the first message goes to.",
+    "networkMakesNoGroups": "{network} can't start groups",
+    "@networkMakesNoGroups": {
+        "description": "Why a network in the compose screen's network switcher cannot be picked for a group, or why a second person cannot be added on it.",
         "placeholders": {
             "network": {
                 "type": "String"
             }
         }
     },
-    "composeNetworkOnSend": "You pick the network when you send",
-    "@composeNetworkOnSend": {
-        "description": "Label under the To field of the compose screen when one person with no chat yet is picked: the network is chosen in a sheet on send."
+    "checkingPersonOnNetwork": "Checking whether {name} is on {network}",
+    "@checkingPersonOnNetwork": {
+        "description": "Tooltip of a faded network in the compose screen's network switcher while its bridge is still asked whether it reaches a person in the group.",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            },
+            "network": {
+                "type": "String"
+            }
+        }
     },
     "composeNewGroupHint": "Your first message creates the group",
     "@composeNewGroupHint": {

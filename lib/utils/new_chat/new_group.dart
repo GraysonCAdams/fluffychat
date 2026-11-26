@@ -3,14 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /// Starting a group on one of the user's networks from New Chat, and
-/// adding people to a bridged group: the people picked so
-/// far, the network the first of them fixed (or the group's own), and the
-/// bridge calls behind it.
+/// adding people to a bridged group: the people picked so far, the network
+/// they are on (the one picked for the new group, or the group's own), and
+/// the bridge calls behind it.
 library;
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
-import 'package:fluffychat/pages/new_private_chat/start_chat_sheet.dart';
 import 'package:fluffychat/utils/bridge_provisioning.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_timeline.dart';
 import 'package:fluffychat/utils/message_effects.dart';
@@ -68,10 +67,10 @@ enum GroupBlock {
   member,
 }
 
-/// The people picked for a group. For a new group the first person fixes
-/// the [network], and removing everyone clears it; [GroupDraft.forRoom]
-/// picks people for a group that exists, on its own bridge. Either way only
-/// people the [bridge] reaches can be added.
+/// The people picked for a group. A new group's [network] is set with its
+/// first person in [start], and removing everyone clears it;
+/// [GroupDraft.forRoom] picks people for a group that exists, on its own
+/// bridge. Either way only people the [bridge] reaches can be added.
 class GroupDraft extends ChangeNotifier {
   GroupNetwork? _network;
   final List<GroupMember> _members = [];
@@ -193,8 +192,8 @@ BridgeGroupType? preferredGroupType(List<BridgeGroupType> types) =>
     types.where((type) => type.id == 'group').firstOrNull ?? types.firstOrNull;
 
 /// How New Chat and Add people reach the bridges and the chats: reading
-/// the people sources, picking a network for a person, starting chats and
-/// groups, sending the first message or a share, reading an
+/// the people sources, asking the networks whether they reach a person and
+/// which groups they create, starting chats and groups, sending the first message or a share, reading an
 /// existing chat's timeline, and finding and inviting people for a bridged
 /// group. Widget tests replace it with a fake.
 class NewChatDelivery {
@@ -212,49 +211,11 @@ class NewChatDelivery {
     return (await directory.bridges()).isNotEmpty;
   }
 
-  /// The network to start a chat with [person] on, from New Chat's network
-  /// picker; null when the user closed it.
-  Future<StartChatChoice?> pickNetwork(
-    BuildContext context,
-    Client client,
-    NewChatPerson person,
-  ) => pickStartChatNetwork(context, client, person);
-
-  /// The network for a group whose first member is [person]: the picker
-  /// lists only the bridges that create groups, iMessage first, and picks
-  /// by itself when one network reaches the person. Null when the user
-  /// closed it or no network creates groups.
-  Future<(GroupNetwork, BridgeUser)?> pickGroupNetwork(
-    BuildContext context,
-    Client client,
-    NewChatPerson person,
-  ) async {
+  /// The kind of group [bridge] creates, or null when it creates none.
+  Future<BridgeGroupType?> groupTypeOn(Client client, BridgeInfo bridge) async {
     final directory = BridgeDirectory.forClient(client);
     if (directory == null) return null;
-    final bridges = await directory.bridges();
-    final types = <String, BridgeGroupType>{};
-    await Future.wait(
-      bridges.map((bridge) async {
-        final type = preferredGroupType(await directory.groupTypes(bridge));
-        if (type != null) types[bridge.name] = type;
-      }),
-    );
-    if (!context.mounted) return null;
-    final choice = await pickStartChatNetwork(
-      context,
-      client,
-      person,
-      bridges: [
-        for (final bridge in bridges)
-          if (types.containsKey(bridge.name)) bridge,
-      ],
-      group: true,
-    );
-    if (choice == null) return null;
-    return (
-      GroupNetwork(choice.bridge, types[choice.bridge.name]!),
-      choice.resolved,
-    );
+    return preferredGroupType(await directory.groupTypes(bridge));
   }
 
   /// Whether [bridge] reaches [identifier]; null when it does not.
@@ -379,12 +340,12 @@ String groupBlockReason(L10n l10n, GroupBlock block, BridgeInfo? bridge) =>
       GroupBlock.member => l10n.alreadyInThisGroup,
     };
 
-/// Adds [person] to [draft], or removes them when they are in it. For a
-/// new group, the first person goes through the network picker, which
-/// fixes the group's network. Everyone else is checked against the draft's
-/// bridge: one it cannot reach is marked so and named in a snackbar, and
-/// one it names as a member of the existing group is marked a member. True
-/// when [person] was added.
+/// Adds [person] to [draft], or removes them when they are in it. They are
+/// checked against the draft's bridge, which must be set: one it cannot
+/// reach is marked so and named in a snackbar, one it fails to answer about
+/// is named with the reason and can be asked about again, and one it names
+/// as a member of the existing group is marked a member. True when [person]
+/// was added.
 Future<bool> toggleGroupMember(
   BuildContext context,
   Client client,
@@ -406,13 +367,7 @@ Future<bool> toggleGroupMember(
     return false;
   }
   final bridge = draft.bridge;
-  if (bridge == null) {
-    final picked = await delivery.pickGroupNetwork(context, client, person);
-    if (picked == null || draft.bridge != null) return false;
-    final (network, user) = picked;
-    draft.start(network, GroupMember(person, user));
-    return true;
-  }
+  if (bridge == null) return false;
   var user = person.bridgeUsers[bridge.name];
   if (user == null) {
     final identifier = identifierForBridge(person, bridge)!;

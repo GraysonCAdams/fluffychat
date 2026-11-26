@@ -335,9 +335,9 @@ List<NewChatPerson<C>> mergeNewChatPeople<C>({
   ];
 }
 
-/// [bridges] in the order the network picker lists them: iMessage, then
-/// Google Messages, then the rest as given.
-List<BridgeInfo> orderBridgesForPicker(List<BridgeInfo> bridges) {
+/// [bridges] in the order the compose screen's network switcher lists
+/// them: iMessage, then Google Messages, then the rest as given.
+List<BridgeInfo> orderBridgesForSwitcher(List<BridgeInfo> bridges) {
   int rank(BridgeInfo bridge) => switch (bridge.name) {
     'imessage' => 0,
     'gmessages' => 1,

@@ -2,22 +2,21 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat_input_row.dart';
 import 'package:fluffychat/pages/chat/composer_attachments.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
+import 'package:fluffychat/pages/chat/network_switcher_chips.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
-import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
-import 'package:fluffychat/utils/merged_contacts/networks.dart';
-import 'package:fluffychat/utils/new_chat/compose.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
 import 'package:fluffychat/utils/new_chat/new_group.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
-import 'package:fluffychat/widgets/matrix.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -31,6 +30,9 @@ class RecipientField extends StatelessWidget {
   final NewPrivateChatController controller;
 
   const RecipientField(this.controller, {super.key});
+
+  /// The widest a chip's name gets before it is cut short.
+  static const double _chipLabelWidth = 120;
 
   @override
   Widget build(BuildContext context) {
@@ -97,12 +99,42 @@ class RecipientField extends StatelessWidget {
                           key: ValueKey(
                             'recipient-chip-${groupMemberKey(person)}',
                           ),
+                          // Compact, so two typical names share a line at
+                          // phone width: the avatar and the remove button
+                          // take only their own size, without the chip's
+                          // default boxes around them.
+                          padding: const EdgeInsetsDirectional.only(
+                            start: 4,
+                            end: 2,
+                          ),
+                          labelPadding: const EdgeInsetsDirectional.only(
+                            start: 6,
+                            end: 2,
+                          ),
+                          avatarBoxConstraints: BoxConstraints.tight(
+                            const Size.square(20),
+                          ),
+                          deleteIconBoxConstraints: BoxConstraints.tight(
+                            const Size.square(18),
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
                           avatar: Avatar(
                             mxContent: person.avatar,
                             name: person.name,
-                            size: 24,
+                            size: 20,
                           ),
-                          label: Text(person.name),
+                          label: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: _chipLabelWidth,
+                            ),
+                            child: Text(
+                              person.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                           deleteButtonTooltipMessage: l10n.remove,
                           onDeleted: () => controller.removeRecipient(
                             groupMemberKey(person),
@@ -126,67 +158,84 @@ class RecipientField extends StatelessWidget {
   }
 }
 
-/// The network the first message goes out on, under the To field: the
-/// existing direct chat's bridge space, or for one person with no chat yet
-/// a note that the network is picked on send. A group shows none, as the
-/// composer's hint names its network, and neither does a chat on two or
-/// more networks, whose network buttons in the app bar show it.
-class ComposeNetworkLine extends StatelessWidget {
+/// The header's network switcher, for a first person in the To field on
+/// two or more networks: the chat page's [NetworkSwitcherChips], the
+/// selected network the one the conversation is on. In a group, the
+/// networks that cannot take everyone are faded, and a tap on one says why.
+class ComposeNetworkSwitcher extends StatelessWidget {
   final NewPrivateChatController controller;
 
-  const ComposeNetworkLine(this.controller, {super.key});
+  const ComposeNetworkSwitcher(this.controller, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final networks = controller.networks;
+    return NetworkSwitcherChips(
+      key: const ValueKey('compose-networks'),
+      networks: [
+        for (final network in networks)
+          NetworkSwitcherOption(
+            id: network.id,
+            name: network.name,
+            avatar: network.avatar,
+            blockedReason: controller.networkBlockOf(network),
+          ),
+      ],
+      selectedId: controller.selectedNetwork?.id,
+      onPick: controller.sending ? null : controller.selectNetwork,
+      onBlockedTap: (option) => controller.explainBlockedNetwork(
+        networks.firstWhere((network) => network.id == option.id),
+      ),
+    );
+  }
+}
+
+/// Under the To field, each network that failed to answer whether it
+/// reaches the first person, with the bridge's reason and a retry button,
+/// so a failing network never reads as one that does not know them.
+class ComposeNetworkCheckFailed extends StatelessWidget {
+  final NewPrivateChatController controller;
+
+  const ComposeNetworkCheckFailed(this.controller, {super.key});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
-    if (controller.group.isGroup ||
-        controller.conversationNetworks.isNotEmpty) {
-      return const SizedBox.shrink();
-    }
-    final sendRoom = controller.sendRoom;
-    final Widget leading;
-    final String label;
-    if (sendRoom != null) {
-      final space = spacesByChild(Matrix.of(context).client)[sendRoom.id];
-      if (space == null) return const SizedBox.shrink();
-      label = l10n.composeChatOn(
-        space.getLocalizedDisplayname(MatrixLocals(l10n)),
-      );
-      leading = Avatar(
-        mxContent: space.avatar,
-        name: label,
-        size: 20,
-        borderRadius: BorderRadius.circular(6),
-      );
-    } else if (controller.recipients.length == 1 &&
-        !isMatrixOnlyPerson(controller.recipients.single)) {
-      label = l10n.composeNetworkOnSend;
-      leading = Icon(
-        Icons.swap_horiz_outlined,
-        size: 20,
-        color: theme.colorScheme.onSurfaceVariant,
-      );
-    } else {
-      return const SizedBox.shrink();
-    }
+    final failed = controller.failedNetworks;
+    if (failed.isEmpty) return const SizedBox.shrink();
     return Padding(
-      key: const ValueKey('compose-network'),
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: Row(
-        spacing: 8,
+      key: const ValueKey('compose-check-failed'),
+      padding: const EdgeInsets.fromLTRB(16, 0, 4, 4),
+      child: Column(
         children: [
-          leading,
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+          for (final (bridge, error) in failed)
+            Row(
+              spacing: 8,
+              children: [
+                Avatar(
+                  mxContent: bridge.icon,
+                  name: bridge.displayName,
+                  size: 20,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                Expanded(
+                  child: Text(
+                    l10n.networkCheckFailed(error),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: l10n.tryAgain,
+                  icon: const Icon(Icons.refresh_outlined),
+                  onPressed: () => controller.retryNetwork(bridge),
+                ),
+              ],
             ),
-          ),
         ],
       ),
     );
@@ -497,8 +546,9 @@ class ComposeEmptyHistory extends StatelessWidget {
 /// The compose screen's composer, drawn as the chat's: a pill with the
 /// staged files and forwarded messages of a share, the message field and
 /// the send button at its end. Sending needs someone in the To field and
-/// some text or something staged. A long press on send offers iMessage's
-/// effects where the message goes out on iMessage.
+/// some text or something staged; it takes the colour of the network the
+/// message goes out on. A long press on send offers iMessage's effects
+/// where the message goes out on iMessage.
 class ComposeBar extends StatelessWidget {
   final NewPrivateChatController controller;
 
@@ -512,6 +562,15 @@ class ComposeBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
+    // The send button takes the colour of the network the message goes
+    // out on, as in a merged chat.
+    final networkColor = AppSettings.networkBubbleColors.value
+        ? controller.selectedNetwork?.color
+        : null;
+    final sendBackground = networkColor ?? theme.bubbleColor;
+    final sendForeground = networkColor == null
+        ? theme.onBubbleColor
+        : NetworkColors.foregroundOn(networkColor);
     return SafeArea(
       top: false,
       child: Padding(
@@ -588,16 +647,16 @@ class ComposeBar extends StatelessWidget {
                                 onPressed: enabled ? controller.send : null,
                                 onLongPress: enabled
                                     ? () => controller.onSendLongPress(
-                                        theme.bubbleColor,
-                                        theme.onBubbleColor,
+                                        sendBackground,
+                                        sendForeground,
                                       )
                                     : null,
                                 style: IconButton.styleFrom(
                                   fixedSize: const Size.square(40),
                                   minimumSize: const Size.square(40),
                                   padding: EdgeInsets.zero,
-                                  backgroundColor: theme.bubbleColor,
-                                  foregroundColor: theme.onBubbleColor,
+                                  backgroundColor: sendBackground,
+                                  foregroundColor: sendForeground,
                                   disabledBackgroundColor: theme
                                       .colorScheme
                                       .onSurface

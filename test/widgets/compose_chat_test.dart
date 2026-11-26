@@ -4,12 +4,14 @@
 
 // ignore_for_file: depend_on_referenced_packages, implementation_imports
 
+import 'dart:io';
+
 import 'package:cross_file/cross_file.dart';
+import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/composer_attachments.dart';
 import 'package:fluffychat/pages/chat/effects/message_effect_picker.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
-import 'package:fluffychat/pages/new_private_chat/start_chat_sheet.dart';
 import 'package:fluffychat/utils/android_direct_share.dart';
 import 'package:fluffychat/utils/bridge_provisioning.dart';
 import 'package:fluffychat/utils/message_effects.dart';
@@ -72,22 +74,20 @@ class _FakeDelivery extends NewChatDelivery {
   List<BridgeContactInput> bridgeContacts = const [];
   bool bridges = true;
 
-  /// What the group network picker answers; null is the user closing it.
-  GroupNetwork? groupNetwork = const GroupNetwork(_imessage, _imessageGroup);
-  final List<String> groupPicks = [];
+  /// The kind of group each bridge creates, by bridge name.
+  final Map<String, BridgeGroupType> groupTypes = {
+    'imessage': _imessageGroup,
+    'gmessages': _smsGroup,
+  };
 
-  /// The ghost the group network picker resolves each first member to.
-  final Map<String, String> ghosts = {'Quinn Imsg': _quinnGhost};
-
-  /// What `resolve_identifier` knows, by identifier.
+  /// What `resolve_identifier` knows, by bridge name and identifier.
   final Map<String, BridgeUser> reachable = {};
   final List<String> resolved = [];
 
-  /// What `resolve_identifier` throws instead of answering, when set.
+  /// What `resolve_identifier` throws instead of answering, for every
+  /// bridge, or by bridge name.
   Object? resolveError;
-
-  /// One entry per network picker opened for a direct chat.
-  final List<String> networkPicks = [];
+  final Map<String, Object> resolveErrors = {};
 
   /// One entry per direct chat started, and per group created (network,
   /// participants and name).
@@ -104,47 +104,18 @@ class _FakeDelivery extends NewChatDelivery {
   Future<void> loadSources(Client client, NewChatSources sources) async {
     sources.bridges = [_imessage, _gmessages, _telegram];
     sources.bridgeContacts = bridgeContacts;
+    // As the real sources do when the bridges answer.
+    sources.onChanged();
   }
 
   @override
   Future<bool> hasBridges(Client client) async => bridges;
 
-  /// When set, the group network picker is the real sheet, asking this
-  /// instead of the bridges.
-  Future<BridgeUser?> Function(BridgeInfo bridge, String identifier)?
-  sheetResolve;
-
   @override
-  Future<(GroupNetwork, BridgeUser)?> pickGroupNetwork(
-    BuildContext context,
+  Future<BridgeGroupType?> groupTypeOn(
     Client client,
-    NewChatPerson person,
-  ) async {
-    groupPicks.add(person.name);
-    final resolve = sheetResolve;
-    if (resolve != null) {
-      final choice = await showModalBottomSheet<StartChatChoice>(
-        context: context,
-        builder: (_) => StartChatSheet(
-          person: person,
-          bridges: const [_imessage, _gmessages],
-          resolve: resolve,
-          group: true,
-        ),
-      );
-      if (choice == null) return null;
-      final type = choice.bridge.name == 'imessage'
-          ? _imessageGroup
-          : _smsGroup;
-      return (GroupNetwork(choice.bridge, type), choice.resolved);
-    }
-    final network = groupNetwork;
-    if (network == null) return null;
-    return (
-      network,
-      BridgeUser(id: 'id-${person.name}', mxid: ghosts[person.name]),
-    );
-  }
+    BridgeInfo bridge,
+  ) async => groupTypes[bridge.name];
 
   @override
   Future<BridgeUser?> resolveOnNetwork(
@@ -153,20 +124,9 @@ class _FakeDelivery extends NewChatDelivery {
     String identifier,
   ) async {
     resolved.add('${bridge.name} $identifier');
-    final error = resolveError;
+    final error = resolveErrors[bridge.name] ?? resolveError;
     if (error != null) throw error;
-    return reachable[identifier];
-  }
-
-  @override
-  Future<StartChatChoice?> pickNetwork(
-    BuildContext context,
-    Client client,
-    NewChatPerson person,
-  ) async {
-    networkPicks.add(person.name);
-    final identifier = person.phone ?? person.name;
-    return StartChatChoice(_imessage, identifier, BridgeUser(id: identifier));
+    return reachable['${bridge.name} $identifier'];
   }
 
   @override
@@ -284,6 +244,7 @@ void main() {
             id: 'tel:+14045550101',
             name: 'Quinn Imsg',
             identifiers: ['tel:+14045550101'],
+            mxid: _quinnGhost,
           ),
         ),
         BridgeContactInput(
@@ -327,6 +288,7 @@ void main() {
     WidgetTester tester, {
     bool startGroup = false,
     SharedDraft? share,
+    bool appTheme = false,
   }) async {
     tester.view.physicalSize = const Size(1200, 3000);
     tester.view.devicePixelRatio = 3;
@@ -362,6 +324,12 @@ void main() {
           localizationsDelegates: L10n.localizationsDelegates,
           supportedLocales: L10n.supportedLocales,
           routerConfig: router,
+          builder: appTheme
+              ? (context, child) => Theme(
+                  data: FluffyThemes.buildTheme(context, Brightness.light),
+                  child: child!,
+                )
+              : null,
         ),
       ),
     );
@@ -412,8 +380,6 @@ void main() {
       isEmpty,
       reason: 'the search clears for the next person',
     );
-    // One person is not a group yet: no network is asked for.
-    expect(delivery.groupPicks, isEmpty);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
     await tester.pumpAndSettle();
@@ -450,25 +416,43 @@ void main() {
     expect(find.text('see you soon'), findsOneWidget);
     expect(groupTitle, findsNothing);
 
+    // A Matrix chat is on none of the user's networks.
+    expect(find.byKey(const ValueKey('compose-networks')), findsNothing);
+    expect(composerHint(tester), 'Write a message…');
+
     await sendMessage(tester, 'hi');
     expect(delivery.sent, ['!quade:x: hi']);
-    expect(delivery.networkPicks, isEmpty);
     expect(delivery.started, isEmpty);
     expect(find.text('chat !quade:x'), findsOneWidget);
   });
 
-  testWidgets('one new person: the first message starts the chat', (
+  testWidgets('one new person on one network: no switcher, no line under '
+      'the To field, and the first message starts the chat there', (
     tester,
   ) async {
     await pump(tester);
     await pick(tester, 'quinn', 'Quinn Imsg');
+    // The other networks were asked and do not reach Quinn.
+    expect(delivery.resolved, [
+      'gmessages +14045550101',
+      'telegram +14045550101',
+    ]);
     expect(find.text('Your first message starts the chat'), findsOneWidget);
-    expect(find.text('You pick the network when you send'), findsOneWidget);
+    expect(find.byKey(const ValueKey('compose-networks')), findsNothing);
+    expect(find.byKey(const ValueKey('compose-network')), findsNothing);
+    expect(find.text('You pick the network when you send'), findsNothing);
+    expect(find.text('On iMessage'), findsNothing);
+    expect(composerHint(tester), 'iMessage');
     expect(groupTitle, findsNothing);
 
-    await sendMessage(tester, 'hey');
-    expect(delivery.networkPicks, ['Quinn Imsg']);
-    expect(delivery.started, ['imessage +14045550101']);
+    await tester.enterText(messageField, 'hey');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('compose-send')));
+    await tester.pump();
+    // Nothing asks for the network on send.
+    expect(find.byType(BottomSheet), findsNothing);
+    await tester.pumpAndSettle();
+    expect(delivery.started, ['imessage $_quinnGhost']);
     expect(delivery.sent, ['!new-dm:x: hey']);
     expect(find.text('chat !new-dm:x'), findsOneWidget);
   });
@@ -478,7 +462,6 @@ void main() {
     await pump(tester);
     await pick(tester, 'quinn', 'Quinn Imsg');
     await pick(tester, 'quinby', 'Quinby Imsg');
-    expect(delivery.groupPicks, ['Quinn Imsg']);
     expect(chip('+14045550101'), findsOneWidget);
     expect(chip('+14045550102'), findsOneWidget);
     // The composer names the group's network; no line under the To field
@@ -544,7 +527,7 @@ void main() {
 
     await sendMessage(tester, 'yo');
     expect(delivery.created, [
-      'imessage/group id-Quinn Imsg,tel:+14045550102 "Trip"',
+      'imessage/group tel:+14045550101,tel:+14045550102 "Trip"',
     ]);
     expect(delivery.sent, ['!group:x: yo']);
     expect(find.text('chat !group:x'), findsOneWidget);
@@ -553,7 +536,6 @@ void main() {
   testWidgets('a network without group names shows no name field', (
     tester,
   ) async {
-    delivery.groupNetwork = const GroupNetwork(_gmessages, _smsGroup);
     delivery.bridgeContacts = [
       for (final contact in delivery.bridgeContacts)
         BridgeContactInput(_gmessages, contact.user),
@@ -568,7 +550,7 @@ void main() {
 
     await sendMessage(tester, 'yo');
     expect(delivery.created, [
-      'gmessages/group id-Quinn Imsg,tel:+14045550102 "null"',
+      'gmessages/group tel:+14045550101,tel:+14045550102 "null"',
     ]);
   });
 
@@ -608,16 +590,17 @@ void main() {
 
     await sendMessage(tester, 'yo');
     expect(delivery.created, [
-      'imessage/group id-Quinn Imsg,tel:+14045550102 "null"',
+      'imessage/group tel:+14045550101,tel:+14045550102 "null"',
     ]);
   });
 
   testWidgets('a network that needs a name holds Save and Send until set', (
     tester,
   ) async {
-    delivery.groupNetwork = const GroupNetwork(
-      _imessage,
-      BridgeGroupType(id: 'group', nameAllowed: true, nameRequired: true),
+    delivery.groupTypes['imessage'] = const BridgeGroupType(
+      id: 'group',
+      nameAllowed: true,
+      nameRequired: true,
     );
     await pump(tester);
     await pick(tester, 'quinn', 'Quinn Imsg');
@@ -646,7 +629,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('compose-send')));
     await tester.pumpAndSettle();
     expect(delivery.created, [
-      'imessage/group id-Quinn Imsg,tel:+14045550102 "Trip"',
+      'imessage/group tel:+14045550101,tel:+14045550102 "Trip"',
     ]);
   });
 
@@ -661,6 +644,7 @@ void main() {
             id: 'tel:+14045550101',
             name: 'Quinn',
             identifiers: ['tel:+14045550101'],
+            mxid: _quinnGhost,
           ),
         ),
         BridgeContactInput(
@@ -673,7 +657,6 @@ void main() {
           ),
         ),
       ];
-      delivery.ghosts['Quinn'] = _quinnGhost;
       await pump(tester);
       tester.view.physicalSize = const Size(412 * 3, 915 * 3);
       await tester.pumpAndSettle();
@@ -697,6 +680,52 @@ void main() {
           moreOrLessEquals(tester.getCenter(chip(key)).dy, epsilon: 1),
         );
       }
+    });
+
+    testWidgets('two typical names share the To row in the app\'s font', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        final loader = FontLoader('GoogleSansFlex');
+        for (final weight in ['Regular', 'Medium']) {
+          final file = File(
+            'assets/fonts/google_sans_flex/GoogleSansFlex-$weight.ttf',
+          );
+          loader.addFont(
+            Future.value(ByteData.sublistView(file.readAsBytesSync())),
+          );
+        }
+        await loader.load();
+      });
+      delivery.bridgeContacts = [
+        BridgeContactInput(
+          _imessage,
+          const BridgeUser(
+            id: 'tel:+14045550111',
+            name: 'Drew Andersen',
+            identifiers: ['tel:+14045550111'],
+            mxid: '@imessage_drew:x',
+          ),
+        ),
+        BridgeContactInput(
+          _imessage,
+          const BridgeUser(
+            id: 'tel:+14045550112',
+            name: 'Harrison Young',
+            identifiers: ['tel:+14045550112'],
+            mxid: '@imessage_harrison:x',
+          ),
+        ),
+      ];
+      await pump(tester, appTheme: true);
+      tester.view.physicalSize = const Size(412 * 3, 915 * 3);
+      await tester.pumpAndSettle();
+      await pick(tester, 'drew', 'Drew Andersen');
+      await pick(tester, 'harrison', 'Harrison Young');
+      final drew = tester.getRect(chip('+14045550111'));
+      final harrison = tester.getRect(chip('+14045550112'));
+      expect(harrison.center.dy, moreOrLessEquals(drew.center.dy, epsilon: 1));
+      expect(harrison.left, greaterThan(drew.right));
     });
 
     testWidgets('the field stays on the chips\' line with two chips', (
@@ -729,59 +758,227 @@ void main() {
     expect(tileOf(tester, 'Quill Sms').enabled, isTrue);
     await tester.tap(find.text('Quill Sms'));
     await tester.pumpAndSettle();
-    expect(delivery.resolved, ['imessage +14045550103']);
+    expect(delivery.resolved, contains('imessage +14045550103'));
     expect(chip('+14045550103'), findsNothing);
     expect(find.text('Quill Sms: Not on iMessage'), findsOneWidget);
   });
 
-  testWidgets('a network that fails to answer is shown, never skipped', (
-    tester,
-  ) async {
-    var appleDown = true;
-    final asked = <String>[];
-    delivery.sheetResolve = (bridge, identifier) async {
-      asked.add(bridge.name);
-      if (bridge.name == 'imessage' && appleDown) {
-        throw const BridgeProvisioningException(
-          'imessage',
-          statusCode: 500,
-          errcode: 'M_UNKNOWN',
-          error: 'user not found on iMessage',
-        );
-      }
-      return BridgeUser(id: '${bridge.name}-$identifier', mxid: _quinnGhost);
-    };
-    await pump(tester);
-    await pick(tester, 'quinn', 'Quinn Imsg');
-    await pick(tester, 'quinby', 'Quinby Imsg');
+  group('network switcher', () {
+    final networks = find.byKey(const ValueKey('compose-networks'));
+    Finder network(String name) =>
+        find.descendant(of: networks, matching: find.byTooltip(name));
 
-    // Google Messages reaches Quinn, but iMessage failing is no "not
-    // found": the sheet stays open with the bridge's reason.
-    expect(find.byType(StartChatSheet), findsOneWidget);
-    expect(
-      find.text("Couldn't check: user not found on iMessage"),
-      findsOneWidget,
-    );
-    expect(chip('+14045550102'), findsNothing);
-    expect(find.byKey(const ValueKey('group-network')), findsNothing);
-    expect(delivery.created, isEmpty);
+    testWidgets('a typed number two networks reach shows the switcher, '
+        'and the picked network starts the chat', (tester) async {
+      delivery.reachable['imessage +14045550199'] = const BridgeUser(
+        id: 'imsg-0199',
+      );
+      delivery.reachable['gmessages +14045550199'] = const BridgeUser(
+        id: 'gm-0199',
+      );
+      await pump(tester);
+      await tester.enterText(toField, '404-555-0199');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      expect(networks, findsOneWidget);
+      expect(network('iMessage'), findsOneWidget);
+      expect(network('Google Messages'), findsOneWidget);
+      expect(
+        tester.getCenter(network('iMessage')).dx,
+        lessThan(tester.getCenter(network('Google Messages')).dx),
+        reason: 'iMessage comes first, as in the network order',
+      );
+      // No chat with them yet: the first network that reaches them.
+      expect(composerHint(tester), 'iMessage');
 
-    appleDown = false;
-    await tester.tap(find.byTooltip('Try again'));
-    await tester.pumpAndSettle();
-    expect(asked.where((name) => name == 'imessage'), hasLength(2));
-    // Both networks answer now, so the user still picks.
-    expect(find.byType(StartChatSheet), findsOneWidget);
-    await tester.tap(
-      find.descendant(
-        of: find.byType(StartChatSheet),
-        matching: find.text('iMessage'),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(chip('+14045550102'), findsOneWidget);
-    expect(composerHint(tester), 'iMessage');
-    expect(delivery.created, isEmpty);
+      await tester.tap(network('Google Messages'));
+      await tester.pumpAndSettle();
+      expect(composerHint(tester), 'Google Messages');
+
+      await sendMessage(tester, 'hey');
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(delivery.started, ['gmessages +14045550199']);
+      expect(delivery.sent, ['!new-dm:x: hey']);
+    });
+
+    /// Quinn with a chat on each network, not merged: the iMessage one
+    /// older, the Google Messages one newer.
+    void addQuinnOnBoth() {
+      final imsg = addFakeChat(
+        client,
+        '!q-im:x',
+        'Quinn Imsg',
+        partner: _quinnGhost,
+        lastMessageTime: DateTime(2026, 11, 20),
+      );
+      final sms = addFakeChat(
+        client,
+        '!q-gm:x',
+        'Quinn Sms',
+        partner: '@gmessages_quinn:x',
+        lastMessageTime: DateTime(2026, 11, 24),
+      );
+      addFakeBridge(imsg, bot: _imessage.bridgeBot!);
+      addFakeBridge(sms, bot: _gmessages.bridgeBot!);
+      delivery.history[imsg.id] = [text(imsg, 'from imessage', _quinnGhost)];
+      delivery.history[sms.id] = [text(sms, 'from sms', '@gmessages_quinn:x')];
+      delivery.reachable['gmessages +14045550101'] = const BridgeUser(
+        id: 'gm-quinn',
+        mxid: '@gmessages_quinn:x',
+        dmRoomId: '!q-gm:x',
+      );
+    }
+
+    testWidgets('a person with a chat on each network starts on the most '
+        'recent one; picking another swaps the history and the hint', (
+      tester,
+    ) async {
+      addQuinnOnBoth();
+      await pump(tester);
+      await pick(tester, 'quinn', 'Quinn Imsg');
+      expect(networks, findsOneWidget);
+      expect(composerHint(tester), 'Google Messages');
+      expect(find.text('from sms'), findsOneWidget);
+      expect(find.text('from imessage'), findsNothing);
+
+      await tester.tap(network('iMessage'));
+      await tester.pumpAndSettle();
+      expect(composerHint(tester), 'iMessage');
+      expect(find.text('from imessage'), findsOneWidget);
+      expect(find.text('from sms'), findsNothing);
+
+      await sendMessage(tester, 'yo');
+      expect(delivery.sent, ['!q-im:x: yo']);
+      expect(delivery.started, isEmpty);
+      // A bubble looks its sender up in the database, whose transaction
+      // holds a ten-second timer in the test's fake time.
+      await tester.pump(const Duration(seconds: 11));
+    });
+
+    testWidgets('a group stays on the picked network; one someone is not on '
+        'is faded, says who, and does not pick', (tester) async {
+      delivery.reachable['gmessages +14045550101'] = const BridgeUser(
+        id: 'gm-quinn',
+      );
+      await pump(tester);
+      await pick(tester, 'quinn', 'Quinn Imsg');
+      expect(networks, findsOneWidget);
+      await pick(tester, 'quinby', 'Quinby Imsg');
+      expect(chip('+14045550102'), findsOneWidget);
+      expect(composerHint(tester), 'iMessage');
+      expect(
+        find.descendant(of: groupTitle, matching: find.text('New group chat')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: groupTitle,
+          matching: find.byIcon(Icons.edit_outlined),
+        ),
+        findsOneWidget,
+      );
+      // Quinby is on iMessage only.
+      expect(network('Quinby Imsg: Not on Google Messages'), findsOneWidget);
+      expect(network('Google Messages'), findsNothing);
+
+      await tester.tap(network('Quinby Imsg: Not on Google Messages'));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(SnackBar),
+          matching: find.text('Quinby Imsg: Not on Google Messages'),
+        ),
+        findsOneWidget,
+      );
+      expect(composerHint(tester), 'iMessage');
+      ScaffoldMessenger.of(tester.element(messageField)).hideCurrentSnackBar();
+      await tester.pumpAndSettle();
+
+      await sendMessage(tester, 'yo');
+      expect(delivery.created, [
+        'imessage/group tel:+14045550101,tel:+14045550102 "null"',
+      ]);
+    });
+
+    testWidgets('someone the picked network does not reach cannot be added', (
+      tester,
+    ) async {
+      delivery.reachable['gmessages +14045550101'] = const BridgeUser(
+        id: 'gm-quinn',
+      );
+      await pump(tester);
+      await pick(tester, 'quinn', 'Quinn Imsg');
+      await tester.tap(network('Google Messages'));
+      await tester.pumpAndSettle();
+      await pick(tester, 'quinby', 'Quinby Imsg');
+      expect(chip('+14045550102'), findsNothing);
+      expect(find.text('Quinby Imsg: Not on Google Messages'), findsOneWidget);
+      expect(composerHint(tester), 'Google Messages');
+    });
+
+    testWidgets('a network that fails to answer is shown with the reason and '
+        'a retry, never skipped', (tester) async {
+      delivery.resolveErrors['imessage'] = const BridgeProvisioningException(
+        'imessage',
+        statusCode: 500,
+        errcode: 'M_UNKNOWN',
+        error: 'lookup refused',
+      );
+      await pump(tester);
+      await tester.enterText(toField, '404-555-0199');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      // Google Messages answered it does not reach them, but iMessage
+      // failing is no "not found": nothing is picked and send stays off.
+      expect(find.text("Couldn't check: lookup refused"), findsOneWidget);
+      expect(find.text("Couldn't check this person"), findsOneWidget);
+      expect(networks, findsNothing);
+      await tester.enterText(messageField, 'hey');
+      await tester.pump();
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const ValueKey('compose-send')))
+            .onPressed,
+        isNull,
+      );
+
+      delivery.resolveErrors.clear();
+      delivery.reachable['imessage +14045550199'] = const BridgeUser(
+        id: 'imsg-0199',
+      );
+      await tester.tap(find.byTooltip('Try again'));
+      await tester.pumpAndSettle();
+      expect(
+        delivery.resolved.where((asked) => asked.startsWith('imessage')),
+        hasLength(2),
+      );
+      expect(find.text("Couldn't check: lookup refused"), findsNothing);
+      expect(composerHint(tester), 'iMessage');
+      await tester.tap(find.byKey(const ValueKey('compose-send')));
+      await tester.pumpAndSettle();
+      expect(delivery.started, ['imessage +14045550199']);
+    });
+
+    testWidgets('no network reaches them: says so and holds send', (
+      tester,
+    ) async {
+      await pump(tester);
+      await tester.enterText(toField, '404-555-0199');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('None of your networks can reach this person'),
+        findsOneWidget,
+      );
+      await tester.enterText(messageField, 'hey');
+      await tester.pump();
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const ValueKey('compose-send')))
+            .onPressed,
+        isNull,
+      );
+    });
   });
 
   testWidgets('a later person the network fails on is named with the reason', (
@@ -805,7 +1002,7 @@ void main() {
     expect(chip('+14045550103'), findsNothing);
 
     delivery.resolveError = null;
-    delivery.reachable['+14045550103'] = const BridgeUser(
+    delivery.reachable['imessage +14045550103'] = const BridgeUser(
       id: 'tel:+14045550103',
     );
     await tester.tap(find.text('Try again'));
@@ -884,14 +1081,13 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       await tester.pump(const Duration(seconds: 1));
       expect(delivery.created, [
-        'imessage/group id-Quinn Imsg,tel:+14045550102 "null"',
+        'imessage/group tel:+14045550101,tel:+14045550102 "null"',
       ]);
       expect(delivery.sent, ['!group:x: yo [${MessageEffect.fireworks.id}]']);
       expect(find.text('chat !group:x'), findsOneWidget);
     });
 
     testWidgets('not offered for a Google Messages group', (tester) async {
-      delivery.groupNetwork = const GroupNetwork(_gmessages, _smsGroup);
       delivery.bridgeContacts = [
         for (final contact in delivery.bridgeContacts)
           BridgeContactInput(_gmessages, contact.user),
@@ -1047,8 +1243,45 @@ void main() {
       await tester.pumpAndSettle();
       expect(delivery.shared, ['!q-sms:x: photo.jpg 0 ""']);
       expect(find.text('contact c_q'), findsOneWidget);
-      // The contacts store's merge suggestions run after a change.
-      await tester.pump(const Duration(seconds: 4));
+      // The contacts store's merge suggestions run after a change, and
+      // each network's history is read in a database transaction that
+      // holds a ten-second timer in the test's fake time.
+      await tester.pump(const Duration(seconds: 11));
+    });
+
+    testWidgets('a recent chat joined by its contact gets the networks its '
+        'number reaches', (tester) async {
+      final imsg = addFakeChat(
+        client,
+        '!q-im:x',
+        'Quinn Imsg',
+        partner: _quinnGhost,
+        lastMessageTime: DateTime(2026, 11, 25),
+      );
+      addFakeBridge(imsg, bot: _imessage.bridgeBot!);
+      delivery.reachable['gmessages +14045550101'] = const BridgeUser(
+        id: 'gm-quinn',
+      );
+      await pump(tester, share: SharedDraft([FileShareItem(photo)]));
+      await tester.tap(
+        find.descendant(of: recent, matching: find.text('Quinn Imsg')),
+      );
+      await tester.pumpAndSettle();
+      expect(networks, findsOneWidget);
+      expect(composerHint(tester), 'iMessage');
+      expect(stagedFiles(tester), [photo]);
+
+      await tester.tap(
+        find.descendant(
+          of: networks,
+          matching: find.byTooltip('Google Messages'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('compose-send')));
+      await tester.pumpAndSettle();
+      expect(delivery.started, ['gmessages +14045550101']);
+      expect(delivery.shared, ['!new-dm:x: photo.jpg 0 ""']);
     });
 
     testWidgets('sent from the share sheet, Seam returns to the sharing app '
@@ -1076,7 +1309,7 @@ void main() {
       expect(returns, [
         {'toast': 'Sent to Quinn Merged on Google Messages'},
       ]);
-      await tester.pump(const Duration(seconds: 4));
+      await tester.pump(const Duration(seconds: 11));
     });
 
     testWidgets('back without sending sends nothing and returns to the '

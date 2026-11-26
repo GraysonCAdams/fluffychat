@@ -6,7 +6,6 @@
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
-import 'package:fluffychat/pages/chat/chat_app_bar_title.dart';
 import 'package:fluffychat/pages/new_private_chat/compose_widgets.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
@@ -28,8 +27,9 @@ import '../../widgets/qr_code_viewer.dart';
 
 /// The compose screen: the To field on top, the conversation with those
 /// people in the middle, the composer at the bottom. While a name is typed
-/// into the To field, the suggestions cover the conversation. A new group
-/// on a network that takes a name is named from the title.
+/// into the To field, the suggestions cover the conversation. The header
+/// holds the network switcher for a first person on two or more networks.
+/// A new group on a network that takes a name is named from the title.
 class NewPrivateChatView extends StatelessWidget {
   final NewPrivateChatController controller;
 
@@ -53,6 +53,12 @@ class NewPrivateChatView extends StatelessWidget {
       body = controller.sharing
           ? _RecentPeople(controller)
           : _StartList(controller);
+    } else if (controller.unreachable) {
+      body = ComposeEmptyHistory(
+        text: controller.failedNetworks.isEmpty
+            ? l10n.noNetworkCanReach
+            : l10n.networkCheckFailedTitle,
+      );
     } else {
       body = ComposeEmptyHistory(
         text: controller.group.isGroup
@@ -60,19 +66,21 @@ class NewPrivateChatView extends StatelessWidget {
             : l10n.composeNewChatHint,
       );
     }
-    // The composer names the network the message goes out on: the chat's
-    // bridge space (the one picked with the network buttons), else the
-    // group's network.
-    final locals = MatrixLocals(l10n);
+    // The composer names the network the message goes out on: the one
+    // selected for the conversation, else the chat's bridge space.
+    final selected = controller.selectedNetwork;
     final sendRoom = controller.sendRoom;
     final hintText =
+        (selected != null && selected.isNetwork ? selected.name : null) ??
         (sendRoom == null
             ? null
             : spacesByChild(
                 client,
-              )[sendRoom.id]?.getLocalizedDisplayname(locals)) ??
-        controller.group.bridge?.displayName ??
+              )[sendRoom.id]?.getLocalizedDisplayname(MatrixLocals(l10n))) ??
         l10n.writeAMessage;
+    final checking =
+        !controller.showNetworkSwitcher &&
+        (controller.firstReach?.asking ?? false);
     return Scaffold(
       appBar: AppBar(
         scrolledUnderElevation: 0,
@@ -84,17 +92,21 @@ class NewPrivateChatView extends StatelessWidget {
             ? GroupTitleButton(controller)
             : Text(controller.group.isGroup ? l10n.newGroupChat : l10n.newChat),
         backgroundColor: theme.scaffoldBackgroundColor,
-        // A conversation on two or more networks: the chat's network
-        // buttons pick the one the message goes out on.
+        // A first person on two or more networks: the switcher picks the
+        // one the conversation is on. While the networks are still asked
+        // about them, a spinner holds its place.
         actions: [
-          if (sendRoom != null && controller.conversationNetworks.isNotEmpty)
+          if (controller.showNetworkSwitcher)
             Padding(
               padding: const EdgeInsets.only(left: 8, right: 12),
-              child: NetworkSwitcherChips(
-                key: const ValueKey('compose-networks'),
-                networks: controller.conversationNetworks,
-                selectedRoomId: sendRoom.id,
-                onPick: controller.pickSendRoom,
+              child: ComposeNetworkSwitcher(controller),
+            )
+          else if (checking)
+            const Padding(
+              padding: EdgeInsets.only(left: 8, right: 20),
+              child: SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
               ),
             ),
         ],
@@ -102,7 +114,7 @@ class NewPrivateChatView extends StatelessWidget {
       body: Column(
         children: [
           RecipientField(controller),
-          ComposeNetworkLine(controller),
+          ComposeNetworkCheckFailed(controller),
           Divider(height: 1, color: theme.colorScheme.outlineVariant),
           Expanded(
             child: Stack(

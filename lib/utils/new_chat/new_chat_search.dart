@@ -8,7 +8,6 @@
 library;
 
 import 'package:fluffychat/pages/chat_list/merged_contact_list.dart';
-import 'package:fluffychat/pages/new_private_chat/start_chat_sheet.dart';
 import 'package:fluffychat/utils/bridge_provisioning.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/contact_identifiers.dart';
@@ -233,6 +232,16 @@ class NewChatSources {
 
 /// How long [awaitBridgedRoom] waits for a new room to come down the sync.
 const Duration newChatRoomTimeout = Duration(seconds: 30);
+
+/// The network a direct chat starts on, with what that bridge resolved the
+/// person to and the [identifier] it was asked about.
+class StartChatChoice {
+  final BridgeInfo bridge;
+  final String identifier;
+  final BridgeUser resolved;
+
+  const StartChatChoice(this.bridge, this.identifier, this.resolved);
+}
 
 /// The room of [choice]: the existing direct chat the bridge reported, or
 /// one `create_dm` starts. Waits until the room is on this client and joins

@@ -49,6 +49,18 @@ class BridgeProvisioningException implements Exception {
       'BridgeProvisioningException($bridge, $statusCode, $errcode: $error)';
 }
 
+/// What a bridge said when it failed to answer: its error message, else its
+/// error code, else the HTTP status; for anything else, the error itself.
+String bridgeErrorReason(Object error) {
+  if (error is BridgeProvisioningException) {
+    final status = error.statusCode;
+    return error.error ??
+        error.errcode ??
+        (status == null ? error.toString() : 'HTTP $status');
+  }
+  return error.toString();
+}
+
 /// One bridge the user is logged in to, from its `whoami`.
 class BridgeInfo {
   /// The proxy name, one of [provisionedBridgeNames].

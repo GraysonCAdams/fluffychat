@@ -8,6 +8,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/add_merged_chat.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/chat/merged_network_menu.dart';
+import 'package:fluffychat/pages/chat/network_switcher_chips.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
@@ -365,23 +366,29 @@ class ChatNetworkIcons extends StatelessWidget {
     final room = controller.room;
     final locals = MatrixLocals(L10n.of(context));
     final merged = controller.mergedContact != null && controller.isMerged;
-    // (space, room to send to) per network.
-    final entries = <(Room, String)>[];
+    // One button per bridge space, picking the room to send to.
+    NetworkSwitcherOption option(Room space, String roomId) =>
+        NetworkSwitcherOption(
+          id: roomId,
+          name: space.getLocalizedDisplayname(locals),
+          avatar: space.avatar,
+        );
+    final entries = <NetworkSwitcherOption>[];
     if (merged) {
       for (final network
           in controller.mergedNetworks(locals) ?? const <MergedNetwork>[]) {
         final space = network.space;
-        if (space != null) entries.add((space, network.room.id));
+        if (space != null) entries.add(option(space, network.room.id));
       }
     } else {
       final space = spacesByChild(room.client)[room.id];
-      if (space != null) entries.add((space, room.id));
+      if (space != null) entries.add(option(space, room.id));
     }
     if (entries.isEmpty) return const SizedBox.shrink();
     final locked = merged && controller.composerTarget.locked;
     return NetworkSwitcherChips(
       networks: entries,
-      selectedRoomId: merged ? controller.composerTarget.roomId : room.id,
+      selectedId: merged ? controller.composerTarget.roomId : room.id,
       onPick: merged && !locked
           ? (roomId) {
               controller.setMergedSendVia(roomId);
@@ -392,109 +399,6 @@ class ChatNetworkIcons extends StatelessWidget {
         controller,
         width: NetworkSwitcherChips.width,
         height: NetworkSwitcherChips.height,
-      ),
-    );
-  }
-}
-
-/// A row of network buttons, one per bridge space, joined into one
-/// segmented group: the network of [selectedRoomId] is highlighted, and a
-/// tap on another one picks its room through [onPick]. Without [onPick]
-/// the buttons only show the networks. [trailing], such as the add-chat
-/// plus, is the group's last segment.
-class NetworkSwitcherChips extends StatelessWidget {
-  /// (bridge space, room to send to) per network.
-  final List<(Room, String)> networks;
-  final String selectedRoomId;
-  final void Function(String roomId)? onPick;
-  final Widget? trailing;
-
-  const NetworkSwitcherChips({
-    required this.networks,
-    required this.selectedRoomId,
-    required this.onPick,
-    this.trailing,
-    super.key,
-  });
-
-  static const height = 32.0;
-  static const width = 40.0;
-  static const _iconSize = 20.0;
-  static const _outer = Radius.circular(height / 2);
-  static const _inner = Radius.circular(8);
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final locals = MatrixLocals(L10n.of(context));
-    final onPick = this.onPick;
-    final trailing = this.trailing;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      spacing: 2,
-      children: [
-        for (final (index, (space, roomId)) in networks.indexed)
-          _button(
-            context,
-            theme,
-            space: space,
-            name: space.getLocalizedDisplayname(locals),
-            selected: roomId == selectedRoomId,
-            first: index == 0,
-            last: trailing == null && index == networks.length - 1,
-            onTap: onPick != null && roomId != selectedRoomId
-                ? () => onPick(roomId)
-                : null,
-          ),
-        ?trailing,
-      ],
-    );
-  }
-
-  Widget _button(
-    BuildContext context,
-    ThemeData theme, {
-    required Room space,
-    required String name,
-    required bool selected,
-    required bool first,
-    required bool last,
-    required void Function()? onTap,
-  }) {
-    final radius = BorderRadius.horizontal(
-      left: first ? _outer : _inner,
-      right: last ? _outer : _inner,
-    );
-    return Tooltip(
-      message: name,
-      child: AnimatedContainer(
-        duration: FluffyThemes.animationDuration,
-        curve: FluffyThemes.animationCurve,
-        height: height,
-        width: width,
-        decoration: BoxDecoration(
-          // Quieter than the spec's selected tonal color, which outshines
-          // a network's own logo.
-          color: selected
-              ? theme.colorScheme.secondaryContainer
-              : theme.colorScheme.surfaceContainerHigh,
-          borderRadius: radius,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: onTap,
-            child: Center(
-              child: Avatar(
-                mxContent: space.avatar,
-                name: name,
-                size: _iconSize,
-                borderRadius: BorderRadius.circular(5),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

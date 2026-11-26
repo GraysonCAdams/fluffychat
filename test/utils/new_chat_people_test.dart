@@ -193,7 +193,7 @@ void main() {
   });
 
   test('picker order is iMessage, Google Messages, then the rest', () {
-    final ordered = orderBridgesForPicker([
+    final ordered = orderBridgesForSwitcher([
       _bridge('telegram'),
       _bridge('gmessages'),
       _bridge('linkedin'),

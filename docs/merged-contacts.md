@@ -367,54 +367,72 @@ offer, the invite link, the QR code and, for an account with no bridges,
 the Matrix-only "Create group" page (`/rooms/newgroup`); Create group from
 the account menu (`?group=1`) goes straight there on such an account.
 
+#### Networks: the switcher in the header
+
+Each person put in the To field is asked about on every network
+(`PersonReach` in `lib/utils/new_chat/compose.dart`): a bridge that lists
+them answers by itself, one with nothing to look them up by does not reach
+them, and the rest get `resolve_identifier` with the ghost's ID when that
+bridge listed them, else the number, else the email, else the ghost of
+their chat on that network. Numbers from the address book are sent only to
+these bridges, and only for the people picked. A network whose
+`resolve_identifier` fails (an HTTP error other than `M_NOT_FOUND`, such
+as iMessage's 500 when Apple refuses lookups) is never treated as "not
+found": a line under the To field shows its logo, "Couldn't check:" with
+the bridge's message and a retry button, and with no network reaching the
+person the conversation says "Couldn't check this person" and send stays
+off. When every network answered and none reaches them, it says "None of
+your networks can reach this person".
+
+The first person's networks (`composeNetworksOf`) are each network with a
+chat with them (every room of a merged contact, or the direct chat a
+bridge names for them) or a bridge that reaches them, iMessage first, then
+Google Messages, then the rest. With two or more, the header's top right
+shows them as the chat page's switcher (`NetworkSwitcherChips` in
+`lib/pages/chat/network_switcher_chips.dart`, also behind
+`ChatNetworkIcons`). The selected network starts as the one whose chat had
+the last message, else the first; picking another moves the conversation,
+the composer's hint and the send button's network colour to it, and for a
+merged contact makes it the contact's default as in the chat. With one
+network there is no switcher and no line under the To field; the
+composer's hint names the network. Nothing asks for a network on send.
+
 #### One person
 
-The conversation shows the direct chat the user already has with them
-(`existingDirectChatOf` in `lib/utils/new_chat/compose.dart`): the chat the
-search found for them, else a direct room a bridge named for them, one with
-their Matrix ID or ghost, or one whose number is theirs; a merged contact
-shows all its rooms as one timeline. Otherwise it is empty ("Your first
-message starts the chat"). History is drawn read-only with the chat's
-bubbles (`ComposeConversation`, `lib/pages/chat/events/message.dart`).
+The conversation shows the direct chat the user already has with them on
+the selected network: the chat `existingDirectChatOf` finds (the chat the
+search found for them, else a direct room a bridge named for them, one
+with their Matrix ID or ghost, or one whose number is theirs), the room of
+a merged contact on that network, or the direct chat the bridge named.
+Otherwise it is empty ("Your first message starts the chat"). History is
+drawn read-only with the chat's bubbles (`ComposeConversation`,
+`lib/pages/chat/events/message.dart`).
 
-Sending the first message with a chat sends it there (a merged contact's
-`send_via` room) and opens it. Without one, a sheet lists the user's
-networks, iMessage first, then Google Messages, then the rest; each is
-asked `resolve_identifier` for the person (the ghost's ID when that bridge
-listed them, else the number, else the email) and only those that can reach
-them are tappable; one that fails to answer shows the bridge's reason and
-a retry button instead of "Not reachable here". Numbers from the address
-book are sent only to these bridges, and only for the person picked. Picking a network reuses the
-direct chat the bridge reports, else calls `create_dm`, waits for the room,
-sends the message, and adds the room to the merged contact with the same
-number when there is one (opening that contact), else opens the room. A
-Matrix user from the directory gets a Matrix direct chat instead.
+Sending the first message with a chat sends it there and opens the
+person's conversation (the merged contact, for one). Without one, it goes
+out on the selected network: the direct chat the bridge reports, else
+`create_dm`; the screen waits for the room, sends the message, and adds
+the room to the merged contact with the same number when there is one
+(opening that contact), else opens the room. A Matrix user from the
+directory gets a Matrix direct chat instead.
 
 The search, the sources and starting a chat live in
 `lib/utils/new_chat/new_chat_search.dart` (`searchExistingChats`,
-`NewChatSources`, `startBridgeChat`, `addNewChatToMergedContact`) and the
-network sheet in `start_chat_sheet.dart` (`pickStartChatNetwork`), so Add
+`NewChatSources`, `startBridgeChat`, `addNewChatToMergedContact`), so Add
 people uses the same code.
 
 #### Two or more people: a group
 
-- A second chip makes a group, and the title reads "New group chat". The
-  first two people fix the network: the network sheet lists only the
-  bridges whose `GET /v3/capabilities` has a `group_creation` type (the
-  type `group` when there is one, else the first), iMessage first, and
-  picks by itself when one network reaches the first person and every
-  other network answered "not found". A network whose `resolve_identifier`
-  fails (an HTTP error other than `M_NOT_FOUND`, such as iMessage's 500
-  when Apple refuses lookups) is never treated as "not found": its row
-  shows "Couldn't check:" with the bridge's message and a retry button,
-  and the sheet waits for the user to retry or pick another network.
-  Going back to one chip makes it a direct chat again and clears the
-  network.
-- For one person, a line under the To field names the network: "On
-  iMessage" for an existing chat in a bridge space, and "You pick the
-  network when you send" for someone with no chat yet, whose network comes
-  from the sheet on send. A group has no such line; the composer's hint
-  names its network ("iMessage").
+- A second chip makes a group on the selected network, and the title reads
+  "New group chat". A network that creates groups has a `group_creation`
+  type in its `GET /v3/capabilities` (the type `group` when there is one,
+  else the first); on one that has none, the second person is not added
+  and a snackbar says the network can't start groups. In the switcher, a
+  network that creates no groups, or that someone in the To field is not
+  on, is faded and does not pick; its tooltip, and a snackbar on a tap,
+  says who is not on it ("Harrison Young: Not on Google Messages"), with a
+  retry where the network failed to answer. Picking another network makes
+  the group there. Going back to one chip makes it a direct chat again.
 - After that, a person the network cannot reach is greyed out with "Not on
   iMessage" (or the network's name): someone with no phone number, email
   or ghost on that network, a Matrix user, or someone `resolve_identifier`
@@ -496,11 +514,8 @@ with a `SharedDraft` (`lib/utils/share_items.dart`) as the route's `extra`.
   contact once); a tap makes one the recipient. Typing searches as New
   Chat does. A group chat picked from the list or the search is the
   recipient on its own; nobody else can join it.
-- With a recipient, the conversation shows above the composer as for New
-  Chat. A merged contact on two or more networks gets the chat's network
-  buttons (`NetworkSwitcherChips`, the widget behind `ChatNetworkIcons`)
-  in the app bar; the one picked is where the share goes, becomes the
-  contact's default as in the chat, and names the composer's hint.
+- With a recipient, the conversation and the header's network switcher
+  show as for New Chat; the network picked is where the share goes.
 - Send works as New Chat's (an existing chat, a new direct chat on the
   picked network, or a new group), then sends the files through
   `sendAttachments`, the forwarded messages and the text, in that order
@@ -513,9 +528,8 @@ with a `SharedDraft` (`lib/utils/share_items.dart`) as the route's `extra`.
   (`shareSentToast`, "Sent to <name>" off the bridges). Leaving with back
   instead drops the share and returns the same way, without a toast.
 - A long press on send offers iMessage's effects as in the chat when the
-  message goes out on iMessage (the chat's network, else the new group's)
-  and nothing is staged. A new direct chat's network is picked on send, so
-  it offers none.
+  message goes out on iMessage (the chat's network, else the new group's
+  or the new direct chat's) and nothing is staged.
 
 ### Merged chat screen
 
@@ -642,10 +656,12 @@ is the largest and carries the risk.
 - New chat: the provisioning API wrapper against a fake HTTP client
   (`test/utils/bridge_provisioning_test.dart`), the merge of the three
   sources and typed numbers (`test/utils/new_chat_people_test.dart`), and
-  the result rows and network sheet (`test/widgets/new_chat_people_test.dart`).
-- Compose screen: chips, the one-network rule, the group title and the
+  the result rows (`test/widgets/new_chat_people_test.dart`).
+- Compose screen: chips and their fit at phone width, the network switcher
+  (its default, swapping the history and hint, faded networks in a
+  group, a network that fails to answer), the group title and the
   `create_group` call through a fake `NewChatDelivery`, effects on send,
-  and sharing (recent chats, staging, the network buttons, returning to
+  and sharing (recent chats, staging, the network switcher, returning to
   the sharing app) in `test/widgets/compose_chat_test.dart`; a Direct
   Share staged in a chat in `test/widgets/chat_share_staging_test.dart`.
 

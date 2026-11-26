@@ -4,7 +4,6 @@
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat_view.dart';
-import 'package:fluffychat/pages/new_private_chat/start_chat_sheet.dart';
 import 'package:fluffychat/utils/bridge_provisioning.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -113,76 +112,5 @@ void main() {
     expect(find.text('+1 404 555 0000'), findsOneWidget);
     expect(find.text('Phone number'), findsOneWidget);
     expect(find.byIcon(Icons.dialpad_outlined), findsOneWidget);
-  });
-
-  testWidgets('the network sheet lists reachable networks in order', (
-    tester,
-  ) async {
-    final person = NewChatPerson<String>('Bob')..phones.add('+14045551234');
-    final asked = <String>[];
-    StartChatChoice? picked;
-    await tester.pumpWidget(
-      _app(
-        client,
-        Builder(
-          builder: (context) => TextButton(
-            onPressed: () async {
-              picked = await showModalBottomSheet<StartChatChoice>(
-                context: context,
-                builder: (_) => StartChatSheet(
-                  person: person,
-                  bridges: [
-                    _bridge('telegram', 'Telegram'),
-                    _bridge('gmessages', 'Google Messages'),
-                    _bridge('imessage', 'iMessage'),
-                  ],
-                  resolve: (bridge, identifier) async {
-                    asked.add('${bridge.name} $identifier');
-                    return switch (bridge.name) {
-                      'telegram' => null,
-                      'gmessages' => throw const BridgeProvisioningException(
-                        'gmessages',
-                        statusCode: 500,
-                      ),
-                      _ => BridgeUser(id: identifier),
-                    };
-                  },
-                ),
-              );
-            },
-            child: const Text('open'),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
-
-    expect(asked, [
-      'imessage +14045551234',
-      'gmessages +14045551234',
-      'telegram +14045551234',
-    ]);
-    final names = tester
-        .widgetList<ListTile>(find.byType(ListTile))
-        .skip(1)
-        .map((tile) => (tile.title as Text).data)
-        .toList();
-    expect(names, ['iMessage', 'Google Messages', 'Telegram']);
-    // Telegram answered that it does not know Bob; Google Messages failed
-    // to answer, which says so with the reason rather than "not here".
-    expect(find.text('Not reachable here'), findsOneWidget);
-    expect(find.text("Couldn't check: HTTP 500"), findsOneWidget);
-    expect(find.byTooltip('Try again'), findsOneWidget);
-
-    await tester.tap(find.text('Telegram'));
-    await tester.pumpAndSettle();
-    expect(picked, isNull);
-
-    await tester.tap(find.text('iMessage'));
-    await tester.pumpAndSettle();
-    expect(picked?.bridge.name, 'imessage');
-    expect(picked?.identifier, '+14045551234');
   });
 }

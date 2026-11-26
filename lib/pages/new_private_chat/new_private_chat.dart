@@ -40,9 +40,13 @@ import 'package:matrix/matrix.dart';
 /// The compose screen behind New chat and Create group, as in iMessage: a
 /// To field of people as chips, the chat the user already has with exactly
 /// those people (or an empty history), and a composer for the first
-/// message. One person makes a direct chat; two or more make a group on
-/// the network the group's first people share. Sending the first message
-/// starts the chat or creates the group when there is none, then opens it.
+/// message. Every network is asked whether it reaches each person, and
+/// when the first person is on two or more, the header's network switcher
+/// picks the one the conversation is on: at first the network of the most
+/// recent chat with them. One person makes a direct chat there; two or
+/// more make a group there, and the networks someone else is not on are
+/// faded. Sending the first message starts the chat or creates the group
+/// when there is none, then opens it.
 ///
 /// Something shared into Seam or forwarded opens here too, as [share]: its
 /// files and forwarded messages are staged in the composer and its text is
@@ -119,8 +123,8 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   final List<NewChatPerson<ExistingChat>> recipients = [];
 
   /// The group the [recipients] make once there are two of them: the
-  /// network the first two fixed and everyone as that network knows them.
-  /// Empty while there is one person or none.
+  /// network picked for it and everyone as that network knows them. Empty
+  /// while there is one person or none.
   late final GroupDraft group = GroupDraft()
     ..addListener(() {
       if (mounted) setState(() {});
@@ -131,42 +135,258 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// is none.
   ExistingChat? conversation;
 
-  /// The room of a merged [conversation] picked with the network buttons,
-  /// or null for the contact's default.
-  String? _pickedRoomId;
+  /// The room the first message goes to in [conversation].
+  Room? get sendRoom => conversation?.sendRoom;
 
-  /// The room the first message goes to in [conversation]: the network
-  /// picked with the network buttons, else the chat's default.
-  Room? get sendRoom {
-    final chat = conversation;
-    if (chat == null) return null;
-    final picked = _pickedRoomId;
-    return chat.contact?.rooms.where((room) => room.id == picked).firstOrNull ??
-        chat.sendRoom;
+  /// What the networks answered about each person in the To field, by
+  /// [groupMemberKey].
+  final Map<String, PersonReach> _reach = {};
+
+  /// The kind of group each bridge creates, by bridge name, once it
+  /// answered; null for a bridge that creates none.
+  final Map<String, BridgeGroupType?> _groupTypes = {};
+
+  /// Why each bridge failed to say which groups it creates.
+  final Map<String, String> _groupTypeErrors = {};
+
+  /// The networks of the first person in the To field, which the network
+  /// switcher offers when there are two or more. Empty for a group chat or
+  /// nobody.
+  List<ComposeNetwork> networks = const [];
+
+  String? _selectedNetworkId;
+
+  /// Whether the user picked the network in the switcher, which keeps it
+  /// as later answers come in.
+  bool _networkPicked = false;
+
+  /// The direct chat with the first person (every network of a merged
+  /// contact), which a message to one of its rooms opens.
+  ExistingChat? _personChat;
+
+  /// The network the conversation is on: the one picked in the switcher,
+  /// else the most recent.
+  ComposeNetwork? get selectedNetwork =>
+      networks.where((network) => network.id == _selectedNetworkId).firstOrNull;
+
+  /// Whether the header shows the network switcher.
+  bool get showNetworkSwitcher => networks.length >= 2;
+
+  /// What the networks answered about the first person in the To field.
+  PersonReach? get firstReach {
+    final first = recipients.firstOrNull;
+    return first == null || first.group ? null : _reach[groupMemberKey(first)];
   }
 
-  /// The networks of a merged [conversation] as (bridge space, room) pairs
-  /// for the network buttons; empty unless it spans two or more networks.
-  List<(Room, String)> get conversationNetworks {
-    final contact = conversation?.contact;
-    if (contact == null) return const [];
-    final spaces = spacesByChild(Matrix.of(context).client);
-    final networks = [
-      for (final room in contact.rooms)
-        if (spaces[room.id] case final space?) (space, room.id),
+  /// The networks that failed to answer about the first person and are not
+  /// in the switcher, so the user sees them and can ask again.
+  List<(BridgeInfo, String)> get failedNetworks {
+    final reach = firstReach;
+    if (reach == null) return const [];
+    final shown = {for (final network in networks) ?network.bridge?.name};
+    return [
+      for (final bridge in orderBridgesForSwitcher(bridges))
+        if (reach.errors[bridge.name] case final error?)
+          if (!shown.contains(bridge.name)) (bridge, error),
     ];
-    return networks.length < 2 ? const [] : networks;
   }
 
-  /// A network button was tapped: the first message goes out on [roomId],
-  /// which becomes the contact's default as it does in the chat.
-  void pickSendRoom(String roomId) {
-    final contact = conversation?.contact;
-    if (contact == null) return;
-    setState(() => _pickedRoomId = roomId);
-    MergedContactsStore.forClient(
-      Matrix.of(context).client,
-    ).setSendVia(contact.id, roomId);
+  /// Whether the first person was checked and no network reaches them.
+  bool get unreachable {
+    final first = recipients.firstOrNull;
+    final reach = firstReach;
+    return first != null &&
+        reach != null &&
+        !isMatrixOnlyPerson(first) &&
+        !reach.asking &&
+        bridges.isNotEmpty &&
+        networks.isEmpty;
+  }
+
+  /// Why [network] cannot take everyone in the To field, or null when it
+  /// can. One person can be reached on any of their networks; a group
+  /// needs a network that creates groups and reaches everyone.
+  String? networkBlockOf(ComposeNetwork network) {
+    if (recipients.length < 2) return null;
+    final l10n = L10n.of(context);
+    final bridge = network.bridge;
+    if (bridge == null) return l10n.networkMakesNoGroups(network.name);
+    if (_groupTypes.containsKey(bridge.name) &&
+        _groupTypes[bridge.name] == null) {
+      return l10n.networkMakesNoGroups(network.name);
+    }
+    for (final person in recipients) {
+      final reach = _reach[groupMemberKey(person)];
+      final error = reach?.errors[bridge.name];
+      if (error != null) {
+        return l10n.personNetworkCheckFailed(
+          person.name,
+          bridge.displayName,
+          error,
+        );
+      }
+      if (reach == null || !reach.users.containsKey(bridge.name)) {
+        return l10n.checkingPersonOnNetwork(person.name, bridge.displayName);
+      }
+      if (reach.users[bridge.name] == null) {
+        return '${person.name}: '
+            '${groupBlockReason(l10n, GroupBlock.notOnNetwork, bridge)}';
+      }
+    }
+    return null;
+  }
+
+  /// A network was picked in the switcher: the conversation moves to it,
+  /// and a group is made there. For a merged contact it becomes the
+  /// contact's default, as it does in the chat.
+  void selectNetwork(String id) {
+    final network = networks.where((network) => network.id == id).firstOrNull;
+    if (network == null || networkBlockOf(network) != null) return;
+    setState(() {
+      _selectedNetworkId = id;
+      _networkPicked = true;
+      if (recipients.length >= 2) _regroupOn(network);
+      _findConversation();
+    });
+    final contact = _personChat?.contact;
+    final room = network.room;
+    if (recipients.length == 1 && contact != null && room != null) {
+      MergedContactsStore.forClient(
+        Matrix.of(context).client,
+      ).setSendVia(contact.id, room.id);
+    }
+  }
+
+  /// A faded network was tapped: says why it cannot be picked, with a retry
+  /// where a network failed to answer.
+  void explainBlockedNetwork(ComposeNetwork network) {
+    final reason = networkBlockOf(network);
+    if (reason == null) return;
+    final bridge = network.bridge;
+    final failed = bridge == null
+        ? const <NewChatPerson<ExistingChat>>[]
+        : [
+            for (final person in recipients)
+              if (_reach[groupMemberKey(person)]?.errors[bridge.name] != null)
+                person,
+          ];
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(reason),
+        action: failed.isEmpty
+            ? null
+            : SnackBarAction(
+                label: L10n.of(context).tryAgain,
+                onPressed: () => failed.forEach(_recheck),
+              ),
+      ),
+    );
+  }
+
+  /// Asks [bridge] again about the first person after it failed to answer.
+  void retryNetwork(BridgeInfo bridge) {
+    final first = recipients.firstOrNull;
+    if (first != null) _recheck(first, bridge: bridge.name);
+  }
+
+  /// Forgets the failed answers about [person], of [bridge] or of every
+  /// network, and asks again.
+  void _recheck(NewChatPerson<ExistingChat> person, {String? bridge}) {
+    final reach = _reach[groupMemberKey(person)];
+    if (reach == null) return;
+    setState(() {
+      if (bridge == null) {
+        reach.errors.clear();
+      } else {
+        reach.errors.remove(bridge);
+      }
+      _check(person);
+    });
+  }
+
+  /// Asks each network that has not answered yet whether it reaches
+  /// [person]: a bridge that lists them answers without being asked, and
+  /// one with nothing to look them up by does not reach them.
+  void _check(NewChatPerson<ExistingChat> person) {
+    if (person.group) return;
+    final client = Matrix.of(context).client;
+    final reach = _reach.putIfAbsent(groupMemberKey(person), PersonReach.new);
+    final chat = existingDirectChatOf(client, person);
+    for (final bridge in bridges) {
+      if (reach.handled(bridge.name)) continue;
+      final identifier =
+          identifierForBridge(person, bridge) ??
+          ghostOnBridge(bridges, chat, bridge);
+      if (identifier != null) reach.identifiers[bridge.name] = identifier;
+      final known = person.bridgeUsers[bridge.name];
+      if (known != null || identifier == null) {
+        reach.users[bridge.name] = known;
+        continue;
+      }
+      reach
+          .ask(
+            bridge.name,
+            () => widget.delivery.resolveOnNetwork(client, bridge, identifier),
+          )
+          .then((_) {
+            if (mounted) setState(_findConversation);
+          });
+    }
+  }
+
+  /// Asks each bridge that has not answered yet which groups it creates,
+  /// once at a time.
+  Future<void> _askGroupTypes() {
+    if (bridges.every((bridge) => _groupTypes.containsKey(bridge.name))) {
+      return Future.value();
+    }
+    return _askingGroupTypes ??= _fetchGroupTypes().whenComplete(
+      () => _askingGroupTypes = null,
+    );
+  }
+
+  Future<void>? _askingGroupTypes;
+
+  Future<void> _fetchGroupTypes() async {
+    final client = Matrix.of(context).client;
+    final pending = [
+      for (final bridge in bridges)
+        if (!_groupTypes.containsKey(bridge.name)) bridge,
+    ];
+    await Future.wait(
+      pending.map((bridge) async {
+        try {
+          _groupTypes[bridge.name] = await widget.delivery.groupTypeOn(
+            client,
+            bridge,
+          );
+          _groupTypeErrors.remove(bridge.name);
+        } catch (e, s) {
+          Logs().w('${bridge.name} did not say which groups it creates', e, s);
+          _groupTypeErrors[bridge.name] = bridgeErrorReason(e);
+        }
+      }),
+    );
+    if (mounted) setState(() {});
+  }
+
+  /// Makes the group again on [network], with everyone as its bridge
+  /// knows them. Only a network [networkBlockOf] lets through is passed.
+  void _regroupOn(ComposeNetwork network) {
+    final bridge = network.bridge!;
+    final type = _groupTypes[bridge.name]!;
+    group.start(
+      GroupNetwork(bridge, type),
+      GroupMember(recipients.first, network.user!),
+    );
+    for (final person in recipients.skip(1)) {
+      group.add(
+        GroupMember(
+          person,
+          _reach[groupMemberKey(person)]!.users[bridge.name]!,
+        ),
+      );
+    }
   }
 
   /// Takes the staged [file] out of the composer.
@@ -176,7 +396,9 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   void removeStagedContents() => setState(stagedContents.clear);
 
   /// The user's most recent chats, offered as recipients for a share while
-  /// nothing is typed into the To field.
+  /// nothing is typed into the To field. Each is joined, as in the search,
+  /// by the bridge contacts and phone contacts that are the same person, so
+  /// their number reaches the networks the chat is not on.
   List<NewChatPerson<ExistingChat>> get recentPeople {
     final client = Matrix.of(context).client;
     final locals = MatrixLocals(L10n.of(context));
@@ -194,10 +416,14 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     ).take(recentCount);
     return [
       for (final chat in chats)
-        mergeNewChatPeople<ExistingChat>(
-          query: '',
-          chats: [chatPersonInput(chat, locals)],
-        ).single,
+        // A search by the chat's name brings the contacts that join its row.
+        sources
+            .people(
+              chat.contact?.displayName(locals) ??
+                  chat.room.getLocalizedDisplayname(locals),
+              [chatPersonInput(chat, locals)],
+            )
+            .firstWhere((person) => person.chat == chat),
     ];
   }
 
@@ -259,7 +485,10 @@ class NewPrivateChatController extends State<NewPrivateChat> {
 
   void _rebuildPeople() {
     if (!mounted) return;
-    // The bridges' list, which the group lookup reads, may be what came.
+    // The bridges' list may be what came: the people in the To field are
+    // asked about on each new one, and the group lookup reads it.
+    recipients.forEach(_check);
+    _askGroupTypes();
     _findConversation();
     if (searchResponse == null || _peopleQuery.isEmpty) {
       setState(() {});
@@ -434,45 +663,109 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     pickPerson(person);
   }
 
-  /// Puts [person] in the To field. The first person goes in as they are.
-  /// The second makes a group: the first two go through the group network
-  /// picker and the bridge as in [toggleGroupMember], which fixes the
-  /// network, and everyone after is checked against it. Someone the
-  /// network cannot reach stays out, with the reason in a snackbar.
+  /// Puts [person] in the To field, and asks every network about them. The
+  /// first person goes in as they are. Anyone after makes a group on the
+  /// selected network, which must reach them: they go through the bridge
+  /// as in [toggleGroupMember], and someone it cannot reach stays out,
+  /// with the reason in a snackbar.
   Future<void> addRecipient(NewChatPerson<ExistingChat> person) async {
     if (sending) return;
-    if (recipients.isNotEmpty) {
-      final client = Matrix.of(context).client;
-      if (group.isEmpty) {
-        final started = await toggleGroupMember(
-          context,
-          client,
-          widget.delivery,
-          group,
-          recipients.first,
-        );
-        if (!started || !mounted) return;
-      }
-      final added = await toggleGroupMember(
-        context,
-        client,
-        widget.delivery,
-        group,
-        person,
-      );
-      if (!mounted) return;
-      if (!added) {
-        // Only the first person is in: still a direct chat.
-        if (group.members.length < 2) group.clear();
-        return;
-      }
-    }
+    if (recipients.isNotEmpty && !await _addToGroup(person)) return;
     setState(() {
       recipients.add(person);
+      _check(person);
       _findConversation();
     });
     _clearSearch();
     textFieldFocus.requestFocus();
+  }
+
+  /// Adds [person] to the [group] on the selected network, starting it
+  /// with the first person when [person] is the second. False, with the
+  /// reason in a snackbar, when the network cannot take them.
+  Future<bool> _addToGroup(NewChatPerson<ExistingChat> person) async {
+    final client = Matrix.of(context).client;
+    final l10n = L10n.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    void say(String text) =>
+        messenger.showSnackBar(SnackBar(content: Text(text)));
+    if (group.isEmpty) {
+      final first = recipients.first;
+      if (first.group || person.group) {
+        say(l10n.groupChatNotAPerson);
+        return false;
+      }
+      // The first person's network is needed: wait for the answers.
+      final reach = _reach[groupMemberKey(first)];
+      final waiting = [
+        if (reach != null && reach.asking) reach.settled(),
+        _askGroupTypes(),
+      ];
+      if (waiting.isNotEmpty) {
+        await showFutureLoadingDialog(
+          context: context,
+          future: () => Future.wait(waiting),
+        );
+        if (!mounted) return false;
+        setState(_findConversation);
+      }
+      final network = selectedNetwork;
+      final bridge = network?.bridge;
+      if (network == null || bridge == null) {
+        say(
+          network == null
+              ? '${first.name}: ${l10n.noNetworkCanReach}'
+              : l10n.networkMakesNoGroups(network.name),
+        );
+        return false;
+      }
+      final typeError = _groupTypeErrors[bridge.name];
+      final type = _groupTypes[bridge.name];
+      if (type == null) {
+        say(
+          typeError == null
+              ? l10n.networkMakesNoGroups(network.name)
+              : l10n.networkCheckFailed(typeError),
+        );
+        return false;
+      }
+      final user = network.user;
+      if (user == null) {
+        final error = reach?.errors[bridge.name];
+        say(
+          error == null
+              ? '${first.name}: '
+                    '${groupBlockReason(l10n, GroupBlock.notOnNetwork, bridge)}'
+              : l10n.personNetworkCheckFailed(
+                  first.name,
+                  bridge.displayName,
+                  error,
+                ),
+        );
+        return false;
+      }
+      group.start(GroupNetwork(bridge, type), GroupMember(first, user));
+    }
+    final added = await toggleGroupMember(
+      context,
+      client,
+      widget.delivery,
+      group,
+      person,
+    );
+    if (!mounted) return false;
+    if (!added) {
+      // Only the first person is in: still a direct chat.
+      if (group.members.length < 2) group.clear();
+      return false;
+    }
+    final bridge = group.bridge!;
+    // The selected network just answered about them.
+    _reach
+            .putIfAbsent(groupMemberKey(person), PersonReach.new)
+            .users[bridge.name] =
+        group.members.last.user;
+    return true;
   }
 
   /// Takes the person with [key] out of the To field. With one person
@@ -485,6 +778,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
       } else {
         group.remove(key);
       }
+      if (recipients.isEmpty) _networkPicked = false;
       _findConversation();
     });
   }
@@ -494,31 +788,60 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     searchUsers();
   }
 
-  /// Finds [conversation] for the people in the To field: one person's
-  /// direct chat or merged contact, or the most recent group on the
-  /// group's network whose people are exactly them.
+  /// Finds the first person's [networks] and the selected one, and
+  /// [conversation] for the people in the To field: one person's direct
+  /// chat on the selected network, a group chat picked as the recipient,
+  /// or the most recent group on the group's network whose people are
+  /// exactly them.
   void _findConversation() {
     final client = Matrix.of(context).client;
-    final network = group.network;
-    final previous = conversation?.room.id;
-    if (recipients.length == 1 && recipients.single.group) {
-      conversation = recipients.single.chat;
-    } else if (recipients.length == 1) {
-      conversation = existingDirectChatOf(client, recipients.single);
-    } else if (group.isGroup && network != null) {
-      final room = existingGroupOf(
+    final first = recipients.firstOrNull;
+    final reach = firstReach;
+    if (first == null || reach == null) {
+      networks = const [];
+      _personChat = null;
+    } else {
+      _personChat = existingDirectChatOf(client, first);
+      networks = composeNetworksOf(
         client,
         bridges,
-        network.bridge,
-        group.members,
+        _personChat,
+        reach,
+        MatrixLocals(L10n.of(context)),
       );
+    }
+    final groupBridge = group.isGroup ? group.bridge : null;
+    if (groupBridge != null) {
+      // A group is on its own network, whoever is first.
+      _selectedNetworkId = networks
+          .where((network) => network.bridge?.name == groupBridge.name)
+          .firstOrNull
+          ?.id;
+    } else if (!_networkPicked ||
+        !networks.any((network) => network.id == _selectedNetworkId)) {
+      _selectedNetworkId = defaultComposeNetwork(networks)?.id;
+    }
+    if (first == null) {
+      conversation = null;
+    } else if (first.group) {
+      conversation = recipients.length == 1 ? first.chat : null;
+    } else if (recipients.length == 1) {
+      final room = selectedNetwork?.room;
+      conversation = room == null
+          ? null
+          : ExistingChat(
+              room: room,
+              contact: null,
+              networks: [?spacesByChild(client)[room.id]],
+            );
+    } else if (groupBridge != null) {
+      final room = existingGroupOf(client, bridges, groupBridge, group.members);
       conversation = room == null
           ? null
           : ExistingChat(room: room, contact: null, networks: const []);
     } else {
       conversation = null;
     }
-    if (conversation?.room.id != previous) _pickedRoomId = null;
   }
 
   /// Enter in the To field: the top suggestion for the typed text becomes
@@ -595,12 +918,16 @@ class NewPrivateChatController extends State<NewPrivateChat> {
       (group.network?.type.nameAllowed ?? false);
 
   /// Whether the send button works: someone in the To field (a whole group
-  /// once there are two), a message or something staged, and a name when
-  /// the network needs one.
+  /// once there are two) and a network that reaches them, a message or
+  /// something staged, and a name when the network needs one.
   bool get canSend {
     if (sending || recipients.isEmpty) return false;
     if (_payload.isEmpty) return false;
     if (recipients.length >= 2 && !group.isGroup) return false;
+    if (recipients.length == 1 && _newChatChoice == null) {
+      final person = recipients.single;
+      if (sendRoom == null && !isMatrixOnlyPerson(person)) return false;
+    }
     final type = group.network?.type;
     if (conversation == null &&
         group.isGroup &&
@@ -619,18 +946,38 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     text: messageController.text.trim(),
   );
 
+  /// The network a new direct chat with the one person in the To field
+  /// starts on: the selected network, once its bridge answered that it
+  /// reaches them. Null when there is a chat already, or none reaches them.
+  StartChatChoice? get _newChatChoice {
+    final network = selectedNetwork;
+    final bridge = network?.bridge;
+    final user = network?.user;
+    if (network == null || bridge == null || user == null) return null;
+    if (network.room != null) return null;
+    final identifier = firstReach?.identifiers[bridge.name];
+    return identifier == null
+        ? null
+        : StartChatChoice(bridge, identifier, user);
+  }
+
   /// Sends the first message and opens the chat: in the [conversation]
-  /// there is, on the network picked for it; else for one person a direct
-  /// chat started on the network the user picks (or on Matrix for a Matrix
-  /// user), and for two or more the group created through the network's
-  /// bridge, named when a name was typed. The message is sent once the
+  /// there is; else for one person a direct chat started on the selected
+  /// network (or on Matrix for a Matrix user), and for two or more the
+  /// group created through the selected network's bridge, named when a name
+  /// was typed. The message is sent once the
   /// room is there. A share waits until everything staged went out; one
   /// from the Android share sheet then returns to the app that shared.
   Future<void> send({MessageEffect? effect}) async {
     if (!canSend) return;
     final payload = _payload;
     final client = Matrix.of(context).client;
-    final existing = conversation;
+    final personChat = _personChat;
+    // A direct chat opens as the person's whole conversation, every
+    // network of a merged contact in one.
+    final existing = recipients.length == 1 && !recipients.single.group
+        ? personChat
+        : conversation;
     final room = sendRoom;
     if (existing != null && room != null) {
       if (!sharing) {
@@ -730,8 +1077,8 @@ class NewPrivateChatController extends State<NewPrivateChat> {
       );
       sent = result.asValue?.value;
     } else {
-      final choice = await widget.delivery.pickNetwork(context, client, person);
-      if (choice == null || !mounted) return;
+      final choice = _newChatChoice;
+      if (choice == null) return;
       final result = await showFutureLoadingDialog<({String route, Room room})>(
         context: context,
         future: () async {
@@ -805,14 +1152,14 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// Whether a long press on send offers iMessage's effects: a typed
   /// message with nothing staged (the bridge carries an effect on text
   /// only), going out on iMessage. That is the chat's network when there
-  /// is one, else the new group's. A new direct chat's network is picked
-  /// only on send, so it offers none.
+  /// is one, else the new group's or the new direct chat's.
   bool get effectsAvailable {
     if (stagedFiles.isNotEmpty || stagedContents.isNotEmpty) return false;
     if (messageController.text.trim().isEmpty) return false;
     final room = sendRoom;
     if (room != null) return canSendMessageEffects(room);
-    return group.isGroup && group.bridge?.name == 'imessage';
+    if (group.isGroup) return group.bridge?.name == 'imessage';
+    return _newChatChoice?.bridge.name == 'imessage';
   }
 
   /// A long press on send: where [effectsAvailable], the effect picker,

@@ -2,12 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// The compose screen's lookups: the chat the user already has with the
-/// people in the To field, so it shows above the composer and the first
-/// message goes there.
+/// The compose screen's lookups: the networks that reach the people in the
+/// To field, and the chat the user already has with them, so it shows above
+/// the composer and the first message goes there.
 library;
 
+import 'dart:ui';
+
 import 'package:fluffychat/utils/bridge_provisioning.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
+import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/new_chat/add_people.dart' as add_people;
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
@@ -121,4 +125,192 @@ Room? existingGroupOf(
     (a, b) => b.latestEventReceivedTime.compareTo(a.latestEventReceivedTime),
   );
   return matches.first;
+}
+
+/// What the user's networks answered about one person in the compose
+/// screen's To field, by bridge name.
+class PersonReach {
+  /// The person on each network that answered: as it knows them, or null
+  /// when it does not reach them. A network still being asked, or one that
+  /// failed to answer, has no entry.
+  final Map<String, BridgeUser?> users = {};
+
+  /// Why each network that failed to answer did.
+  final Map<String, String> errors = {};
+
+  /// What each network was asked about the person, which a new direct chat
+  /// there starts with.
+  final Map<String, String> identifiers = {};
+
+  final Map<String, Future<void>> _asking = {};
+
+  /// Whether [bridge] answered, failed to, or is being asked.
+  bool handled(String bridge) =>
+      users.containsKey(bridge) ||
+      errors.containsKey(bridge) ||
+      _asking.containsKey(bridge);
+
+  /// Whether any network is still being asked.
+  bool get asking => _asking.isNotEmpty;
+
+  /// Asks [bridge] about the person with [resolve] and records the answer,
+  /// or the reason when it fails. Completes either way.
+  Future<void> ask(String bridge, Future<BridgeUser?> Function() resolve) {
+    errors.remove(bridge);
+    final future = () async {
+      try {
+        users[bridge] = await resolve();
+      } catch (e, s) {
+        Logs().w('$bridge could not resolve a person in the To field', e, s);
+        errors[bridge] = bridgeErrorReason(e);
+      }
+    }();
+    _asking[bridge] = future;
+    future.whenComplete(() => _asking.remove(bridge));
+    return future;
+  }
+
+  /// Completes once no network is being asked.
+  Future<void> settled() => Future.wait(_asking.values.toList());
+}
+
+/// A network the first person in the compose screen's To field is on, as
+/// its network switcher offers it: the direct chat the user has with them
+/// there ([room]), or a bridge that reaches them with no chat yet.
+class ComposeNetwork {
+  /// The user's bridge for the network; null for a chat on none of them,
+  /// such as one with a Matrix user.
+  final BridgeInfo? bridge;
+  final Room? room;
+
+  /// The person as [bridge] knows them, once it answered.
+  final BridgeUser? user;
+
+  /// The bridge space the network's chats are in.
+  final Room? space;
+  final String name;
+  final Uri? avatar;
+
+  const ComposeNetwork({
+    required this.bridge,
+    required this.room,
+    required this.user,
+    required this.space,
+    required this.name,
+    required this.avatar,
+  });
+
+  String get id => room?.id ?? 'bridge:${bridge?.name}';
+
+  /// Whether the network is one of the user's networks rather than plain
+  /// Matrix, so the composer names it.
+  bool get isNetwork => bridge != null || space != null;
+
+  /// The network's bubble colour, which the send button takes as in a
+  /// merged chat.
+  Color? get color => NetworkColors.colorFor(
+    room == null ? bridge?.networkId : NetworkColors.bridgeIdOf(room!),
+  );
+}
+
+/// The rooms of [chat]: every room of a merged contact, newest first, else
+/// the chat's room.
+List<Room> _roomsOf(ExistingChat? chat) {
+  if (chat == null) return const [];
+  final contact = chat.contact;
+  if (contact == null) return [chat.room];
+  return [...contact.rooms]..sort(
+    (a, b) => b.latestEventReceivedTime.compareTo(a.latestEventReceivedTime),
+  );
+}
+
+/// The other person's ghost in [chat]'s room on [bridge], which that bridge
+/// can be asked about when nothing else identifies the person. Null when
+/// [chat] has no room there.
+String? ghostOnBridge(
+  List<BridgeInfo> bridges,
+  ExistingChat? chat,
+  BridgeInfo bridge,
+) => _roomsOf(chat)
+    .where(
+      (room) => add_people.bridgeOfRoom(bridges, room)?.name == bridge.name,
+    )
+    .firstOrNull
+    ?.directChatMatrixID;
+
+/// The networks of [chat] and [reach] for the compose screen's network
+/// switcher: one per bridge with a room of [chat] on it or that answered it
+/// reaches the person, in the order of [orderBridgesForSwitcher], then each
+/// room of [chat] on none of [bridges]. A network's room is [chat]'s room
+/// there, else the direct chat its bridge names for the person.
+List<ComposeNetwork> composeNetworksOf(
+  Client client,
+  List<BridgeInfo> bridges,
+  ExistingChat? chat,
+  PersonReach reach,
+  MatrixLocalizations locals,
+) {
+  final spaces = spacesByChild(client);
+  final rooms = _roomsOf(chat);
+  final placed = <String>{};
+  final networks = <ComposeNetwork>[];
+  for (final bridge in orderBridgesForSwitcher(bridges)) {
+    final user = reach.users[bridge.name];
+    final dmRoomId = user?.dmRoomId;
+    final dmRoom = dmRoomId == null ? null : client.getRoomById(dmRoomId);
+    // A chat the bridge names for the person counts too, merged or not.
+    final room =
+        rooms
+            .where(
+              (room) =>
+                  add_people.bridgeOfRoom(bridges, room)?.name == bridge.name,
+            )
+            .firstOrNull ??
+        (dmRoom?.membership == Membership.join ? dmRoom : null);
+    if (room == null && user == null) continue;
+    if (room != null) placed.add(room.id);
+    final spaceId = bridge.spaceRoomId;
+    final space = room != null
+        ? spaces[room.id]
+        : spaceId == null
+        ? null
+        : client.getRoomById(spaceId);
+    networks.add(
+      ComposeNetwork(
+        bridge: bridge,
+        room: room,
+        user: user,
+        space: space,
+        name: space?.getLocalizedDisplayname(locals) ?? bridge.displayName,
+        avatar: space?.avatar ?? bridge.icon,
+      ),
+    );
+  }
+  for (final room in rooms) {
+    if (placed.contains(room.id)) continue;
+    final space = spaces[room.id];
+    networks.add(
+      ComposeNetwork(
+        bridge: null,
+        room: room,
+        user: null,
+        space: space,
+        name: networkName(room, space, locals),
+        avatar: space?.avatar,
+      ),
+    );
+  }
+  return networks;
+}
+
+/// The network a conversation with the first person starts on: the one
+/// whose chat had the last message, else the first of [networks].
+ComposeNetwork? defaultComposeNetwork(List<ComposeNetwork> networks) {
+  final withRooms = networks.where((network) => network.room != null).toList()
+    ..sort(
+      (a, b) => b.room!.latestEventReceivedTime.compareTo(
+        a.room!.latestEventReceivedTime,
+      ),
+    );
+  return withRooms.firstOrNull ?? networks.firstOrNull;
 }
