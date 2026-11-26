@@ -139,12 +139,16 @@ class _FakeDelivery extends NewChatDelivery {
   }
 }
 
-Widget _app(Client client, _FakeDelivery delivery) {
+Widget _app(Client client, _FakeDelivery delivery, {bool startGroup = false}) {
   final router = GoRouter(
     routes: [
       GoRoute(
         path: '/',
-        builder: (_, _) => NewPrivateChat(deeplink: null, delivery: delivery),
+        builder: (_, _) => NewPrivateChat(
+          deeplink: null,
+          delivery: delivery,
+          startGroup: startGroup,
+        ),
       ),
       GoRoute(
         path: '/rooms/:roomid',
@@ -214,11 +218,11 @@ void main() {
     );
   });
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {bool startGroup = false}) async {
     tester.view.physicalSize = const Size(1200, 3000);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(_app(client, delivery));
+    await tester.pumpWidget(_app(client, delivery, startGroup: startGroup));
     await tester.pumpAndSettle();
   }
 
@@ -247,6 +251,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('chat !quade:x'), findsOneWidget);
     expect(delivery.groupPicks, isEmpty);
+  });
+
+  testWidgets('Create group picks people with a tap from the start', (
+    tester,
+  ) async {
+    await pump(tester, startGroup: true);
+    expect(title(tester), 'New group chat');
+    await search(tester, 'quinn');
+    await tester.tap(find.text('Quinn Imsg'));
+    await tester.pumpAndSettle();
+    expect(delivery.groupPicks, ['Quinn Imsg']);
+    expect(chip('+14045550101'), findsOneWidget);
+    expect(find.text('chat !quinn:x'), findsNothing);
   });
 
   testWidgets('a long-press adds a chip; at two the title and Next change', (

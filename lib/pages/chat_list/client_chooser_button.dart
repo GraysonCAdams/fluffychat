@@ -340,7 +340,9 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
     } else if (object is SettingsAction) {
       switch (object) {
         case SettingsAction.newGroup:
-          context.go('/rooms/newgroup');
+          // Picks people in the new chat page, which creates the group on
+          // their network.
+          context.go('/rooms/newprivatechat?group=1');
           break;
         case SettingsAction.invite:
           FluffyShare.shareInviteLink(context);

@@ -36,10 +36,15 @@ class NewPrivateChat extends StatefulWidget {
   final String? deeplink;
   final NewChatDelivery delivery;
 
+  /// Opens straight into picking people for a new group, as Create group
+  /// does.
+  final bool startGroup;
+
   const NewPrivateChat({
     super.key,
     required this.deeplink,
     this.delivery = const NewChatDelivery(),
+    this.startGroup = false,
   });
 
   @override
@@ -68,6 +73,16 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     ..addListener(() {
       if (mounted) setState(() {});
     });
+
+  /// Whether Create group was chosen, so a tap adds a person to the group
+  /// even before anyone is picked.
+  late bool groupMode = widget.startGroup;
+
+  /// Whether taps pick people for a group rather than open a chat.
+  bool get picking => groupMode || !group.isEmpty;
+
+  /// Create group: picks people for a bridged group from here on.
+  void startGroup() => setState(() => groupMode = true);
 
   /// Whether to show the row that asks to read the phone's contacts.
   bool get offerPhoneContacts => sources.offerPhoneContacts;
@@ -236,7 +251,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// Opens [person]'s chat, or lets the user pick a network to start one on.
   /// While a group is being picked, adds or removes [person] instead.
   Future<void> openPerson(NewChatPerson<ExistingChat> person) async {
-    if (!group.isEmpty) return pickForGroup(person);
+    if (picking) return pickForGroup(person);
     final chat = person.chat;
     if (chat != null) return openExistingChat(chat);
     final client = Matrix.of(context).client;
@@ -275,7 +290,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// Enter in the search field: while a group is being picked, a typed
   /// phone number is added to it.
   void submitSearch(String text) {
-    if (group.isEmpty) return;
+    if (!picking) return;
     final people = sources.people(text, const []);
     final typed = people.where((person) => person.typed).firstOrNull;
     if (typed != null) pickForGroup(typed);

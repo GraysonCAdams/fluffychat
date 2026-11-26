@@ -44,7 +44,7 @@ class NewPrivateChatView extends StatelessWidget {
         scrolledUnderElevation: 0,
         leading: const Center(child: BackButton()),
         title: Text(
-          group.isGroup
+          group.isGroup || controller.groupMode
               ? L10n.of(context).newGroupChat
               : L10n.of(context).newChat,
         ),
@@ -75,6 +75,8 @@ class NewPrivateChatView extends StatelessWidget {
                 decoration: InputDecoration(
                   hintText: !group.isEmpty
                       ? L10n.of(context).anyoneElse
+                      : controller.groupMode
+                      ? L10n.of(context).newChatSearchHint
                       : showIdentity
                       ? L10n.of(context).searchForUsers
                       : L10n.of(context).newChatSearchHint,
@@ -178,7 +180,12 @@ class NewPrivateChatView extends StatelessWidget {
                               child: const Icon(Icons.group_add_outlined),
                             ),
                             title: Text(L10n.of(context).createGroup),
-                            onTap: () => context.go('/rooms/newgroup'),
+                            // A group with people on the user's networks,
+                            // picked here; a Matrix-only group has its own
+                            // page when there is no network to pick from.
+                            onTap: controller.bridges.isEmpty
+                                ? () => context.go('/rooms/newgroup')
+                                : controller.startGroup,
                           ),
                           if (PlatformInfos.isMobile && showIdentity)
                             ListTile(
