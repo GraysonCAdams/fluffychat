@@ -3,6 +3,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:math' as math;
+
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
@@ -27,6 +29,7 @@ import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/merged_contacts/merge_suggestion_banner.dart';
 import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -85,14 +88,15 @@ class ChatListViewBody extends StatelessWidget {
           userSearchResult,
           filter,
         ),
-        // Near the top, below the bar that heads the list, and so well
-        // away from New chat, the unread chip and the sync toast at the
-        // bottom.
-        Positioned(
-          left: 0,
-          right: 0,
-          top: _topBarHeight(context) + 4,
-          child: Center(
+        // Near the top, 8 below the bar that heads the list (the button
+        // has 4 of room for its shadow), and so well away from New chat,
+        // the unread chip and the sync toast at the bottom.
+        Positioned.fill(
+          child: _BelowHeader(
+            headerKey: controller.headerKey,
+            scrollController: controller.scrollController,
+            minTop: MediaQuery.paddingOf(context).top,
+            gap: 4,
             child: ScrollToTopButton(controller: controller.scrollController),
           ),
         ),
@@ -116,17 +120,6 @@ class ChatListViewBody extends StatelessWidget {
     );
   }
 
-  /// The height of the bar at the top of the list when it shows: the
-  /// header on a phone or in the column layout, the selection bar under a
-  /// title bar, and nothing under a title bar while no chat is selected,
-  /// where the list starts at the top.
-  double _topBarHeight(BuildContext context) {
-    if (controller.titleBarSearch == null) {
-      return MediaQuery.paddingOf(context).top + 72;
-    }
-    return controller.selectionMode ? 48 : 0;
-  }
-
   Widget _buildScrollView(
     BuildContext context,
     Client client,
@@ -141,22 +134,25 @@ class ChatListViewBody extends StatelessWidget {
     final explore = MatrixFeatures.forClient(
       client,
     ).isRelevant(MatrixFeature.explore);
-    final scrollView = CustomScrollView(
-      // A different account starts from fresh tile state.
-      key: ValueKey(client.userID.toString()),
-      controller: controller.scrollController,
-      slivers: [
-        if (activeSpaceRoom == null || controller.selectionMode)
-          ?controller.header
-        else
-          RoomUpdatesBuilder(
+    final header = activeSpaceRoom == null || controller.selectionMode
+        ? controller.header
+        : RoomUpdatesBuilder(
             client: client,
             builder: (context) => _SpaceChatListHeader(
               space: activeSpaceRoom,
               onBack: controller.clearActiveSpace,
               onOpenDirectory: () => controller.setSpaceDirectoryOpen(true),
             ),
-          ),
+          );
+    final scrollView = CustomScrollView(
+      // A different account starts from fresh tile state.
+      key: ValueKey(client.userID.toString()),
+      controller: controller.scrollController,
+      slivers: [
+        // Keyed so the back to top button can follow the bar's height on
+        // screen (see _BelowHeader).
+        if (header != null)
+          KeyedSubtree(key: controller.headerKey, child: header),
         _SearchFade(
           searching: controller.isSearchMode,
           slivers: [
@@ -1345,6 +1341,137 @@ class _SpaceChatListHeader extends StatelessWidget {
         const SizedBox(width: 8),
       ],
     );
+  }
+}
+
+/// Places [child] centred, [gap] below the part of the list's top bar that
+/// is on screen, and never above [minTop] (the status bar). The bar is the
+/// sliver under [headerKey]: the header, which floats in and out as the
+/// list scrolls, or the pinned selection bar. With no bar the child sits
+/// [gap] below [minTop].
+///
+/// The bar's visible height is read from its sliver geometry when painting,
+/// after the list has been laid out for the frame, so the child follows the
+/// bar in the same frame. Every scroll of [scrollController] repaints it.
+class _BelowHeader extends SingleChildRenderObjectWidget {
+  final GlobalKey headerKey;
+  final ScrollController scrollController;
+  final double minTop;
+  final double gap;
+
+  const _BelowHeader({
+    required this.headerKey,
+    required this.scrollController,
+    required this.minTop,
+    required this.gap,
+    required super.child,
+  });
+
+  @override
+  _RenderBelowHeader createRenderObject(BuildContext context) =>
+      _RenderBelowHeader(
+        headerKey: headerKey,
+        scrollController: scrollController,
+        minTop: minTop,
+        gap: gap,
+      );
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderBelowHeader renderObject,
+  ) => renderObject
+    ..headerKey = headerKey
+    ..scrollController = scrollController
+    ..minTop = minTop
+    ..gap = gap;
+}
+
+class _RenderBelowHeader extends RenderBox
+    with RenderObjectWithChildMixin<RenderBox> {
+  _RenderBelowHeader({
+    required this.headerKey,
+    required ScrollController scrollController,
+    required double minTop,
+    required double gap,
+  }) : _scrollController = scrollController,
+       _minTop = minTop,
+       _gap = gap;
+
+  GlobalKey headerKey;
+
+  ScrollController get scrollController => _scrollController;
+  ScrollController _scrollController;
+  set scrollController(ScrollController value) {
+    if (value == _scrollController) return;
+    if (attached) _scrollController.removeListener(markNeedsPaint);
+    _scrollController = value;
+    if (attached) _scrollController.addListener(markNeedsPaint);
+    markNeedsPaint();
+  }
+
+  double _minTop;
+  set minTop(double value) {
+    if (value == _minTop) return;
+    _minTop = value;
+    markNeedsPaint();
+  }
+
+  double _gap;
+  set gap(double value) {
+    if (value == _gap) return;
+    _gap = value;
+    markNeedsPaint();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _scrollController.addListener(markNeedsPaint);
+  }
+
+  @override
+  void detach() {
+    _scrollController.removeListener(markNeedsPaint);
+    super.detach();
+  }
+
+  /// Where the child goes this frame.
+  Offset get _childOffset {
+    final child = this.child!;
+    final bar = headerKey.currentContext?.findRenderObject();
+    final barHeight = bar is RenderSliver && bar.attached
+        ? bar.geometry?.paintExtent ?? 0.0
+        : 0.0;
+    return Offset(
+      (size.width - child.size.width) / 2,
+      math.max(_minTop, barHeight) + _gap,
+    );
+  }
+
+  @override
+  void performLayout() {
+    child!.layout(constraints.loosen(), parentUsesSize: true);
+    size = constraints.biggest;
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      context.paintChild(child!, offset + _childOffset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      result.addWithPaintOffset(
+        offset: _childOffset,
+        position: position,
+        hitTest: (result, transformed) =>
+            child!.hitTest(result, position: transformed),
+      );
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    final offset = _childOffset;
+    transform.translateByDouble(offset.dx, offset.dy, 0, 1);
   }
 }
 

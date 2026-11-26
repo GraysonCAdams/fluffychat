@@ -138,6 +138,54 @@ void main() {
     });
   });
 
+  testWidgets('back to top follows the header as it floats in and out', (
+    tester,
+  ) async {
+    phone(tester);
+    // A status bar 24 high.
+    tester.view.padding = const FakeViewPadding(top: 24);
+    addChats();
+    await pumpFakeChatList(tester, client);
+    double buttonTop() => tester.getRect(find.byType(ScrollToTopButton)).top;
+
+    // Far enough down for the header to float away: the button rises to 8
+    // below the status bar (4 of it is the room for the button's shadow).
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1300));
+    await tester.pumpAndSettle();
+    expect(buttonHeight(tester), greaterThan(40));
+    expect(find.byType(AppBar).hitTestable(), findsNothing);
+    expect(buttonTop(), 24 + 4);
+
+    // Scrolling back up a little floats part of the header in, and the
+    // button stays 8 below its bottom edge, frame by frame.
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(CustomScrollView)),
+    );
+    var checked = 0;
+    for (var i = 0; i < 15; i++) {
+      await gesture.moveBy(const Offset(0, 5));
+      await tester.pump(const Duration(milliseconds: 16));
+      // The first move goes to the drag's slop, before the header moves.
+      if (find.byType(AppBar).evaluate().isEmpty) continue;
+      final barBottom = tester.getRect(find.byType(AppBar)).bottom;
+      if (barBottom <= 24) continue;
+      expect(buttonTop(), barBottom + 4);
+      checked++;
+    }
+    expect(checked, greaterThan(5));
+    // All the way in: 8 below the 72 high bar under the status bar.
+    for (var i = 0; i < 10; i++) {
+      await gesture.moveBy(const Offset(0, 10));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.getRect(find.byType(AppBar)).bottom, 24 + 72);
+    expect(buttonTop(), 24 + 72 + 4);
+
+    await finishFakeChatList(tester, client);
+  });
+
   testWidgets('the header that floats back in hides the rows below it', (
     tester,
   ) async {

@@ -573,6 +573,10 @@ class ChatListController extends State<ChatList>
 
   final ScrollController scrollController = ScrollController();
 
+  /// Marks the bar at the top of the list, so what sits below it can find
+  /// how much of it is on screen.
+  final GlobalKey headerKey = GlobalKey(debugLabel: 'chat list header');
+
   /// The chats the list currently shows below the pins, in order, and
   /// whether the pinned row is shown above them.
   final listedRooms = ValueNotifier<({List<Room> rooms, bool pins})>((
