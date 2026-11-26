@@ -101,30 +101,6 @@ abstract final class WindowsShell {
       .lookupFunction<Int32 Function(Pointer), int Function(Pointer)>(
         'DestroyIcon',
       );
-  static final _loadImage = _user32
-      .lookupFunction<
-        Pointer Function(Pointer, Pointer<Utf16>, Uint32, Int32, Int32, Uint32),
-        Pointer Function(Pointer, Pointer<Utf16>, int, int, int, int)
-      >('LoadImageW');
-  static final _sendMessage = _user32
-      .lookupFunction<
-        IntPtr Function(Pointer, Uint32, IntPtr, IntPtr),
-        int Function(Pointer, int, int, int)
-      >('SendMessageW');
-  static final _getSystemMetricsForDpi = _user32
-      .lookupFunction<Int32 Function(Int32, Uint32), int Function(int, int)>(
-        'GetSystemMetricsForDpi',
-      );
-  static final _getDpiForWindow = _user32
-      .lookupFunction<Uint32 Function(Pointer), int Function(Pointer)>(
-        'GetDpiForWindow',
-      );
-
-  static const _imageIcon = 1;
-  static const _lrLoadFromFile = 0x10;
-  static const _wmSetIcon = 0x80;
-  static const _iconSmall = 0;
-  static const _smCxSmIcon = 49;
 
   static const _dwmwaUseImmersiveDarkMode = 20;
   static const _dwmwaCaptionColor = 35;
@@ -139,7 +115,6 @@ abstract final class WindowsShell {
   static Pointer? _hwnd;
   static Pointer<Pointer<IntPtr>>? _taskbar;
   static Pointer? _overlayIcon;
-  static Pointer? _captionIcon;
   static String? _lastCaption;
   static String? _lastBadge;
 
@@ -187,45 +162,6 @@ abstract final class WindowsShell {
       _dwmSetWindowAttribute(hwnd, _dwmwaTextColor, value, 4);
     } finally {
       calloc.free(value);
-    }
-    _setCaptionIcon(hwnd, brightness);
-  }
-
-  /// Gives the title bar the bare Seam mark in the variant that suits the
-  /// caption, instead of the cobalt app tile. Only the window's small icon
-  /// changes; the taskbar and Alt+Tab keep the executable's app icon.
-  static void _setCaptionIcon(Pointer hwnd, Brightness brightness) {
-    final name = brightness == Brightness.dark
-        ? 'titlebar_dark.ico'
-        : 'titlebar_light.ico';
-    final path = [
-      File(Platform.resolvedExecutable).parent.path,
-      'data',
-      'flutter_assets',
-      'assets',
-      'seam',
-      name,
-    ].join(Platform.pathSeparator);
-    final nativePath = path.toNativeUtf16();
-    try {
-      // The small-icon size at this window's scaling, so the mark is drawn
-      // from a matching frame of the .ico rather than scaled up from 16 px.
-      final size = _getSystemMetricsForDpi(_smCxSmIcon, _getDpiForWindow(hwnd));
-      final icon = _loadImage(
-        nullptr,
-        nativePath,
-        _imageIcon,
-        size,
-        size,
-        _lrLoadFromFile,
-      );
-      if (icon.address == 0) return;
-      _sendMessage(hwnd, _wmSetIcon, _iconSmall, icon.address);
-      final previous = _captionIcon;
-      if (previous != null) _destroyIcon(previous);
-      _captionIcon = icon;
-    } finally {
-      calloc.free(nativePath);
     }
   }
 
@@ -686,47 +622,64 @@ class _TrayEvents with tray.TrayListener {
 }
 
 /// The window's own top edge on Windows, where the native title bar used to
-/// be. Each pane paints [height] extra pixels of its own colour at its top
-/// (the space comes in as top padding), so dividers run to the window edge;
-/// the window buttons float at the top right and the rest of the strip
-/// moves the window.
+/// be. Panes run to the top edge and the window buttons float over the top
+/// right; the right-hand pane's app bars leave [buttonsWidth] free for them
+/// ([WindowsCaptionInset]). Empty parts of the top [dragHeight] band, such as
+/// the space beside an app bar's title, move the window: the drag area sits
+/// behind the panes, so anything in them that takes the pointer still does.
 class WindowsChrome extends StatelessWidget {
   final Widget child;
 
   const WindowsChrome({required this.child, super.key});
 
-  /// Height of the strip; also the space each pane leaves at its top.
-  static const double height = 32;
+  /// Width of the three window buttons.
+  static const double buttonsWidth = 138;
+
+  /// Height of the band that moves the window, an app bar's height.
+  static const double dragHeight = 56;
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
     final brightness = Theme.of(context).brightness;
     return Stack(
       children: [
-        MediaQuery(
-          data: media.copyWith(
-            padding: media.padding.copyWith(top: media.padding.top + height),
-            viewPadding: media.viewPadding.copyWith(
-              top: media.viewPadding.top + height,
-            ),
-          ),
-          child: child,
-        ),
         const Positioned(
           top: 0,
           left: 0,
           right: 0,
-          height: height,
+          height: dragHeight,
           child: DragToMoveArea(child: SizedBox.expand()),
         ),
+        child,
         Positioned(
           top: 0,
           right: 0,
-          height: height,
           child: _WindowButtons(brightness: brightness),
         ),
       ],
+    );
+  }
+}
+
+/// Keeps app bars in [child], the pane along the window's right edge, clear of
+/// the floating window buttons.
+class WindowsCaptionInset extends StatelessWidget {
+  final Widget child;
+
+  const WindowsCaptionInset({required this.child, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        appBarTheme: theme.appBarTheme.copyWith(
+          actionsPadding: const EdgeInsets.only(
+            right: WindowsChrome.buttonsWidth,
+          ),
+        ),
+      ),
+      child: child,
     );
   }
 }

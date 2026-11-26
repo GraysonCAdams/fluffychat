@@ -43,7 +43,7 @@ Seam Cobalt was chosen to sit apart from other messaging blues (Google Messages 
 | Android launcher icon | `android/res/` (adaptive icon: foreground, cobalt background, monochrome layer, plus legacy PNGs) |
 | Android notification icon | `android/res/drawable-*/ic_stat_seam.png` |
 | Play Store icon | `store/play-store-icon-512.png` (512 x 512, square, no rounding or shadow) |
-| Windows | `windows/app_icon.ico` (exe and taskbar), `tray_icon.ico`, `titlebar_light.ico` and `titlebar_dark.ico` (title bar on a light or dark caption) |
+| Windows | `windows/app_icon.ico` (exe and taskbar), `tray_icon.ico`, `titlebar_light.ico` and `titlebar_dark.ico` (the bare mark for a light or dark caption; not used by the app, which hides the native title bar) |
 | Web | `web/favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` |
 | Raster sizes | `png/` (app icon square and round, marks, glyphs) |
 
@@ -59,7 +59,6 @@ The app already carries these assets; after changing the mark, rebuild the kit a
 | `android/app/src/main/res/drawable-*/splash.png` | `png/seam-mark-on-light-1024.png`, scaled to 177 dp |
 | `assets/seam/seam_app_icon.png`, `seam_glyph.png`, `tray_icon.ico` | in-app logo, tinted logo and the Windows tray icon |
 | `windows/runner/resources/app_icon.ico` | `windows/app_icon.ico` (the exe, taskbar and Alt+Tab) |
-| `assets/seam/titlebar_light.ico`, `titlebar_dark.ico` | `windows/titlebar_*.ico`, the bare mark the app sets as the title-bar icon to match a light or dark caption |
 | `web/icons/`, `web/favicon.png` | the app icon at the matching sizes |
 
 ## Rules

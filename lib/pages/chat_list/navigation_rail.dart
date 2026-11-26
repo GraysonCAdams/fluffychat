@@ -69,11 +69,27 @@ class SpacesNavigationRail extends StatelessWidget {
                             isSelected: activeSpaceId == null,
                             onTap: onGoToChats,
                             // All chats is Seam itself, so its tab is the app
-                            // tile, sized and shaped like the network tiles
-                            // below it.
-                            icon: ClipRSuperellipse(
-                              borderRadius: BorderRadius.circular(
-                                AppConfig.spaceBorderRadius,
+                            // tile, sized, shaped and outlined like the network
+                            // tiles below it.
+                            icon: Container(
+                              clipBehavior: Clip.antiAlias,
+                              foregroundDecoration: ShapeDecoration(
+                                shape: RoundedSuperellipseBorder(
+                                  side: BorderSide(
+                                    width: 1,
+                                    color: Theme.of(context).dividerColor,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    AppConfig.spaceBorderRadius,
+                                  ),
+                                ),
+                              ),
+                              decoration: ShapeDecoration(
+                                shape: RoundedSuperellipseBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppConfig.spaceBorderRadius,
+                                  ),
+                                ),
                               ),
                               child: Image.asset(
                                 'assets/seam/seam_app_icon.png',
