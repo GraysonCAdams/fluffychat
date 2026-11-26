@@ -53,7 +53,10 @@ Future<StartChatChoice?> pickStartChatNetwork(
 /// A bottom sheet listing the user's networks for [person], one row each,
 /// iMessage first and then Google Messages. Each network is asked whether
 /// it can reach the person (`resolve_identifier`, which starts nothing);
-/// the ones that can are tappable and pop a [StartChatChoice].
+/// the ones that can are tappable and pop a [StartChatChoice]. A network
+/// whose answer is an error, rather than "not found", says so with the
+/// bridge's reason and a retry button, so a failing network never reads as
+/// one that does not know the person.
 class StartChatSheet extends StatefulWidget {
   final NewChatPerson person;
   final List<BridgeInfo> bridges;
@@ -64,7 +67,8 @@ class StartChatSheet extends StatefulWidget {
   resolve;
 
   /// Whether the network is for a new group: the heading says so, and the
-  /// only network that reaches the person is picked without a tap.
+  /// only network that reaches the person is picked without a tap, unless
+  /// another network failed to answer.
   final bool group;
 
   const StartChatSheet({
@@ -83,8 +87,11 @@ class _StartChatSheetState extends State<StartChatSheet> {
   late final List<BridgeInfo> _bridges;
 
   /// Each bridge's answer: absent while asking, null when it cannot reach
-  /// the person.
+  /// the person or failed to answer.
   final Map<String, BridgeUser?> _resolved = {};
+
+  /// Why each bridge that failed to answer did, by bridge name.
+  final Map<String, String> _errors = {};
 
   @override
   void initState() {
@@ -100,17 +107,30 @@ class _StartChatSheetState extends State<StartChatSheet> {
 
   Future<void> _resolve(BridgeInfo bridge) async {
     BridgeUser? user;
+    String? error;
     try {
       user = await widget.resolve(
         bridge,
         identifierForBridge(widget.person, bridge)!,
       );
-    } catch (_) {
-      user = null;
+    } catch (e, s) {
+      Logs().w('${bridge.name} could not resolve ${widget.person.name}', e, s);
+      error = bridgeErrorReason(e);
     }
     if (!mounted) return;
-    setState(() => _resolved[bridge.name] = user);
-    if (widget.group && _resolved.length == _bridges.length) {
+    setState(() {
+      _resolved[bridge.name] = user;
+      if (error == null) {
+        _errors.remove(bridge.name);
+      } else {
+        _errors[bridge.name] = error;
+      }
+    });
+    // A failed network might be the one the user wants, so only a clean
+    // answer from every network picks by itself.
+    if (widget.group &&
+        _resolved.length == _bridges.length &&
+        _errors.isEmpty) {
       final reachable = [
         for (final bridge in _bridges)
           if (_resolved[bridge.name] case final user?) (bridge, user),
@@ -120,6 +140,15 @@ class _StartChatSheetState extends State<StartChatSheet> {
         Navigator.of(context).pop(_choice(bridge, user));
       }
     }
+  }
+
+  /// Asks [bridge] again after it failed to answer.
+  void _retry(BridgeInfo bridge) {
+    setState(() {
+      _resolved.remove(bridge.name);
+      _errors.remove(bridge.name);
+    });
+    _resolve(bridge);
   }
 
   StartChatChoice _choice(BridgeInfo bridge, BridgeUser user) =>
@@ -133,10 +162,13 @@ class _StartChatSheetState extends State<StartChatSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
-    final unreachable = _bridges.every(
-      (bridge) =>
-          _resolved.containsKey(bridge.name) && _resolved[bridge.name] == null,
-    );
+    final unreachable =
+        _errors.isEmpty &&
+        _bridges.every(
+          (bridge) =>
+              _resolved.containsKey(bridge.name) &&
+              _resolved[bridge.name] == null,
+        );
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -156,6 +188,7 @@ class _StartChatSheetState extends State<StartChatSheet> {
               builder: (context) {
                 final asked = _resolved.containsKey(bridge.name);
                 final user = _resolved[bridge.name];
+                final error = _errors[bridge.name];
                 return ListTile(
                   enabled: user != null,
                   leading: Avatar(
@@ -165,10 +198,21 @@ class _StartChatSheetState extends State<StartChatSheet> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   title: Text(bridge.displayName),
-                  subtitle: asked && user == null
+                  subtitle: error != null
+                      ? Text(
+                          l10n.networkCheckFailed(error),
+                          style: TextStyle(color: theme.colorScheme.error),
+                        )
+                      : asked && user == null
                       ? Text(l10n.notOnThisNetwork)
                       : null,
-                  trailing: asked
+                  trailing: error != null
+                      ? IconButton(
+                          tooltip: l10n.tryAgain,
+                          icon: const Icon(Icons.refresh_outlined),
+                          onPressed: () => _retry(bridge),
+                        )
+                      : asked
                       ? null
                       : const SizedBox.square(
                           dimension: 20,
@@ -196,4 +240,16 @@ class _StartChatSheetState extends State<StartChatSheet> {
       ),
     );
   }
+}
+
+/// What a bridge said when it failed to answer: its error message, else its
+/// error code, else the HTTP status; for anything else, the error itself.
+String bridgeErrorReason(Object error) {
+  if (error is BridgeProvisioningException) {
+    final status = error.statusCode;
+    return error.error ??
+        error.errcode ??
+        (status == null ? error.toString() : 'HTTP $status');
+  }
+  return error.toString();
 }

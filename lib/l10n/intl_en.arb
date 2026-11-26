@@ -3344,7 +3344,7 @@
     },
     "anyoneElse": "Anyone else?",
     "@anyoneElse": {
-        "description": "Hint of the search field in New Chat once someone is picked for a new group."
+        "description": "Hint of the search field on the share page and Add people once someone is picked."
     },
     "notOnNetwork": "Not on {network}",
     "@notOnNetwork": {
@@ -3365,11 +3365,73 @@
     },
     "groupNameOptional": "Group name (optional)",
     "@groupNameOptional": {
-        "description": "Label of the name field when confirming a new group on a network where the name may be left empty."
+        "description": "Label of a new group's name field (compose screen, share page) on a network where the name may be left empty."
     },
     "groupNameRcsOnly": "Only RCS groups keep a name",
     "@groupNameRcsOnly": {
         "description": "Helper under the group name field for Google Messages, whose MMS groups have no name."
+    },
+    "composeTo": "To:",
+    "@composeTo": {
+        "description": "Label before the recipient chips at the top of the compose screen, as in a mail or iMessage compose window."
+    },
+    "composeNewChatHint": "Your first message starts the chat",
+    "@composeNewChatHint": {
+        "description": "Shown in the empty conversation of the compose screen when there is no chat with the one person picked yet."
+    },
+    "networkCheckFailed": "Couldn't check: {error}",
+    "@networkCheckFailed": {
+        "description": "Second line of a network in the start-chat network picker when its bridge failed to answer whether it reaches the person, with the bridge's reason. The row has a retry button.",
+        "placeholders": {
+            "error": {
+                "type": "String"
+            }
+        }
+    },
+    "networkCheckFailedTitle": "Couldn't check this person",
+    "@networkCheckFailedTitle": {
+        "description": "Title of the dialog shown when a group's network failed to answer whether it reaches a person being added."
+    },
+    "personNetworkCheckFailed": "{network} couldn't check {name}: {error}",
+    "@personNetworkCheckFailed": {
+        "description": "Body of the dialog shown when a group's network failed to answer whether it reaches a person being added, with the bridge's reason. Its buttons are Try again and Cancel.",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            },
+            "network": {
+                "type": "String"
+            },
+            "error": {
+                "type": "String"
+            }
+        }
+    },
+    "composeGroupOn": "New group on {network}",
+    "@composeGroupOn": {
+        "description": "Label under the To field of the compose screen naming the network a new group will be created on.",
+        "placeholders": {
+            "network": {
+                "type": "String"
+            }
+        }
+    },
+    "composeChatOn": "On {network}",
+    "@composeChatOn": {
+        "description": "Label under the To field of the compose screen naming the network of the existing chat the first message goes to.",
+        "placeholders": {
+            "network": {
+                "type": "String"
+            }
+        }
+    },
+    "composeNetworkOnSend": "You pick the network when you send",
+    "@composeNetworkOnSend": {
+        "description": "Label under the To field of the compose screen when one person with no chat yet is picked: the network is chosen in a sheet on send."
+    },
+    "composeNewGroupHint": "Your first message creates the group",
+    "@composeNewGroupHint": {
+        "description": "Shown in the empty conversation of the compose screen when there is no group with exactly the people picked yet."
     },
     "newGroup": "New group",
     "@newGroup": {
@@ -3416,7 +3478,7 @@
     },
     "newChatSearchHint": "Name, phone number or username",
     "@newChatSearchHint": {
-        "description": "Hint of the New chat search field while Matrix IDs are hidden.",
+        "description": "Hint of the To field on the compose screen (New chat) before anyone is in it.",
         "type": "String",
         "placeholders": {}
     },

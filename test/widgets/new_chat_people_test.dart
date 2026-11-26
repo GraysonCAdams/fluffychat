@@ -170,7 +170,11 @@ void main() {
         .map((tile) => (tile.title as Text).data)
         .toList();
     expect(names, ['iMessage', 'Google Messages', 'Telegram']);
-    expect(find.text('Not reachable here'), findsNWidgets(2));
+    // Telegram answered that it does not know Bob; Google Messages failed
+    // to answer, which says so with the reason rather than "not here".
+    expect(find.text('Not reachable here'), findsOneWidget);
+    expect(find.text("Couldn't check: HTTP 500"), findsOneWidget);
+    expect(find.byTooltip('Try again'), findsOneWidget);
 
     await tester.tap(find.text('Telegram'));
     await tester.pumpAndSettle();
