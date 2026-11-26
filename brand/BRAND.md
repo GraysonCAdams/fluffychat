@@ -10,7 +10,7 @@ each conversation a thread, sewn together.
 A round speech bubble made of two pieces of fabric, sewn together and caught mid-stitch:
 
 - **Bubble:** nearly circular, with a normal speech-bubble tail at the lower left.
-- **Seam:** a gentle S across the middle. Periwinkle above, white below.
+- **Seam:** a gentle S across the middle, sewn as four stitches. The bubble is a single colour.
 - **Stitches:** four running stitches along the seam, cut out of the bubble.
 - **Thread:** a free end hangs out and down from the first stitch at the left, where the seam started.
   The working thread runs from the last stitch at the right to the needle.
@@ -25,8 +25,7 @@ stitch, and the loose end is where the sewing began.
 | Name | Hex | Use |
 |---|---|---|
 | Seam Cobalt | `#1A5AD7` | Icon background; the mark's colour on light backgrounds |
-| Periwinkle | `#9ABAF0` | Upper half of the bubble |
-| White | `#FFFFFF` | Lower half, needle and thread; the glyph on dark backgrounds |
+| White | `#FFFFFF` | Bubble, needle and thread; the glyph on dark backgrounds |
 | Glyph dark | `#1F1F1F` | The glyph on light backgrounds |
 
 Seam Cobalt was chosen to sit apart from other messaging blues (Google Messages `#1A73E8`, Signal
@@ -41,7 +40,7 @@ Seam Cobalt was chosen to sit apart from other messaging blues (Google Messages 
 | Mark on a white or light background | `svg/seam-mark-on-light.svg` |
 | One-colour glyph (status bar, notifications, UI) | `svg/seam-glyph.svg` (`currentColor`), or `-white` / `-dark` |
 | Android launcher icon | `android/res/` (adaptive icon: foreground, cobalt background, monochrome layer, plus legacy PNGs) |
-| Android notification icon | `android/res/drawable/ic_stat_seam.xml` (a vector drawable written by `source/notification_icon.py`; the glyph fills the 24 dp icon with a 1 dp margin on its longer side) |
+| Android notification icon | `android/res/drawable/ic_stat_seam.xml` (a vector drawable written by `source/notification_icon.py`; the status-bar variant of the glyph: bubble, tail and stitches only, with no needle or thread; it fills the 24 dp icon with a 1 dp margin on its longer side) |
 | Play Store icon | `store/play-store-icon-512.png` (512 x 512, square, no rounding or shadow) |
 | Windows | `windows/app_icon.ico` (exe and taskbar), `tray_icon.ico`, `titlebar_light.ico` and `titlebar_dark.ico` (the bare mark for a light or dark caption; not used by the app, which hides the native title bar) |
 | Web | `web/favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` |
