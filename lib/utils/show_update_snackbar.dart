@@ -101,53 +101,22 @@ abstract class UpdateNotifier {
           barrierDismissible: true,
           context: context,
           builder: (context) => AlertDialog(
-            title: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 256),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppConfig.borderRadius / 2),
-                child: Image.asset('assets/logo/mini/banner.png'),
+            title: ClipRRect(
+              borderRadius: BorderRadius.circular(48),
+              child: Image.asset(
+                'assets/seam/seam_app_icon.png',
+                width: 96,
+                height: 96,
               ),
             ),
             content: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 256),
-              child: Column(
-                mainAxisSize: .min,
-                spacing: 16,
-                children: [
-                  Text(
-                    l10n.updateInstalled(currentVersion),
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  Text(
-                    l10n.possibleByYou,
-                    textAlign: .center,
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                ],
+              child: Text(
+                l10n.updateInstalled(currentVersion),
+                style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
             actions: [
-              AdaptiveDialogAction(
-                bigButtons: true,
-                targetPlatform: TargetPlatform.android,
-                onPressed: () => launchUrlString(AppConfig.helpUrl),
-                child: Row(
-                  mainAxisSize: .min,
-                  spacing: 4,
-                  children: [
-                    Icon(
-                      Icons.favorite,
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                    Text(
-                      l10n.support,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               AdaptiveDialogAction(
                 bigButtons: true,
                 targetPlatform: TargetPlatform.android,

@@ -117,7 +117,7 @@ class IntroPage extends StatelessWidget {
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(128),
                                 child: Image.asset(
-                                  './assets/logo/mini/logo_mini.png',
+                                  './assets/seam/seam_app_icon.png',
                                   width: 128,
                                   height: 128,
                                 ),

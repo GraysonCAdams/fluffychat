@@ -70,6 +70,11 @@ abstract class PlatformInfos {
           icon: const Icon(Icons.source_outlined),
           label: Text(l10n.sourceCode),
         ),
+        TextButton.icon(
+          onPressed: () => launchUrlString(AppConfig.upstreamSourceCodeUrl),
+          icon: const Icon(Icons.call_split_outlined),
+          label: Text(l10n.originalProject),
+        ),
         Builder(
           builder: (innerContext) {
             return TextButton.icon(
@@ -98,12 +103,15 @@ abstract class PlatformInfos {
       applicationIcon: ClipRRect(
         borderRadius: BorderRadius.circular(64),
         child: Image.asset(
-          './assets/logo/mini/logo_mini.png',
+          './assets/seam/seam_app_icon.png',
           width: 64,
           height: 64,
         ),
       ),
       applicationName: AppSettings.applicationName.value,
+      // The AGPL's "Appropriate Legal Notices": credit, licence and no
+      // warranty. The dialog's own "View licenses" button lists the licences.
+      applicationLegalese: l10n.aboutLegalNotice,
     );
   }
 }

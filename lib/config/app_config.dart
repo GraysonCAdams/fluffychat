@@ -36,28 +36,32 @@ abstract class AppConfig {
   static const String windowsNotificationGuid =
       '4894dfda-c70a-4ebc-b139-acae55f3988d';
 
+  // Seam's own repository: source, issues, releases and changelog. The app is
+  // a modified FluffyChat, so the About screen also credits the original.
   static const String sourceCodeUrl =
-      'https://github.com/krille-chan/fluffychat';
+      'https://github.com/GraysonCAdams/fluffychat';
   static const String supportUrl =
-      'https://github.com/krille-chan/fluffychat/issues';
-  static const String changelogUrl = 'https://fluffychat.im/changelog/';
+      'https://github.com/GraysonCAdams/fluffychat/issues';
+  static const String changelogUrl =
+      'https://github.com/GraysonCAdams/fluffychat/commits/main';
   static const String latestReleaseApiUrl =
-      'https://api.github.com/repos/krille-chan/fluffychat/releases/latest';
-  static const String helpUrl =
-      'https://ko-fi.com/post/How-can-I-support-FluffyChat-J2G325WE6I';
+      'https://api.github.com/repos/GraysonCAdams/fluffychat/releases/latest';
+  static const String upstreamSourceCodeUrl =
+      'https://github.com/krille-chan/fluffychat';
 
   static const Set<String> defaultReactions = {'👍', '❤️', '😂', '😮', '😢'};
 
   static final Uri newIssueUrl = Uri(
     scheme: 'https',
     host: 'github.com',
-    path: '/krille-chan/fluffychat/issues/new',
+    path: '/GraysonCAdams/fluffychat/issues/new',
   );
 
   static final Uri homeserverList = Uri(
     scheme: 'https',
     host: 'raw.githubusercontent.com',
-    path: 'krille-chan/fluffychat/refs/heads/main/recommended_homeservers.json',
+    path:
+        'GraysonCAdams/fluffychat/refs/heads/main/recommended_homeservers.json',
   );
 
   static final Uri crashReportEndpoint = Uri(

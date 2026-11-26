@@ -433,7 +433,7 @@ abstract final class WindowsDesktop {
 
   static const _runKey = r'Software\Microsoft\Windows\CurrentVersion\Run';
   static const _runValueName = 'FluffyChat';
-  static const _trayIcon = 'assets/logo/tray_icon.ico';
+  static const _trayIcon = 'assets/seam/tray_icon.ico';
 
   static final _advapi32 = DynamicLibrary.open('advapi32.dll');
   static final _regSetKeyValue = _advapi32

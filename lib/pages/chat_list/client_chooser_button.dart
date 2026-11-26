@@ -13,7 +13,6 @@ import 'package:fluffychat/widgets/matrix.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart' hide Result;
-import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../utils/fluffy_share.dart';
 import 'chat_list.dart';
@@ -160,16 +159,6 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
           ],
         ),
       ),
-      PopupMenuItem(
-        value: SettingsAction.support,
-        child: Row(
-          children: [
-            Icon(Icons.favorite, color: Colors.red),
-            const SizedBox(width: 18),
-            Text(L10n.of(context).supportFluffyChat),
-          ],
-        ),
-      ),
       const PopupMenuDivider(),
       for (final bundle in bundles) ...[
         if (matrix.accountBundles[bundle]!.length != 1 ||
@@ -292,11 +281,6 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
         case SettingsAction.invite:
           FluffyShare.shareInviteLink(context);
           break;
-        case SettingsAction.support:
-          launchUrlString(
-            'https://ko-fi.com/post/How-can-I-support-FluffyChat-J2G325WE6I',
-          );
-          break;
         case SettingsAction.settings:
           context.go('/rooms/settings');
           break;
@@ -324,7 +308,6 @@ enum SettingsAction {
   markAllAsRead,
   snooze,
   invite,
-  support,
   settings,
   archive,
 }

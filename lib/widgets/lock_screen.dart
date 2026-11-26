@@ -107,7 +107,7 @@ class _LockScreenState extends State<LockScreen> {
               children: [
                 Center(
                   child: Image.asset(
-                    'assets/logo/mini/logo_mono_mini.png',
+                    'assets/seam/seam_glyph.png',
                     width: 128,
                     color: Theme.of(context).colorScheme.surfaceContainerHigh,
                   ),

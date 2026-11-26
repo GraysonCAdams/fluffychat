@@ -46,7 +46,18 @@ Seam Cobalt was chosen to sit apart from other messaging blues (Google Messages 
 | Web | `web/favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` |
 | Raster sizes | `png/` (app icon square and round, marks, glyphs) |
 
-To use the Android set, copy the contents of `android/res/` into `android/app/src/main/res/`.
+### Where the app uses it
+
+The app already carries these assets; after changing the mark, rebuild the kit and copy them again:
+
+| In the app | Copied from |
+|---|---|
+| `android/app/src/main/res/drawable-*/ic_launcher_foreground.png`, `ic_launcher_monochrome.png` | `android/res/mipmap-*/` foreground and monochrome layers (the adaptive icon in `mipmap-anydpi-v26/ic_launcher.xml` points at these, with the background colour in `values/ic_launcher_background.xml`) |
+| `android/app/src/main/res/mipmap-*/ic_launcher.png` | `android/res/mipmap-*/ic_launcher.png` (pre-Android 8 launchers) |
+| `android/app/src/main/res/drawable-*/notifications_icon.png` | `android/res/drawable-*/ic_stat_seam.png` (the file keeps its old name because the code loads it by that name) |
+| `android/app/src/main/res/drawable-*/splash.png` | `png/seam-mark-on-light-1024.png`, scaled to 177 dp |
+| `assets/seam/seam_app_icon.png`, `seam_glyph.png`, `tray_icon.ico` | in-app logo, tinted logo and the Windows tray icon |
+| `windows/runner/resources/app_icon.ico`, `web/icons/`, `web/favicon.png` | the app icon at the matching sizes |
 
 ## Rules
 

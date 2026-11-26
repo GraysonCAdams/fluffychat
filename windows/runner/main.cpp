@@ -18,7 +18,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // window to the front instead.
   ::CreateMutexW(nullptr, TRUE, L"Local\\im.fluffychat.app");
   if (::GetLastError() == ERROR_ALREADY_EXISTS) {
-    HWND running = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"FluffyChat");
+    HWND running = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"Seam");
     if (running) {
       ::ShowWindow(running, ::IsIconic(running) ? SW_RESTORE : SW_SHOW);
       ::SetForegroundWindow(running);
@@ -40,7 +40,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(864, 720);
-  if (!window.CreateAndShow(L"FluffyChat", origin, size)) {
+  if (!window.CreateAndShow(L"Seam", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

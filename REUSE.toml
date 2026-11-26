@@ -60,13 +60,10 @@ SPDX-License-Identifier = "Apache-2.0"
 [[annotations]]
 path = [
     "assets/logo/*/logo**",
-    "android/app/src/main/res/mipmap**/**",
     "ios/Runner/Assets.xcassets/AppIcon.appiconset/**",
     "macos/Runner/Assets.xcassets/AppIcon.appiconset/**",
-    "web/icons/**",
     "web/splash/**",
     "snap/gui/*.png",
-    "windows/runner/resources/app_icon.ico",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2017-Present Fabiyamada"
@@ -84,7 +81,16 @@ SPDX-License-Identifier = "LicenseRef-All-Rights-Reserved"
 
 [[annotations]]
 path = [
-    "brand/**"
+    "brand/**",
+    "assets/seam/**",
+    "android/app/src/main/res/mipmap**/**",
+    "android/app/src/main/res/drawable-*/ic_launcher_foreground.png",
+    "android/app/src/main/res/drawable-*/ic_launcher_monochrome.png",
+    "android/app/src/main/res/drawable-*/notifications_icon.png",
+    "android/app/src/main/res/drawable-*/splash.png",
+    "web/icons/**",
+    "web/favicon.png",
+    "windows/runner/resources/app_icon.ico",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Grayson Adams"

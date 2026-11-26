@@ -5,6 +5,12 @@ SPDX-FileCopyrightText: 2019-Present Contributors to FluffyChat
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
+> **This is Seam, a modified version of FluffyChat.** Forked from
+> [krille-chan/fluffychat](https://github.com/krille-chan/fluffychat) on 5 November 2026; every change
+> since then is in this repository's git history. Seam is licensed, like FluffyChat, under the GNU
+> AGPL version 3 or later. The Seam name and icon are not part of that licence (see `brand/BRAND.md`).
+> The rest of this README is FluffyChat's own.
+
 <img src="https://raw.githubusercontent.com/krille-chan/fluffychat/refs/heads/main/assets/logo/img/banner.png">
 
 [FluffyChat](https://fluffychat.im) is an open source, nonprofit and cute [[matrix](https://matrix.org)] client written in [Flutter](https://flutter.dev). The goal of the app is to create an easy to use instant messenger which is open source and accessible for everyone.

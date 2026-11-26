@@ -71,7 +71,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["appLabel"] = "FluffyChat"
+        manifestPlaceholders["appLabel"] = "Seam"
         ndk { // Workaround for https://github.com/flutter/flutter/issues/162153#issuecomment-2612443642
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64", "x86")
         }
@@ -82,13 +82,13 @@ android {
         // its signature, so test builds keep the real app's data intact.
         debug {
             applicationIdSuffix = ".fork"
-            manifestPlaceholders["appLabel"] = "FluffyChat Fork"
+            manifestPlaceholders["appLabel"] = "Seam"
         }
         // Flutter's profile build type is copied from debug before the block
         // above applies, so it would otherwise install as a separate app.
         getByName("profile") {
             applicationIdSuffix = ".fork"
-            manifestPlaceholders["appLabel"] = "FluffyChat Fork"
+            manifestPlaceholders["appLabel"] = "Seam"
         }
         release {
             signingConfig = signingConfigs.getByName("release")
