@@ -157,54 +157,53 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-/// A slim strip under the chat list header while the app is not in step
-/// with the server: during the first sync, and while syncing fails. It holds
-/// no space once the client is in step.
-class SyncStatusStrip extends StatelessWidget {
-  const SyncStatusStrip({super.key});
+/// A pill near the bottom of the chat list while the app is not in step with
+/// the server: during the first sync, and while syncing fails. Nothing moves
+/// in the list when it comes or goes.
+class SyncStatusToast extends StatelessWidget {
+  const SyncStatusToast({super.key});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dark = theme.brightness == Brightness.dark;
-    final foreground = dark ? Colors.amber.shade200 : Colors.amber.shade900;
+    final foreground = theme.colorScheme.onInverseSurface;
     return _SyncStatusBuilder(
       client: Matrix.of(context).client,
-      builder: (context, status, hide) => AnimatedSize(
+      builder: (context, status, hide) => AnimatedSwitcher(
         duration: FluffyThemes.animationDuration,
-        curve: FluffyThemes.animationCurve,
-        alignment: Alignment.topCenter,
         child: hide
-            ? const SizedBox(width: double.infinity)
-            : Container(
-                width: double.infinity,
-                color: Colors.amber.withAlpha(dark ? 40 : 60),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    SizedBox.square(
-                      dimension: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: foreground,
-                        value: status.progress,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        status.calcLocalizedString(context),
-                        style: theme.textTheme.bodyMedium!.copyWith(
+            ? const SizedBox.shrink()
+            : Material(
+                color: theme.colorScheme.inverseSurface,
+                elevation: 3,
+                shape: const StadiumBorder(),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 18, 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox.square(
+                        dimension: 16,
+                        // Spins rather than showing the sync progress, which
+                        // is near zero while the server cannot be reached.
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
                           color: foreground,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: Text(
+                          status.calcLocalizedString(context),
+                          style: theme.textTheme.bodyMedium!.copyWith(
+                            color: foreground,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
       ),
@@ -240,18 +239,31 @@ class _SyncStatusBuilderState extends State<_SyncStatusBuilder> {
   Object? _shown;
 
   SyncStatusUpdate get _status =>
+      _failure ??
       widget.client.onSyncStatus.value ??
       const SyncStatusUpdate(SyncStatus.waitingForResponse);
 
+  /// The latest failure, set by a failed sync and cleared only by one that
+  /// succeeds. Each retry first reports that it is waiting for a response,
+  /// which is no error, so going by the latest status alone would hide the
+  /// status between retries and show it again when the retry fails.
+  SyncStatusUpdate? _failure;
+
+  void _track(SyncStatusUpdate? status) {
+    if (status?.status == SyncStatus.error) _failure = status;
+    if (status?.status == SyncStatus.finished) _failure = null;
+  }
+
   bool _hide(SyncStatusUpdate status) {
     final client = widget.client;
-    return client.onSync.value != null &&
+    return _failure == null &&
+        client.onSync.value != null &&
         status.status != SyncStatus.error &&
         client.prevBatch != null;
   }
 
   /// Everything the built parts take from the sync state: whether the
-  /// status is hidden, and the status text and progress while it is not.
+  /// status is hidden, and the status text while it is not.
   Object? _displayedState() {
     final status = _status;
     final hide = _hide(status);
@@ -259,14 +271,15 @@ class _SyncStatusBuilderState extends State<_SyncStatusBuilder> {
       hide,
       hide ? null : status.status,
       hide ? null : status.error?.exception,
-      hide ? null : status.progress,
     );
   }
 
   void _subscribe() {
     _subscription?.cancel();
+    _track(widget.client.onSyncStatus.value);
     _shown = _displayedState();
-    _subscription = widget.client.onSyncStatus.stream.listen((_) {
+    _subscription = widget.client.onSyncStatus.stream.listen((status) {
+      _track(status);
       if (!mounted) return;
       final state = _displayedState();
       if (state == _shown) return;
