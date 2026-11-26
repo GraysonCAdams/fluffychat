@@ -100,6 +100,115 @@ void main() {
     await finishFakeChatList(tester, client);
   });
 
+  /// A Google Messages group as Synapse and the bridge leave it: named by
+  /// the bridge, so the sync carries no heroes; loaded partial, so no
+  /// members are in memory; and the newest message is the user's own. The
+  /// members are the user, the bridge bot and two ghosts. Each test takes
+  /// its own [id], as the in-memory database outlives a test.
+  FakeChatListRoom addBridgedGroup(String id) {
+    const name = 'Drew Andersen, Harrison Young';
+    final room = addFakeChat(client, id, name);
+    room.states[EventTypes.RoomMember]?.clear();
+    addFakeBridge(room, bot: '@gmessagesbot:x', network: 'Google Messages');
+    room.summary
+      ..mHeroes = null
+      ..mJoinedMemberCount = 4
+      ..mInvitedMemberCount = 0;
+    room.lastEvent = Event(
+      content: {'msgtype': 'm.text', 'body': 'see you there'},
+      type: EventTypes.Message,
+      eventId: '\$$id-last',
+      senderId: client.userID!,
+      originServerTs: DateTime(2026),
+      room: room,
+    );
+    return room;
+  }
+
+  /// The joined members of the bridged group, as the server lists them.
+  List<MatrixEvent> bridgedMembers() => [
+    for (final (id, name) in [
+      ('@me:x', 'Me'),
+      ('@gmessagesbot:x', 'Google Messages bridge bot'),
+      ('@gmessages_4.46:x', 'Drew Andersen'),
+      ('@gmessages_4.19:x', 'Harrison Young'),
+    ])
+      MatrixEvent(
+        type: EventTypes.RoomMember,
+        content: {'membership': 'join', 'displayname': name},
+        senderId: id,
+        stateKey: id,
+        eventId: '\$member-$id',
+        originServerTs: DateTime(2026),
+      ),
+  ];
+
+  /// Lets the database and the fake server answer, then draws the result.
+  /// Loading takes several database calls in turn, each finishing in real
+  /// time and continuing on a pump.
+  Future<void> settle(WidgetTester tester) async {
+    for (var i = 0; i < 10; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('a bridged group shows the members kept in the database', (
+    tester,
+  ) async {
+    final room = addBridgedGroup('!gm-database:x');
+    await tester.runAsync(() async {
+      for (final member in bridgedMembers()) {
+        await client.database.storeEventUpdate(
+          room.id,
+          Event.fromMatrixEvent(member, room),
+          EventUpdateType.state,
+          client,
+        );
+      }
+    });
+    await pumpFakeChatList(tester, client);
+    await settle(tester);
+
+    final shown = faces(tester, 'Drew Andersen, Harrison Young');
+    expect(shown.map((a) => a.name).toSet(), {
+      'Drew Andersen',
+      'Harrison Young',
+    });
+    // The database had the whole list, so the server was not asked.
+    expect(client.memberRequests, isEmpty);
+
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('a bridged group asks the server once for members it lacks', (
+    tester,
+  ) async {
+    final room = addBridgedGroup('!gm-server:x');
+    client.serverMembers[room.id] = bridgedMembers();
+    await pumpFakeChatList(tester, client);
+    await settle(tester);
+
+    final shown = faces(tester, 'Drew Andersen, Harrison Young');
+    expect(shown.map((a) => a.name).toSet(), {
+      'Drew Andersen',
+      'Harrison Young',
+    });
+    expect(client.memberRequests, [room.id]);
+
+    // The list is kept, so the list built again asks nothing more.
+    await finishFakeChatList(tester, client);
+    await pumpFakeChatList(tester, client);
+    await settle(tester);
+    expect(faces(tester, 'Drew Andersen, Harrison Young'), hasLength(2));
+    expect(client.memberRequests, [room.id]);
+
+    await finishFakeChatList(tester, client);
+  });
+
   testWidgets('a group with a picture and a direct chat show one avatar', (
     tester,
   ) async {

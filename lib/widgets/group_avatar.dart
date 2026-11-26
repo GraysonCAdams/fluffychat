@@ -17,8 +17,11 @@ extension GroupChatExtension on Room {
 /// them. With fewer than two members to show it is the usual [Avatar] with
 /// the initials of [name].
 ///
-/// Members come from memory first, then from the database, never from the
-/// server, so a list of these scrolls without network calls.
+/// Members come from memory first, then from the database. A room with
+/// fewer than two of them there loads its member list once (see
+/// [loadMembers]): bridges name their groups, and Synapse sends no heroes
+/// for a named room, while a room loaded from the database keeps no members
+/// in memory, so the newest sender is often the only one known.
 class GroupAvatar extends StatefulWidget {
   final Room room;
   final String name;
@@ -40,6 +43,35 @@ class GroupAvatar extends StatefulWidget {
 
   /// Whether [room] is shown as a collage: a group without a picture.
   static bool shows(Room room) => room.isGroupChat && room.avatar == null;
+
+  /// The rooms of each client whose member list was loaded this session or
+  /// is loading, by room ID.
+  static final _membersLoaded = Expando<Map<String, Future<void>>>();
+
+  /// The most joined members a room may have for its list to be loaded:
+  /// enough for any group on a phone network, few enough that a large
+  /// public room without a picture never downloads its member list.
+  static const int maxLoadedMembers = 50;
+
+  /// Loads the joined members of [room] into memory, once per session: from
+  /// the database, else from the server, keeping the server's list in the
+  /// database for the next start. Completes at once for a room that was
+  /// loaded, or whose member count is unknown or over [maxLoadedMembers].
+  static Future<void> loadMembers(Room room) {
+    final rooms = _membersLoaded[room.client] ??= {};
+    final loaded = rooms[room.id];
+    if (loaded != null) return loaded;
+    final count = room.summary.mJoinedMemberCount;
+    if (count == null || count > maxLoadedMembers) return Future.value();
+    return rooms[room.id] = room
+        .requestParticipants(const [Membership.join], true, true)
+        .then<void>((_) {})
+        .catchError((Object e, StackTrace s) {
+          // Tried again by the next avatar built for the room.
+          rooms.remove(room.id);
+          Logs().w('Unable to load the members of ${room.id}', e, s);
+        });
+  }
 
   /// The members the collage of [room] shows, at most three: the sender of
   /// the newest message first, then the room's heroes, then whoever else is
@@ -77,10 +109,22 @@ class _GroupAvatarState extends State<GroupAvatar> {
   Object? _key;
   Future<List<User>>? _future;
 
+  /// The room whose member list this avatar waits for.
+  String? _loadingRoomId;
+
+  void _loadMembers(Room room) {
+    if (_loadingRoomId == room.id) return;
+    _loadingRoomId = room.id;
+    GroupAvatar.loadMembers(room).then((_) {
+      if (mounted && widget.room.id == room.id) setState(() {});
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final room = widget.room;
     final ids = GroupAvatar.memberIds(room);
+    if (ids.length < 2) _loadMembers(room);
     final fromMemory = [
       for (final id in ids)
         if (room.getState(EventTypes.RoomMember, id) case final state?)
