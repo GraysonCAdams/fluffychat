@@ -116,60 +116,39 @@ class NetworkBadges extends StatelessWidget {
   }
 }
 
-/// The networks a chat is on as a row of small icons with their colour
-/// taken out, for the trailing edge of a list row where the brand colours
-/// would compete with the avatars.
-class MonochromeNetworkIcons extends StatelessWidget {
+/// The networks a chat is on as a row of their small logos, for the
+/// trailing edge of a list row: the same logos, in their own colours, as
+/// the compose screen's network switcher shows.
+class NetworkLogos extends StatelessWidget {
   /// Each network's icon (an `mxc://` URI) and name, for the initials shown
   /// while the icon loads or when there is none.
   final List<({Uri? icon, String name})> icons;
   final double size;
 
-  /// The icons of [networks], network (space) rooms.
-  MonochromeNetworkIcons({
-    required List<Room> networks,
-    this.size = 18,
-    super.key,
-  }) : icons = [
-         for (final network in networks)
-           (icon: network.avatar, name: network.getLocalizedDisplayname()),
-       ];
+  /// The logos of [networks], network (space) rooms.
+  NetworkLogos({required List<Room> networks, this.size = 18, super.key})
+    : icons = [
+        for (final network in networks)
+          (icon: network.avatar, name: network.getLocalizedDisplayname()),
+      ];
 
-  const MonochromeNetworkIcons.icons({
-    required this.icons,
-    this.size = 18,
-    super.key,
-  });
-
-  /// Maps every colour to its luminance.
-  static const _greyscale = ColorFilter.matrix(<double>[
-    0.2126, 0.7152, 0.0722, 0, 0, //
-    0.2126, 0.7152, 0.0722, 0, 0, //
-    0.2126, 0.7152, 0.0722, 0, 0, //
-    0, 0, 0, 1, 0, //
-  ]);
+  const NetworkLogos.icons({required this.icons, this.size = 18, super.key});
 
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(size * 0.25);
-    return Opacity(
-      opacity: 0.6,
-      child: ColorFiltered(
-        colorFilter: _greyscale,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          spacing: 6,
-          children: [
-            for (final network in icons)
-              Avatar(
-                borderRadius: radius,
-                mxContent: network.icon,
-                size: size,
-                name: network.name,
-              ),
-          ],
-        ),
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      spacing: 6,
+      children: [
+        for (final network in icons)
+          Avatar(
+            borderRadius: radius,
+            mxContent: network.icon,
+            size: size,
+            name: network.name,
+          ),
+      ],
     );
   }
 }

@@ -407,8 +407,8 @@ class _Suggestions extends StatelessWidget {
 }
 
 /// One person in New Chat's or Add people's results: their chat, or
-/// someone the user's networks or phone contacts know, with the networks
-/// that reach them as grey icons at the end. A group chat without a picture
+/// someone the user's networks or phone contacts know, with the logos of
+/// the networks that reach them at the end. A group chat without a picture
 /// shows its members, as in the chat list.
 ///
 /// A person already picked shows a tick, and one who cannot join the
@@ -473,7 +473,7 @@ class NewChatPersonTile extends StatelessWidget {
           ? const Icon(Icons.check_circle)
           : person.networks.isEmpty
           ? null
-          : MonochromeNetworkIcons.icons(
+          : NetworkLogos.icons(
               icons: [
                 for (final network in person.networks)
                   (icon: network.icon, name: network.name),

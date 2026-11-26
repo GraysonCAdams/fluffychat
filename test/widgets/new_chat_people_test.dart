@@ -92,9 +92,7 @@ void main() {
     expect(find.byType(NewChatPersonTile), findsOneWidget);
     expect(find.text('Alice Phone'), findsOneWidget);
     expect(find.text('+1 404 555 1234'), findsOneWidget);
-    final icons = tester.widget<MonochromeNetworkIcons>(
-      find.byType(MonochromeNetworkIcons),
-    );
+    final icons = tester.widget<NetworkLogos>(find.byType(NetworkLogos));
     expect(icons.icons.map((icon) => icon.name), [
       'Google Messages',
       'Telegram',

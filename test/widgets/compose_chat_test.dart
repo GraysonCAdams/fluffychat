@@ -1362,6 +1362,42 @@ void main() {
       await tester.pump(const Duration(seconds: 11));
     });
 
+    testWidgets('a recent row shows its networks\' own logos, in colour, as '
+        'the network switcher does', (tester) async {
+      final imsg = addFakeChat(
+        client,
+        '!q-imsg:x',
+        'Quinn Imsg',
+        partner: '@imessage_qm:x',
+      );
+      addFakeSpace(client, '!ispace:x', 'iMessage', [imsg.id]).setState(
+        StrippedStateEvent(
+          type: EventTypes.RoomAvatar,
+          content: {'url': 'mxc://x/imessage-logo'},
+          senderId: '@imessagebot:x',
+          stateKey: '',
+        ),
+      );
+      await pump(tester, share: SharedDraft([FileShareItem(photo)]));
+      final row = find.ancestor(
+        of: find.descendant(of: recent, matching: find.text('Quinn Imsg')),
+        matching: find.byType(ListTile),
+      );
+      final logo = find.descendant(
+        of: row,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Avatar &&
+              widget.mxContent == Uri.parse('mxc://x/imessage-logo'),
+        ),
+      );
+      expect(logo, findsOneWidget);
+      expect(
+        find.ancestor(of: logo, matching: find.byType(ColorFiltered)),
+        findsNothing,
+      );
+    });
+
     testWidgets('opens with the To field empty, recent chats offered and '
         'the share staged', (tester) async {
       await pump(

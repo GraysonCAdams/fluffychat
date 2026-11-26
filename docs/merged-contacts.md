@@ -352,7 +352,7 @@ directory:
 
 A bridge contact or address book entry joins a row with the same phone
 number (`normalizePhone`), then email, then bridge ghost; two chats are
-never merged here. Each row ends with grey icons of the networks that reach
+never merged here. Each row ends with the logos of the networks that reach
 the person. A typed phone number nobody has gets a row of its own (Add
 people also gives a typed email one).
 
