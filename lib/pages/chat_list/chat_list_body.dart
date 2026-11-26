@@ -573,6 +573,13 @@ class _PinnedRowState extends State<_PinnedRow> {
 
   final _scrollController = ScrollController();
 
+  /// The width each pin takes and the padding at either end, as laid out
+  /// last. Pins that fit share the row's width evenly, so they sit centred;
+  /// pins that do not fit take [_itemWidth] each and start level with the
+  /// list avatars below, scrolling sideways.
+  double _extent = _itemWidth;
+  double _padding = _sidePadding;
+
   /// How many unread pins are fully or partly past the right edge.
   final _hiddenUnread = ValueNotifier<int>(0);
 
@@ -626,7 +633,7 @@ class _PinnedRowState extends State<_PinnedRow> {
   int _firstCutOff() {
     final position = _scrollController.position;
     final rightEdge = position.pixels + position.viewportDimension;
-    return ((rightEdge - _sidePadding) / _itemWidth).floor();
+    return ((rightEdge - _padding) / _extent).floor();
   }
 
   void _updateHiddenUnread() {
@@ -645,8 +652,10 @@ class _PinnedRowState extends State<_PinnedRow> {
     if (next == -1) return;
     final position = _scrollController.position;
     _scrollController.animateTo(
-      (2 * _sidePadding + (next + 1) * _itemWidth - position.viewportDimension)
-          .clamp(0.0, position.maxScrollExtent),
+      (2 * _padding + (next + 1) * _extent - position.viewportDimension).clamp(
+        0.0,
+        position.maxScrollExtent,
+      ),
       duration: FluffyThemes.animationDuration,
       curve: FluffyThemes.animationCurve,
     );
@@ -740,31 +749,38 @@ class _PinnedRowState extends State<_PinnedRow> {
       height: 146,
       child: Stack(
         children: [
-          ReorderableList(
-            controller: _scrollController,
-            scrollDirection: Axis.horizontal,
-            // Extra room above for the unread preview bubbles.
-            padding: const EdgeInsets.fromLTRB(
-              _sidePadding,
-              26,
-              _sidePadding,
-              8,
-            ),
-            itemExtent: _itemWidth,
-            itemCount: sorted.length,
-            onReorderStart: (_) => setState(() => _dragging = true),
-            onReorderEnd: (_) => setState(() => _dragging = false),
-            onReorderItem: (from, to) => _onReorder(sorted, from, to),
-            proxyDecorator: _decorateDragged,
-            itemBuilder: (context, i) => _PinnedChat(
-              key: ValueKey(sorted[i].id),
-              index: i,
-              room: sorted[i],
-              space: widget.spaces[sorted[i].id],
-              spaces: widget.spaces,
-              contact: controller.mergedContactFor(sorted[i]),
-              controller: controller,
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final fits =
+                  sorted.isNotEmpty &&
+                  2 * _sidePadding + sorted.length * _itemWidth <=
+                      constraints.maxWidth;
+              _extent = fits
+                  ? constraints.maxWidth / sorted.length
+                  : _itemWidth;
+              _padding = fits ? 0 : _sidePadding;
+              return ReorderableList(
+                controller: _scrollController,
+                scrollDirection: Axis.horizontal,
+                // Extra room above for the unread preview bubbles.
+                padding: EdgeInsets.fromLTRB(_padding, 26, _padding, 8),
+                itemExtent: _extent,
+                itemCount: sorted.length,
+                onReorderStart: (_) => setState(() => _dragging = true),
+                onReorderEnd: (_) => setState(() => _dragging = false),
+                onReorderItem: (from, to) => _onReorder(sorted, from, to),
+                proxyDecorator: _decorateDragged,
+                itemBuilder: (context, i) => _PinnedChat(
+                  key: ValueKey(sorted[i].id),
+                  index: i,
+                  room: sorted[i],
+                  space: widget.spaces[sorted[i].id],
+                  spaces: widget.spaces,
+                  contact: controller.mergedContactFor(sorted[i]),
+                  controller: controller,
+                ),
+              );
+            },
           ),
           Positioned(
             right: 0,
