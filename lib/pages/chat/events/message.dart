@@ -12,6 +12,7 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/effects/message_effect_bubble.dart';
+import 'package:fluffychat/pages/chat/typing_run.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/file_description.dart';
@@ -422,7 +423,11 @@ class Message extends StatelessWidget {
                                     child: SizedBox(
                                       width: senderAvatarSize,
                                       child: lastOfRun
-                                          ? SenderUserBuilder(
+                                          ? RunAvatarSlot(
+                                              room: event.room,
+                                              senderId: event.senderId,
+                                              isNewest: previousEvent == null,
+                                              child: SenderUserBuilder(
                                               event: event,
                                               builder: (context, fetchedUser) {
                                                 final user =
@@ -439,7 +444,7 @@ class Message extends StatelessWidget {
                                                   size: senderAvatarSize,
                                                 );
                                               },
-                                            )
+                                            ))
                                           : null,
                                     ),
                                   ),
