@@ -8,7 +8,6 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/navi_rail_item.dart';
 import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
-import 'package:fluffychat/pages/chat_list/start_chat_fab.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -72,13 +71,35 @@ class SpacesNavigationRail extends StatelessWidget {
                           return NaviRailItem(
                             isSelected: activeSpaceId == null,
                             onTap: onGoToChats,
-                            icon: const Padding(
-                              padding: EdgeInsets.all(12.0),
-                              child: Icon(Icons.forum_outlined),
-                            ),
-                            selectedIcon: const Padding(
-                              padding: EdgeInsets.all(12.0),
-                              child: Icon(Icons.forum),
+                            // All chats is Seam itself, so its tab is the app
+                            // tile, sized, shaped and outlined like the network
+                            // tiles below it.
+                            icon: Container(
+                              clipBehavior: Clip.antiAlias,
+                              foregroundDecoration: ShapeDecoration(
+                                shape: RoundedSuperellipseBorder(
+                                  side: BorderSide(
+                                    width: 1,
+                                    color: Theme.of(context).dividerColor,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    AppConfig.spaceBorderRadius,
+                                  ),
+                                ),
+                              ),
+                              decoration: ShapeDecoration(
+                                shape: RoundedSuperellipseBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppConfig.spaceBorderRadius,
+                                  ),
+                                ),
+                              ),
+                              child: Image.asset(
+                                'assets/seam/seam_app_icon.png',
+                                width: Avatar.defaultSize,
+                                height: Avatar.defaultSize,
+                                filterQuality: FilterQuality.medium,
+                              ),
                             ),
                             toolTip: L10n.of(context).chats,
                             unreadCount: unreadRoomIds.length,
@@ -132,11 +153,6 @@ class SpacesNavigationRail extends StatelessWidget {
                       },
                     ),
                   ),
-                  if (FluffyThemes.isColumnMode(context))
-                    Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: StartChatFab(),
-                    ),
                 ],
               ),
             );

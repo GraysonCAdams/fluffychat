@@ -95,3 +95,9 @@ path = [
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Grayson Adams"
 SPDX-License-Identifier = "LicenseRef-All-Rights-Reserved"
+
+[[annotations]]
+path = "assets/fonts/google_sans_flex/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2015 The Google Sans Flex Authors (https://github.com/googlefonts/googlesans-flex)"
+SPDX-License-Identifier = "OFL-1.1"

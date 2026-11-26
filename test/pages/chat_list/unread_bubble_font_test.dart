@@ -3,21 +3,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Measures where the unread count's digits land inside the badge when drawn
-// with the real Windows system fonts, using the badge's text style, the
-// way a 20 px Container centres it, and the Windows nudge the badge applies. Skipped where those fonts are absent.
+// with the bundled Google Sans Flex, using the badge's text style, the way a
+// 20 px Container centres it, and the nudge the badge applies.
 
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:fluffychat/pages/chat_list/unread_bubble.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _fonts = {
-  'Segoe UI': r'C:\Windows\Fonts\segoeui.ttf',
-  'Segoe UI Semibold': r'C:\Windows\Fonts\seguisb.ttf',
-  'Segoe UI Variable': r'C:\Windows\Fonts\SegUIVar.ttf',
+  'GoogleSansFlex Medium':
+      'assets/fonts/google_sans_flex/GoogleSansFlex-Medium.ttf',
 };
 
 const _badgeHeight = 20.0;
@@ -47,8 +45,7 @@ Future<double> digitOffset(String family, String text, TextStyle base) async {
     canvas,
     Offset(
       4,
-      (_badgeHeight - painter.height) / 2 -
-          unreadDigitNudge(base.fontSize!, TargetPlatform.windows),
+      (_badgeHeight - painter.height) / 2 - unreadDigitNudge(base.fontSize!),
     ),
   );
   final image = await recorder.endRecording().toImage(
@@ -91,7 +88,7 @@ void main() {
       print(
         '${entry.key}: digit centre offset ${offset.toStringAsFixed(2)} px',
       );
-      expect(offset.abs(), lessThan(0.5));
+      expect(offset.abs(), lessThan(0.1));
     }, skip: !File(entry.value).existsSync());
   }
 }

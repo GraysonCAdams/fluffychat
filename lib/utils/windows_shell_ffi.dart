@@ -9,6 +9,7 @@ import 'dart:ui' as ui;
 
 import 'package:ffi/ffi.dart';
 import 'package:fluffychat/config/setting_keys.dart';
+import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -101,30 +102,6 @@ abstract final class WindowsShell {
       .lookupFunction<Int32 Function(Pointer), int Function(Pointer)>(
         'DestroyIcon',
       );
-  static final _loadImage = _user32
-      .lookupFunction<
-        Pointer Function(Pointer, Pointer<Utf16>, Uint32, Int32, Int32, Uint32),
-        Pointer Function(Pointer, Pointer<Utf16>, int, int, int, int)
-      >('LoadImageW');
-  static final _sendMessage = _user32
-      .lookupFunction<
-        IntPtr Function(Pointer, Uint32, IntPtr, IntPtr),
-        int Function(Pointer, int, int, int)
-      >('SendMessageW');
-  static final _getSystemMetricsForDpi = _user32
-      .lookupFunction<Int32 Function(Int32, Uint32), int Function(int, int)>(
-        'GetSystemMetricsForDpi',
-      );
-  static final _getDpiForWindow = _user32
-      .lookupFunction<Uint32 Function(Pointer), int Function(Pointer)>(
-        'GetDpiForWindow',
-      );
-
-  static const _imageIcon = 1;
-  static const _lrLoadFromFile = 0x10;
-  static const _wmSetIcon = 0x80;
-  static const _iconSmall = 0;
-  static const _smCxSmIcon = 49;
 
   static const _dwmwaUseImmersiveDarkMode = 20;
   static const _dwmwaCaptionColor = 35;
@@ -139,7 +116,6 @@ abstract final class WindowsShell {
   static Pointer? _hwnd;
   static Pointer<Pointer<IntPtr>>? _taskbar;
   static Pointer? _overlayIcon;
-  static Pointer? _captionIcon;
   static String? _lastCaption;
   static String? _lastBadge;
 
@@ -187,45 +163,6 @@ abstract final class WindowsShell {
       _dwmSetWindowAttribute(hwnd, _dwmwaTextColor, value, 4);
     } finally {
       calloc.free(value);
-    }
-    _setCaptionIcon(hwnd, brightness);
-  }
-
-  /// Gives the title bar the bare Seam mark in the variant that suits the
-  /// caption, instead of the cobalt app tile. Only the window's small icon
-  /// changes; the taskbar and Alt+Tab keep the executable's app icon.
-  static void _setCaptionIcon(Pointer hwnd, Brightness brightness) {
-    final name = brightness == Brightness.dark
-        ? 'titlebar_dark.ico'
-        : 'titlebar_light.ico';
-    final path = [
-      File(Platform.resolvedExecutable).parent.path,
-      'data',
-      'flutter_assets',
-      'assets',
-      'seam',
-      name,
-    ].join(Platform.pathSeparator);
-    final nativePath = path.toNativeUtf16();
-    try {
-      // The small-icon size at this window's scaling, so the mark is drawn
-      // from a matching frame of the .ico rather than scaled up from 16 px.
-      final size = _getSystemMetricsForDpi(_smCxSmIcon, _getDpiForWindow(hwnd));
-      final icon = _loadImage(
-        nullptr,
-        nativePath,
-        _imageIcon,
-        size,
-        size,
-        _lrLoadFromFile,
-      );
-      if (icon.address == 0) return;
-      _sendMessage(hwnd, _wmSetIcon, _iconSmall, icon.address);
-      final previous = _captionIcon;
-      if (previous != null) _destroyIcon(previous);
-      _captionIcon = icon;
-    } finally {
-      calloc.free(nativePath);
     }
   }
 
@@ -526,6 +463,12 @@ abstract final class WindowsDesktop {
   static Future<void> init(List<String> args, L10n l10n) async {
     try {
       await windowManager.ensureInitialized();
+      // The app draws its own window buttons (WindowsChrome) and runs its
+      // panes to the top edge, so Windows keeps only the resizable frame.
+      await windowManager.setTitleBarStyle(
+        TitleBarStyle.hidden,
+        windowButtonVisibility: false,
+      );
       await _restoreBounds();
       windowManager.addListener(_WindowEvents());
       await windowManager.setPreventClose(true);
@@ -676,5 +619,150 @@ class _TrayEvents with tray.TrayListener {
       case 'quit':
         WindowsDesktop.quit();
     }
+  }
+}
+
+/// The window's own top edge on Windows, where the native title bar used to
+/// be. In the column layout the panes run to the top edge and the window
+/// buttons float over the top right; the right-hand pane's app bars leave
+/// [buttonsWidth] free for them ([WindowsCaptionInset]). A window narrow
+/// enough for the single-column layout has no pane to the right to float
+/// over, so the content starts below a [buttonsHeight] band that holds the
+/// buttons. Empty parts of the top [dragHeight] band move the window: the
+/// drag area sits behind the content, so anything there that takes the
+/// pointer still does.
+class WindowsChrome extends StatelessWidget {
+  final Widget child;
+
+  const WindowsChrome({required this.child, super.key});
+
+  /// Width of the three window buttons.
+  static const double buttonsWidth = 138;
+
+  /// Height of the window buttons.
+  static const double buttonsHeight = 32;
+
+  /// Height of the band that moves the window, an app bar's height.
+  static const double dragHeight = 56;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final mediaQuery = MediaQuery.of(context);
+    final columns = FluffyThemes.isColumnModeByWidth(mediaQuery.size.width);
+    return Stack(
+      children: [
+        const Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: dragHeight,
+          child: DragToMoveArea(child: SizedBox.expand()),
+        ),
+        if (columns)
+          child
+        else
+          MediaQuery(
+            data: mediaQuery.copyWith(
+              padding: mediaQuery.padding.copyWith(
+                top: mediaQuery.padding.top + buttonsHeight,
+              ),
+              viewPadding: mediaQuery.viewPadding.copyWith(
+                top: mediaQuery.viewPadding.top + buttonsHeight,
+              ),
+            ),
+            child: child,
+          ),
+        Positioned(
+          top: 0,
+          right: 0,
+          child: _WindowButtons(brightness: brightness),
+        ),
+      ],
+    );
+  }
+}
+
+/// Keeps app bars in [child], the pane along the window's right edge, clear of
+/// the floating window buttons.
+class WindowsCaptionInset extends StatelessWidget {
+  final Widget child;
+
+  const WindowsCaptionInset({required this.child, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        appBarTheme: theme.appBarTheme.copyWith(
+          actionsPadding: const EdgeInsets.only(
+            right: WindowsChrome.buttonsWidth,
+          ),
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _WindowButtons extends StatefulWidget {
+  final Brightness brightness;
+
+  const _WindowButtons({required this.brightness});
+
+  @override
+  State<_WindowButtons> createState() => _WindowButtonsState();
+}
+
+class _WindowButtonsState extends State<_WindowButtons> with WindowListener {
+  bool _maximized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    windowManager.addListener(this);
+    windowManager.isMaximized().then((value) {
+      if (mounted) setState(() => _maximized = value);
+    });
+  }
+
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  @override
+  void onWindowMaximize() => setState(() => _maximized = true);
+
+  @override
+  void onWindowUnmaximize() => setState(() => _maximized = false);
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = widget.brightness;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        WindowCaptionButton.minimize(
+          brightness: brightness,
+          onPressed: windowManager.minimize,
+        ),
+        _maximized
+            ? WindowCaptionButton.unmaximize(
+                brightness: brightness,
+                onPressed: windowManager.unmaximize,
+              )
+            : WindowCaptionButton.maximize(
+                brightness: brightness,
+                onPressed: windowManager.maximize,
+              ),
+        WindowCaptionButton.close(
+          brightness: brightness,
+          onPressed: windowManager.close,
+        ),
+      ],
+    );
   }
 }

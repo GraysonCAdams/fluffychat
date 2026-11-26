@@ -70,10 +70,9 @@ class ChatListView extends StatelessWidget {
               behavior: HitTestBehavior.translucent,
               child: Scaffold(
                 body: Material(child: ChatListViewBody(controller)),
+                // Floats at the bottom right of the chat list in every layout.
                 floatingActionButton:
-                    !controller.isSearchMode &&
-                        controller.activeSpaceId == null &&
-                        !FluffyThemes.isColumnMode(context)
+                    !controller.isSearchMode && controller.activeSpaceId == null
                     // Always the compact button, so it stays clear of the
                     // unread chip in the middle of the bottom edge.
                     ? const StartChatFab()

@@ -85,10 +85,12 @@ class _TypingIndicatorsState extends State<TypingIndicators> {
             padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             child: Row(
               children: [
+                // As wide as the avatars it holds, so the bubble sits 8dp
+                // from them; a second avatar overlaps the first by 8dp.
                 Container(
                   alignment: Alignment.center,
                   height: avatarSize,
-                  width: Avatar.defaultSize,
+                  width: typingUsers.length == 2 ? avatarSize + 16 : avatarSize,
                   child: Stack(
                     children: [
                       if (typingUsers.isNotEmpty)

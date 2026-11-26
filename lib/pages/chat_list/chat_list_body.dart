@@ -8,6 +8,7 @@ import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/dummy_chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/hold_then_drag.dart';
@@ -90,6 +91,14 @@ class ChatListViewBody extends StatelessWidget {
             bottom: MediaQuery.viewPaddingOf(context).bottom + 16,
             child: Center(child: _UnreadBelowChip(controller)),
           ),
+        // Over the list, above New chat and the unread chip, while the app is
+        // out of step with the server.
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: MediaQuery.viewPaddingOf(context).bottom + 16 + 56 + 12,
+          child: const Center(child: SyncStatusToast()),
+        ),
       ],
     );
   }
@@ -459,8 +468,8 @@ class _UnreadBelowChip extends StatelessWidget {
 
   const _UnreadBelowChip(this.controller);
 
-  static const double _rowHeight = 76;
-  static const double _unreadRowHeight = 97;
+  static const double _rowHeight = 68;
+  static const double _unreadRowHeight = 89;
   static const double _headerHeight = 72 + 39;
   static const double _pinsHeight = 146;
 

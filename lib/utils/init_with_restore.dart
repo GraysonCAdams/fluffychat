@@ -7,7 +7,6 @@ import 'dart:convert';
 import 'dart:ui';
 
 import 'package:fluffychat/config/app_config.dart';
-import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/client_manager.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -56,19 +55,22 @@ class SessionBackup {
   String toString() => jsonEncode(toJson());
 }
 
+/// The secure-storage key of a client's session backup. It is fixed rather than
+/// derived from the app's display name, so renaming the app (FluffyChat to
+/// Seam) does not orphan the backups already stored.
+String _sessionBackupKey(String clientName) =>
+    'FluffyChat_session_backup_$clientName';
+
 extension InitWithRestoreExtension on Client {
   static Future<void> deleteSessionBackup(String clientName) async {
     final storage = PlatformInfos.isMobile || PlatformInfos.isLinux
         ? const FlutterSecureStorage()
         : null;
-    await storage?.delete(
-      key: '${AppSettings.applicationName.value}_session_backup_$clientName',
-    );
+    await storage?.delete(key: _sessionBackupKey(clientName));
   }
 
   Future<void> initWithRestore({void Function()? onMigration}) async {
-    final storageKey =
-        '${AppSettings.applicationName.value}_session_backup_$clientName';
+    final storageKey = _sessionBackupKey(clientName);
     final storage = PlatformInfos.isMobile || PlatformInfos.isLinux
         ? const FlutterSecureStorage()
         : null;

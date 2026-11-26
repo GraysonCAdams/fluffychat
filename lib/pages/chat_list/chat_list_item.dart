@@ -190,8 +190,11 @@ class _ChatListItemState extends State<ChatListItem> {
     final space = widget.space;
     final oneTimeCode = chatListOneTimeCode(room, contact);
 
+    // Rows have 12dp above and below their content: 3dp outside the
+    // highlight, so two highlighted rows in a row stay apart by a 6dp gap,
+    // and 9dp inside it.
     final tile = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       child: Material(
         borderRadius: BorderRadius.circular(AppConfig.borderRadius),
         clipBehavior: Clip.hardEdge,
@@ -202,7 +205,11 @@ class _ChatListItemState extends State<ChatListItem> {
             hasOwnActions: oneTimeCode != null,
             selected: selected,
             ListTile(
-              minVerticalPadding: 16,
+              minVerticalPadding: 9,
+              // The padding sets the height. Material's 72dp floor for two
+              // lines would swallow part of it, and part of the one-time
+              // code button.
+              minTileHeight: 0,
               // With the tile's own 8dp margin the avatar starts 16dp from the
               // edge, as in Google Messages.
               contentPadding: const EdgeInsets.only(left: 8, right: 8),
