@@ -602,7 +602,7 @@ void main() {
         ...beats('tick', [568, 659, 750, 840]),
       ],
       // The lamp strikes at 700 ms, where the 500 ms rise ends; the
-      // circle opens out at 3700 ms, where the 150 ms rise ends.
+      // pool opens out at 3700 ms, where the 150 ms rise ends.
       MessageEffect.spotlight: [
         ('slowRise', 200),
         ('click', 700),
@@ -1032,6 +1032,417 @@ void main() {
       expect(composed(played.last), expected[MessageEffect.loud]);
       await tester.pump(const Duration(seconds: 3));
       expect(played, hasLength(2));
+    });
+  });
+
+  group('spotlight', () {
+    const size = Size(360, 720);
+    const bubble = Rect.fromLTWH(200, 560, 148, 44);
+
+    SpotlightScene sceneFor({EffectOrigin? origin, int? dust}) {
+      final palette = EffectPalette.of(ThemeData.dark());
+      origin ??= const EffectOrigin(rect: bubble);
+      return dust == null
+          ? SpotlightScene(palette, origin, 7)
+          : SpotlightScene(palette, origin, 7, dust: dust);
+    }
+
+    /// [scene] painted [t] seconds in over nothing: the light it adds is
+    /// in the colour channels, and what it darkens in the alpha.
+    Future<ByteData> frame(WidgetTester tester, EffectScene scene, double t) {
+      final recorder = ui.PictureRecorder();
+      scene.paint(Canvas(recorder), size, t);
+      final image = recorder.endRecording().toImageSync(
+        size.width.toInt(),
+        size.height.toInt(),
+      );
+      return tester
+          .runAsync(() => image.toByteData(format: ui.ImageByteFormat.rawRgba))
+          .then((pixels) {
+            image.dispose();
+            return pixels!;
+          });
+    }
+
+    int channel(ByteData pixels, int x, int y, int c) =>
+        pixels.getUint8((y * size.width.toInt() + x) * 4 + c);
+    int lightAt(ByteData pixels, Offset at) =>
+        channel(pixels, at.dx.round(), at.dy.round(), 0);
+    int darkAt(ByteData pixels, Offset at) =>
+        channel(pixels, at.dx.round(), at.dy.round(), 3);
+
+    test('the pool swings onto the bubble, runs past it and settles', () {
+      final scene = sceneFor();
+      final rest = scene.restRadius(size);
+      // The lamp strikes with the pool short of the bubble, on the side
+      // of the middle of the screen.
+      final home = scene.restAt(size);
+      final struck = scene.poolAt(size, 0.72);
+      expect(home.dx - struck.dx, greaterThan(0.3 * rest));
+      // It runs past the bubble before it comes back.
+      final past = [
+        for (var t = 0.85; t < 1.3; t += 0.02)
+          scene.poolAt(size, t).dx - home.dx,
+      ].reduce(math.max);
+      expect(past, greaterThan(0.03 * rest));
+      expect(past, lessThan(0.15 * rest));
+      // Settled, the pool stays on the bubble with all of it inside.
+      for (var t = 1.5; t <= 3.4; t += 0.05) {
+        final at = scene.poolAt(size, t);
+        expect(
+          (at - home).distance,
+          lessThan(0.07 * rest),
+          reason: 'off the bubble at $t s',
+        );
+        for (final corner in [
+          bubble.topLeft,
+          bubble.topRight,
+          bubble.bottomLeft,
+          bubble.bottomRight,
+        ]) {
+          expect(
+            (corner - at).distance,
+            lessThan(scene.radiusAt(size, t) * 0.93),
+            reason: 'bubble not wholly in the pool at $t s',
+          );
+        }
+      }
+    });
+
+    test('the pool rests on the screen with the bubble well inside it', () {
+      // A bubble in the open has the pool on its middle.
+      const open = Rect.fromLTWH(106, 338, 148, 44);
+      expect(
+        sceneFor(origin: const EffectOrigin(rect: open)).restAt(size),
+        open.center,
+      );
+      // By the edges of the screen the pool comes in from them, as far
+      // as keeps the bubble inside it.
+      for (final place in [
+        bubble,
+        const Rect.fromLTWH(12, 664, 148, 44),
+        const Rect.fromLTWH(200, 12, 148, 44),
+        const Rect.fromLTWH(12, 600, 330, 44),
+      ]) {
+        final scene = sceneFor(origin: EffectOrigin(rect: place));
+        final rest = scene.restRadius(size);
+        final home = scene.restAt(size);
+        final moved = home - place.center;
+        expect(moved.dx * (size.width / 2 - place.center.dx), isNonNegative);
+        expect(moved.dy * (size.height / 2 - place.center.dy), isNonNegative);
+        for (final corner in [
+          place.topLeft,
+          place.topRight,
+          place.bottomLeft,
+          place.bottomRight,
+        ]) {
+          expect(
+            (corner - home).distance,
+            lessThan(math.max(rest * 0.87, place.size.longestSide / 2 + 6)),
+            reason: 'the bubble at $place is at the edge of the pool',
+          );
+        }
+      }
+      // The bubble by the right edge has all but a sliver of the pool
+      // on screen.
+      final scene = sceneFor();
+      expect(
+        scene.restAt(size).dx + scene.restRadius(size) * 0.9,
+        lessThanOrEqualTo(size.width + 0.01),
+      );
+      // One at the foot of the screen has the pool lifted towards it.
+      final low = sceneFor(
+        origin: const EffectOrigin(rect: Rect.fromLTWH(200, 664, 148, 44)),
+      );
+      expect(low.restAt(size).dy, lessThan(686 - 30));
+    });
+
+    test('the pool and the lamp are held by a hand, never still', () {
+      final scene = sceneFor();
+      final rest = scene.restRadius(size);
+      for (final at in [scene.poolAt, scene.lampAt]) {
+        final places = [for (var t = 1.6; t <= 3.4; t += 0.1) at(size, t)];
+        for (var i = 1; i < places.length; i++) {
+          final moved = (places[i] - places[i - 1]).distance;
+          // Always moving, and never fast.
+          expect(moved, greaterThan(0.02), reason: 'still at step $i');
+          expect(moved, lessThan(0.04 * rest), reason: 'jumped at step $i');
+        }
+        final xs = [for (final place in places) place.dx];
+        expect(
+          xs.reduce(math.max) - xs.reduce(math.min),
+          greaterThan(0.02 * rest),
+        );
+      }
+    });
+
+    testWidgets('the light is one soft shape with no edge or step in it', (
+      tester,
+    ) async {
+      final scene = sceneFor(dust: 0);
+      final around = bubble.inflate(2);
+      // The strike, the swing, the hold, the drawing in and the opening.
+      for (final t in [0.74, 0.8, 1.0, 2.0, 3.0, 3.6, 3.75, 3.85]) {
+        final pixels = await frame(tester, scene, t);
+        var lightStep = 0, darkStep = 0;
+        for (var y = 0; y < size.height - 1; y++) {
+          for (var x = 0; x < size.width - 1; x++) {
+            if (around.contains(Offset(x.toDouble(), y.toDouble())) ||
+                around.contains(Offset(x + 1, y + 1))) {
+              continue;
+            }
+            for (final (dx, dy) in const [(1, 0), (0, 1)]) {
+              lightStep = math.max(
+                lightStep,
+                (channel(pixels, x, y, 0) - channel(pixels, x + dx, y + dy, 0))
+                    .abs(),
+              );
+              darkStep = math.max(
+                darkStep,
+                (channel(pixels, x, y, 3) - channel(pixels, x + dx, y + dy, 3))
+                    .abs(),
+              );
+            }
+          }
+        }
+        // A hard edge of the beam or a line across the pool is a jump of
+        // sixty levels or more from one pixel to the next.
+        expect(lightStep, lessThan(14), reason: 'an edge in the light at $t s');
+        expect(darkStep, lessThan(26), reason: 'an edge in the dark at $t s');
+        // Nothing is painted over the bubble.
+        for (final at in [
+          bubble.center,
+          bubble.centerLeft + const Offset(4, 0),
+          bubble.centerRight - const Offset(4, 0),
+          bubble.topLeft + const Offset(10, 10),
+        ]) {
+          expect(darkAt(pixels, at), 0, reason: 'over the bubble at $t s');
+        }
+      }
+    });
+
+    testWidgets('the beam gathers to the pool and fades out to its sides', (
+      tester,
+    ) async {
+      final scene = sceneFor(dust: 0);
+      const t = 2.5;
+      final pixels = await frame(tester, scene, t);
+      final pool = scene.poolAt(size, t);
+      final lamp = scene.lampAt(size, t);
+      final axis = pool - lamp;
+      final across = Offset(-axis.dy, axis.dx) / axis.distance;
+      final radius = scene.radiusAt(size, t);
+      final inPool = lightAt(
+        pixels,
+        pool - axis / axis.distance * radius * 0.5,
+      );
+      final nearPool = lightAt(pixels, lamp + axis * 0.7);
+      final midBeam = lightAt(pixels, lamp + axis * 0.4);
+      final midSide = lightAt(
+        pixels,
+        lamp + axis * 0.4 + across * radius * 0.3,
+      );
+      expect(inPool, greaterThan(nearPool));
+      expect(nearPool, greaterThan(midBeam));
+      expect(midBeam, greaterThan(midSide));
+      expect(midSide, greaterThan(0));
+      // Away from the beam there is no light, and the dark is near
+      // black, deepest at the edge of the screen.
+      const corner = Offset(6, 714), inward = Offset(120, 380);
+      // The dark has a trace of the theme's colour in it: no light is
+      // that and nothing more.
+      final tint = scene.palette.scrim.r;
+      for (final at in [corner, inward]) {
+        expect(lightAt(pixels, at), closeTo(darkAt(pixels, at) * tint, 1.5));
+      }
+      expect(midSide, greaterThan(lightAt(pixels, inward) + 3));
+      expect(darkAt(pixels, inward), greaterThan(205));
+      expect(darkAt(pixels, corner), greaterThan(darkAt(pixels, inward)));
+    });
+
+    testWidgets('dust shows in the beam only, and glints', (tester) async {
+      final dusty = sceneFor();
+      final clean = sceneFor(dust: 0);
+      Future<Map<int, int>> dustAt(double t) async {
+        final withDust = await frame(tester, dusty, t);
+        final without = await frame(tester, clean, t);
+        final pool = clean.poolAt(size, t);
+        final lamp = clean.lampAt(size, t);
+        final axis = pool - lamp;
+        final half = SpotlightScene.beamHalfAngle(
+          clean.radiusAt(size, t),
+          axis.distance,
+        );
+        final specks = <int, int>{};
+        for (var y = 0; y < size.height; y++) {
+          for (var x = 0; x < size.width; x++) {
+            final more = channel(withDust, x, y, 0) - channel(without, x, y, 0);
+            if (more < 4) continue;
+            specks[y * size.width.toInt() + x] = more;
+            final from = Offset(x + 0.5, y + 0.5) - lamp;
+            var off = (from.direction - axis.direction).abs();
+            if (off > math.pi) off = 2 * math.pi - off;
+            // A speck's own size is a few pixels, a hair of angle.
+            expect(off, lessThan(half + 0.03), reason: 'dust at $x,$y');
+            expect(from.distance, lessThan(axis.distance * 1.1 + 4));
+          }
+        }
+        return specks;
+      }
+
+      final first = await dustAt(2.0);
+      final later = await dustAt(2.5);
+      expect(first.length, greaterThan(40));
+      // Half a second on, specks have brightened and dimmed in place.
+      final changed = first.entries.where(
+        (speck) => ((later[speck.key] ?? 0) - speck.value).abs() > 6,
+      );
+      expect(changed.length, greaterThan(10));
+    });
+
+    testWidgets('the light follows the bubble as the conversation scrolls', (
+      tester,
+    ) async {
+      var place = bubble;
+      final scene = sceneFor(
+        origin: EffectOrigin(rect: bubble, track: () => place),
+        dust: 0,
+      );
+      final before = scene.poolAt(size, 2.0);
+      place = bubble.shift(const Offset(0, -180));
+      expect(
+        (scene.poolAt(size, 2.0) - before - const Offset(0, -180)).distance,
+        lessThan(0.001),
+      );
+      final pixels = await frame(tester, scene, 2.0);
+      expect(darkAt(pixels, place.center), 0);
+      expect(
+        lightAt(pixels, place.topCenter - const Offset(0, 12)),
+        isPositive,
+      );
+      // Where the bubble was is lit or dark like the rest.
+      expect(darkAt(pixels, bubble.center), isPositive);
+    });
+
+    testWidgets('the host asks where the bubble is on every frame', (
+      tester,
+    ) async {
+      Rect? place = const Rect.fromLTWH(40, 300, 120, 44);
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: ScreenEffectHost(child: SizedBox.expand())),
+        ),
+      );
+      final effects = host(tester);
+      effects.play(
+        MessageEffect.spotlight,
+        globalRect: place,
+        globalRectOf: () => place,
+      );
+      await tester.pump();
+      final origin = effects.scene!.origin;
+      expect(origin.now, place);
+      place = place.shift(const Offset(0, -90));
+      expect(origin.now, place);
+      // A bubble scrolled out of the list keeps the light where it was.
+      final last = place;
+      place = null;
+      expect(origin.now, last);
+      for (var i = 0; i < 280; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(tester.takeException(), isNull);
+      expect(effects.playing, isNull);
+    });
+  });
+
+  group('shooting star', () {
+    const size = Size(360, 720);
+
+    ShootingStarScene sceneFor(EffectOrigin origin) =>
+        ShootingStarScene(EffectPalette.of(ThemeData.dark()), origin, 7);
+
+    testWidgets('leaves the bubble out of the night, the star and the bloom', (
+      tester,
+    ) async {
+      const bubble = Rect.fromLTWH(200, 560, 148, 44);
+      final scene = sceneFor(const EffectOrigin(rect: bubble));
+      // Night falling, the flight, the bloom at 1.8 s and the fading.
+      for (final t in [0.2, 0.6, 1.0, 1.4, 1.8, 1.85, 2.0, 2.4, 3.0]) {
+        final recorder = ui.PictureRecorder();
+        scene.paint(Canvas(recorder), size, t);
+        final image = recorder.endRecording().toImageSync(360, 720);
+        final pixels = (await tester.runAsync(
+          () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+        ))!;
+        int alphaAt(Offset at) =>
+            pixels.getUint8((at.dy.toInt() * 360 + at.dx.toInt()) * 4 + 3);
+        for (final at in [
+          bubble.center,
+          bubble.centerLeft + const Offset(4, 0),
+          bubble.centerRight - const Offset(4, 0),
+          bubble.topCenter + const Offset(0, 3),
+          bubble.bottomCenter - const Offset(0, 3),
+          bubble.topLeft + const Offset(10, 10),
+          bubble.bottomRight - const Offset(10, 10),
+        ]) {
+          expect(alphaAt(at), 0, reason: 'painted over the bubble at $t s');
+        }
+        // The night is all round it.
+        expect(alphaAt(bubble.topCenter - const Offset(0, 6)), greaterThan(60));
+        image.dispose();
+      }
+    });
+
+    test('the star flies clear of a bubble in its way', () {
+      // Nothing in the way: the arc is where it is with no bubble.
+      const low = Rect.fromLTWH(200, 560, 148, 44);
+      final free = sceneFor(const EffectOrigin());
+      expect(
+        sceneFor(const EffectOrigin(rect: low)).arcFor(size),
+        free.arcFor(size),
+      );
+      // A bubble on the arc: low on the left, in the middle, high on the
+      // right and where the star lands.
+      for (final p in [0.25, 0.5, 0.8, 1.0]) {
+        final bubble = Rect.fromCenter(
+          center: free.starAt(size, p),
+          width: 148,
+          height: 44,
+        );
+        final scene = sceneFor(EffectOrigin(rect: bubble));
+        expect(
+          scene.arcFor(size),
+          isNot(free.arcFor(size)),
+          reason: 'bubble at $p',
+        );
+        for (var i = 0; i <= 100; i++) {
+          final star = scene.starAt(size, i / 100);
+          expect(
+            bubble.inflate(36).contains(star),
+            isFalse,
+            reason: 'the star crosses the bubble at $p, ${i / 100} along',
+          );
+        }
+        // The star still lands on screen.
+        expect((Offset.zero & size).contains(scene.starAt(size, 1)), isTrue);
+      }
+    });
+
+    test('the star keeps clear of a bubble that scrolls into its way', () {
+      const low = Rect.fromLTWH(200, 560, 148, 44);
+      var place = low;
+      final scene = sceneFor(EffectOrigin(rect: low, track: () => place));
+      final whole = scene.arcFor(size);
+      final landing = scene.starAt(size, 1);
+      place = Rect.fromCenter(center: landing, width: 148, height: 44);
+      expect(scene.arcFor(size), isNot(whole));
+      for (var i = 0; i <= 100; i++) {
+        expect(
+          place.inflate(36).contains(scene.starAt(size, i / 100)),
+          isFalse,
+        );
+      }
     });
   });
 

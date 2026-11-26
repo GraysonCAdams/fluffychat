@@ -114,14 +114,31 @@ class EffectOrigin {
   /// The bubble's text, for the scene that repeats it.
   final String text;
 
+  /// Finds the bubble's bounds at this moment, for a scene that follows
+  /// the bubble while the conversation scrolls under it. Null where the
+  /// bubble stays at [rect].
+  final Rect? Function()? track;
+
   const EffectOrigin({
     this.rect,
     this.text = '',
     this.borderRadius = const BorderRadius.all(Radius.circular(20)),
+    this.track,
   });
+
+  /// The bubble's bounds at this moment: where [track] finds it, and
+  /// [rect] without one.
+  Rect? get now => track == null ? rect : track!() ?? rect;
 
   /// The bubble's outline, or null when it is not on screen.
   RRect? get rrect => switch (rect) {
+    null => null,
+    final rect => borderRadius.toRRect(rect),
+  };
+
+  /// The bubble's outline at this moment, or null when it is not on
+  /// screen.
+  RRect? get rrectNow => switch (now) {
     null => null,
     final rect => borderRadius.toRRect(rect),
   };
@@ -1298,7 +1315,8 @@ class CelebrationScene extends EffectScene {
 // ----------------------------------------------------------- shooting star
 
 /// Night falls over the conversation and a star crosses it on a rising
-/// arc, drawing a tail of light, then blooms and is gone.
+/// arc, drawing a tail of light, then blooms and is gone. The bubble is
+/// left out of the night and the light, and the star flies clear of it.
 class ShootingStarScene extends EffectScene {
   late final List<(double along, double off, double phase)> _dust;
 
@@ -1340,19 +1358,84 @@ class ShootingStarScene extends EffectScene {
     ),
   );
 
-  Offset _at(Size size, double p) {
-    final a = Offset(-size.width * 0.08, size.height * 0.78);
-    final c = Offset(size.width * 0.52, size.height * 0.7);
-    final b = Offset(size.width * 0.82, size.height * 0.3);
+  /// How far the star and its tail keep from the bubble: the reach of
+  /// the glow round the star's head.
+  static const _berth = 40.0;
+
+  /// Where the arc starts and how far it rises when nothing is in its
+  /// way, in screen heights.
+  static const _startAt = 0.78, _rise = 0.48;
+
+  /// The highest the star lands and the lowest it starts, in screen
+  /// heights, and the least it rises on an arc moved out of the way.
+  static const _highest = 0.1, _lowest = 0.94, _leastRise = 0.14;
+
+  /// The star's place [p] of the way along an arc that starts at the
+  /// height [start] and rises by [rise].
+  Offset _on(Size size, double p, (double start, double rise) arc) {
+    final (start, rise) = arc;
+    final a = Offset(-size.width * 0.08, start);
+    final c = Offset(size.width * 0.52, start - rise / 6);
+    final b = Offset(size.width * 0.82, start - rise);
     final q = 1 - p;
     return a * (q * q) + c * (2 * q * p) + b * (p * p);
   }
 
+  /// Where the arc starts and how far it rises so that no part of it
+  /// comes within [_berth] of the bubble where it is now. The arc stays
+  /// as it is when the bubble is clear of it or not on screen. Otherwise
+  /// it is moved to pass wholly above the bubble or wholly below it,
+  /// whichever leaves it the longer rise; when there is room for neither
+  /// it stays, and the star passes behind the bubble.
+  (double start, double rise) arcFor(Size size) {
+    final whole = (size.height * _startAt, size.height * _rise);
+    final keepOut = origin.now?.inflate(_berth);
+    if (keepOut == null) return whole;
+    var clear = true;
+    for (var i = 0; i <= 32 && clear; i++) {
+      clear = !keepOut.contains(_on(size, i / 32, whole));
+    }
+    if (clear) return whole;
+    final above = math.min(whole.$2, keepOut.top - 1 - size.height * _highest);
+    final below = math.min(
+      whole.$2,
+      size.height * _lowest - keepOut.bottom - 1,
+    );
+    if (math.max(above, below) < size.height * _leastRise) return whole;
+    return above >= below
+        ? (keepOut.top - 1, above)
+        : (keepOut.bottom + 1 + below, below);
+  }
+
+  /// The star's place [p] of the way along its arc.
+  Offset starAt(Size size, double p) => _on(size, p, arcFor(size));
+
+  final Path _around = Path();
+
   @override
   void paint(Canvas canvas, Size size, double t) {
+    final bubble = origin.rrectNow;
+    if (bubble == null) return _paint(canvas, size, t);
+    // The bubble is left out of everything the scene paints, so the
+    // message stays as it is through the night and the bloom.
+    canvas
+      ..save()
+      ..clipPath(
+        _around
+          ..reset()
+          ..fillType = PathFillType.evenOdd
+          ..addRect(Offset.zero & size)
+          ..addRRect(bubble),
+      );
+    _paint(canvas, size, t);
+    canvas.restore();
+  }
+
+  void _paint(Canvas canvas, Size size, double t) {
     final env = _envelope(t, seconds, 0.3, 0.7);
     final night = Color.lerp(palette.scrim, palette.bubble, 0.12)!;
     _scrim(canvas, size, night, 0.9 * env);
+    final arc = arcFor(size);
     final flown = _unit((t - _start) / _flight);
     final p = Easing.standardDecelerate.transform(flown);
     final tint = Color.lerp(palette.glow, palette.bubble, 0.35)!;
@@ -1369,8 +1452,8 @@ class ShootingStarScene extends EffectScene {
         final u1 = tailFrom + (p - tailFrom) * (i + 1) / steps;
         final k = (i + 1) / steps;
         canvas.drawLine(
-          _at(size, u0),
-          _at(size, u1),
+          _on(size, u0, arc),
+          _on(size, u1, arc),
           plus
             ..style = PaintingStyle.stroke
             ..strokeCap = StrokeCap.round
@@ -1386,13 +1469,13 @@ class ShootingStarScene extends EffectScene {
             (1 - _unit(age / 1.3)) * (0.5 + 0.5 * math.sin(phase + t * 16));
         if (alpha <= 0) continue;
         canvas.drawPath(
-          _sparkle(_at(size, along) + Offset(off * 0.4, off), 3.5),
+          _sparkle(_on(size, along, arc) + Offset(off * 0.4, off), 3.5),
           plus..color = palette.glow.withValues(alpha: alpha * env),
         );
       }
     }
 
-    final head = _at(size, p);
+    final head = _on(size, p, arc);
     final landed = t - (_start + _flight);
     if (t > _start && landed < 0) {
       canvas.drawCircle(
@@ -1438,20 +1521,47 @@ class ShootingStarScene extends EffectScene {
 
 // --------------------------------------------------------------- spotlight
 
-/// The conversation goes dark, then a lamp strikes overhead and throws a
-/// wide circle of light around the bubble. The circle holds, breathing a
-/// little, draws in for a moment and opens out over the whole conversation
-/// as the light comes back.
-class SpotlightScene extends EffectScene {
-  late final List<(double along, double across, double phase)> _motes;
+/// A speck of dust in the beam. [along] is how far down the beam it starts,
+/// from the lamp (0) to the pool (1), and [across] where it sits across the
+/// beam, the pool's edge at 1 either side of the middle. [depth] is how
+/// near it floats to the viewer: the nearest are large and out of focus.
+class _Mote {
+  final double along, across, depth, phase, rate, drift;
+  const _Mote(
+    this.along,
+    this.across,
+    this.depth,
+    this.phase,
+    this.rate,
+    this.drift,
+  );
+}
 
-  SpotlightScene(super.palette, super.origin, super.seed) {
+/// The conversation goes dark around the bubble, then a lamp held high in
+/// the corner strikes: a cone of haze with dust adrift in it comes down to
+/// a pool of light that swings onto the bubble, runs a little past it and
+/// settles. The hand holding the lamp is never quite still, so the pool
+/// and the beam keep wandering a little while they hold. Then the pool
+/// draws in for a moment and opens out over the whole conversation as the
+/// light comes back.
+class SpotlightScene extends EffectScene {
+  late final List<_Mote> _motes;
+
+  /// Where each wave of the hand's wander starts in its cycle.
+  late final List<double> _phases;
+
+  /// [dust] is how many specks drift in the beam.
+  SpotlightScene(super.palette, super.origin, super.seed, {int dust = 120}) {
+    _phases = [for (var i = 0; i < 12; i++) random.nextDouble() * math.pi * 2];
     _motes = [
-      for (var i = 0; i < 18; i++)
-        (
-          0.15 + random.nextDouble() * 0.75,
-          random.nextDouble() * 2 - 1,
+      for (var i = 0; i < dust; i++)
+        _Mote(
+          random.nextDouble(),
+          (random.nextDouble() * 2 - 1) * _spread,
+          random.nextDouble(),
           random.nextDouble() * math.pi * 2,
+          1.3 + random.nextDouble() * 2.6,
+          (random.nextDouble() - 0.35) * 0.035,
         ),
     ];
   }
@@ -1462,23 +1572,70 @@ class SpotlightScene extends EffectScene {
   /// When the room has gone dark, in seconds.
   static const _dark = 0.35;
 
-  /// When the lamp strikes and the circle is at full brightness.
+  /// When the lamp strikes and the pool is at full brightness.
   static const _on = 0.8;
 
   /// How long the lamp takes to come up to that.
   static const _strike = 0.1;
 
-  /// When the circle has settled to its size.
-  static const _settled = 1.1;
+  /// When the pool has settled on the bubble.
+  static const _settled = 1.5;
 
-  /// When the circle starts to draw in, and when it opens out.
+  /// When the pool starts to draw in, and when it opens out.
   static const _drawIn = 3.4, _open = 3.7;
 
-  /// How long the circle takes to open over the whole conversation.
+  /// How long the pool takes to open over the whole conversation.
   static const _opening = 0.3;
 
+  /// How much longer the pool is along the beam than across it, lying on
+  /// the conversation at the angle the beam meets it.
+  static const _stretch = 1.1;
+
+  /// How far the haze of the beam reaches to either side of its middle,
+  /// the pool's edge being 1.
+  static const _spread = 1.3;
+
+  /// How bright the beam is across its width, edge to edge.
+  static const _across = <double>[0, 0.1, 0.42, 0.82, 1, 0.82, 0.42, 0.1, 0];
+  static const _acrossStops = <double>[
+    0,
+    0.1,
+    0.22,
+    0.36,
+    0.5,
+    0.64,
+    0.78,
+    0.9,
+    1,
+  ];
+
+  /// How bright the pool is from its middle outwards, and where, its
+  /// edge being 1: close to even across the disc, a short soft edge and
+  /// a faint halo round it.
+  static const _pool = <double>[1, 0.97, 0.92, 0.8, 0.5, 0.2, 0.06, 0.015, 0];
+  static const _poolAt = <double>[
+    0,
+    0.4,
+    0.7,
+    0.86,
+    0.95,
+    1.04,
+    1.12,
+    1.28,
+    1.5,
+  ];
+
+  /// How much of the dark the pool lifts from its middle outwards, and
+  /// where, its edge being 1.
+  static const _lift = <double>[1, 1, 0.8, 0.5, 0.2, 0.05, 0];
+  static const _liftAt = <double>[0, 0.74, 0.86, 0.95, 1.04, 1.12, 1.2];
+
+  /// How much of the pool's radius the bubble is kept within, and how
+  /// much of it is kept on the screen where the bubble allows.
+  static const _hold = 0.86, _onScreen = 0.9;
+
   /// A slow rise through the dark that peaks with a click as the lamp
-  /// strikes, and a quick rise into a second click as the circle opens
+  /// strikes, and a quick rise into a second click as the pool opens
   /// out. A phone without the primitives swells into the strike.
   @override
   HapticPattern get haptics => HapticPattern(
@@ -1501,42 +1658,159 @@ class SpotlightScene extends EffectScene {
     envelope: HapticEnvelope.swell(_dark, _on - _strike, _on + 0.2, level: 0.2),
   );
 
-  /// The bubble, or where one would be when it is not on screen.
+  /// The bubble where it is now, or where one would be when it is not on
+  /// screen.
   Rect _target(Size size) =>
-      origin.rect ??
+      origin.now ??
       Rect.fromCenter(center: origin.centerIn(size), width: 120, height: 44);
 
-  /// The centre of the circle: the bubble's.
-  Offset center(Size size) => _target(size).center;
-
-  /// The radius of the circle at rest: a third of the screen's width, and
+  /// The radius of the pool at rest: a third of the screen's width, and
   /// more for a bubble that would not fit inside that with room to spare.
   double restRadius(Size size) => math.max(
     size.shortestSide * 0.33,
     _target(size).size.longestSide / 2 + 20,
   );
 
-  /// The radius of the circle [t] seconds in.
+  /// The radius of the pool across the beam [t] seconds in.
   double radiusAt(Size size, double t) {
     final rest = restRadius(size);
-    // Struck a little wide, settling, then breathing while it holds.
+    // Struck a little wide, tightening as it settles and slowly after,
+    // and breathing while it holds.
     final settle = Easing.emphasizedDecelerate.transform(
       _span(t, _on - _strike, _settled),
     );
+    final tighten = 0.03 * _span(t, _settled, _drawIn);
     final breath =
         0.012 *
         math.sin((t - _settled) * 2.1) *
         _span(t, _settled, _settled + 0.4);
-    final drawnIn = 0.04 * Easing.standard.transform(_span(t, _drawIn, _open));
+    final drawnIn = 0.05 * Easing.standard.transform(_span(t, _drawIn, _open));
     final opened = Easing.emphasizedAccelerate.transform(
       _span(t, _open, _open + _opening),
     );
-    return rest * (1.05 - 0.05 * settle + breath - drawnIn) +
+    return rest * (1.07 - 0.05 * settle - tighten + breath - drawnIn) +
         size.longestSide * 1.2 * opened;
   }
 
+  /// An unsteady hand [t] seconds in: three waves to each axis, slow and
+  /// wide down to quick and slight, never in step with one another. Both
+  /// axes stay within 1 either way. [from] picks the hand's six phases.
+  Offset _wander(double t, int from) {
+    double wave(int i, double period) =>
+        math.sin(_phases[from + i] + t * 2 * math.pi / period);
+    return Offset(
+      0.55 * wave(0, 2.9) + 0.3 * wave(1, 1.27) + 0.15 * wave(2, 0.53),
+      0.55 * wave(3, 3.7) + 0.3 * wave(4, 1.61) + 0.15 * wave(5, 0.67),
+    );
+  }
+
+  /// Where the pool comes to rest: on the bubble's middle, or as far
+  /// from it towards the middle of the screen as brings the pool onto the
+  /// screen while the whole bubble stays well inside it.
+  Offset restAt(Size size) {
+    final target = _target(size);
+    final keep = restRadius(size) * _onScreen;
+    double within(double at, double extent) =>
+        extent > 2 * keep ? at.clamp(keep, extent - keep) : extent / 2;
+    final wanted =
+        Offset(
+          within(target.center.dx, size.width),
+          within(target.center.dy, size.height),
+        ) -
+        target.center;
+    // The furthest of that move which leaves the bubble's far corner
+    // inside the pool.
+    final reach = restRadius(size) * _hold;
+    bool holds(double part) =>
+        Offset(
+          wanted.dx.abs() * part + target.width / 2,
+          wanted.dy.abs() * part + target.height / 2,
+        ).distance <=
+        reach;
+    if (holds(1)) return target.center + wanted;
+    var least = 0.0, most = 1.0;
+    for (var i = 0; i < 10; i++) {
+      final part = (least + most) / 2;
+      if (holds(part)) {
+        least = part;
+      } else {
+        most = part;
+      }
+    }
+    return target.center + wanted * least;
+  }
+
+  /// The middle of the pool [t] seconds in. The lamp strikes with the
+  /// pool short of where it rests, towards the middle of the screen,
+  /// swings it on, runs an eighth of that distance past and comes back;
+  /// from then on the pool wanders about its resting place by a twentieth
+  /// of its radius.
+  Offset poolAt(Size size, double t) {
+    final target = _target(size);
+    final rest = restRadius(size);
+    final since = math.max(0.0, t - (_on - _strike));
+    final swing = math.exp(-5.5 * since) * math.cos(7.5 * since);
+    final side = target.center.dx > size.width / 2 ? 1.0 : -1.0;
+    final hand = _wander(t, 0) * _span(since, 0, 0.6);
+    return restAt(size) +
+        Offset(-side * 0.45 * rest, 0.1 * rest) * swing +
+        Offset(hand.dx * 0.05 * rest, hand.dy * 0.03 * rest);
+  }
+
+  /// The lamp [t] seconds in: above the screen, a little to the bubble's
+  /// side of the middle so the beam leans out to the bubble, and moving
+  /// with the hand that holds it.
+  Offset lampAt(Size size, double t) {
+    final right = _target(size).center.dx > size.width / 2;
+    final hand = _wander(t, 6);
+    return Offset(
+      (right ? 0.62 : 0.38) * size.width + hand.dx * 0.03 * size.width,
+      -0.12 * size.height + hand.dy * 0.012 * size.height,
+    );
+  }
+
+  /// Half the angle the beam's haze spreads over at the lamp, for a pool
+  /// of [radius] at [distance] from it.
+  static double beamHalfAngle(double radius, double distance) =>
+      math.min(math.atan2(radius, distance), 1.1) * _spread;
+
+  final Paint _layer = Paint();
+  final Paint _dim = Paint();
+  final Paint _cut = Paint()..blendMode = BlendMode.dstOut;
+  final Paint _hazeLayer = Paint()..blendMode = BlendMode.plus;
+  final Paint _haze = Paint();
+  final Paint _fade = Paint()..blendMode = BlendMode.dstIn;
+  final Paint _pooled = Paint()..blendMode = BlendMode.screen;
+  final Paint _sharp = Paint()..blendMode = BlendMode.plus;
+  final Paint _soft = Paint()
+    ..blendMode = BlendMode.plus
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.4);
+  final Path _around = Path();
+  final List<Color> _dimColors = List.filled(2, const Color(0x00000000));
+  final List<Color> _liftColors = List.filled(
+    _lift.length,
+    const Color(0x00000000),
+  );
+  final List<Color> _acrossColors = List.filled(
+    _across.length,
+    const Color(0x00000000),
+  );
+  final List<Color> _alongColors = List.filled(7, const Color(0x00000000));
+  final List<double> _alongStops = List.filled(7, 0);
+  final List<Color> _poolColors = List.filled(
+    _pool.length,
+    const Color(0x00000000),
+  );
+  static final List<double> _poolStops = [
+    for (final at in _poolAt) at / _poolAt.last,
+  ];
+  static final List<double> _liftStops = [
+    for (final at in _liftAt) at / _liftAt.last,
+  ];
+
   @override
   void paint(Canvas canvas, Size size, double t) {
+    final bounds = Offset.zero & size;
     final dark =
         Easing.standard.transform(_unit(t / _dark)) *
         (1 - _span(t, _open + _opening * 0.5, seconds));
@@ -1546,105 +1820,195 @@ class SpotlightScene extends EffectScene {
         ? 0.0
         : _unit(since / _strike) *
               (since < 0.28 ? 0.86 + 0.14 * math.sin(since * 60) : 1);
-    final at = center(size);
+    final at = poolAt(size, t);
     final radius = radiusAt(size, t);
-    final leaving = 1 - _span(t, _open, _open + _opening);
+    final lamp = lampAt(size, t);
+    final axis = at - lamp;
+    final distance = axis.distance;
+    final angle = axis.direction;
+    final bubble = origin.rrectNow;
 
-    // The dark, with the circle cut out of it. Its edge is soft over a
-    // twelfth of its radius, as a lamp a little out of focus throws.
-    canvas.saveLayer(Offset.zero & size, Paint());
-    _scrim(canvas, size, palette.scrim, 0.88 * dark);
-    if (lit > 0) {
-      canvas.drawCircle(
-        at,
-        radius,
-        Paint()
-          ..blendMode = BlendMode.dstOut
-          ..shader = ui.Gradient.radial(
-            at,
-            radius,
-            [
-              Color.fromRGBO(0, 0, 0, lit),
-              Color.fromRGBO(0, 0, 0, lit),
-              const Color(0x00000000),
-            ],
-            const [0, 0.88, 1],
-          ),
+    // The dark: deepest at the edges of the screen, and lifted where the
+    // pool falls, so a light conversation shows lit there. The bubble is
+    // left out of it and keeps its own colours from the first moment.
+    canvas.saveLayer(bounds, _layer);
+    _dimColors[0] = palette.scrim.withValues(alpha: 0.87 * dark);
+    _dimColors[1] = palette.scrim.withValues(alpha: 0.96 * dark);
+    canvas.drawRect(
+      bounds,
+      _dim
+        ..shader = ui.Gradient.radial(
+          bounds.center,
+          size.longestSide * 0.62,
+          _dimColors,
+          const [0.3, 1],
+        ),
+    );
+    if (bubble != null) {
+      canvas.drawRRect(
+        bubble,
+        _cut
+          ..shader = null
+          ..color = const Color(0xFF000000),
       );
+    }
+    if (lit > 0) {
+      for (var i = 0; i < _lift.length; i++) {
+        _liftColors[i] = Color.fromRGBO(0, 0, 0, _lift[i] * lit);
+      }
+      final reach = radius * _liftAt.last;
+      canvas
+        ..save()
+        ..translate(at.dx, at.dy)
+        ..rotate(angle)
+        ..scale(_stretch, 1)
+        ..drawCircle(
+          Offset.zero,
+          reach,
+          _cut
+            ..shader = ui.Gradient.radial(
+              Offset.zero,
+              reach,
+              _liftColors,
+              _liftStops,
+            ),
+        )
+        ..restore();
     }
     canvas.restore();
     if (lit <= 0) return;
 
-    final plus = Paint()..blendMode = BlendMode.plus;
+    final leaving = 1 - _span(t, _open, _open + _opening);
     final glow = lit * dark * leaving;
-    // The beam: a cone of haze from the lamp, up in the corner across
-    // from the bubble's side, down to the circle, with dust adrift in it.
-    final lamp = Offset(
-      at.dx > size.width / 2 ? size.width * 1.05 : -size.width * 0.05,
-      -size.height * 0.08,
-    );
-    final axis = at - lamp;
-    final normal = Offset(-axis.dy, axis.dx) / axis.distance;
-    canvas.drawPath(
-      Path()
-        ..moveTo(lamp.dx - normal.dx * 10, lamp.dy - normal.dy * 10)
-        ..lineTo(at.dx - normal.dx * radius, at.dy - normal.dy * radius)
-        ..lineTo(at.dx + normal.dx * radius, at.dy + normal.dy * radius)
-        ..lineTo(lamp.dx + normal.dx * 10, lamp.dy + normal.dy * 10)
-        ..close(),
-      plus
-        ..shader = ui.Gradient.linear(lamp, at, [
-          palette.glow.withValues(alpha: 0.3 * glow),
-          palette.glow.withValues(alpha: 0.1 * glow),
-        ]),
-    );
-    plus.shader = null;
-    for (final (along, across, phase) in _motes) {
-      final drift = along + 0.02 * math.sin(phase + t * 0.9);
-      final mote =
-          lamp +
-          axis * drift +
-          normal * (across * (10 + (radius - 10) * drift) * 0.85) +
-          Offset(math.sin(phase + t * 1.3) * 3, 0);
-      canvas.drawCircle(
-        mote,
-        0.9,
-        plus
-          ..color = palette.glow.withValues(
-            alpha: glow * (0.25 + 0.25 * math.sin(phase * 3 + t * 2.4)),
-          ),
-      );
-    }
-    // The pool of light on the conversation, brightest in the middle. A
-    // dark conversation shows no light by being uncovered, so there the
-    // pool is painted on strongly. The bubble is left out of it and keeps
-    // its own colours.
-    final pool = palette.dark ? 0.42 : 0.1;
+    if (glow <= 0) return;
     canvas.save();
-    final bubble = origin.rrect;
     if (bubble != null) {
       canvas.clipPath(
-        Path()
-          ..addRect(Offset.zero & size)
-          ..addRRect(bubble)
-          ..fillType = PathFillType.evenOdd,
+        _around
+          ..reset()
+          ..fillType = PathFillType.evenOdd
+          ..addRect(bounds)
+          ..addRRect(bubble),
       );
     }
-    canvas.drawCircle(
-      at,
-      radius,
-      plus
-        ..shader = ui.Gradient.radial(
-          at,
-          radius,
-          [
-            palette.glow.withValues(alpha: pool * glow),
-            palette.glow.withValues(alpha: pool * 0.7 * glow),
-            palette.glow.withValues(alpha: 0),
-          ],
-          const [0, 0.88, 1],
-        ),
-    );
+
+    // The beam: haze lit along the lamp's throw, cool against the dark.
+    // Across its width it is brightest down the middle and gone by its
+    // edges; along its length it gathers towards the pool and dies away
+    // across it, so the pool sits in the beam with no line where the two
+    // meet.
+    final half = beamHalfAngle(radius, distance);
+    final hazeColor = Color.lerp(palette.glow, const Color(0xFFBCD2FF), 0.45)!;
+    final hazeAlpha = (palette.dark ? 0.26 : 0.18) * glow;
+    for (var i = 0; i < _across.length; i++) {
+      _acrossColors[i] = hazeColor.withValues(alpha: _across[i] * hazeAlpha);
+    }
+    final reach = distance + radius;
+    final near = math.max(0.06, (distance - radius) / reach);
+    for (var i = 0; i < 7; i++) {
+      // Up to the pool's near edge in two steps, then an eased fall
+      // across the pool in four.
+      final (double stop, double level) = switch (i) {
+        0 => (0, 0.14),
+        1 => (near * 0.5, 0.6),
+        2 => (near, 1),
+        3 => (near + (1 - near) * 0.25, 0.84),
+        4 => (near + (1 - near) * 0.5, 0.5),
+        5 => (near + (1 - near) * 0.75, 0.16),
+        _ => (1, 0),
+      };
+      _alongStops[i] = stop;
+      _alongColors[i] = Color.fromRGBO(0, 0, 0, level);
+    }
+    canvas
+      ..saveLayer(bounds, _hazeLayer)
+      ..drawRect(
+        bounds,
+        _haze
+          ..shader = ui.Gradient.sweep(
+            lamp,
+            _acrossColors,
+            _acrossStops,
+            TileMode.clamp,
+            angle - half,
+            angle + half,
+          ),
+      )
+      ..drawRect(
+        bounds,
+        _fade
+          ..shader = ui.Gradient.radial(lamp, reach, _alongColors, _alongStops),
+      )
+      ..restore();
+
+    // The pool: light a little warmer than white on the conversation, an
+    // ellipse lying along the beam. A dark conversation shows no light by
+    // being uncovered, so there the pool is painted on close to white,
+    // the brightest thing on the screen, screened over what it falls on
+    // so that a coloured bubble in it keeps a trace of its colour.
+    final poolColor = Color.lerp(palette.glow, const Color(0xFFFFF6E6), 0.8)!;
+    final poolAlpha = (palette.dark ? 0.88 : 0.14) * glow;
+    for (var i = 0; i < _pool.length; i++) {
+      _poolColors[i] = poolColor.withValues(alpha: _pool[i] * poolAlpha);
+    }
+    final halo = radius * _poolAt.last;
+    canvas
+      ..save()
+      ..translate(at.dx, at.dy)
+      ..rotate(angle)
+      ..scale(_stretch, 1)
+      ..drawCircle(
+        Offset.zero,
+        halo,
+        _pooled
+          ..shader = ui.Gradient.radial(
+            Offset.zero,
+            halo,
+            _poolColors,
+            _poolStops,
+          ),
+      )
+      ..restore();
+
+    // Dust adrift in the beam, carried slowly down it. A speck shows by
+    // the light it is in, so it is brightest in the middle of the beam
+    // and gone at its edges, and it glints as it turns.
+    for (final mote in _motes) {
+      final along = (mote.along + mote.drift * t) % 1.0;
+      final across =
+          mote.across + 0.07 * math.sin(mote.phase + t * mote.rate * 0.3);
+      final inBeam = 1 - (across / _spread) * (across / _spread);
+      if (inBeam <= 0) continue;
+      final ends = math.min(_unit(along / 0.1), _unit((1 - along) / 0.12));
+      final glint = math.pow(
+        0.5 + 0.5 * math.sin(mote.phase * 3 + t * mote.rate),
+        4,
+      );
+      final alpha =
+          glow *
+          inBeam *
+          inBeam *
+          ends *
+          (0.45 + 0.55 * along) *
+          (0.22 + 0.78 * glint);
+      if (alpha < 0.01) continue;
+      final a = angle + across * half / _spread;
+      final d = distance * (0.06 + 1.02 * along);
+      final center = lamp + Offset(math.cos(a), math.sin(a)) * d;
+      if (mote.depth > 0.72) {
+        canvas.drawCircle(
+          center,
+          1.3 + 3.2 * (mote.depth - 0.72),
+          _soft..color = hazeColor.withValues(alpha: alpha * 0.55),
+        );
+      } else {
+        canvas.drawCircle(
+          center,
+          0.45 + 1.0 * mote.depth,
+          _sharp..color = palette.glow.withValues(alpha: alpha),
+        );
+      }
+    }
     canvas.restore();
   }
 }
