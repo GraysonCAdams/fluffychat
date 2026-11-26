@@ -6,6 +6,7 @@
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/events/sender_user_builder.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/message_effects.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -86,14 +87,15 @@ class ReplyContent extends StatelessWidget {
                   },
                 ),
                 Text(
-                  displayEvent
-                      .calcLocalizedBody(
-                        MatrixLocals(L10n.of(context)),
-                        hideReply: true,
-                        plaintextBody: true,
-                      )
-                      .trim()
-                      .replaceAll('\n', ' '),
+                  effectPreviewOf(displayEvent, L10n.of(context)) ??
+                      displayEvent
+                          .calcLocalizedBody(
+                            MatrixLocals(L10n.of(context)),
+                            hideReply: true,
+                            plaintextBody: true,
+                          )
+                          .trim()
+                          .replaceAll('\n', ' '),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                   style: TextStyle(

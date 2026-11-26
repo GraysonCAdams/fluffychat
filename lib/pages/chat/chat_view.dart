@@ -12,6 +12,7 @@ import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/chat/chat_app_bar_list_tile.dart';
 import 'package:fluffychat/pages/chat/chat_app_bar_title.dart';
 import 'package:fluffychat/pages/chat/chat_event_list.dart';
+import 'package:fluffychat/pages/chat/effects/screen_effect_host.dart';
 import 'package:fluffychat/pages/chat/pinned_events.dart';
 import 'package:fluffychat/utils/account_config.dart';
 import 'package:fluffychat/utils/android_bubble.dart';
@@ -386,9 +387,12 @@ class ChatView extends StatelessWidget {
                               ),
                             ),
                           ),
-                        GestureDetector(
-                          onTap: controller.clearSingleSelectedEvent,
-                          child: ChatEventList(controller: controller),
+                        // Message effects play over the timeline.
+                        ScreenEffectHost(
+                          child: GestureDetector(
+                            onTap: controller.clearSingleSelectedEvent,
+                            child: ChatEventList(controller: controller),
+                          ),
                         ),
                         Positioned(
                           bottom: 0,

@@ -7,6 +7,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/event_extension.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
+import 'package:fluffychat/utils/message_effects.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -22,6 +23,7 @@ enum _MessageAction {
   info,
   report,
   resendViaFallback,
+  replayEffect,
 }
 
 /// A quick reaction picked from the row at the top of the menu.
@@ -146,6 +148,13 @@ Future<void> showMessageContextMenu(
           Icons.alt_route_outlined,
           l10n.sendViaInstead(fallbackNetwork),
         ),
+      if (effectOf(event) case final effect?
+          when effect != MessageEffect.invisibleInk)
+        item(
+          _MessageAction.replayEffect,
+          Icons.replay_outlined,
+          l10n.replayEffect,
+        ),
       item(_MessageAction.info, Icons.info_outlined, l10n.messageInfo),
       if (event.status.isSent)
         item(
@@ -188,6 +197,9 @@ Future<void> showMessageContextMenu(
       await controller.reportEventAction();
     case _MessageAction.resendViaFallback:
       await controller.resendViaFallback(event);
+    case _MessageAction.replayEffect:
+      controller.clearSelectedEvents();
+      replayMessageEffect(event);
     default:
       controller.clearSelectedEvents();
   }

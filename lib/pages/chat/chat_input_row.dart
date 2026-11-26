@@ -476,13 +476,15 @@ class ChatSendButton extends StatelessWidget {
               ),
             )
           : GestureDetector(
-              // Long press or right click offers scheduling.
+              // Right click offers scheduling. So does a long press, except
+              // in an iMessage chat, where it offers the message effects.
               onSecondaryTap: controller.openSendOptions,
               child: IconButton(
                 key: Key('send_button'),
                 tooltip: L10n.of(context).send,
                 onPressed: controller.send,
-                onLongPress: controller.openSendOptions,
+                onLongPress: () =>
+                    controller.onSendLongPress(background, foreground),
                 style: IconButton.styleFrom(
                   fixedSize: Size.square(size),
                   minimumSize: Size.square(size),

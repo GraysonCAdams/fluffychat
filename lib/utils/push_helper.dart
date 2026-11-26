@@ -20,6 +20,7 @@ import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
+import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/utils/notification_avatar_extension.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
@@ -208,13 +209,15 @@ Future<void> _tryPushHelper(
   // Calculate the body
   final body = event.type == EventTypes.Encrypted
       ? l10n.newMessageInFluffyChat
-      : event.calcLocalizedBody(
-          matrixLocals,
-          plaintextBody: true,
-          hideReply: true,
-          hideEdit: true,
-          removeMarkdown: true,
-        );
+      // An effect that hides the message keeps it out of the notification.
+      : effectPreviewOf(event, l10n) ??
+            event.calcLocalizedBody(
+              matrixLocals,
+              plaintextBody: true,
+              hideReply: true,
+              hideEdit: true,
+              removeMarkdown: true,
+            );
 
   // The person object for the android message style notification
   final avatar = event.room.avatar;
