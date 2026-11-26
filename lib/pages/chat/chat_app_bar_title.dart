@@ -9,6 +9,7 @@ import 'package:fluffychat/pages/chat/add_merged_chat.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
@@ -16,6 +17,7 @@ import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/sync_status_localization.dart';
 import 'package:fluffychat/utils/verified_room_extension.dart';
 import 'package:fluffychat/widgets/avatar.dart';
+import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/presence_builder.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -72,11 +74,18 @@ class ChatAppBarTitle extends StatelessWidget {
             children: [
               Hero(
                 tag: 'content_banner',
-                child: Avatar(
-                  mxContent: contact?.avatar ?? room.avatar,
-                  name: title,
-                  size: 32,
-                ),
+                child: contact == null && GroupAvatar.shows(room)
+                    ? GroupAvatar(
+                        room: room,
+                        name: title,
+                        size: 32,
+                        outlineColor: Theme.of(context).colorScheme.surface,
+                      )
+                    : Avatar(
+                        mxContent: contact?.avatar ?? room.avatar,
+                        name: title,
+                        size: 32,
+                      ),
               ),
             ],
           ),
@@ -109,6 +118,8 @@ class ChatAppBarTitle extends StatelessWidget {
                   const SizedBox.shrink()
                 else if (contact != null)
                   _MergedRoomSwitcher(room: room, contact: contact)
+                else if (room.isGroupChat)
+                  GroupMembersLine(room: room)
                 else if (networkSpaces.isNotEmpty)
                   const SizedBox.shrink()
                 else
@@ -211,6 +222,79 @@ class ChatAppBarTitle extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Under a group's title: who is in it, the user first and the others by
+/// name, as "You, Drew Andersen, Harrison Young", cut off with an ellipsis.
+/// The full member list is asked for once per room; until it arrives the
+/// members in memory are shown.
+class GroupMembersLine extends StatefulWidget {
+  final Room room;
+
+  const GroupMembersLine({required this.room, super.key});
+
+  @override
+  State<GroupMembersLine> createState() => _GroupMembersLineState();
+}
+
+class _GroupMembersLineState extends State<GroupMembersLine> {
+  static const _memberships = [Membership.join, Membership.invite];
+
+  /// Members the server listed that memory may lack, by user ID.
+  Map<String, User> _requested = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _request();
+  }
+
+  @override
+  void didUpdateWidget(covariant GroupMembersLine oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.room.id != widget.room.id) {
+      _requested = const {};
+      _request();
+    }
+  }
+
+  Future<void> _request() async {
+    final room = widget.room;
+    try {
+      final members = await room.requestParticipants(_memberships, true);
+      if (!mounted || widget.room.id != room.id) return;
+      setState(() => _requested = {for (final m in members) m.id: m});
+    } catch (e, s) {
+      Logs().w('Unable to load the members of ${room.id}', e, s);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final room = widget.room;
+    final skip = {
+      room.client.userID,
+      MatrixFeatures.forClient(room.client).bridgeOf(room)?.bot,
+    };
+    // Memory is current; the server's list fills in who memory lacks.
+    final members =
+        {
+          ..._requested,
+          for (final m in room.getParticipants(_memberships)) m.id: m,
+        }.values.where(
+          (m) => !skip.contains(m.id) && _memberships.contains(m.membership),
+        );
+    final names = members.map((m) => m.calcDisplayname()).toList()..sort();
+    return Text(
+      [L10n.of(context).you, ...names].join(', '),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 12,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     );
   }
