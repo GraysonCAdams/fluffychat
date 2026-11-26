@@ -184,3 +184,12 @@ We do not allow code with wrong formatting. Please run `flutter format lib` if y
 ### Code Analyzis
 
 We do not allow codes with dart errors or warnings. We use the [flutter_lints](https://pub.dev/packages/flutter_lints) package for static code analysis with additional rules under `analysis_options.yaml`.
+
+### Seam website parity
+
+The Seam website mirrors several screens of this app in HTML and checks them
+against goldens rendered from the real widgets in `test/parity/` (see its
+README). Any change to a widget listed in the site's component map (seam-site
+`docs/ARCHITECTURE.md`, section 5.2) is followed by regenerating the goldens
+with `flutter test test/parity --update-goldens` and running
+`pnpm parity:sync` in the site.
