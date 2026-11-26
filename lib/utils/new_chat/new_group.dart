@@ -11,10 +11,12 @@ library;
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/new_private_chat/start_chat_sheet.dart';
 import 'package:fluffychat/utils/bridge_provisioning.dart';
+import 'package:fluffychat/utils/merged_contacts/merged_timeline.dart';
 import 'package:fluffychat/utils/new_chat/add_people.dart' as add_people;
 import 'package:fluffychat/utils/new_chat/bridge_directory.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
+import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -185,10 +187,11 @@ class GroupDraft extends ChangeNotifier {
 BridgeGroupType? preferredGroupType(List<BridgeGroupType> types) =>
     types.where((type) => type.id == 'group').firstOrNull ?? types.firstOrNull;
 
-/// How New Chat, the share page and Add people reach the bridges: reading
-/// the people sources, picking a network for a person, starting groups,
-/// and finding and inviting people for a bridged group. Widget tests
-/// replace it with a fake.
+/// How New Chat, the share page and Add people reach the bridges and the
+/// chats: reading the people sources, picking a network for a person,
+/// starting chats and groups, sending the first message, reading an
+/// existing chat's timeline, and finding and inviting people for a bridged
+/// group. Widget tests replace it with a fake.
 class NewChatDelivery {
   const NewChatDelivery();
 
@@ -196,6 +199,13 @@ class NewChatDelivery {
   /// into [sources], for the search.
   Future<void> loadSources(Client client, NewChatSources sources) =>
       sources.load(client);
+
+  /// Whether the user is logged in to any bridge.
+  Future<bool> hasBridges(Client client) async {
+    final directory = BridgeDirectory.forClient(client);
+    if (directory == null) return false;
+    return (await directory.bridges()).isNotEmpty;
+  }
 
   /// The network to start a chat with [person] on, from New Chat's network
   /// picker; null when the user closed it.
@@ -264,6 +274,35 @@ class NewChatDelivery {
   /// Invites [userId], a bridge ghost, to [room].
   Future<void> invite(Room room, String userId) => room.invite(userId);
 
+  /// The room of a direct chat on the network the user picked in [choice],
+  /// started through its bridge when there is none yet.
+  Future<String> startChat(Client client, StartChatChoice choice) {
+    final directory = BridgeDirectory.forClient(client);
+    if (directory == null) throw StateError('Not logged in');
+    return startBridgeChat(client, directory.api, choice);
+  }
+
+  /// The room of a Matrix direct chat with [userId], created when there is
+  /// none yet.
+  Future<String> startMatrixChat(Client client, String userId) =>
+      client.startDirectChat(userId);
+
+  /// Sends [text] to [room] as the chat's composer does.
+  Future<void> sendText(Room room, String text) => room.sendTextEvent(text);
+
+  /// The timeline of [chat], read-only on the compose screen: every room of
+  /// a merged contact as one, else the chat's room. [onUpdate] fires when
+  /// it changes.
+  Future<Timeline> openTimeline(
+    ExistingChat chat, {
+    void Function()? onUpdate,
+  }) {
+    final contact = chat.contact;
+    return contact == null
+        ? chat.room.getTimeline(onUpdate: onUpdate)
+        : MergedTimeline.open(contact.rooms, onUpdate: onUpdate);
+  }
+
   /// Creates the group on [network] with [members], named [name], and
   /// waits until its room is on [client].
   Future<CreatedGroup> createGroup(
@@ -331,12 +370,52 @@ Future<bool> toggleGroupMember(
   var user = person.bridgeUsers[bridge.name];
   if (user == null) {
     final identifier = identifierForBridge(person, bridge)!;
-    final result = await showFutureLoadingDialog<BridgeUser?>(
-      context: context,
-      future: () => delivery.resolveOnNetwork(client, bridge, identifier),
-    );
-    if (result.isError) return false;
-    user = result.asValue!.value;
+    while (true) {
+      // The error is caught here rather than by the loading dialog, which
+      // would show it without saying who or where.
+      final result =
+          await showFutureLoadingDialog<({BridgeUser? user, Object? error})>(
+            context: context,
+            future: () async {
+              try {
+                final user = await delivery.resolveOnNetwork(
+                  client,
+                  bridge,
+                  identifier,
+                );
+                return (user: user, error: null);
+              } catch (e, s) {
+                Logs().w(
+                  '${bridge.name} could not resolve ${person.name}',
+                  e,
+                  s,
+                );
+                return (user: null, error: e);
+              }
+            },
+          );
+      if (!context.mounted || result.isError) return false;
+      final answer = result.asValue!.value;
+      final error = answer.error;
+      if (error == null) {
+        user = answer.user;
+        break;
+      }
+      // A network that failed to answer has not said the person is not on
+      // it: name who, where and why, and let the user ask again.
+      final retry = await showOkCancelAlertDialog(
+        context: context,
+        title: l10n.networkCheckFailedTitle,
+        message: l10n.personNetworkCheckFailed(
+          person.name,
+          bridge.displayName,
+          bridgeErrorReason(error),
+        ),
+        okLabel: l10n.tryAgain,
+        cancelLabel: l10n.cancel,
+      );
+      if (retry != OkCancelResult.ok || !context.mounted) return false;
+    }
   }
   if (draft.bridge != bridge) return false;
   if (user == null) {

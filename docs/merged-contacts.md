@@ -327,7 +327,11 @@ pass.
 
 ### New chat
 
-New chat (`lib/pages/new_private_chat/`) merges three sources into one
+New chat and Create group open one compose screen
+(`lib/pages/new_private_chat/`, route `/rooms/newprivatechat`), built like
+iMessage's: a "To:" field of people as chips, the conversation with exactly
+those people beneath it, and a composer at the bottom. Typing in the To
+field searches three sources merged into one
 row per person (`mergeNewChatPeople` in
 `lib/utils/new_chat/new_chat_people.dart`), followed by the server's user
 directory:
@@ -350,15 +354,39 @@ never merged here. Each row ends with grey icons of the networks that reach
 the person. A typed phone number nobody has gets a row of its own (Add
 people also gives a typed email one).
 
-Tapping a row with a chat opens it. Any other row opens a sheet of the
-user's networks, iMessage first, then Google Messages, then the rest; each
-is asked `resolve_identifier` for the person (the ghost's ID when that
-bridge listed them, else the number, else the email) and only those that
-can reach them are tappable. Numbers from the address book are sent only to
-these bridges, and only for the person tapped. Picking a network reuses the
+While a name is typed, the suggestions cover the conversation. A tap on
+a row, or Enter (the top row for the typed text, a typed number or email
+included, else a typed Matrix ID), puts the person in the To field as a
+chip and clears the search; the chip's remove button, a second tap on the
+row, or backspace in the empty field takes them out. A group chat in the
+results opens when nobody is in the To field yet, and is greyed out once
+someone is. Before anyone is picked, the area shows the phone contacts
+offer, the invite link, the QR code and, for an account with no bridges,
+the Matrix-only "Create group" page (`/rooms/newgroup`); Create group from
+the account menu (`?group=1`) goes straight there on such an account.
+
+#### One person
+
+The conversation shows the direct chat the user already has with them
+(`existingDirectChatOf` in `lib/utils/new_chat/compose.dart`): the chat the
+search found for them, else a direct room a bridge named for them, one with
+their Matrix ID or ghost, or one whose number is theirs; a merged contact
+shows all its rooms as one timeline. Otherwise it is empty ("Your first
+message starts the chat"). History is drawn read-only with the chat's
+bubbles (`ComposeConversation`, `lib/pages/chat/events/message.dart`).
+
+Sending the first message with a chat sends it there (a merged contact's
+`send_via` room) and opens it. Without one, a sheet lists the user's
+networks, iMessage first, then Google Messages, then the rest; each is
+asked `resolve_identifier` for the person (the ghost's ID when that bridge
+listed them, else the number, else the email) and only those that can reach
+them are tappable; one that fails to answer shows the bridge's reason and
+a retry button instead of "Not reachable here". Numbers from the address
+book are sent only to these bridges, and only for the person picked. Picking a network reuses the
 direct chat the bridge reports, else calls `create_dm`, waits for the room,
-and adds it to the merged contact with the same number when there is one
-(opening that contact), else opens the room.
+sends the message, and adds the room to the merged contact with the same
+number when there is one (opening that contact), else opens the room. A
+Matrix user from the directory gets a Matrix direct chat instead.
 
 The search, the sources and starting a chat live in
 `lib/utils/new_chat/new_chat_search.dart` (`searchExistingChats`,
@@ -366,41 +394,55 @@ The search, the sources and starting a chat live in
 network sheet in `start_chat_sheet.dart` (`pickStartChatNetwork`), so the
 share page uses the same code.
 
-#### New group chat
+#### Two or more people: a group
 
-Starting a group on one network follows Google Messages:
-
-- A long-press on a person adds them as a chip above the search field;
-  while anyone is picked, a tap adds or removes people too, and the search
-  hint reads "Anyone else?". Enter adds a typed phone number. With two or
-  more people the title reads "New group chat" and a "Next" button shows.
-  A tap with nobody picked opens or starts the one-to-one chat as above.
-- The first person fixes the network. The network sheet lists only the
+- A second chip makes a group, and the title reads "New group chat". The
+  first two people fix the network: the network sheet lists only the
   bridges whose `GET /v3/capabilities` has a `group_creation` type (the
   type `group` when there is one, else the first), iMessage first, and
-  picks by itself when one network reaches the person. The network's icon
-  leads the chips. Removing every chip clears the network.
+  picks by itself when one network reaches the first person and every
+  other network answered "not found". A network whose `resolve_identifier`
+  fails (an HTTP error other than `M_NOT_FOUND`, such as iMessage's 500
+  when Apple refuses lookups) is never treated as "not found": its row
+  shows "Couldn't check:" with the bridge's message and a retry button,
+  and the sheet waits for the user to retry or pick another network.
+  Going back to one chip makes it a direct chat again and clears the
+  network.
+- A line under the To field always names the network: "On iMessage" for
+  an existing chat (its bridge space), "New group on iMessage" for a new
+  group, and "You pick the network when you send" for one person with no
+  chat yet, whose network comes from the sheet on send.
 - After that, a person the network cannot reach is greyed out with "Not on
   iMessage" (or the network's name): someone with no phone number, email
   or ghost on that network, a Matrix user, or someone `resolve_identifier`
   answered `M_NOT_FOUND` for when picked. People are asked about one at a
-  time, on the pick, never for the whole list. A group chat in the results
-  is greyed out too; a one-to-one chat counts as its other person.
-- "Next" opens a sheet with the network, the people and, when the group
-  type allows a name (`name.allowed`), a name field ("Group name
-  (optional)" unless `name.required`). Google Messages allows a name, but
-  only RCS groups keep it, which the field says. "Create group" calls
-  `POST /v3/create_group/{type}?login_id=...` with
+  time, on the pick, never for the whole list. When that ask fails, a
+  dialog names the person, the network and the bridge's reason, with Try
+  again and Cancel; the person is not added until it answers.
+- The conversation shows the most recent group on that network whose
+  people are exactly them (`existingGroupOf`): a portal of that bridge,
+  not a direct chat, whose joined or invited members besides the user and
+  the bridge bot are the people's ghosts. Sending goes there. A room whose
+  summary counts more members than are loaded does not match.
+- Otherwise the conversation is empty ("Your first message creates the
+  group") and, when the group type allows a name (`name.allowed`), a name
+  field shows under the To field ("Group name (optional)" unless
+  `name.required`, which keeps send off until there is a name). Google
+  Messages allows a name, but only RCS groups keep it, which the field
+  says. Sending calls `POST /v3/create_group/{type}?login_id=...` with
   `{"participants": [...], "name": {"name": ...}}` (each participant is the
   `id` `resolve_identifier` returned, or the bridge contact's `id`), waits
-  for the room (`awaitBridgedRoom`) and opens it. People the bridge
-  reports in `failed_participants` are named in a snackbar. A group is not
-  added to any merged contact.
+  for the room (`awaitBridgedRoom`), sends the message and opens the room.
+  The iMessage bridge tells Apple nothing until that first message. People
+  the bridge reports in `failed_participants` are named in a snackbar. A
+  group is not added to any merged contact.
 
-The picking rules (`GroupDraft`), the bridge calls (`NewChatDelivery`) and
-the add flow (`toggleGroupMember`) are in
-`lib/utils/new_chat/new_group.dart`; the chips and the confirm sheet are
-in `lib/pages/new_private_chat/new_group_widgets.dart`.
+The picking rules (`GroupDraft`), the bridge and room calls
+(`NewChatDelivery`) and the add flow (`toggleGroupMember`) are in
+`lib/utils/new_chat/new_group.dart`; the To field, name field, history and
+composer are in `lib/pages/new_private_chat/compose_widgets.dart`. The
+share page's group chips and confirm sheet stay in
+`lib/pages/new_private_chat/new_group_widgets.dart`.
 
 #### Add people to a bridged group
 

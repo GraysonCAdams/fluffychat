@@ -6,15 +6,16 @@
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
-import 'package:fluffychat/pages/new_private_chat/new_group_widgets.dart';
+import 'package:fluffychat/pages/new_private_chat/compose_widgets.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
+import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/phone_number.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
-import 'package:fluffychat/widgets/layouts/max_width_body.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
 import 'package:go_router/go_router.dart';
@@ -24,6 +25,10 @@ import 'package:pretty_qr_code/pretty_qr_code.dart';
 
 import '../../widgets/qr_code_viewer.dart';
 
+/// The compose screen: the To field (and a group's name) on top, the
+/// conversation with those people in the middle, the composer at the
+/// bottom. While a name is typed into the To field, the suggestions cover
+/// the conversation.
 class NewPrivateChatView extends StatelessWidget {
   final NewPrivateChatController controller;
 
@@ -32,328 +37,300 @@ class NewPrivateChatView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    final searchResponse = controller.searchResponse;
-    final userId = Matrix.of(context).client.userID!;
-    final group = controller.group;
-    final groupNetwork = group.network;
-    final features = MatrixFeatures.forClient(Matrix.of(context).client);
-    final showIdentity = features.isRelevant(MatrixFeature.identity);
+    final l10n = L10n.of(context);
+    final client = Matrix.of(context).client;
+    final conversation = controller.conversation;
+    final typing = controller.controller.text.isNotEmpty;
+    final Widget body;
+    if (conversation != null) {
+      body = ComposeConversation(
+        key: ValueKey('compose-${conversation.room.id}'),
+        chat: conversation,
+        delivery: controller.widget.delivery,
+      );
+    } else if (controller.recipients.isEmpty) {
+      body = _StartList(controller);
+    } else {
+      body = ComposeEmptyHistory(
+        text: controller.group.isGroup
+            ? l10n.composeNewGroupHint
+            : l10n.composeNewChatHint,
+      );
+    }
+    // The composer names the network the message goes out on: the chat's
+    // bridge space, else the new group's network.
+    final locals = MatrixLocals(l10n);
+    final hintText =
+        (conversation == null
+            ? null
+            : spacesByChild(
+                client,
+              )[conversation.sendRoom.id]?.getLocalizedDisplayname(locals)) ??
+        (conversation == null ? controller.group.bridge?.displayName : null) ??
+        l10n.writeAMessage;
     return Scaffold(
       appBar: AppBar(
         scrolledUnderElevation: 0,
         leading: const Center(child: BackButton()),
         title: Text(
-          group.isGroup || controller.groupMode
-              ? L10n.of(context).newGroupChat
-              : L10n.of(context).newChat,
+          controller.group.isGroup ? l10n.newGroupChat : l10n.newChat,
         ),
         backgroundColor: theme.scaffoldBackgroundColor,
       ),
-      floatingActionButton: group.isGroup
-          ? FloatingActionButton.extended(
-              onPressed: controller.createGroup,
-              icon: const Icon(Icons.arrow_forward_outlined),
-              label: Text(L10n.of(context).next),
-            )
-          : null,
-      body: MaxWidthBody(
-        withScrolling: false,
-        innerPadding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          children: [
-            GroupRecipientsBar(group),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 8.0,
+      body: Column(
+        children: [
+          RecipientField(controller),
+          ComposeNetworkLine(controller),
+          if (controller.showGroupName) GroupNameField(controller),
+          Divider(height: 1, color: theme.colorScheme.outlineVariant),
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: AnimatedSwitcher(
+                    duration: FluffyThemes.animationDuration,
+                    child: body,
+                  ),
+                ),
+                if (typing)
+                  Positioned.fill(
+                    child: Material(
+                      key: const ValueKey('compose-suggestions'),
+                      color: theme.colorScheme.surface,
+                      child: _Suggestions(controller),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          ComposeBar(controller, hintText: hintText),
+        ],
+      ),
+    );
+  }
+}
+
+/// What the conversation area shows before anyone is in the To field: the
+/// offer to read the phone's contacts, and the ways to reach someone that
+/// the To field cannot (an invite link, a QR code, a Matrix-only group).
+class _StartList extends StatelessWidget {
+  final NewPrivateChatController controller;
+
+  const _StartList(this.controller);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final client = Matrix.of(context).client;
+    final userId = client.userID!;
+    final features = MatrixFeatures.forClient(client);
+    final showIdentity = features.isRelevant(MatrixFeature.identity);
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      children: [
+        if (showIdentity) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18.0),
+            child: SelectableText.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: L10n.of(context).yourGlobalUserIdIs),
+                  TextSpan(
+                    text: userId,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ],
               ),
-              child: TextField(
-                controller: controller.controller,
-                onChanged: controller.searchUsers,
-                onSubmitted: controller.submitSearch,
-                decoration: InputDecoration(
-                  hintText: !group.isEmpty
-                      ? L10n.of(context).anyoneElse
-                      : controller.groupMode
-                      ? L10n.of(context).newChatSearchHint
-                      : showIdentity
-                      ? L10n.of(context).searchForUsers
-                      : L10n.of(context).newChatSearchHint,
-                  filled: true,
-                  fillColor: theme.colorScheme.secondaryContainer,
-                  border: OutlineInputBorder(
-                    borderSide: BorderSide.none,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  hintStyle: TextStyle(
-                    color: theme.colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.normal,
-                  ),
-                  prefixIcon: searchResponse == null
-                      ? const Icon(Icons.search_outlined)
-                      : FutureBuilder(
-                          future: searchResponse,
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState !=
-                                ConnectionState.done) {
-                              return const Padding(
-                                padding: EdgeInsets.all(10.0),
-                                child: SizedBox.square(
-                                  dimension: 24,
-                                  child: CircularProgressIndicator.adaptive(
-                                    strokeWidth: 1,
-                                  ),
-                                ),
-                              );
-                            }
-                            return const Icon(Icons.search_outlined);
-                          },
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (controller.offerPhoneContacts) PhoneContactsOfferTile(controller),
+        if (showIdentity)
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: theme.colorScheme.secondaryContainer,
+              foregroundColor: theme.colorScheme.onSecondaryContainer,
+              child: Icon(Icons.adaptive.share_outlined),
+            ),
+            title: Text(L10n.of(context).shareInviteLink),
+            onTap: controller.inviteAction,
+          ),
+        // A group with people on the user's networks starts by adding a
+        // second person to the To field; a Matrix-only group has its own
+        // page for an account with no network.
+        if (controller.bridges.isEmpty)
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: theme.colorScheme.tertiaryContainer,
+              foregroundColor: theme.colorScheme.onTertiaryContainer,
+              child: const Icon(Icons.group_add_outlined),
+            ),
+            title: Text(L10n.of(context).createGroup),
+            onTap: () => context.go('/rooms/newgroup'),
+          ),
+        if (PlatformInfos.isMobile && showIdentity)
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: theme.colorScheme.primaryContainer,
+              foregroundColor: theme.colorScheme.onPrimaryContainer,
+              child: const Icon(Icons.qr_code_scanner_outlined),
+            ),
+            title: Text(L10n.of(context).scanQrCode),
+            onTap: controller.openScannerAction,
+          ),
+        if (showIdentity)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 64.0,
+                vertical: 24.0,
+              ),
+              child: Material(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppConfig.borderRadius),
+                  side: BorderSide(width: 3, color: theme.colorScheme.primary),
+                ),
+                color: Colors.transparent,
+                clipBehavior: Clip.hardEdge,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppConfig.borderRadius),
+                  onTap: () => showQrCodeViewer(context, userId),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 200),
+                      child: PrettyQrView.data(
+                        data: 'https://matrix.to/#/$userId',
+                        decoration: PrettyQrDecoration(
+                          shape: PrettyQrSmoothSymbol(
+                            roundFactor: 1,
+                            color: theme.colorScheme.primary,
+                          ),
                         ),
-                  suffixIcon: controller.controller.text.isEmpty
-                      ? null
-                      : IconButton(
-                          icon: const Icon(Icons.clear_outlined),
-                          onPressed: () {
-                            controller.controller.clear();
-                            controller.searchUsers();
-                          },
-                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: FluffyThemes.animationDuration,
-                child: searchResponse == null && !group.isEmpty
-                    ? const SizedBox.shrink()
-                    : searchResponse == null
-                    ? ListView(
-                        children: [
-                          if (showIdentity) ...[
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18.0,
-                              ),
-                              child: SelectableText.rich(
-                                TextSpan(
-                                  children: [
-                                    TextSpan(
-                                      text: L10n.of(context).yourGlobalUserIdIs,
-                                    ),
-                                    TextSpan(
-                                      text: Matrix.of(context).client.userID,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                style: TextStyle(
-                                  color: theme.colorScheme.onSurface,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                          if (controller.offerPhoneContacts)
-                            PhoneContactsOfferTile(controller),
-                          if (showIdentity)
-                            ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor:
-                                    theme.colorScheme.secondaryContainer,
-                                foregroundColor:
-                                    theme.colorScheme.onSecondaryContainer,
-                                child: Icon(Icons.adaptive.share_outlined),
-                              ),
-                              title: Text(L10n.of(context).shareInviteLink),
-                              onTap: controller.inviteAction,
-                            ),
-                          ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor:
-                                  theme.colorScheme.tertiaryContainer,
-                              foregroundColor:
-                                  theme.colorScheme.onTertiaryContainer,
-                              child: const Icon(Icons.group_add_outlined),
-                            ),
-                            title: Text(L10n.of(context).createGroup),
-                            // A group with people on the user's networks,
-                            // picked here; a Matrix-only group has its own
-                            // page when there is no network to pick from.
-                            onTap: controller.bridges.isEmpty
-                                ? () => context.go('/rooms/newgroup')
-                                : controller.startGroup,
-                          ),
-                          if (PlatformInfos.isMobile && showIdentity)
-                            ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor:
-                                    theme.colorScheme.primaryContainer,
-                                foregroundColor:
-                                    theme.colorScheme.onPrimaryContainer,
-                                child: const Icon(
-                                  Icons.qr_code_scanner_outlined,
-                                ),
-                              ),
-                              title: Text(L10n.of(context).scanQrCode),
-                              onTap: controller.openScannerAction,
-                            ),
-                          if (showIdentity)
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 64.0,
-                                  vertical: 24.0,
-                                ),
-                                child: Material(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      AppConfig.borderRadius,
-                                    ),
-                                    side: BorderSide(
-                                      width: 3,
-                                      color: theme.colorScheme.primary,
-                                    ),
-                                  ),
-                                  color: Colors.transparent,
-                                  clipBehavior: Clip.hardEdge,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(
-                                      AppConfig.borderRadius,
-                                    ),
-                                    onTap: () =>
-                                        showQrCodeViewer(context, userId),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(16.0),
-                                      child: ConstrainedBox(
-                                        constraints: const BoxConstraints(
-                                          maxWidth: 200,
-                                        ),
-                                        child: PrettyQrView.data(
-                                          data: 'https://matrix.to/#/$userId',
-                                          decoration: PrettyQrDecoration(
-                                            shape: PrettyQrSmoothSymbol(
-                                              roundFactor: 1,
-                                              color: theme.colorScheme.primary,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      )
-                    : FutureBuilder(
-                        future: searchResponse,
-                        builder: (context, snapshot) {
-                          final result = snapshot.data;
-                          final error = snapshot.error;
-                          if (error != null) {
-                            return Column(
-                              mainAxisAlignment: .center,
-                              children: [
-                                Text(
-                                  error.toLocalizedString(context),
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: theme.colorScheme.error,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                OutlinedButton.icon(
-                                  onPressed: controller.searchUsers,
-                                  icon: const Icon(Icons.refresh_outlined),
-                                  label: Text(L10n.of(context).tryAgain),
-                                ),
-                              ],
-                            );
-                          }
-                          if (result == null) {
-                            return const Center(
-                              child: CircularProgressIndicator.adaptive(),
-                            );
-                          }
-                          final people = controller.people;
-                          final offer = controller.offerPhoneContacts ? 1 : 0;
-                          if (result.isEmpty && people.isEmpty && offer == 0) {
-                            return Column(
-                              mainAxisAlignment: .center,
-                              children: [
-                                const Icon(Icons.search_outlined, size: 86),
-                                Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Text(
-                                    L10n.of(context).noUsersFoundWithQuery(
-                                      controller.controller.text,
-                                    ),
-                                    style: TextStyle(
-                                      color: theme.colorScheme.primary,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              ],
-                            );
-                          }
-                          return ListView.builder(
-                            itemCount: offer + people.length + result.length,
-                            itemBuilder: (context, i) {
-                              if (i < offer) {
-                                return PhoneContactsOfferTile(controller);
-                              }
-                              i -= offer;
-                              if (i < people.length) {
-                                final person = people[i];
-                                return NewChatPersonTile(
-                                  person: person,
-                                  onTap: () => controller.openPerson(person),
-                                  onLongPress: () =>
-                                      controller.pickForGroup(person),
-                                  picked: group.contains(person),
-                                  blockedReason: controller.groupBlockOf(
-                                    person,
-                                  ),
-                                );
-                              }
-                              final contact = result[i - people.length];
-                              final displayname =
-                                  contact.displayName ??
-                                  contact.userId.localpart ??
-                                  contact.userId;
-                              // A Matrix user is on none of the networks a
-                              // group starts on.
-                              return ListTile(
-                                enabled: groupNetwork == null,
-                                leading: Avatar(
-                                  name: displayname,
-                                  mxContent: contact.avatarUrl,
-                                  presenceUserId: contact.userId,
-                                ),
-                                title: Text(displayname),
-                                subtitle: Text(
-                                  groupNetwork == null
-                                      ? features.userLabel(contact.userId)
-                                      : L10n.of(context).notOnNetwork(
-                                          groupNetwork.bridge.displayName,
-                                        ),
-                                ),
-                                onTap: () => controller.openUserModal(contact),
-                              );
-                            },
-                          );
-                        },
-                      ),
+          ),
+      ],
+    );
+  }
+}
+
+/// The people the To field's text finds: chats, bridge contacts and phone
+/// contacts one row each, then Matrix users from the directory. A tap puts
+/// one in the To field; someone already there shows a tick, and someone
+/// who cannot join the people picked so far is greyed out with the reason.
+class _Suggestions extends StatelessWidget {
+  final NewPrivateChatController controller;
+
+  const _Suggestions(this.controller);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final searchResponse = controller.searchResponse;
+    final client = Matrix.of(context).client;
+    final features = MatrixFeatures.forClient(client);
+    final groupNetwork = controller.group.network;
+    if (searchResponse == null) {
+      return const Center(child: CircularProgressIndicator.adaptive());
+    }
+    return FutureBuilder(
+      future: searchResponse,
+      builder: (context, snapshot) {
+        final result = snapshot.data;
+        final error = snapshot.error;
+        if (error != null) {
+          return Column(
+            mainAxisAlignment: .center,
+            children: [
+              Text(
+                error.toLocalizedString(context),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: theme.colorScheme.error),
               ),
-            ),
-          ],
-        ),
-      ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: controller.searchUsers,
+                icon: const Icon(Icons.refresh_outlined),
+                label: Text(L10n.of(context).tryAgain),
+              ),
+            ],
+          );
+        }
+        if (result == null) {
+          return const Center(child: CircularProgressIndicator.adaptive());
+        }
+        final people = controller.people;
+        final offer = controller.offerPhoneContacts ? 1 : 0;
+        if (result.isEmpty && people.isEmpty && offer == 0) {
+          return Column(
+            mainAxisAlignment: .center,
+            children: [
+              const Icon(Icons.search_outlined, size: 86),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  L10n.of(
+                    context,
+                  ).noUsersFoundWithQuery(controller.controller.text),
+                  style: TextStyle(color: theme.colorScheme.primary),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          );
+        }
+        return ListView.builder(
+          itemCount: offer + people.length + result.length,
+          itemBuilder: (context, i) {
+            if (i < offer) {
+              return PhoneContactsOfferTile(controller);
+            }
+            i -= offer;
+            if (i < people.length) {
+              final person = people[i];
+              return NewChatPersonTile(
+                person: person,
+                onTap: () => controller.pickPerson(person),
+                picked: controller.isRecipient(person),
+                blockedReason: controller.groupBlockOf(person),
+              );
+            }
+            final contact = result[i - people.length];
+            final displayname =
+                contact.displayName ??
+                contact.userId.localpart ??
+                contact.userId;
+            // A Matrix user is on none of the networks a group starts on.
+            return ListTile(
+              enabled: groupNetwork == null,
+              leading: Avatar(
+                name: displayname,
+                mxContent: contact.avatarUrl,
+                presenceUserId: contact.userId,
+              ),
+              title: Text(displayname),
+              subtitle: Text(
+                groupNetwork == null
+                    ? features.userLabel(contact.userId)
+                    : L10n.of(
+                        context,
+                      ).notOnNetwork(groupNetwork.bridge.displayName),
+              ),
+              onTap: () => controller.pickProfile(contact),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -362,19 +339,18 @@ class NewPrivateChatView extends StatelessWidget {
 /// someone the user's networks or phone contacts know, with the networks
 /// that reach them as grey icons at the end.
 ///
-/// While a group is being picked, a person in it shows a tick, and one who
-/// cannot join it is greyed out with [blockedReason] as the second line.
+/// A person already picked shows a tick, and one who cannot join the
+/// people picked so far is greyed out with [blockedReason] as the second
+/// line.
 class NewChatPersonTile extends StatelessWidget {
   final NewChatPerson person;
   final void Function() onTap;
-  final void Function()? onLongPress;
   final bool picked;
   final String? blockedReason;
 
   const NewChatPersonTile({
     required this.person,
     required this.onTap,
-    this.onLongPress,
     this.picked = false,
     this.blockedReason,
     super.key,
@@ -426,7 +402,6 @@ class NewChatPersonTile extends StatelessWidget {
               ],
             ),
       onTap: onTap,
-      onLongPress: onLongPress,
     );
   }
 }
