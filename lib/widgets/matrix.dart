@@ -12,6 +12,7 @@ import 'package:fluffychat/utils/android_bubble.dart';
 import 'package:fluffychat/utils/android_share_targets.dart';
 import 'package:fluffychat/utils/client_manager.dart';
 import 'package:fluffychat/utils/init_with_restore.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_file_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
@@ -290,6 +291,7 @@ class MatrixState extends State<Matrix> {
           _cancelSubs(c.clientName);
           MergeSuggestionService.disposeFor(c);
           MergedContactsStore.disposeFor(c);
+          MatrixFeatures.disposeFor(c);
           widget.clients.remove(c);
           ClientManager.removeClientNameFromStore(c.clientName, store);
           InitWithRestoreExtension.deleteSessionBackup(name);

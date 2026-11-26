@@ -7,6 +7,7 @@
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -113,8 +114,10 @@ class FakeMatrix extends MatrixState {
   bool get hasComplexBundles => false;
 
   @override
+  // Keyed by the user ID, as a lone account's bundle is, so the account
+  // menu shows no bundle heading.
   Map<String?, List<Client?>> get accountBundles => {
-    null: [fakeClient],
+    fakeClient.userID: [fakeClient],
   };
 
   @override
@@ -129,6 +132,10 @@ Future<FakeChatListClient> setUpFakeChatList(String name) async {
   await AppSettings.checkForUpdates.setItem(false);
   await AppSettings.mergedContactSuggestions.setItem(false);
   await AppSettings.mergedContactsPhoneRegion.setItem('US');
+  await AppSettings.matrixFeaturesMode.setItem('auto');
+  await AppSettings.matrixFeatureOverrides.setItem('{}');
+  await AppSettings.store.remove(MatrixFeatures.scanCacheKeyFor(name));
+  MatrixFeatures.scanStoredState = false;
 
   sqfliteFfiInit();
   final client = FakeChatListClient(
@@ -148,6 +155,7 @@ Future<FakeChatListClient> setUpFakeChatList(String name) async {
 void tearDownFakeChatList(Client client) {
   MergeSuggestionService.disposeFor(client);
   MergedContactsStore.disposeFor(client);
+  MatrixFeatures.disposeFor(client);
 }
 
 /// A space named [name] holding [children], as a bridge sets one up.
@@ -189,6 +197,25 @@ Room addFakeSpace(
   client.rooms.add(space);
   return space;
 }
+
+/// Marks [room] as a portal of a bridge whose bot is [bot], as mautrix
+/// bridges do with an `m.bridge` event ([type] picks the older name).
+void addFakeBridge(
+  Room room, {
+  String bot = '@imessagebot:x',
+  String network = 'iMessage',
+  String type = 'm.bridge',
+}) => room.setState(
+  StrippedStateEvent(
+    type: type,
+    content: {
+      'bridgebot': bot,
+      'protocol': {'id': network.toLowerCase(), 'displayname': network},
+    },
+    senderId: bot,
+    stateKey: 'net/${room.id}',
+  ),
+);
 
 /// A joined chat named [name]; one-to-one with [partner] when given,
 /// else a group.
@@ -290,5 +317,6 @@ Future<GoRouter> pumpFakeChatList(WidgetTester tester, Client client) async {
 Future<void> finishFakeChatList(WidgetTester tester, Client client) async {
   await tester.pumpWidget(const SizedBox());
   MergeSuggestionService.disposeFor(client);
+  MatrixFeatures.disposeFor(client);
   await tester.pump(const Duration(seconds: 5));
 }

@@ -13,6 +13,7 @@ import 'package:fluffychat/utils/custom_http_client.dart';
 import 'package:fluffychat/utils/custom_image_resizer.dart';
 import 'package:fluffychat/utils/init_with_restore.dart';
 import 'package:fluffychat/utils/last_event_keeper.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call_member.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -136,6 +137,8 @@ abstract class ClientManager {
         'im.ponies.room_emotes',
         // To display call state in chat list
         MatrixRtcCallMember.eventType,
+        // To tell bridged chats from plain Matrix rooms (MatrixFeatures)
+        ...RoomBridge.stateTypes,
       },
       customImageResizer: PlatformInfos.supportsCustomImageResizer
           ? customImageResizer

@@ -127,7 +127,12 @@ class RoomFeatures {
   /// Features per message type, or null when the room states none.
   final Map<String, FileFeatures>? file;
 
-  const RoomFeatures({this.file});
+  /// Support level per state event type the user may change, such as
+  /// `m.room.name`, from the event's `state` member (mautrix-go's
+  /// `StateFeatureMap`). Null when the room states none.
+  final Map<String, int>? state;
+
+  const RoomFeatures({this.file, this.state});
 
   static const RoomFeatures unrestricted = RoomFeatures();
 
@@ -136,15 +141,24 @@ class RoomFeatures {
   /// Parses the content of a `com.beeper.room_features` event.
   factory RoomFeatures.fromJson(Object? content) {
     if (content is! Map) return unrestricted;
+    final rawState = content['state'];
+    Map<String, int>? state;
+    if (rawState is Map) {
+      state = {
+        for (final entry in rawState.entries)
+          if (entry.key case final String type)
+            if (entry.value case {'level': final int level}) type: level,
+      };
+    }
     final rawFile = content['file'];
-    if (rawFile is! Map) return unrestricted;
+    if (rawFile is! Map) return RoomFeatures(state: state);
     final file = <String, FileFeatures>{};
     for (final entry in rawFile.entries) {
       final key = entry.key;
       final features = FileFeatures.fromJson(entry.value);
       if (key is String && features != null) file[key] = features;
     }
-    return RoomFeatures(file: file);
+    return RoomFeatures(file: file, state: state);
   }
 
   /// The features of [room], from its newest `com.beeper.room_features`
@@ -210,6 +224,13 @@ class RoomFeatures {
     if (features == null) return true;
     return CapabilityLevel.usable(features.caption);
   }
+
+  /// Whether the remote network takes a change of the state event [type],
+  /// such as a new group name or photo. False when the room does not say:
+  /// for a bridged chat, a change the network ignores would only show on
+  /// Matrix.
+  bool allowsState(String type) =>
+      (state?[type] ?? CapabilityLevel.rejected) > CapabilityLevel.unsupported;
 
   /// Largest accepted [msgType] file in bytes, or null for no limit.
   int? maxSize(String msgType) => featuresFor(msgType)?.maxSize;

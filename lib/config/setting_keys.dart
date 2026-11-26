@@ -115,6 +115,10 @@ enum AppSettings<T> {
   /// Whether the user said no to showing the phone's contacts in New Chat,
   /// so it does not offer again.
   phoneContactsDeclined<bool>('chat.fluffy.new_chat.contacts_declined', false),
+  // A MatrixFeaturesMode name: auto, alwaysShow or alwaysHide.
+  matrixFeaturesMode<String>('chat.fluffy.matrix_features.mode', 'auto'),
+  // JSON object from MatrixFeature name to MatrixFeatureOverride name.
+  matrixFeatureOverrides<String>('chat.fluffy.matrix_features.overrides', '{}'),
   showThumbnailsInTimeline<bool>('chat.fluffy.showThumbnailsInTimeline', true),
   // Off on every platform. A tap on a bubble shows its time, so two quick
   // taps would otherwise send a reaction by accident. The key is new so a
