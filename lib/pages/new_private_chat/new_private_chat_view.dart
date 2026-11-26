@@ -232,8 +232,9 @@ class _StartList extends StatelessWidget {
           ),
         // A group with people on the user's networks starts by adding a
         // second person to the To field; a Matrix-only group has its own
-        // page for an account with no network.
-        if (controller.bridges.isEmpty)
+        // page for an account with no network, offered only once the
+        // bridges answered so it does not show while they load.
+        if (controller.noNetworks)
           ListTile(
             leading: CircleAvatar(
               backgroundColor: theme.colorScheme.tertiaryContainer,

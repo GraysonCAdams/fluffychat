@@ -115,11 +115,23 @@ class _FakeDelivery extends NewChatDelivery {
 
   @override
   Future<void> loadSources(Client client, NewChatSources sources) async {
-    sources.bridges = [_imessage, _gmessages, _telegram, _linkedin];
+    await sourcesGate?.future;
+    sources.bridges = bridgeList;
     sources.bridgeContacts = bridgeContacts;
     // As the real sources do when the bridges answer.
     sources.onChanged();
   }
+
+  /// The bridges the user is logged in to.
+  List<BridgeInfo> bridgeList = const [
+    _imessage,
+    _gmessages,
+    _telegram,
+    _linkedin,
+  ];
+
+  /// When set, the bridges answer once it completes.
+  Completer<void>? sourcesGate;
 
   @override
   Future<bool> hasBridges(Client client) async => bridges;
@@ -1176,6 +1188,30 @@ void main() {
     await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
     expect(chip('+14045550103'), findsOneWidget);
+  });
+
+  group('Create group row', () {
+    final createGroup = find.text('Create group');
+
+    testWidgets('not offered while the networks are loading, nor once they '
+        'answer with some', (tester) async {
+      delivery.sourcesGate = Completer();
+      await pump(tester);
+      expect(createGroup, findsNothing);
+      delivery.sourcesGate!.complete();
+      await tester.pumpAndSettle();
+      expect(createGroup, findsNothing);
+    });
+
+    testWidgets('offered once the networks answer with none', (tester) async {
+      delivery.bridgeList = const [];
+      delivery.sourcesGate = Completer();
+      await pump(tester);
+      expect(createGroup, findsNothing);
+      delivery.sourcesGate!.complete();
+      await tester.pumpAndSettle();
+      expect(createGroup, findsOneWidget);
+    });
   });
 
   testWidgets('Create group on an account without bridges goes to Matrix', (
