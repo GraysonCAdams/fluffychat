@@ -73,10 +73,11 @@ class GroupAvatar extends StatefulWidget {
         });
   }
 
-  /// The members the collage of [room] shows, at most three: the sender of
-  /// the newest message first, then the room's heroes, then whoever else is
-  /// in memory. The user and the chat's bridge bot are left out.
-  static List<String> memberIds(Room room) {
+  /// The members the collage of [room] shows, at most [max] (three in the
+  /// app): the sender of the newest message first, then the room's heroes,
+  /// then whoever else is in memory. The user and the chat's bridge bot are
+  /// left out.
+  static List<String> memberIds(Room room, {int max = 3}) {
     final skip = {
       room.client.userID,
       MatrixFeatures.forClient(room.client).bridgeOf(room)?.bot,
@@ -89,13 +90,13 @@ class GroupAvatar extends StatefulWidget {
 
     add(room.lastEvent?.senderId);
     room.summary.mHeroes?.forEach(add);
-    if (ids.length < 3) {
+    if (ids.length < max) {
       for (final user in room.getParticipants(const [Membership.join])) {
         add(user.id);
-        if (ids.length >= 3) break;
+        if (ids.length >= max) break;
       }
     }
-    return ids.take(3).toList();
+    return ids.take(max).toList();
   }
 
   @override
