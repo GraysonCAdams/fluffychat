@@ -273,9 +273,10 @@ class NewChatDelivery {
       : room.sendTextEventWithEffect(text, effect);
 
   /// Sends what the compose screen staged to [room] as the chat's composer
-  /// does: the files through [sendAttachments], then the forwarded
-  /// messages, then the text, the files and the text with [effect] when
-  /// one was picked. Throws
+  /// does: the files through [sendAttachments], with the text as their
+  /// caption when there are files, then the forwarded messages, then the
+  /// text when there are no files. The message goes with [effect] when one
+  /// was picked. Throws
   /// when anything was not sent, or when the user turned down sending to
   /// the room's unverified devices.
   Future<void> sendShare(
@@ -289,9 +290,11 @@ class NewChatDelivery {
       throw StateError('Sending to ${room.id} was cancelled');
     }
     Object? failure;
+    final captioned = payload.files.isNotEmpty;
     await sendAttachments(
       room: room,
       files: payload.files,
+      caption: captioned ? payload.text : null,
       effect: effect,
       scaffoldMessenger: ScaffoldMessenger.of(context),
       l10n: L10n.of(context),
@@ -305,7 +308,7 @@ class NewChatDelivery {
     for (final content in payload.contents) {
       await room.sendEvent(content.copy());
     }
-    if (payload.text.trim().isNotEmpty) {
+    if (!captioned && payload.text.trim().isNotEmpty) {
       await sendText(room, payload.text, effect: effect);
     }
     if (failure case final error?) throw error;

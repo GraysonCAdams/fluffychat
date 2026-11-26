@@ -48,11 +48,24 @@ const int _fallbackMaxUploadSize = 100 * 1000 * 1000;
 /// service (mobile, and the web's leave-page guard) that service keeps the
 /// upload alive instead of the "do not exit" snackbar, as in the dialog.
 ///
-/// With [effect], every file event carries it (see [withEffect]), as the
-/// iMessage bridge marks every part of a message that arrives with one.
+/// A [caption] goes on the last file's event, in the caption form of
+/// MSC2530 (the caption as `body`, formatted from Markdown, beside the
+/// file's own `filename`), together with [inReplyTo], so the files and
+/// their text arrive as one message, the text after the pictures. The
+/// caption follows as a text message of its own instead where the room's
+/// bridge takes no caption on that kind of file, or the last file was not
+/// sent.
+///
+/// An [effect] goes on that same event only (see [withEffect]): the
+/// iMessage bridge sends a captioned attachment as the attachment and then
+/// its caption, and an effect on more than one event would play more than
+/// once. When the caption has to go by itself and the effect found no
+/// event to ride on, the caption carries it.
 Future<void> sendAttachments({
   required Room room,
   required List<XFile> files,
+  String? caption,
+  Event? inReplyTo,
   MessageEffect? effect,
   String? threadRootEventId,
   String? threadLastEventId,
@@ -100,13 +113,19 @@ Future<void> sendAttachments({
         clientConfig.asValue?.value.mUploadSize ?? _fallbackMaxUploadSize;
     final features = await RoomFeatures.load(room);
 
-    for (final xfile in files) {
+    final hasCaption = caption != null && caption.trim().isNotEmpty;
+    var captionSent = !hasCaption;
+    var effectSent = effect == null;
+    for (final (index, xfile) in files.indexed) {
+      final last = index == files.length - 1;
       try {
-        await _sendOne(
+        final sent = await _sendOne(
           room: room,
           features: features,
           xfile: xfile,
-          effect: effect,
+          caption: last && hasCaption ? room.formattedContent(caption) : null,
+          inReplyTo: last ? inReplyTo : null,
+          effect: last ? effect : null,
           maxUploadSize: maxUploadSize,
           threadRootEventId: threadRootEventId,
           threadLastEventId: threadLastEventId,
@@ -122,8 +141,27 @@ Future<void> sendAttachments({
             showSendingSnackBar();
           },
         );
+        if (last) {
+          captionSent = captionSent || sent.caption;
+          effectSent = true;
+        }
       } catch (e, s) {
         Logs().w('Unable to send attachment ${xfile.name}', e, s);
+        failures.add((e, s));
+      }
+    }
+    if (!captionSent) {
+      try {
+        await room.sendEvent(
+          effectSent
+              ? room.formattedContent(caption!)
+              : withEffect(room.formattedContent(caption!), effect!),
+          inReplyTo: inReplyTo,
+          threadRootEventId: threadRootEventId,
+          threadLastEventId: threadLastEventId,
+        );
+      } catch (e, s) {
+        Logs().w('Unable to send the caption', e, s);
         failures.add((e, s));
       }
     }
@@ -140,11 +178,15 @@ Future<void> sendAttachments({
 }
 
 /// Builds the [MatrixFile] for one picked file and sends it, retrying once
-/// after the server's requested delay when rate limited.
-Future<void> _sendOne({
+/// after the server's requested delay when rate limited, with [caption]
+/// (the content of a text message) in the caption form where the room
+/// takes it. Returns whether the caption went on the file.
+Future<({bool caption})> _sendOne({
   required Room room,
   required RoomFeatures features,
   required XFile xfile,
+  required Map<String, Object?>? caption,
+  required Event? inReplyTo,
   required MessageEffect? effect,
   required int maxUploadSize,
   required String? threadRootEventId,
@@ -175,6 +217,7 @@ Future<void> _sendOne({
     features: features,
     file: file,
     thumbnail: thumbnail,
+    hasCaption: caption != null,
     convertVideo: canTranscodeVideo
         ? () async {
             onCompressStart();
@@ -191,13 +234,19 @@ Future<void> _sendOne({
     throw FileTooBigMatrixException(adapted.file.bytes.length, maxUploadSize);
   }
 
-  final extraContent = adapted.extraContent;
+  final captioned = caption != null && !adapted.captionSeparately;
+  final content = adapted.mergeExtraContent({
+    if (captioned) ...{
+      for (final MapEntry(:key, :value) in caption.entries)
+        if (key != 'msgtype') key: value,
+    },
+    if (effect != null) messageEffectKey: effect.id,
+  });
   Future<void> send() => room.sendFileEvent(
     adapted.file,
     thumbnail: adapted.thumbnail,
-    extraContent: effect == null
-        ? extraContent
-        : withEffect(extraContent ?? const {}, effect),
+    inReplyTo: inReplyTo,
+    extraContent: content == null || content.isEmpty ? null : content,
     threadRootEventId: threadRootEventId,
     threadLastEventId: threadLastEventId,
   );
@@ -212,6 +261,7 @@ Future<void> _sendOne({
     await Future.delayed(Duration(milliseconds: retryAfterMs + 1000));
     await send();
   }
+  return (caption: captioned);
 }
 
 extension on ScaffoldMessengerState {

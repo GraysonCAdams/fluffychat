@@ -1375,8 +1375,9 @@ class ChatController extends State<ChatPageWithRoom>
         canSchedule: () => room.client.canScheduleMessages,
       );
 
-  /// Sends what is in the composer; the staged attachments and the typed
-  /// text go out with [effect] when one is given.
+  /// Sends what is in the composer, with [effect] when one is given. Text
+  /// typed with staged attachments is their caption and goes out on the
+  /// last of them, with the reply, as one message (see [sendAttachments]).
   Future<void> send({MessageEffect? effect}) async {
     // Taken once: the reply, edit or picked network can change while the
     // dialogs below are open, and the message must go where the composer
@@ -1386,13 +1387,24 @@ class ChatController extends State<ChatPageWithRoom>
     if (!mounted || !proceed) return;
     if (pendingAttachments.isNotEmpty) {
       final files = List.of(pendingAttachments);
+      final caption = editEvent == null && sendController.text.trim().isNotEmpty
+          ? sendController.text
+          : null;
+      final inReplyTo = caption == null ? null : replyEvent;
       setState(() {
         pendingAttachments.clear();
         showAttachmentPanel = false;
       });
+      if (caption != null) {
+        _storeInputTimeoutTimer?.cancel();
+        if (!_holdsShare) Matrix.of(context).store.remove(_draftKey);
+        _clearComposerAfterSend();
+      }
       await sendAttachments(
         room: target,
         files: files,
+        caption: caption,
+        inReplyTo: inReplyTo,
         effect: effect,
         threadRootEventId: activeThreadId,
         threadLastEventId: threadLastEventId,
@@ -1426,12 +1438,6 @@ class ChatController extends State<ChatPageWithRoom>
       parseCommands = false;
     }
 
-    if (currentlyTyping) {
-      typingCoolDown?.cancel();
-      currentlyTyping = false;
-      _typingRoom?.setTyping(false);
-    }
-
     final Future<void> textSent;
     if (effect != null && editEvent == null) {
       textSent = target.sendTextEventWithEffect(
@@ -1452,11 +1458,22 @@ class ChatController extends State<ChatPageWithRoom>
     // The chat shows the message as sending, and as failed with a retry,
     // so only a share waits for it.
     textSent.ignore();
+    _clearComposerAfterSend();
+    await _afterShareSent(target, textSent);
+  }
+
+  /// Empties the composer once its text went out: typing stops, the text
+  /// held back while editing comes back, and the reply and edit are done.
+  void _clearComposerAfterSend() {
+    if (currentlyTyping) {
+      typingCoolDown?.cancel();
+      currentlyTyping = false;
+      _typingRoom?.setTyping(false);
+    }
     sendController.value = TextEditingValue(
       text: pendingText,
       selection: const TextSelection.collapsed(offset: 0),
     );
-
     setState(() {
       sendController.text = pendingText;
       inputTextIsEmpty.value = pendingText.isEmpty;
@@ -1465,7 +1482,6 @@ class ChatController extends State<ChatPageWithRoom>
       pendingText = '';
     });
     _afterNewMessage();
-    await _afterShareSent(target, textSent);
   }
 
   Future<void> sendFileAction({FileType type = FileType.any}) async {

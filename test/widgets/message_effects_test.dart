@@ -313,6 +313,25 @@ void main() {
       await settlePhoto(tester);
     });
 
+    testWidgets('with its caption on it moves as one with the caption', (
+      tester,
+    ) async {
+      final event = photoEvent(MessageEffect.slam);
+      event.content['body'] = 'Sunset from the roof';
+      event.content['filename'] = 'photo.jpg';
+      await pumpMessage(tester, event);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        find.descendant(
+          of: find.byType(EffectBubble),
+          matching: find.text('Sunset from the roof', findRichText: true),
+        ),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 3));
+      await settlePhoto(tester);
+    });
+
     testWidgets('is covered by invisible ink in the theme\'s grey', (
       tester,
     ) async {
