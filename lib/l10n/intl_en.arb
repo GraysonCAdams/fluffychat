@@ -3584,5 +3584,44 @@
         "type": "String",
         "description": "Before the faces of the group members who have read the user's last message",
         "placeholders": {}
+    },
+    "countMembers": "{count, plural, =1{1 member} other{{count} members}}",
+    "@countMembers": {
+        "type": "String",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "countPeople": "{count, plural, =1{1 person} other{{count} people}}",
+    "@countPeople": {
+        "type": "String",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "networkGroup": "{network} group",
+    "@networkGroup": {
+        "type": "String",
+        "description": "Under a group's name in its details, such as 'iMessage group'",
+        "placeholders": {
+            "network": {
+                "type": "String"
+            }
+        }
+    },
+    "chatOptions": "Options",
+    "@chatOptions": {
+        "type": "String",
+        "description": "Heading above a group's notification and leave settings",
+        "placeholders": {}
+    },
+    "leaveGroup": "Leave group",
+    "@leaveGroup": {
+        "type": "String",
+        "placeholders": {}
     }
 }

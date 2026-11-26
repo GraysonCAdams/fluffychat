@@ -11,12 +11,14 @@ import 'package:fluffychat/pages/settings/settings.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/network_identity.dart';
+import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/room_features.dart';
 import 'package:fluffychat/utils/verified_room_extension.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/chat_settings_popup_menu.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
+import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/layouts/max_width_body.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
@@ -61,13 +63,40 @@ class ChatDetailsView extends StatelessWidget {
     bool canChange(String type) =>
         room.canChangeStateEvent(type) &&
         (plumbing || RoomFeatures.of(room).allowsState(type));
+    // A group lists its people, each with their network and number, and
+    // ends with its notifications and a way to leave. Its bridge bot is
+    // plumbing and is left out of both the list and the count.
+    final isGroup = room.isGroupChat;
+    final ownId = room.client.userID;
+    final networkSpace = spacesByChild(room.client)[room.id];
+    final networkLabel =
+        features.bridgeOf(room)?.network ??
+        networkSpace?.getLocalizedDisplayname(MatrixLocals(L10n.of(context)));
+    final hiddenBot = isGroup && !plumbing
+        ? features.bridgeOf(room)?.bot
+        : null;
 
     return StreamBuilder(
       stream: controller.roomStateUpdates(room),
       builder: (context, snapshot) {
         var members = room.getParticipants().toList()
           ..sort((b, a) => a.powerLevel.level.compareTo(b.powerLevel.level));
-        members = members.take(10).toList();
+        if (isGroup) {
+          // The others by name, then the user.
+          final others =
+              members.where((m) => m.id != ownId && m.id != hiddenBot).toList()
+                ..sort(
+                  (a, b) => a.calcDisplayname().toLowerCase().compareTo(
+                    b.calcDisplayname().toLowerCase(),
+                  ),
+                );
+          members = [
+            ...others.take(10),
+            ...members.where((m) => m.id == ownId),
+          ];
+        } else {
+          members = members.take(10).toList();
+        }
         if (bridgedDirectChat) members = [];
         final avatarActions = [
           if (PlatformInfos.isMobile) AvatarAction.camera,
@@ -84,7 +113,15 @@ class ChatDetailsView extends StatelessWidget {
         );
         final actualMembersCount =
             (room.summary.mInvitedMemberCount ?? 0) +
-            (room.summary.mJoinedMemberCount ?? 0);
+            (room.summary.mJoinedMemberCount ?? 0) -
+            (hiddenBot != null &&
+                    room
+                            .getState(EventTypes.RoomMember, hiddenBot)
+                            ?.asUser(room)
+                            .membership ==
+                        Membership.join
+                ? 1
+                : 0);
         final canRequestMoreMembers = members.length < actualMembersCount;
         final iconColor = theme.textTheme.bodyLarge!.color;
         final displayname = room.getLocalizedDisplayname(
@@ -124,7 +161,8 @@ class ChatDetailsView extends StatelessWidget {
               itemCount:
                   members.length +
                   1 +
-                  (canRequestMoreMembers && !bridgedDirectChat ? 1 : 0),
+                  (canRequestMoreMembers && !bridgedDirectChat ? 1 : 0) +
+                  (isGroup ? 1 : 0),
               itemBuilder: (BuildContext context, int i) => i == 0
                   ? Column(
                       crossAxisAlignment: .stretch,
@@ -138,19 +176,25 @@ class ChatDetailsView extends StatelessWidget {
                                         null
                                     ? 'embedded_content_banner'
                                     : 'content_banner',
-                                child: Avatar(
-                                  mxContent: room.avatar,
-                                  name: displayname,
-                                  size: Avatar.defaultSize * 2.5,
-                                  animated: true,
-                                  onTap: roomAvatar != null
-                                      ? () => showDialog(
-                                          context: context,
-                                          builder: (_) =>
-                                              MxcImageViewer(roomAvatar),
-                                        )
-                                      : null,
-                                ),
+                                child: GroupAvatar.shows(room)
+                                    ? GroupAvatar(
+                                        room: room,
+                                        name: displayname,
+                                        size: Avatar.defaultSize * 2.5,
+                                      )
+                                    : Avatar(
+                                        mxContent: room.avatar,
+                                        name: displayname,
+                                        size: Avatar.defaultSize * 2.5,
+                                        animated: true,
+                                        onTap: roomAvatar != null
+                                            ? () => showDialog(
+                                                context: context,
+                                                builder: (_) =>
+                                                    MxcImageViewer(roomAvatar),
+                                              )
+                                            : null,
+                                      ),
                               ),
                               if (!room.isDirectChat &&
                                   canChange(EventTypes.RoomAvatar))
@@ -266,6 +310,24 @@ class ChatDetailsView extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (isGroup)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: Text(
+                              [
+                                if (networkLabel != null)
+                                  L10n.of(context).networkGroup(networkLabel),
+                                L10n.of(
+                                  context,
+                                ).countPeople(actualMembersCount),
+                              ].join(' · '),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
                         StreamBuilder(
                           stream: controller.pushRuleUpdates(room),
                           builder: (context, _) => Wrap(
@@ -290,7 +352,12 @@ class ChatDetailsView extends StatelessWidget {
                                   label: L10n.of(context).stickers,
                                   icon: Icons.emoji_emotions_outlined,
                                 ),
-                              if (room.pushRuleState == PushRuleState.notify)
+                              // A group has its notifications switch
+                              // under Options.
+                              if (isGroup)
+                                const SizedBox.shrink()
+                              else if (room.pushRuleState ==
+                                  PushRuleState.notify)
                                 _MainChatDetailsButton(
                                   onPressed: () => showFutureLoadingDialog(
                                     context: context,
@@ -427,9 +494,13 @@ class ChatDetailsView extends StatelessWidget {
                           Divider(color: theme.dividerColor),
                           ListTile(
                             title: Text(
-                              L10n.of(
-                                context,
-                              ).countParticipants(actualMembersCount),
+                              isGroup
+                                  ? L10n.of(
+                                      context,
+                                    ).countMembers(actualMembersCount)
+                                  : L10n.of(
+                                      context,
+                                    ).countParticipants(actualMembersCount),
                               style: TextStyle(
                                 color: theme.colorScheme.secondary,
                                 fontWeight: FontWeight.bold,
@@ -448,7 +519,19 @@ class ChatDetailsView extends StatelessWidget {
                       ],
                     )
                   : i < members.length + 1
-                  ? ParticipantListItem(members[i - 1])
+                  ? isGroup
+                        ? _groupMember(
+                            context,
+                            members[i - 1],
+                            plumbing: plumbing,
+                            networkSpace: networkSpace,
+                            networkLabel: networkLabel,
+                          )
+                        : ParticipantListItem(members[i - 1])
+                  : isGroup &&
+                        i ==
+                            members.length + 1 + (canRequestMoreMembers ? 1 : 0)
+                  ? _GroupOptions(controller: controller, room: room)
                   : ListTile(
                       title: Text(
                         L10n.of(context).loadCountMoreParticipants(
@@ -464,6 +547,93 @@ class ChatDetailsView extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// A member of a group: "You" with the network for the user; for anyone
+/// else their name with their network's badge, and their number or address
+/// under it. A plain Matrix group shows names and user IDs as elsewhere.
+Widget _groupMember(
+  BuildContext context,
+  User user, {
+  required bool plumbing,
+  required Room? networkSpace,
+  required String? networkLabel,
+}) {
+  if (user.id == user.room.client.userID) {
+    return ParticipantListItem(
+      user,
+      name: L10n.of(context).you,
+      label: plumbing ? null : networkLabel,
+    );
+  }
+  if (plumbing) return ParticipantListItem(user);
+  return ParticipantListItem(
+    user,
+    label: MatrixFeatures.handleOf(user.id),
+    badge: networkSpace == null
+        ? null
+        : Tooltip(
+            message: networkLabel ?? '',
+            child: Avatar(
+              mxContent: networkSpace.avatar,
+              name: networkLabel,
+              size: 16,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+  );
+}
+
+/// The end of a group's details: its notifications switch and Leave group.
+class _GroupOptions extends StatelessWidget {
+  final ChatDetailsController controller;
+  final Room room;
+
+  const _GroupOptions({required this.controller, required this.room});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = L10n.of(context);
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        Divider(color: theme.dividerColor),
+        ListTile(
+          title: Text(
+            l10n.chatOptions,
+            style: TextStyle(
+              color: theme.colorScheme.secondary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        StreamBuilder(
+          stream: controller.pushRuleUpdates(room),
+          builder: (context, _) => SwitchListTile.adaptive(
+            secondary: const Icon(Icons.notifications_outlined),
+            title: Text(l10n.notifications),
+            value: room.pushRuleState == PushRuleState.notify,
+            onChanged: (on) => showFutureLoadingDialog(
+              context: context,
+              future: () => room.setPushRuleState(
+                on ? PushRuleState.notify : PushRuleState.mentionsOnly,
+              ),
+            ),
+          ),
+        ),
+        ListTile(
+          leading: Icon(Icons.logout_outlined, color: theme.colorScheme.error),
+          title: Text(
+            l10n.leaveGroup,
+            style: TextStyle(color: theme.colorScheme.error),
+          ),
+          onTap: controller.leaveGroupAction,
+        ),
+        const SizedBox(height: 16),
+      ],
     );
   }
 }

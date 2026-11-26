@@ -15,7 +15,22 @@ import '../../widgets/avatar.dart';
 class ParticipantListItem extends StatelessWidget {
   final User user;
 
-  const ParticipantListItem(this.user, {super.key});
+  /// Shown in place of the member's name, such as "You".
+  final String? name;
+
+  /// Shown in place of [MatrixFeatures.userLabel] under the name.
+  final String? label;
+
+  /// Shown right after the name, such as the member's network.
+  final Widget? badge;
+
+  const ParticipantListItem(
+    this.user, {
+    this.name,
+    this.label,
+    this.badge,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -55,9 +70,20 @@ class ParticipantListItem extends StatelessWidget {
               ),
             ),
           Expanded(
-            child: Text(
-              user.calcDisplayname(),
-              overflow: TextOverflow.ellipsis,
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    name ?? user.calcDisplayname(),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (badge case final badge?)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: badge,
+                  ),
+              ],
             ),
           ),
           if (permissionBatch != null)
@@ -102,9 +128,10 @@ class ParticipantListItem extends StatelessWidget {
         ],
       ),
       subtitle: Text(
-        MatrixFeatures.forClient(
-          user.room.client,
-        ).userLabel(user.id, room: user.room),
+        label ??
+            MatrixFeatures.forClient(
+              user.room.client,
+            ).userLabel(user.id, room: user.room),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),

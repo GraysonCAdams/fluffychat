@@ -9,10 +9,13 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_details/chat_details_view.dart';
 import 'package:fluffychat/pages/settings/settings.dart';
 import 'package:fluffychat/utils/file_selector.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_text_input_dialog.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/matrix.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -125,6 +128,35 @@ class ChatDetailsController extends State<ChatDetails> {
       context: context,
       future: () => room!.setAvatar(file),
     );
+  }
+
+  /// Leaves the group after the user confirms, and goes back to the chat
+  /// list. A chat bridged to another network is deleted, as the chat menu
+  /// says.
+  Future<void> leaveGroupAction() async {
+    final room = Matrix.of(context).client.getRoomById(roomId!);
+    if (room == null) return;
+    final l10n = L10n.of(context);
+    final router = GoRouter.of(context);
+    final plumbing = MatrixFeatures.forClient(
+      room.client,
+    ).isRelevant(MatrixFeature.roomPlumbing, room: room);
+    final confirmed = await showOkCancelAlertDialog(
+      context: context,
+      title: l10n.areYouSure,
+      message: plumbing
+          ? l10n.archiveRoomDescription
+          : l10n.deleteConversationDescription,
+      okLabel: plumbing ? l10n.leave : l10n.deleteConversation,
+      cancelLabel: l10n.cancel,
+      isDestructive: true,
+    );
+    if (confirmed != OkCancelResult.ok || !mounted) return;
+    final result = await showFutureLoadingDialog(
+      context: context,
+      future: room.leave,
+    );
+    if (result.error == null) router.go('/rooms');
   }
 
   static const fixedWidth = 360.0;
