@@ -10,6 +10,7 @@ import 'dart:ui';
 import 'package:collection/collection.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/car_app_bridge.dart';
 import 'package:fluffychat/utils/chat_windows/backend.dart';
 import 'package:fluffychat/utils/chat_windows/chat_windows.dart';
 import 'package:fluffychat/utils/client_manager.dart';
@@ -119,6 +120,7 @@ void main(List<String> args) => runZonedGuarded(() async {
     // In the background fetch mode we do not want to waste ressources with
     // starting the Flutter engine but process incoming push notifications.
     BackgroundPush.clientOnly(clients);
+    CarAppBridge.attach(clients);
     // To start the flutter engine afterwards we add an custom observer.
     WidgetsBinding.instance.addObserver(AppStarter(clients, store));
     Logs().i(
@@ -128,6 +130,7 @@ void main(List<String> args) => runZonedGuarded(() async {
   }
 
   final clients = await ClientManager.getClients(store: store);
+  CarAppBridge.attach(clients);
 
   // Started in foreground mode.
   Logs().i(

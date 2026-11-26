@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-FileCopyrightText: 2019-Present Contributors to FluffyChat
+
+     SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Text of the Android Auto conversation list (SeamCarAppService.kt). -->
+<resources>
+    <string name="car_conversations_title">Chats</string>
+    <string name="car_no_conversations">No chats yet</string>
+    <string name="car_signed_out">Sign in to Seam on your phone</string>
+    <string name="car_load_failed">Could not load your chats</string>
+</resources>
