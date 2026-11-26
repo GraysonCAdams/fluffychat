@@ -1315,7 +1315,8 @@ class CelebrationScene extends EffectScene {
 // ----------------------------------------------------------- shooting star
 
 /// Night falls over the conversation and a star crosses it on a rising
-/// arc, drawing a tail of light, then blooms and is gone.
+/// arc, drawing a tail of light, then blooms and is gone. The bubble is
+/// left out of the night and the light, and the star flies clear of it.
 class ShootingStarScene extends EffectScene {
   late final List<(double along, double off, double phase)> _dust;
 
@@ -1357,19 +1358,84 @@ class ShootingStarScene extends EffectScene {
     ),
   );
 
-  Offset _at(Size size, double p) {
-    final a = Offset(-size.width * 0.08, size.height * 0.78);
-    final c = Offset(size.width * 0.52, size.height * 0.7);
-    final b = Offset(size.width * 0.82, size.height * 0.3);
+  /// How far the star and its tail keep from the bubble: the reach of
+  /// the glow round the star's head.
+  static const _berth = 40.0;
+
+  /// Where the arc starts and how far it rises when nothing is in its
+  /// way, in screen heights.
+  static const _startAt = 0.78, _rise = 0.48;
+
+  /// The highest the star lands and the lowest it starts, in screen
+  /// heights, and the least it rises on an arc moved out of the way.
+  static const _highest = 0.1, _lowest = 0.94, _leastRise = 0.14;
+
+  /// The star's place [p] of the way along an arc that starts at the
+  /// height [start] and rises by [rise].
+  Offset _on(Size size, double p, (double start, double rise) arc) {
+    final (start, rise) = arc;
+    final a = Offset(-size.width * 0.08, start);
+    final c = Offset(size.width * 0.52, start - rise / 6);
+    final b = Offset(size.width * 0.82, start - rise);
     final q = 1 - p;
     return a * (q * q) + c * (2 * q * p) + b * (p * p);
   }
 
+  /// Where the arc starts and how far it rises so that no part of it
+  /// comes within [_berth] of the bubble where it is now. The arc stays
+  /// as it is when the bubble is clear of it or not on screen. Otherwise
+  /// it is moved to pass wholly above the bubble or wholly below it,
+  /// whichever leaves it the longer rise; when there is room for neither
+  /// it stays, and the star passes behind the bubble.
+  (double start, double rise) arcFor(Size size) {
+    final whole = (size.height * _startAt, size.height * _rise);
+    final keepOut = origin.now?.inflate(_berth);
+    if (keepOut == null) return whole;
+    var clear = true;
+    for (var i = 0; i <= 32 && clear; i++) {
+      clear = !keepOut.contains(_on(size, i / 32, whole));
+    }
+    if (clear) return whole;
+    final above = math.min(whole.$2, keepOut.top - 1 - size.height * _highest);
+    final below = math.min(
+      whole.$2,
+      size.height * _lowest - keepOut.bottom - 1,
+    );
+    if (math.max(above, below) < size.height * _leastRise) return whole;
+    return above >= below
+        ? (keepOut.top - 1, above)
+        : (keepOut.bottom + 1 + below, below);
+  }
+
+  /// The star's place [p] of the way along its arc.
+  Offset starAt(Size size, double p) => _on(size, p, arcFor(size));
+
+  final Path _around = Path();
+
   @override
   void paint(Canvas canvas, Size size, double t) {
+    final bubble = origin.rrectNow;
+    if (bubble == null) return _paint(canvas, size, t);
+    // The bubble is left out of everything the scene paints, so the
+    // message stays as it is through the night and the bloom.
+    canvas
+      ..save()
+      ..clipPath(
+        _around
+          ..reset()
+          ..fillType = PathFillType.evenOdd
+          ..addRect(Offset.zero & size)
+          ..addRRect(bubble),
+      );
+    _paint(canvas, size, t);
+    canvas.restore();
+  }
+
+  void _paint(Canvas canvas, Size size, double t) {
     final env = _envelope(t, seconds, 0.3, 0.7);
     final night = Color.lerp(palette.scrim, palette.bubble, 0.12)!;
     _scrim(canvas, size, night, 0.9 * env);
+    final arc = arcFor(size);
     final flown = _unit((t - _start) / _flight);
     final p = Easing.standardDecelerate.transform(flown);
     final tint = Color.lerp(palette.glow, palette.bubble, 0.35)!;
@@ -1386,8 +1452,8 @@ class ShootingStarScene extends EffectScene {
         final u1 = tailFrom + (p - tailFrom) * (i + 1) / steps;
         final k = (i + 1) / steps;
         canvas.drawLine(
-          _at(size, u0),
-          _at(size, u1),
+          _on(size, u0, arc),
+          _on(size, u1, arc),
           plus
             ..style = PaintingStyle.stroke
             ..strokeCap = StrokeCap.round
@@ -1403,13 +1469,13 @@ class ShootingStarScene extends EffectScene {
             (1 - _unit(age / 1.3)) * (0.5 + 0.5 * math.sin(phase + t * 16));
         if (alpha <= 0) continue;
         canvas.drawPath(
-          _sparkle(_at(size, along) + Offset(off * 0.4, off), 3.5),
+          _sparkle(_on(size, along, arc) + Offset(off * 0.4, off), 3.5),
           plus..color = palette.glow.withValues(alpha: alpha * env),
         );
       }
     }
 
-    final head = _at(size, p);
+    final head = _on(size, p, arc);
     final landed = t - (_start + _flight);
     if (t > _start && landed < 0) {
       canvas.drawCircle(

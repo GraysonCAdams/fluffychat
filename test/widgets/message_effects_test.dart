@@ -1307,6 +1307,96 @@ void main() {
     });
   });
 
+  group('shooting star', () {
+    const size = Size(360, 720);
+
+    ShootingStarScene sceneFor(EffectOrigin origin) =>
+        ShootingStarScene(EffectPalette.of(ThemeData.dark()), origin, 7);
+
+    testWidgets('leaves the bubble out of the night, the star and the bloom', (
+      tester,
+    ) async {
+      const bubble = Rect.fromLTWH(200, 560, 148, 44);
+      final scene = sceneFor(const EffectOrigin(rect: bubble));
+      // Night falling, the flight, the bloom at 1.8 s and the fading.
+      for (final t in [0.2, 0.6, 1.0, 1.4, 1.8, 1.85, 2.0, 2.4, 3.0]) {
+        final recorder = ui.PictureRecorder();
+        scene.paint(Canvas(recorder), size, t);
+        final image = recorder.endRecording().toImageSync(360, 720);
+        final pixels = (await tester.runAsync(
+          () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+        ))!;
+        int alphaAt(Offset at) =>
+            pixels.getUint8((at.dy.toInt() * 360 + at.dx.toInt()) * 4 + 3);
+        for (final at in [
+          bubble.center,
+          bubble.centerLeft + const Offset(4, 0),
+          bubble.centerRight - const Offset(4, 0),
+          bubble.topCenter + const Offset(0, 3),
+          bubble.bottomCenter - const Offset(0, 3),
+          bubble.topLeft + const Offset(10, 10),
+          bubble.bottomRight - const Offset(10, 10),
+        ]) {
+          expect(alphaAt(at), 0, reason: 'painted over the bubble at $t s');
+        }
+        // The night is all round it.
+        expect(alphaAt(bubble.topCenter - const Offset(0, 6)), greaterThan(60));
+        image.dispose();
+      }
+    });
+
+    test('the star flies clear of a bubble in its way', () {
+      // Nothing in the way: the arc is where it is with no bubble.
+      const low = Rect.fromLTWH(200, 560, 148, 44);
+      final free = sceneFor(const EffectOrigin());
+      expect(
+        sceneFor(const EffectOrigin(rect: low)).arcFor(size),
+        free.arcFor(size),
+      );
+      // A bubble on the arc: low on the left, in the middle, high on the
+      // right and where the star lands.
+      for (final p in [0.25, 0.5, 0.8, 1.0]) {
+        final bubble = Rect.fromCenter(
+          center: free.starAt(size, p),
+          width: 148,
+          height: 44,
+        );
+        final scene = sceneFor(EffectOrigin(rect: bubble));
+        expect(
+          scene.arcFor(size),
+          isNot(free.arcFor(size)),
+          reason: 'bubble at $p',
+        );
+        for (var i = 0; i <= 100; i++) {
+          final star = scene.starAt(size, i / 100);
+          expect(
+            bubble.inflate(36).contains(star),
+            isFalse,
+            reason: 'the star crosses the bubble at $p, ${i / 100} along',
+          );
+        }
+        // The star still lands on screen.
+        expect((Offset.zero & size).contains(scene.starAt(size, 1)), isTrue);
+      }
+    });
+
+    test('the star keeps clear of a bubble that scrolls into its way', () {
+      const low = Rect.fromLTWH(200, 560, 148, 44);
+      var place = low;
+      final scene = sceneFor(EffectOrigin(rect: low, track: () => place));
+      final whole = scene.arcFor(size);
+      final landing = scene.starAt(size, 1);
+      place = Rect.fromCenter(center: landing, width: 148, height: 44);
+      expect(scene.arcFor(size), isNot(whole));
+      for (var i = 0; i <= 100; i++) {
+        expect(
+          place.inflate(36).contains(scene.starAt(size, i / 100)),
+          isFalse,
+        );
+      }
+    });
+  });
+
   group('the schedule button', () {
     Future<List<String>> pumpPicker(
       WidgetTester tester, {
