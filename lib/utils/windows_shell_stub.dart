@@ -17,21 +17,15 @@ class WindowsTitleBarSync extends StatelessWidget {
 
 class WindowsChrome extends StatelessWidget {
   final Widget child;
+  final VoidCallback showChatList;
 
-  const WindowsChrome({required this.child, super.key});
+  const WindowsChrome({
+    required this.child,
+    required this.showChatList,
+    super.key,
+  });
 
-  static const double buttonsWidth = 0;
-  static const double buttonsHeight = 0;
-  static const double dragHeight = 0;
-
-  @override
-  Widget build(BuildContext context) => child;
-}
-
-class WindowsCaptionInset extends StatelessWidget {
-  final Widget child;
-
-  const WindowsCaptionInset({required this.child, super.key});
+  static const double height = 0;
 
   @override
   Widget build(BuildContext context) => child;

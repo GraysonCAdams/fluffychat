@@ -5,14 +5,17 @@
 
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:async/async.dart';
 import 'package:ffi/ffi.dart';
 import 'package:fluffychat/config/setting_keys.dart';
-import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat_list/title_bar_search.dart';
+import 'package:fluffychat/widgets/matrix.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:matrix/matrix.dart';
+import 'package:matrix/matrix.dart' hide Result;
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:tray_manager/tray_manager.dart' as tray;
 import 'package:window_manager/window_manager.dart';
@@ -463,8 +466,8 @@ abstract final class WindowsDesktop {
   static Future<void> init(List<String> args, L10n l10n) async {
     try {
       await windowManager.ensureInitialized();
-      // The app draws its own window buttons (WindowsChrome) and runs its
-      // panes to the top edge, so Windows keeps only the resizable frame.
+      // The app draws its own title bar and window buttons (WindowsChrome),
+      // so Windows keeps only the resizable frame.
       await windowManager.setTitleBarStyle(
         TitleBarStyle.hidden,
         windowButtonVisibility: false,
@@ -622,94 +625,190 @@ class _TrayEvents with tray.TrayListener {
   }
 }
 
-/// The window's own top edge on Windows, where the native title bar used to
-/// be. In the column layout the panes run to the top edge and the window
-/// buttons float over the top right; the right-hand pane's app bars leave
-/// [buttonsWidth] free for them ([WindowsCaptionInset]). A window narrow
-/// enough for the single-column layout has no pane to the right to float
-/// over, so the content starts below a [buttonsHeight] band that holds the
-/// buttons. Empty parts of the top [dragHeight] band move the window: the
-/// drag area sits behind the content, so anything there that takes the
-/// pointer still does.
-class WindowsChrome extends StatelessWidget {
+/// The window's title bar on Windows, drawn by the app: the native one is
+/// hidden (see [WindowsDesktop.init]) so the bar can hold the chat list's
+/// search field and account button. It spans the window, [height] high, in
+/// every layout: the app icon and name at the left, the search field in the
+/// middle of the window, the account button and the window buttons at the
+/// right. Empty parts of the bar move the window, and a double click there
+/// maximises or restores it. [child] fills the window below the bar.
+class WindowsChrome extends StatefulWidget {
   final Widget child;
 
-  const WindowsChrome({required this.child, super.key});
+  /// Brings the chat list on screen, for a search or a click on the account
+  /// button made while it is not.
+  final VoidCallback showChatList;
 
-  /// Width of the three window buttons.
-  static const double buttonsWidth = 138;
+  const WindowsChrome({
+    required this.child,
+    required this.showChatList,
+    super.key,
+  });
 
-  /// Height of the window buttons.
-  static const double buttonsHeight = 32;
+  static const double height = 48;
 
-  /// Height of the band that moves the window, an app bar's height.
-  static const double dragHeight = 56;
+  /// Width of each window button. The three of them run the bar's height.
+  static const double captionButtonWidth = 46;
+
+  static const double avatarSize = 32;
+
+  /// From the window's right edge to the account button: the three window
+  /// buttons and 8 between.
+  static const double avatarInset = 3 * captionButtonWidth + 8;
+
+  /// Windows at least this wide get the full search field, with the
+  /// shortcut hint at its end.
+  static const double wideWidth = 1180;
+
+  /// Width of the search field, centred in a window [windowWidth] wide: 520
+  /// in a wide window, else up to 360 while it stays 16 clear of the account
+  /// button, and so as far again from the app name. Zero where that leaves
+  /// no room.
+  static double searchWidth(double windowWidth) {
+    if (windowWidth >= wideWidth) return 520;
+    final room = windowWidth - 2 * (avatarInset + avatarSize + 16);
+    return room < avatarSize ? 0 : math.min(room, 360);
+  }
+
+  @override
+  State<WindowsChrome> createState() => _WindowsChromeState();
+}
+
+class _WindowsChromeState extends State<WindowsChrome> {
+  late final _search = TitleBarSearch(
+    showChatList: () => widget.showChatList(),
+  );
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
     final mediaQuery = MediaQuery.of(context);
-    final columns = FluffyThemes.isColumnModeByWidth(mediaQuery.size.width);
-    return Stack(
-      children: [
-        const Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: dragHeight,
-          child: DragToMoveArea(child: SizedBox.expand()),
-        ),
-        if (columns)
-          child
-        else
-          MediaQuery(
-            data: mediaQuery.copyWith(
-              padding: mediaQuery.padding.copyWith(
-                top: mediaQuery.padding.top + buttonsHeight,
+    final size = mediaQuery.size;
+    return TitleBarSearchScope(
+      search: _search,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            top: WindowsChrome.height,
+            child: MediaQuery(
+              data: mediaQuery.copyWith(
+                size: ui.Size(
+                  size.width,
+                  math.max(0, size.height - WindowsChrome.height),
+                ),
               ),
-              viewPadding: mediaQuery.viewPadding.copyWith(
-                top: mediaQuery.viewPadding.top + buttonsHeight,
+              child: widget.child,
+            ),
+          ),
+          // An overlay of its own for the bar's tooltips and the search
+          // field's menu, which the app's navigator below cannot host. It
+          // covers the window, but only the bar takes the pointer.
+          Positioned.fill(
+            child: Overlay.wrap(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: _TitleBar(search: _search),
               ),
             ),
-            child: child,
           ),
-        Positioned(
-          top: 0,
-          right: 0,
-          child: _WindowButtons(brightness: brightness),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-/// Keeps app bars in [child], the pane along the window's right edge, clear of
-/// the floating window buttons.
-class WindowsCaptionInset extends StatelessWidget {
-  final Widget child;
+class _TitleBar extends StatelessWidget {
+  final TitleBarSearch search;
 
-  const WindowsCaptionInset({required this.child, super.key});
+  const _TitleBar({required this.search});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Theme(
-      data: theme.copyWith(
-        appBarTheme: theme.appBarTheme.copyWith(
-          actionsPadding: const EdgeInsets.only(
-            right: WindowsChrome.buttonsWidth,
+    final width = MediaQuery.sizeOf(context).width;
+    final searchWidth = WindowsChrome.searchWidth(width);
+    final client = Result(() => Matrix.of(context).client).asValue?.value;
+    return ValueListenableBuilder(
+      valueListenable: search.list,
+      builder: (context, list, _) {
+        // Nothing to search or switch before sign in.
+        final signedIn = list != null || (client?.isLogged() ?? false);
+        return Material(
+          color: theme.colorScheme.surface,
+          child: SizedBox(
+            height: WindowsChrome.height,
+            width: width,
+            child: Stack(
+              children: [
+                const Positioned.fill(
+                  child: DragToMoveArea(child: SizedBox.expand()),
+                ),
+                Positioned(
+                  left: 16,
+                  top: 0,
+                  bottom: 0,
+                  // Leaves clicks to the drag area underneath.
+                  child: IgnorePointer(
+                    child: Row(
+                      children: [
+                        Image.asset(
+                          'assets/seam/seam_app_icon.png',
+                          width: 16,
+                          height: 16,
+                          filterQuality: FilterQuality.medium,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          AppSettings.applicationName.value,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (signedIn && searchWidth > 0)
+                  Positioned(
+                    top:
+                        (WindowsChrome.height - TitleBarSearchField.height) / 2,
+                    left: (width - searchWidth) / 2,
+                    width: searchWidth,
+                    height: TitleBarSearchField.height,
+                    child: TitleBarSearchField(
+                      search: search,
+                      showShortcutHint: width >= WindowsChrome.wideWidth,
+                    ),
+                  ),
+                if (signedIn)
+                  Positioned(
+                    top: (WindowsChrome.height - WindowsChrome.avatarSize) / 2,
+                    right: WindowsChrome.avatarInset,
+                    width: WindowsChrome.avatarSize,
+                    height: WindowsChrome.avatarSize,
+                    child: TitleBarAccountButton(
+                      search: search,
+                      size: WindowsChrome.avatarSize,
+                    ),
+                  ),
+                const Positioned(top: 0, right: 0, child: _WindowButtons()),
+              ],
+            ),
           ),
-        ),
-      ),
-      child: child,
+        );
+      },
     );
   }
 }
 
 class _WindowButtons extends StatefulWidget {
-  final Brightness brightness;
-
-  const _WindowButtons({required this.brightness});
+  const _WindowButtons();
 
   @override
   State<_WindowButtons> createState() => _WindowButtonsState();
@@ -722,9 +821,16 @@ class _WindowButtonsState extends State<_WindowButtons> with WindowListener {
   void initState() {
     super.initState();
     windowManager.addListener(this);
-    windowManager.isMaximized().then((value) {
-      if (mounted) setState(() => _maximized = value);
-    });
+    _readMaximized();
+  }
+
+  Future<void> _readMaximized() async {
+    try {
+      final maximized = await windowManager.isMaximized();
+      if (mounted) setState(() => _maximized = maximized);
+    } catch (e, s) {
+      Logs().w('Unable to read whether the window is maximized', e, s);
+    }
   }
 
   @override
@@ -741,28 +847,143 @@ class _WindowButtonsState extends State<_WindowButtons> with WindowListener {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = widget.brightness;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        WindowCaptionButton.minimize(
-          brightness: brightness,
+        _CaptionButton(
+          glyph: _CaptionGlyph.minimize,
           onPressed: windowManager.minimize,
         ),
         _maximized
-            ? WindowCaptionButton.unmaximize(
-                brightness: brightness,
+            ? _CaptionButton(
+                glyph: _CaptionGlyph.restore,
                 onPressed: windowManager.unmaximize,
               )
-            : WindowCaptionButton.maximize(
-                brightness: brightness,
+            : _CaptionButton(
+                glyph: _CaptionGlyph.maximize,
                 onPressed: windowManager.maximize,
               ),
-        WindowCaptionButton.close(
-          brightness: brightness,
+        _CaptionButton(
+          glyph: _CaptionGlyph.close,
           onPressed: windowManager.close,
         ),
       ],
     );
   }
+}
+
+enum _CaptionGlyph { minimize, maximize, restore, close }
+
+/// A window button as Windows 11 draws one: the bar's height, 46 wide, a
+/// thin 10 by 10 glyph, a faint fill on hover and the system red behind the
+/// close button.
+class _CaptionButton extends StatefulWidget {
+  final _CaptionGlyph glyph;
+  final VoidCallback onPressed;
+
+  const _CaptionButton({required this.glyph, required this.onPressed});
+
+  static const closeRed = Color(0xFFC42B1C);
+
+  @override
+  State<_CaptionButton> createState() => _CaptionButtonState();
+}
+
+class _CaptionButtonState extends State<_CaptionButton> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final close = widget.glyph == _CaptionGlyph.close;
+    final Color background;
+    var glyphColor = theme.colorScheme.onSurface;
+    if (close && (_hovered || _pressed)) {
+      background = _pressed
+          ? _CaptionButton.closeRed.withValues(alpha: 0.9)
+          : _CaptionButton.closeRed;
+      glyphColor = Colors.white;
+    } else if (_pressed) {
+      // The subtle fills of the Windows 11 design tokens.
+      background = dark ? const Color(0x0AFFFFFF) : const Color(0x06000000);
+    } else if (_hovered) {
+      background = dark ? const Color(0x0FFFFFFF) : const Color(0x09000000);
+    } else {
+      background = Colors.transparent;
+    }
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() {
+        _hovered = false;
+        _pressed = false;
+      }),
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTap: widget.onPressed,
+        child: Container(
+          width: WindowsChrome.captionButtonWidth,
+          height: WindowsChrome.height,
+          color: background,
+          alignment: Alignment.center,
+          child: CustomPaint(
+            size: const ui.Size.square(10),
+            painter: _CaptionGlyphPainter(widget.glyph, glyphColor),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CaptionGlyphPainter extends CustomPainter {
+  final _CaptionGlyph glyph;
+  final Color color;
+
+  const _CaptionGlyphPainter(this.glyph, this.color);
+
+  @override
+  void paint(Canvas canvas, ui.Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..isAntiAlias = true;
+    switch (glyph) {
+      case _CaptionGlyph.minimize:
+        canvas.drawLine(const Offset(0, 5.5), const Offset(10, 5.5), paint);
+      case _CaptionGlyph.maximize:
+        canvas.drawRRect(
+          RRect.fromLTRBR(0.5, 0.5, 9.5, 9.5, const Radius.circular(1)),
+          paint,
+        );
+      case _CaptionGlyph.restore:
+        // The window in front, and the edges of the one behind it.
+        canvas.drawRRect(
+          RRect.fromLTRBR(0.5, 2.5, 7.5, 9.5, const Radius.circular(1)),
+          paint,
+        );
+        canvas.drawPath(
+          Path()
+            ..moveTo(2.5, 0.5)
+            ..lineTo(8.5, 0.5)
+            ..arcToPoint(
+              const Offset(9.5, 1.5),
+              radius: const Radius.circular(1),
+            )
+            ..lineTo(9.5, 7.5),
+          paint,
+        );
+      case _CaptionGlyph.close:
+        canvas.drawLine(const Offset(0.5, 0.5), const Offset(9.5, 9.5), paint);
+        canvas.drawLine(const Offset(9.5, 0.5), const Offset(0.5, 9.5), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CaptionGlyphPainter oldDelegate) =>
+      glyph != oldDelegate.glyph || color != oldDelegate.color;
 }

@@ -4,8 +4,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/config/themes.dart';
-import 'package:fluffychat/utils/platform_infos.dart';
-import 'package:fluffychat/utils/windows_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
 class TwoColumnLayout extends StatelessWidget {
@@ -36,13 +34,7 @@ class TwoColumnLayout extends StatelessWidget {
               child: mainView,
             ),
             Container(width: 1.0, color: theme.dividerColor),
-            Expanded(
-              child: ClipRRect(
-                child: PlatformInfos.isWindows
-                    ? WindowsCaptionInset(child: sideView)
-                    : sideView,
-              ),
-            ),
+            Expanded(child: ClipRRect(child: sideView)),
           ],
         ),
       ),

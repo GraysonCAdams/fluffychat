@@ -136,6 +136,13 @@ class FluffyChatApp extends StatelessWidget {
               child: content,
             );
           }
+          if (PlatformInfos.isWindows) {
+            // Inside Matrix, as the title bar shows the account.
+            content = WindowsChrome(
+              showChatList: () => router.go('/rooms'),
+              child: content,
+            );
+          }
           final app = AppLockWidget(
             pincode: appLockSettings.pincode,
             useBiometrics: appLockSettings.useBiometrics,
@@ -145,7 +152,7 @@ class FluffyChatApp extends StatelessWidget {
             child: Matrix(clients: clients, store: store, child: content),
           );
           if (!PlatformInfos.isWindows) return app;
-          return WindowsTitleBarSync(child: WindowsChrome(child: app));
+          return WindowsTitleBarSync(child: app);
         },
       ),
     );
