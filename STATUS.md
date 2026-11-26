@@ -64,9 +64,26 @@ follow this choreography; nothing is copied from Apple assets or BlueBubbles cod
 `build/effects_video/<effect>/f_%04d.png` (60 fps) and `<effect>.haptics.txt` (what a Pixel is
 sent, by film time). Encoded copies: `/tmp/effects-v2/<effect>.mp4` and `.haptics.txt`.
 
+## Verification
+- `flutter analyze lib test` clean; `flutter test test/pages test/widgets test/utils` green
+  (735 passed, 2 skipped) at fc6c19d04.
+- Tests: `test/utils/effect_haptics_test.dart` (the planner on each tier) and the `haptics`,
+  `invisible ink` and `the schedule button` groups of `test/widgets/message_effects_test.dart`.
+- Each was shown to go red under a perturbation of the library and green again after restoring
+  it (21 perturbations: Echo down to one tick, a copy fading in late, balloons skipped or
+  starting below the edge, confetti cut to a burst or without texture, Gentle not continuous or
+  detached from the growth, ramps kept on a plain vibrator, the laser cut-out removed, a second
+  draw call / unsnapped / untwinkling ink, content left visible under ink, the unsupported
+  homeserver ignored, the button not styled off or without its divider, a Spotlight or Love
+  constant moved, late beats kept).
+
 ## Not done
-- **Felt on the device:** nobody has triggered the effects on the phone since the profile build
-  was installed, so strengths (Gentle's 0.45 peak, tick scales) are untested by hand.
+- **Not on the phone yet:** the profile APK of 8bc6d3092 is built
+  (`build/app/outputs/flutter-apk/app-profile.apk`) but the phone stopped answering adb
+  (192.168.1.125:39991 timed out, no mdns service) before it could be installed. Install it under
+  `/mnt/c/src/.phone-install.lock`. The phone still has the build of e6b5c4f3a.
+- **Felt on the device:** nothing here has been felt by hand, so strengths (Gentle's 0.45 peak,
+  the tick scales) are untested.
 - Scenes are anchored to the bubble's place when the effect starts; scrolling during an effect
   leaves Spotlight's circle and Lasers' cut-out behind.
 - Celebration is still a sparkler; Apple's is gold glitter falling from the top.
