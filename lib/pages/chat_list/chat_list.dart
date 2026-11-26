@@ -32,13 +32,11 @@ import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/room_unread.dart';
-import 'package:fluffychat/utils/show_scaffold_dialog.dart';
+import 'package:fluffychat/utils/share_items.dart';
 import 'package:fluffychat/utils/show_update_snackbar.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_modal_action_popup.dart';
-import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_text_input_dialog.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
-import 'package:fluffychat/widgets/share_scaffold_dialog.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/services.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
@@ -750,7 +748,7 @@ class ChatListController extends State<ChatList>
       );
     }).toList();
 
-    // A chat picked in the Android share sheet skips the chat picker.
+    // A chat picked in the Android share sheet skips the To field.
     final shortcutId = await AndroidDirectShare.takeTargetShortcutId();
     if (!mounted) return;
     final client = Matrix.of(context).client;
@@ -763,25 +761,10 @@ class ChatListController extends State<ChatList>
             hasContact: (contactId) => store.contactById(contactId) != null,
             contactIdOf: (roomId) => store.contactForRoom(roomId)?.id,
           );
-    if (targetRoute != null) {
-      // Text is sent as soon as the chat opens, so confirm it first.
-      if (items.any((item) => item is! FileShareItem)) {
-        final consent = await showOkCancelAlertDialog(
-          context: context,
-          title: L10n.of(context).forwardCountMessages(items.length),
-          okLabel: L10n.of(context).forward,
-          cancelLabel: L10n.of(context).cancel,
-        );
-        if (consent != OkCancelResult.ok || !mounted) return;
-      }
-      context.go(targetRoute, extra: items);
-      return;
-    }
-
-    showScaffoldDialog(
-      context: context,
-      builder: (context) => ShareScaffoldDialog(items: items),
-    );
+    final share = SharedDraft(items, fromShareIntent: true);
+    // The chat a Direct Share picked opens with the share staged; else the
+    // compose screen does, for the user to say who it goes to.
+    context.go(targetRoute ?? '/rooms/newprivatechat', extra: share);
   }
 
   void _initReceiveSharingIntent() {

@@ -5,21 +5,30 @@
 
 import 'dart:async';
 
+import 'package:cross_file/cross_file.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat/effects/message_effect_picker.dart'
+    as effects;
 import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat_view.dart';
 import 'package:fluffychat/pages/new_private_chat/qr_scanner_modal.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
+import 'package:fluffychat/utils/android_direct_share.dart';
 import 'package:fluffychat/utils/bridge_provisioning.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
+import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/networks.dart';
+import 'package:fluffychat/utils/merged_contacts/store.dart';
+import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/utils/new_chat/compose.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
 import 'package:fluffychat/utils/new_chat/new_group.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/share_items.dart';
 import 'package:fluffychat/utils/url_launcher.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -34,9 +43,17 @@ import 'package:matrix/matrix.dart';
 /// message. One person makes a direct chat; two or more make a group on
 /// the network the group's first people share. Sending the first message
 /// starts the chat or creates the group when there is none, then opens it.
+///
+/// Something shared into Seam or forwarded opens here too, as [share]: its
+/// files and forwarded messages are staged in the composer and its text is
+/// in the text field, and until a name is typed the user's recent
+/// conversations are offered as recipients.
 class NewPrivateChat extends StatefulWidget {
   final String? deeplink;
   final NewChatDelivery delivery;
+
+  /// What is being shared or forwarded, staged in the composer.
+  final SharedDraft? share;
 
   /// Opened from Create group: an account with no bridges goes on to the
   /// Matrix group page, since every group made here is on a network.
@@ -47,6 +64,7 @@ class NewPrivateChat extends StatefulWidget {
     required this.deeplink,
     this.delivery = const NewChatDelivery(),
     this.startGroup = false,
+    this.share,
   });
 
   @override
@@ -62,7 +80,20 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   late final FocusNode textFieldFocus = FocusNode(onKeyEvent: _onToKey);
 
   /// The first message.
-  final TextEditingController messageController = TextEditingController();
+  late final TextEditingController messageController = TextEditingController(
+    text: widget.share?.text,
+  );
+
+  /// Shared files staged in the composer, sent ahead of the text.
+  late final List<XFile> stagedFiles = [...?widget.share?.files];
+
+  /// Forwarded messages staged in the composer, sent after the files.
+  late final List<Map<String, Object?>> stagedContents = [
+    ...?widget.share?.contents,
+  ];
+
+  /// Whether the screen holds a share that was not sent yet.
+  bool get sharing => widget.share != null;
 
   /// The composer's focus. Enter sends when the user's setting says so,
   /// as in a chat.
@@ -99,6 +130,79 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// above the composer and where the first message goes. Null when there
   /// is none.
   ExistingChat? conversation;
+
+  /// The room of a merged [conversation] picked with the network buttons,
+  /// or null for the contact's default.
+  String? _pickedRoomId;
+
+  /// The room the first message goes to in [conversation]: the network
+  /// picked with the network buttons, else the chat's default.
+  Room? get sendRoom {
+    final chat = conversation;
+    if (chat == null) return null;
+    final picked = _pickedRoomId;
+    return chat.contact?.rooms.where((room) => room.id == picked).firstOrNull ??
+        chat.sendRoom;
+  }
+
+  /// The networks of a merged [conversation] as (bridge space, room) pairs
+  /// for the network buttons; empty unless it spans two or more networks.
+  List<(Room, String)> get conversationNetworks {
+    final contact = conversation?.contact;
+    if (contact == null) return const [];
+    final spaces = spacesByChild(Matrix.of(context).client);
+    final networks = [
+      for (final room in contact.rooms)
+        if (spaces[room.id] case final space?) (space, room.id),
+    ];
+    return networks.length < 2 ? const [] : networks;
+  }
+
+  /// A network button was tapped: the first message goes out on [roomId],
+  /// which becomes the contact's default as it does in the chat.
+  void pickSendRoom(String roomId) {
+    final contact = conversation?.contact;
+    if (contact == null) return;
+    setState(() => _pickedRoomId = roomId);
+    MergedContactsStore.forClient(
+      Matrix.of(context).client,
+    ).setSendVia(contact.id, roomId);
+  }
+
+  /// Takes the staged [file] out of the composer.
+  void removeStagedFile(XFile file) => setState(() => stagedFiles.remove(file));
+
+  /// Takes the staged forwarded messages out of the composer.
+  void removeStagedContents() => setState(stagedContents.clear);
+
+  /// The user's most recent chats, offered as recipients for a share while
+  /// nothing is typed into the To field.
+  List<NewChatPerson<ExistingChat>> get recentPeople {
+    final client = Matrix.of(context).client;
+    final locals = MatrixLocals(L10n.of(context));
+    final chats = existingChatsOf(
+      client,
+      client.rooms
+          .where(
+            (room) =>
+                room.membership == Membership.join &&
+                !room.isSpace &&
+                room.canSendDefaultMessages,
+          )
+          .toList(),
+      (_) => true,
+    ).take(recentCount);
+    return [
+      for (final chat in chats)
+        mergeNewChatPeople<ExistingChat>(
+          query: '',
+          chats: [chatPersonInput(chat, locals)],
+        ).single,
+    ];
+  }
+
+  /// How many recent chats [recentPeople] offers.
+  static const int recentCount = 8;
 
   /// Whether the first message is on its way, which keeps a second tap on
   /// send from starting a second chat.
@@ -299,6 +403,15 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     if (person.group) {
       final chat = person.chat;
       if (recipients.isEmpty && chat != null) {
+        if (sharing) {
+          // A share goes to the group from here, so it is the recipient.
+          setState(() {
+            recipients.add(person);
+            _findConversation();
+          });
+          _clearSearch();
+          return;
+        }
         context.go(_routeOf(chat));
         return;
       }
@@ -387,7 +500,10 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   void _findConversation() {
     final client = Matrix.of(context).client;
     final network = group.network;
-    if (recipients.length == 1) {
+    final previous = conversation?.room.id;
+    if (recipients.length == 1 && recipients.single.group) {
+      conversation = recipients.single.chat;
+    } else if (recipients.length == 1) {
       conversation = existingDirectChatOf(client, recipients.single);
     } else if (group.isGroup && network != null) {
       final room = existingGroupOf(
@@ -402,6 +518,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     } else {
       conversation = null;
     }
+    if (conversation?.room.id != previous) _pickedRoomId = null;
   }
 
   /// Enter in the To field: the top suggestion for the typed text becomes
@@ -460,7 +577,9 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// fixed, anyone it cannot reach cannot be either.
   String? groupBlockOf(NewChatPerson person) {
     if (recipients.isEmpty || isRecipient(person)) return null;
-    if (person.group) return L10n.of(context).groupChatNotAPerson;
+    if (person.group || recipients.first.group) {
+      return L10n.of(context).groupChatNotAPerson;
+    }
     if (group.isEmpty) return null;
     final block = group.blockOf(person);
     return block == null
@@ -476,10 +595,11 @@ class NewPrivateChatController extends State<NewPrivateChat> {
       (group.network?.type.nameAllowed ?? false);
 
   /// Whether the send button works: someone in the To field (a whole group
-  /// once there are two), a message, and a name when the network needs one.
+  /// once there are two), a message or something staged, and a name when
+  /// the network needs one.
   bool get canSend {
     if (sending || recipients.isEmpty) return false;
-    if (messageController.text.trim().isEmpty) return false;
+    if (_payload.isEmpty) return false;
     if (recipients.length >= 2 && !group.isGroup) return false;
     final type = group.network?.type;
     if (conversation == null &&
@@ -491,82 +611,161 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     return true;
   }
 
+  /// What the composer holds: the staged files and forwarded messages and
+  /// the typed text.
+  SharePayload get _payload => SharePayload(
+    files: stagedFiles,
+    contents: stagedContents,
+    text: messageController.text.trim(),
+  );
+
   /// Sends the first message and opens the chat: in the [conversation]
-  /// there is; else for one person a direct chat started on the network
-  /// the user picks (or on Matrix for a Matrix user), and for two or more
-  /// the group created through the network's bridge, named when a name was
-  /// typed. The message is sent once the room is there.
-  Future<void> send() async {
+  /// there is, on the network picked for it; else for one person a direct
+  /// chat started on the network the user picks (or on Matrix for a Matrix
+  /// user), and for two or more the group created through the network's
+  /// bridge, named when a name was typed. The message is sent once the
+  /// room is there. A share waits until everything staged went out; one
+  /// from the Android share sheet then returns to the app that shared.
+  Future<void> send({MessageEffect? effect}) async {
     if (!canSend) return;
-    final text = messageController.text.trim();
+    final payload = _payload;
     final client = Matrix.of(context).client;
     final existing = conversation;
-    if (existing != null) {
-      _sendText(existing.sendRoom, text);
-      context.go(_routeOf(existing));
+    final room = sendRoom;
+    if (existing != null && room != null) {
+      if (!sharing) {
+        _sendText(room, payload.text, effect);
+        context.go(_routeOf(existing));
+        return;
+      }
+      setState(() => sending = true);
+      try {
+        await widget.delivery.sendShare(context, room, payload, effect: effect);
+      } catch (e, s) {
+        Logs().w('Unable to send the share', e, s);
+        if (mounted) {
+          setState(() => sending = false);
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(e.toLocalizedString(context))));
+        }
+        return;
+      }
+      if (!mounted) return;
+      final locals = MatrixLocals(L10n.of(context));
+      await _afterSend(
+        _routeOf(existing),
+        room,
+        existing.contact?.displayName(locals) ??
+            existing.room.getLocalizedDisplayname(locals),
+      );
       return;
     }
     setState(() => sending = true);
     try {
       if (recipients.length == 1) {
-        await _startChatAndSend(client, recipients.single, text);
+        await _startChatAndSend(client, recipients.single, payload, effect);
       } else {
-        await _createGroupAndSend(client, text);
+        await _createGroupAndSend(client, payload, effect);
       }
     } finally {
       if (mounted) setState(() => sending = false);
     }
   }
 
+  /// Opens the chat at [route] once a message went to [room], named [name]
+  /// in the toast. A share from the Android share sheet then puts Seam
+  /// behind the app that shared.
+  Future<void> _afterSend(String route, Room room, String name) async {
+    final l10n = L10n.of(context);
+    _sent = true;
+    context.go(route);
+    if (widget.share?.fromShareIntent ?? false) {
+      await AndroidDirectShare.returnToSourceApp(
+        toast: shareSentToast(l10n, room, name),
+      );
+    }
+  }
+
+  /// Whether the message went out, so leaving the screen does not count as
+  /// abandoning the share.
+  bool _sent = false;
+
+  /// Sends [payload] to the new room [roomId]: a share waits until all of it
+  /// went out; plain text is sent as the chat shows it, without waiting.
+  Future<Room> _sendNew(
+    Client client,
+    String roomId,
+    SharePayload payload,
+    MessageEffect? effect,
+  ) async {
+    final room = client.getRoomById(roomId);
+    if (room == null) throw StateError('Room $roomId is not known');
+    if (sharing) {
+      await widget.delivery.sendShare(context, room, payload, effect: effect);
+    } else {
+      _sendText(room, payload.text, effect);
+    }
+    return room;
+  }
+
   Future<void> _startChatAndSend(
     Client client,
     NewChatPerson<ExistingChat> person,
-    String text,
+    SharePayload payload,
+    MessageEffect? effect,
   ) async {
-    final String? route;
+    final ({String route, Room room})? sent;
     if (isMatrixOnlyPerson(person)) {
-      final result = await showFutureLoadingDialog<String>(
+      final result = await showFutureLoadingDialog<({String route, Room room})>(
         context: context,
         future: () async {
           final roomId = await widget.delivery.startMatrixChat(
             client,
             person.userIds.first,
           );
-          _sendTextTo(client, roomId, text);
-          return '/rooms/$roomId';
+          final room = await _sendNew(client, roomId, payload, effect);
+          return (route: '/rooms/$roomId', room: room);
         },
       );
-      route = result.asValue?.value;
+      sent = result.asValue?.value;
     } else {
       final choice = await widget.delivery.pickNetwork(context, client, person);
       if (choice == null || !mounted) return;
-      final result = await showFutureLoadingDialog<String>(
+      final result = await showFutureLoadingDialog<({String route, Room room})>(
         context: context,
         future: () async {
           final roomId = await widget.delivery.startChat(client, choice);
-          _sendTextTo(client, roomId, text);
+          final room = await _sendNew(client, roomId, payload, effect);
           final contactId = await addNewChatToMergedContact(
             client,
             person,
             roomId,
           );
-          return contactId == null
-              ? '/rooms/$roomId'
-              : mergedContactRoute(contactId);
+          return (
+            route: contactId == null
+                ? '/rooms/$roomId'
+                : mergedContactRoute(contactId),
+            room: room,
+          );
         },
       );
-      route = result.asValue?.value;
+      sent = result.asValue?.value;
     }
-    if (route == null || !mounted) return;
-    context.go(route);
+    if (sent == null || !mounted) return;
+    await _afterSend(sent.route, sent.room, person.name);
   }
 
-  Future<void> _createGroupAndSend(Client client, String text) async {
+  Future<void> _createGroupAndSend(
+    Client client,
+    SharePayload payload,
+    MessageEffect? effect,
+  ) async {
     final network = group.network;
     if (network == null) return;
     final members = group.members;
     final name = groupName.text.trim();
-    final result = await showFutureLoadingDialog<CreatedGroup>(
+    final result = await showFutureLoadingDialog<(CreatedGroup, Room)>(
       context: context,
       future: () async {
         final created = await widget.delivery.createGroup(
@@ -575,28 +774,59 @@ class NewPrivateChatController extends State<NewPrivateChat> {
           members,
           network.type.nameAllowed && name.isNotEmpty ? name : null,
         );
-        _sendTextTo(client, created.roomId, text);
-        return created;
+        final room = await _sendNew(client, created.roomId, payload, effect);
+        return (created, room);
       },
     );
-    final created = result.asValue?.value;
-    if (created == null || !mounted) return;
+    final sent = result.asValue?.value;
+    if (sent == null || !mounted) return;
+    final (created, room) = sent;
     showGroupMembersNotAdded(context, members, created);
-    context.go('/rooms/${created.roomId}');
-  }
-
-  void _sendTextTo(Client client, String roomId, String text) {
-    final room = client.getRoomById(roomId);
-    if (room == null) throw StateError('Room $roomId is not known');
-    _sendText(room, text);
+    await _afterSend(
+      '/rooms/${created.roomId}',
+      room,
+      name.isNotEmpty
+          ? name
+          : members.map((member) => member.person.name).join(', '),
+    );
   }
 
   /// Sends [text] without waiting for the server: the chat it opens shows
   /// the message as sending, and as failed with a retry if it does not go.
-  void _sendText(Room room, String text) {
-    widget.delivery.sendText(room, text).catchError((Object e, StackTrace s) {
+  void _sendText(Room room, String text, MessageEffect? effect) {
+    widget.delivery.sendText(room, text, effect: effect).catchError((
+      Object e,
+      StackTrace s,
+    ) {
       Logs().w('Unable to send the first message', e, s);
     });
+  }
+
+  /// Whether a long press on send offers iMessage's effects: a typed
+  /// message with nothing staged (the bridge carries an effect on text
+  /// only), going out on iMessage. That is the chat's network when there
+  /// is one, else the new group's. A new direct chat's network is picked
+  /// only on send, so it offers none.
+  bool get effectsAvailable {
+    if (stagedFiles.isNotEmpty || stagedContents.isNotEmpty) return false;
+    if (messageController.text.trim().isEmpty) return false;
+    final room = sendRoom;
+    if (room != null) return canSendMessageEffects(room);
+    return group.isGroup && group.bridge?.name == 'imessage';
+  }
+
+  /// A long press on send: where [effectsAvailable], the effect picker,
+  /// whose pick sends the message with it. [bubbleColor] and
+  /// [onBubbleColor] are the send button's.
+  Future<void> onSendLongPress(Color bubbleColor, Color onBubbleColor) async {
+    if (!canSend || !effectsAvailable) return;
+    final effect = await effects.showMessageEffectPicker(
+      context,
+      text: messageController.text,
+      bubbleColor: bubbleColor,
+      onBubbleColor: onBubbleColor,
+    );
+    if (effect != null && mounted) await send(effect: effect);
   }
 
   @override
@@ -613,5 +843,16 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   }
 
   @override
-  Widget build(BuildContext context) => NewPrivateChatView(this);
+  Widget build(BuildContext context) {
+    final view = NewPrivateChatView(this);
+    if (!(widget.share?.fromShareIntent ?? false)) return view;
+    // Leaving a share from the share sheet unsent drops it with the screen
+    // and goes back to the app that shared.
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop && !_sent) AndroidDirectShare.returnToSourceApp();
+      },
+      child: view,
+    );
+  }
 }

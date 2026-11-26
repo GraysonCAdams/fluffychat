@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// The search behind New Chat, shared with the share page: the user's
-/// chats that match a query (a merged contact once), the people their
-/// bridges and phone know, and starting a chat with someone on a network
-/// the user picked.
+/// The search behind New Chat and Add people: the user's chats that match
+/// a query (a merged contact once), the people their bridges and phone
+/// know, and starting a chat with someone on a network the user picked.
 library;
 
 import 'package:fluffychat/pages/chat_list/merged_contact_list.dart';

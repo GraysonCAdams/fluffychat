@@ -360,15 +360,8 @@ class ChatNetworkIcons extends StatelessWidget {
 
   const ChatNetworkIcons(this.controller, {super.key});
 
-  static const _height = 32.0;
-  static const _width = 40.0;
-  static const _iconSize = 20.0;
-  static const _outer = Radius.circular(_height / 2);
-  static const _inner = Radius.circular(8);
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final room = controller.room;
     final locals = MatrixLocals(L10n.of(context));
     final merged = controller.mergedContact != null && controller.isMerged;
@@ -385,13 +378,62 @@ class ChatNetworkIcons extends StatelessWidget {
       if (space != null) entries.add((space, room.id));
     }
     if (entries.isEmpty) return const SizedBox.shrink();
-    final selectedRoomId = merged ? controller.composerTarget.roomId : room.id;
     final locked = merged && controller.composerTarget.locked;
+    return NetworkSwitcherChips(
+      networks: entries,
+      selectedRoomId: merged ? controller.composerTarget.roomId : room.id,
+      onPick: merged && !locked
+          ? (roomId) {
+              controller.setMergedSendVia(roomId);
+              controller.pickSendViaRoom(roomId);
+            }
+          : null,
+      trailing: AddMergedChatButton(
+        controller,
+        width: NetworkSwitcherChips.width,
+        height: NetworkSwitcherChips.height,
+      ),
+    );
+  }
+}
+
+/// A row of network buttons, one per bridge space, joined into one
+/// segmented group: the network of [selectedRoomId] is highlighted, and a
+/// tap on another one picks its room through [onPick]. Without [onPick]
+/// the buttons only show the networks. [trailing], such as the add-chat
+/// plus, is the group's last segment.
+class NetworkSwitcherChips extends StatelessWidget {
+  /// (bridge space, room to send to) per network.
+  final List<(Room, String)> networks;
+  final String selectedRoomId;
+  final void Function(String roomId)? onPick;
+  final Widget? trailing;
+
+  const NetworkSwitcherChips({
+    required this.networks,
+    required this.selectedRoomId,
+    required this.onPick,
+    this.trailing,
+    super.key,
+  });
+
+  static const height = 32.0;
+  static const width = 40.0;
+  static const _iconSize = 20.0;
+  static const _outer = Radius.circular(height / 2);
+  static const _inner = Radius.circular(8);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final locals = MatrixLocals(L10n.of(context));
+    final onPick = this.onPick;
+    final trailing = this.trailing;
     return Row(
       mainAxisSize: MainAxisSize.min,
       spacing: 2,
       children: [
-        for (final (index, (space, roomId)) in entries.indexed)
+        for (final (index, (space, roomId)) in networks.indexed)
           _button(
             context,
             theme,
@@ -399,17 +441,12 @@ class ChatNetworkIcons extends StatelessWidget {
             name: space.getLocalizedDisplayname(locals),
             selected: roomId == selectedRoomId,
             first: index == 0,
-            // The add-chat plus after the networks is the group's last
-            // segment.
-            last: false,
-            onTap: merged && roomId != selectedRoomId && !locked
-                ? () {
-                    controller.setMergedSendVia(roomId);
-                    controller.pickSendViaRoom(roomId);
-                  }
+            last: trailing == null && index == networks.length - 1,
+            onTap: onPick != null && roomId != selectedRoomId
+                ? () => onPick(roomId)
                 : null,
           ),
-        AddMergedChatButton(controller, width: _width, height: _height),
+        ?trailing,
       ],
     );
   }
@@ -433,8 +470,8 @@ class ChatNetworkIcons extends StatelessWidget {
       child: AnimatedContainer(
         duration: FluffyThemes.animationDuration,
         curve: FluffyThemes.animationCurve,
-        height: _height,
-        width: _width,
+        height: height,
+        width: width,
         decoration: BoxDecoration(
           // Quieter than the spec's selected tonal color, which outshines
           // a network's own logo.

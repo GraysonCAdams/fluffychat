@@ -6,9 +6,9 @@
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/pages/image_viewer/image_viewer_view.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
-import 'package:fluffychat/utils/show_scaffold_dialog.dart';
-import 'package:fluffychat/widgets/share_scaffold_dialog.dart';
+import 'package:fluffychat/utils/share_items.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -97,12 +97,17 @@ class ImageViewerController extends State<ImageViewer> {
 
   bool get canGoBack => _index > 0;
 
-  /// Forward this image to another room.
-  void forwardAction() => showScaffoldDialog(
-    context: context,
-    builder: (context) =>
-        ShareScaffoldDialog(items: [ContentShareItem(currentEvent.content)]),
-  );
+  /// Forward this image to another room: the viewer closes and the compose
+  /// screen asks who to, with the image staged in its composer.
+  void forwardAction() {
+    final router = GoRouter.of(context);
+    final content = currentEvent.content.copy();
+    Navigator.of(context).pop();
+    router.push(
+      '/rooms/newprivatechat',
+      extra: SharedDraft([ContentShareItem(content)]),
+    );
+  }
 
   /// Save this file with a system call.
   void saveFileAction(BuildContext context) => currentEvent.saveFile(context);

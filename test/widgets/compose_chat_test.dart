@@ -4,13 +4,19 @@
 
 // ignore_for_file: depend_on_referenced_packages, implementation_imports
 
+import 'package:cross_file/cross_file.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat/composer_attachments.dart';
+import 'package:fluffychat/pages/chat/effects/message_effect_picker.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
 import 'package:fluffychat/pages/new_private_chat/start_chat_sheet.dart';
+import 'package:fluffychat/utils/android_direct_share.dart';
 import 'package:fluffychat/utils/bridge_provisioning.dart';
+import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
 import 'package:fluffychat/utils/new_chat/new_group.dart';
+import 'package:fluffychat/utils/share_items.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,6 +28,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../pages/chat_list/chat_list_fakes.dart';
+import '../utils/merged_contacts/fake_rooms.dart' show setMergedContacts;
 
 const _imessage = BridgeInfo(
   name: 'imessage',
@@ -184,9 +191,31 @@ class _FakeDelivery extends NewChatDelivery {
     return const CreatedGroup('!group:x');
   }
 
+  /// One entry per message sent: room and text, then the effect id the
+  /// message content carries, when it has one.
   @override
-  Future<void> sendText(Room room, String text) async {
-    sent.add('${room.id}: $text');
+  Future<void> sendText(Room room, String text, {MessageEffect? effect}) async {
+    final effectId = effect == null
+        ? null
+        : room.textContentWithEffect(text, effect)[messageEffectKey];
+    sent.add('${room.id}: $text${effectId == null ? '' : ' [$effectId]'}');
+  }
+
+  /// One entry per share sent: room, the files' names, the number of
+  /// forwarded messages and the text.
+  final List<String> shared = [];
+
+  @override
+  Future<void> sendShare(
+    BuildContext context,
+    Room room,
+    SharePayload payload, {
+    MessageEffect? effect,
+  }) async {
+    shared.add(
+      '${room.id}: ${payload.files.map((file) => file.path.split('/').last).join(',')} '
+      '${payload.contents.length} "${payload.text}"',
+    );
   }
 
   @override
@@ -294,7 +323,11 @@ void main() {
 
   tearDown(() => tearDownFakeChatList(client));
 
-  Future<void> pump(WidgetTester tester, {bool startGroup = false}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    bool startGroup = false,
+    SharedDraft? share,
+  }) async {
     tester.view.physicalSize = const Size(1200, 3000);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -307,12 +340,18 @@ void main() {
             deeplink: null,
             delivery: delivery,
             startGroup: startGroup,
+            share: share,
           ),
         ),
         GoRoute(
           path: '/rooms/:roomid',
           builder: (_, state) =>
               Scaffold(body: Text('chat ${state.pathParameters['roomid']}')),
+        ),
+        GoRoute(
+          path: '/rooms/contact/:id',
+          builder: (_, state) =>
+              Scaffold(body: Text('contact ${state.pathParameters['id']}')),
         ),
       ],
     );
@@ -807,5 +846,291 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('matrix group'), findsOneWidget);
+  });
+
+  group('effects', () {
+    final sendButton = find.byKey(const ValueKey('compose-send'));
+
+    Future<void> longPressSend(WidgetTester tester, String text) async {
+      await tester.enterText(messageField, text);
+      await tester.pump();
+      await tester.longPress(sendButton);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+    }
+
+    testWidgets('a long press on send for an iMessage group opens the picker '
+        'and Fireworks goes with the first message', (tester) async {
+      await pump(tester);
+      await pick(tester, 'quinn', 'Quinn Imsg');
+      await pick(tester, 'quinby', 'Quinby Imsg');
+      await longPressSend(tester, 'yo');
+      expect(find.byType(MessageEffectPicker), findsOneWidget);
+      expect(delivery.created, isEmpty);
+
+      await tester.tap(find.text('Screen'));
+      await tester.pump();
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('send_effect_fireworks')),
+        60,
+        scrollable: find.descendant(
+          of: find.byType(MessageEffectPicker),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.pump(const Duration(seconds: 5));
+      await tester.tap(find.byKey(const ValueKey('send_effect_fireworks')));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      expect(delivery.created, [
+        'imessage/group id-Quinn Imsg,tel:+14045550102 "null"',
+      ]);
+      expect(delivery.sent, ['!group:x: yo [${MessageEffect.fireworks.id}]']);
+      expect(find.text('chat !group:x'), findsOneWidget);
+    });
+
+    testWidgets('not offered for a Google Messages group', (tester) async {
+      delivery.groupNetwork = const GroupNetwork(_gmessages, _smsGroup);
+      delivery.bridgeContacts = [
+        for (final contact in delivery.bridgeContacts)
+          BridgeContactInput(_gmessages, contact.user),
+      ];
+      await pump(tester);
+      await pick(tester, 'quinn', 'Quinn Imsg');
+      await pick(tester, 'quinby', 'Quinby Imsg');
+      await longPressSend(tester, 'yo');
+      expect(find.byType(MessageEffectPicker), findsNothing);
+      expect(delivery.created, isEmpty);
+      expect(delivery.sent, isEmpty);
+    });
+
+    testWidgets('not offered with a shared photo staged', (tester) async {
+      await pump(
+        tester,
+        share: SharedDraft([FileShareItem(XFile('/tmp/photo.jpg'))]),
+      );
+      await pick(tester, 'quinn', 'Quinn Imsg');
+      await pick(tester, 'quinby', 'Quinby Imsg');
+      await longPressSend(tester, 'yo');
+      expect(find.byType(MessageEffectPicker), findsNothing);
+      expect(delivery.created, isEmpty);
+      expect(delivery.shared, isEmpty);
+    });
+  });
+
+  group('share', () {
+    final photo = XFile('/tmp/photo.jpg', name: 'photo.jpg');
+    final recent = find.byKey(const ValueKey('compose-recent'));
+    final networks = find.byKey(const ValueKey('compose-networks'));
+    final returns = <Object?>[];
+
+    setUp(() {
+      returns.clear();
+      AndroidDirectShare.debugIsAndroid = true;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('chat.fluffy.fluffychat/share'),
+            (call) async {
+              if (call.method == 'returnToSourceApp') {
+                returns.add(call.arguments);
+              }
+              return null;
+            },
+          );
+    });
+
+    tearDown(() {
+      AndroidDirectShare.debugIsAndroid = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('chat.fluffy.fluffychat/share'),
+            null,
+          );
+    });
+
+    List<XFile> stagedFiles(WidgetTester tester) => tester
+        .widget<ComposerAttachmentStrip>(find.byType(ComposerAttachmentStrip))
+        .files;
+
+    /// Quinn on iMessage and on Google Messages, merged into one contact,
+    /// each room in its network's bridge space.
+    void addMergedQuinn() {
+      final imsg = addFakeChat(
+        client,
+        '!q-imsg:x',
+        'Quinn Merged',
+        partner: '@imessage_qm:x',
+        lastMessageTime: DateTime(2026, 11, 25),
+      );
+      final sms = addFakeChat(
+        client,
+        '!q-sms:x',
+        'Quinn Merged',
+        partner: '@gmessages_qm:x',
+        lastMessageTime: DateTime(2026, 11, 24),
+      );
+      addFakeSpace(client, '!ispace:x', 'iMessage', [imsg.id]);
+      addFakeSpace(client, '!gspace:x', 'Google Messages', [sms.id]);
+      setMergedContacts(client, {
+        'c_q': {
+          'rooms': [imsg.id, sms.id],
+          'send_via': imsg.id,
+          'updated': 1,
+        },
+      });
+    }
+
+    testWidgets('opens with the To field empty, recent chats offered and '
+        'the share staged', (tester) async {
+      await pump(
+        tester,
+        share: SharedDraft([
+          FileShareItem(photo),
+          TextShareItem('https://example.org'),
+        ]),
+      );
+      expect(tester.widget<TextField>(toField).controller!.text, isEmpty);
+      expect(
+        find.descendant(of: recent, matching: find.text('Quade Matrix')),
+        findsOneWidget,
+      );
+      expect(stagedFiles(tester), [photo]);
+      expect(
+        tester.widget<TextField>(messageField).controller!.text,
+        'https://example.org',
+      );
+      expect(delivery.shared, isEmpty);
+      expect(delivery.sent, isEmpty);
+    });
+
+    testWidgets('a recent chat becomes the recipient; send sends the share '
+        'there and opens it', (tester) async {
+      await pump(tester, share: SharedDraft([FileShareItem(photo)]));
+      await tester.tap(
+        find.descendant(of: recent, matching: find.text('Quade Matrix')),
+      );
+      await tester.pumpAndSettle();
+      expect(chip('@quade:x'), findsOneWidget);
+      expect(find.text('see you soon'), findsOneWidget);
+      expect(delivery.shared, isEmpty);
+
+      await sendMessage(tester, 'look');
+      expect(delivery.shared, ['!quade:x: photo.jpg 0 "look"']);
+      expect(delivery.sent, isEmpty);
+      expect(find.text('chat !quade:x'), findsOneWidget);
+      // Shared from inside the app: Seam stays.
+      expect(returns, isEmpty);
+    });
+
+    testWidgets('the network buttons pick the room a merged contact\'s share '
+        'goes to', (tester) async {
+      addMergedQuinn();
+      await pump(tester, share: SharedDraft([FileShareItem(photo)]));
+      await tester.tap(
+        find.descendant(of: recent, matching: find.text('Quinn Merged')),
+      );
+      await tester.pumpAndSettle();
+      expect(networks, findsOneWidget);
+      expect(composerHint(tester), 'iMessage');
+
+      await tester.tap(
+        find.descendant(
+          of: networks,
+          matching: find.byTooltip('Google Messages'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(composerHint(tester), 'Google Messages');
+
+      await tester.tap(find.byKey(const ValueKey('compose-send')));
+      await tester.pumpAndSettle();
+      expect(delivery.shared, ['!q-sms:x: photo.jpg 0 ""']);
+      expect(find.text('contact c_q'), findsOneWidget);
+      // The contacts store's merge suggestions run after a change.
+      await tester.pump(const Duration(seconds: 4));
+    });
+
+    testWidgets('sent from the share sheet, Seam returns to the sharing app '
+        'with a toast', (tester) async {
+      addMergedQuinn();
+      await pump(
+        tester,
+        share: SharedDraft([FileShareItem(photo)], fromShareIntent: true),
+      );
+      await tester.tap(
+        find.descendant(of: recent, matching: find.text('Quinn Merged')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: networks,
+          matching: find.byTooltip('Google Messages'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(returns, isEmpty);
+      await tester.tap(find.byKey(const ValueKey('compose-send')));
+      await tester.pumpAndSettle();
+      expect(delivery.shared, ['!q-sms:x: photo.jpg 0 ""']);
+      expect(returns, [
+        {'toast': 'Sent to Quinn Merged on Google Messages'},
+      ]);
+      await tester.pump(const Duration(seconds: 4));
+    });
+
+    testWidgets('back without sending sends nothing and returns to the '
+        'sharing app', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3000);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final prefs = await SharedPreferences.getInstance();
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => const Scaffold(body: Text('chat list')),
+            routes: [
+              GoRoute(
+                path: 'compose',
+                builder: (_, _) => NewPrivateChat(
+                  deeplink: null,
+                  delivery: delivery,
+                  share: SharedDraft([
+                    FileShareItem(photo),
+                    TextShareItem('hello'),
+                  ], fromShareIntent: true),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        Provider<MatrixState>.value(
+          value: FakeMatrix(client, prefs),
+          child: MaterialApp.router(
+            localizationsDelegates: L10n.localizationsDelegates,
+            supportedLocales: L10n.supportedLocales,
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      router.push('/compose');
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(of: recent, matching: find.text('Quade Matrix')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.text('chat list'), findsOneWidget);
+      expect(delivery.shared, isEmpty);
+      expect(delivery.sent, isEmpty);
+      expect(returns, [
+        {'toast': null},
+      ]);
+    });
   });
 }
