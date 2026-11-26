@@ -228,6 +228,117 @@ void main() {
     );
   });
 
+  /// Opacity of the avatar slot on the message's last bubble.
+  double messageAvatarOpacity(WidgetTester tester) => tester
+      .widget<AnimatedOpacity>(
+        find.descendant(
+          of: find.byType(Message),
+          matching: find.byType(AnimatedOpacity),
+        ),
+      )
+      .opacity;
+
+  Finder typingAvatars() => find.descendant(
+    of: find.byType(TypingIndicatorRow),
+    matching: find.byType(Avatar),
+  );
+
+  Room groupRoom() => client.rooms.firstWhere(
+    (room) => !room.isSpace && !room.isDirectChat,
+  );
+
+  testWidgets('the sender typing moves their avatar from the last bubble to '
+      'the dots, at the spacing of a run', (tester) async {
+    final room = groupRoom();
+    setTyping(room, ['@alice:example.org']);
+    addTearDown(() => room.ephemerals.remove('m.typing'));
+
+    await pump(
+      tester,
+      room: room,
+      sender: '@alice:example.org',
+      typing: TypingIndicatorRow(
+        rooms: [room],
+        oneToOne: false,
+        newestFromOwn: false,
+        newestSenderId: '@alice:example.org',
+      ),
+    );
+
+    expect(messageAvatarOpacity(tester), 0);
+    expect(typingAvatars(), findsOneWidget);
+    // 1dp under the bubble and 1dp above the next, as inside a run.
+    expect(
+      typingBubbleRect(tester).top - bubbleRect(tester, 'Hello there').bottom,
+      2,
+    );
+  });
+
+  testWidgets('someone else typing keeps both avatars and the gap between '
+      'runs', (tester) async {
+    final room = groupRoom();
+    setTyping(room, ['@bob:example.org']);
+    addTearDown(() => room.ephemerals.remove('m.typing'));
+
+    await pump(
+      tester,
+      room: room,
+      sender: '@alice:example.org',
+      typing: TypingIndicatorRow(
+        rooms: [room],
+        oneToOne: false,
+        newestFromOwn: false,
+        newestSenderId: '@alice:example.org',
+      ),
+    );
+
+    expect(messageAvatarOpacity(tester), 1);
+    expect(typingAvatars(), findsOneWidget);
+    expect(
+      typingBubbleRect(tester).top - bubbleRect(tester, 'Hello there').bottom,
+      greaterThan(2),
+    );
+  });
+
+  testWidgets('the avatar returns to the last bubble when the typing stops', (
+    tester,
+  ) async {
+    final room = groupRoom();
+    setTyping(room, ['@alice:example.org']);
+    addTearDown(() => room.ephemerals.remove('m.typing'));
+
+    await pump(
+      tester,
+      room: room,
+      sender: '@alice:example.org',
+      typing: TypingIndicatorRow(
+        rooms: [room],
+        oneToOne: false,
+        newestFromOwn: false,
+        newestSenderId: '@alice:example.org',
+      ),
+    );
+    expect(messageAvatarOpacity(tester), 0);
+
+    setTyping(room, []);
+    client.onSync.add(
+      SyncUpdate(
+        nextBatch: 'stopped',
+        rooms: RoomsUpdate(
+          join: {
+            room.id: JoinedRoomUpdate(
+              ephemeral: [BasicEvent(type: 'm.typing', content: {'user_ids': []})],
+            ),
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(messageAvatarOpacity(tester), 1);
+    expect(find.byType(TypingAnimation), findsNothing);
+  });
+
   testWidgets('a merged contact typing in a room not sent to still shows', (
     tester,
   ) async {

@@ -8,6 +8,7 @@ import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
+import 'package:fluffychat/pages/chat/typing_run.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/typing_animation.dart';
@@ -34,6 +35,7 @@ class TypingIndicators extends StatelessWidget {
       oneToOne: contact != null || room.isDirectChat,
       newestFromOwn:
           newest != null && newest.senderId == newest.room.client.userID,
+      newestSenderId: newest?.senderId,
     );
   }
 }
@@ -42,7 +44,10 @@ class TypingIndicators extends StatelessWidget {
 ///
 /// In a group the typing person's avatar sits where a message run's
 /// sender avatar does, at its size, and the bubble starts 8dp past it, in
-/// line with the incoming message bubbles. In a one-to-one conversation ([oneToOne]) there is nobody to tell
+/// line with the incoming message bubbles. When the one person typing sent
+/// the newest message ([newestSenderId]) the dots continue that run: the
+/// bubble sits 1dp under the message like the next bubble of the run, and
+/// the message's avatar has moved here. In a one-to-one conversation ([oneToOne]) there is nobody to tell
 /// apart, so the bubble has no avatar and lines up with the other person's
 /// message bubbles: 8dp from the edge, as close under their newest message
 /// as the next bubble of their run would be, or as far as a change of
@@ -53,10 +58,16 @@ class TypingIndicatorRow extends StatefulWidget {
   final bool oneToOne;
   final bool newestFromOwn;
 
+  /// The sender of the newest message. When only that person is typing in a
+  /// group, the dots continue their run: the avatar moves here from the
+  /// message and the bubble sits at the spacing of a run.
+  final String? newestSenderId;
+
   const TypingIndicatorRow({
     required this.rooms,
     required this.oneToOne,
     required this.newestFromOwn,
+    this.newestSenderId,
     super.key,
   });
 
@@ -70,18 +81,7 @@ class _TypingIndicatorRowState extends State<TypingIndicatorRow> {
   late Stream<SyncUpdate> _typingUpdates = _createTypingUpdates();
   late List<Room> _rooms = widget.rooms;
 
-  Stream<SyncUpdate> _createTypingUpdates() {
-    final rooms = widget.rooms;
-    return rooms.first.client.onSync.stream.where(
-      (syncUpdate) => rooms.any(
-        (room) =>
-            syncUpdate.rooms?.join?[room.id]?.ephemeral?.any(
-              (ephemeral) => ephemeral.type == 'm.typing',
-            ) ??
-            false,
-      ),
-    );
-  }
+  Stream<SyncUpdate> _createTypingUpdates() => typingUpdatesFor(widget.rooms);
 
   @override
   void didUpdateWidget(covariant TypingIndicatorRow oldWidget) {
@@ -109,11 +109,11 @@ class _TypingIndicatorRowState extends State<TypingIndicatorRow> {
     return StreamBuilder<Object>(
       stream: _typingUpdates,
       builder: (context, _) {
-        final typingUsers = [
-          for (final room in widget.rooms)
-            ...room.typingUsers.where((u) => u.id != room.client.userID),
-        ];
+        final typingUsers = typingUsersIn(widget.rooms);
         final typing = typingUsers.isNotEmpty;
+        final continuesRun =
+            !widget.oneToOne &&
+            typingContinuesRun(typingUsers, widget.newestSenderId);
 
         // A message row pads 1dp next to a bubble from the same sender and
         // 8dp otherwise, and the newest message pads 1dp below itself.
@@ -124,13 +124,17 @@ class _TypingIndicatorRowState extends State<TypingIndicatorRow> {
                 top: widget.newestFromOwn ? 15 : 1,
                 bottom: 1,
               )
-            : const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0);
+            : EdgeInsets.fromLTRB(8, continuesRun ? 1 : 4, 8, 4);
         final bubble = Material(
           color: theme.colorScheme.surfaceContainerHigh,
           borderRadius: const BorderRadius.all(
             Radius.circular(AppConfig.borderRadius),
           ),
-          child: Padding(
+          child: Container(
+            // As tall as the avatar beside it, so the bubble's bottom edge
+            // meets the avatar's as a run's last bubble does.
+            height: continuesRun ? avatarSize : null,
+            alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: typing ? const TypingAnimation() : null,
           ),
