@@ -738,7 +738,7 @@ class ChatListController extends State<ChatList>
       );
     }).toList();
 
-      // A chat picked in the Android share sheet skips the To field.
+    // A chat picked in the Android share sheet skips the To field.
     final shortcutId = await AndroidDirectShare.takeTargetShortcutId();
     if (!mounted) return;
     final client = Matrix.of(context).client;

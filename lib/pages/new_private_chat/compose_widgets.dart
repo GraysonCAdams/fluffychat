@@ -5,6 +5,7 @@
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat_input_row.dart';
+import 'package:fluffychat/pages/chat/composer_attachments.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
@@ -128,7 +129,8 @@ class RecipientField extends StatelessWidget {
 /// The network the first message goes out on, under the To field: the
 /// existing direct chat's bridge space, or for one person with no chat yet
 /// a note that the network is picked on send. A group shows none, as the
-/// composer's hint names its network.
+/// composer's hint names its network, and neither does a chat on two or
+/// more networks, whose network buttons in the app bar show it.
 class ComposeNetworkLine extends StatelessWidget {
   final NewPrivateChatController controller;
 
@@ -138,14 +140,15 @@ class ComposeNetworkLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
-    if (controller.group.isGroup) return const SizedBox.shrink();
-    final conversation = controller.conversation;
+    if (controller.group.isGroup ||
+        controller.conversationNetworks.isNotEmpty) {
+      return const SizedBox.shrink();
+    }
+    final sendRoom = controller.sendRoom;
     final Widget leading;
     final String label;
-    if (conversation != null) {
-      final space = spacesByChild(
-        Matrix.of(context).client,
-      )[conversation.sendRoom.id];
+    if (sendRoom != null) {
+      final space = spacesByChild(Matrix.of(context).client)[sendRoom.id];
       if (space == null) return const SizedBox.shrink();
       label = l10n.composeChatOn(
         space.getLocalizedDisplayname(MatrixLocals(l10n)),
@@ -492,8 +495,10 @@ class ComposeEmptyHistory extends StatelessWidget {
 }
 
 /// The compose screen's composer, drawn as the chat's: a pill with the
-/// message field and the send button at its end. Sending needs someone in
-/// the To field and some text.
+/// staged files and forwarded messages of a share, the message field and
+/// the send button at its end. Sending needs someone in the To field and
+/// some text or something staged. A long press on send offers iMessage's
+/// effects where the message goes out on iMessage.
 class ComposeBar extends StatelessWidget {
   final NewPrivateChatController controller;
 
@@ -515,87 +520,143 @@ class ComposeBar extends StatelessWidget {
           clipBehavior: Clip.hardEdge,
           color: theme.colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(ChatInputRow.height / 2),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(width: 18),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: TextField(
-                    key: const ValueKey('compose-message'),
-                    controller: controller.messageController,
-                    focusNode: controller.messageFocus,
-                    minLines: 1,
-                    maxLines: 8,
-                    keyboardType: TextInputType.multiline,
-                    textCapitalization: TextCapitalization.sentences,
-                    textInputAction: PlatformInfos.isMobile
-                        ? TextInputAction.newline
-                        : null,
-                    decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.only(
-                        right: 6,
-                        bottom: 15,
-                        top: 15,
+              ComposerAttachmentStrip(
+                files: controller.stagedFiles,
+                onRemove: controller.removeStagedFile,
+              ),
+              if (controller.stagedContents.isNotEmpty)
+                _ForwardedRow(controller),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: TextField(
+                        key: const ValueKey('compose-message'),
+                        controller: controller.messageController,
+                        focusNode: controller.messageFocus,
+                        minLines: 1,
+                        maxLines: 8,
+                        keyboardType: TextInputType.multiline,
+                        textCapitalization: TextCapitalization.sentences,
+                        textInputAction: PlatformInfos.isMobile
+                            ? TextInputAction.newline
+                            : null,
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.only(
+                            right: 6,
+                            bottom: 15,
+                            top: 15,
+                          ),
+                          isDense: true,
+                          hintText: hintText,
+                          hintMaxLines: 1,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          filled: false,
+                        ),
                       ),
-                      isDense: true,
-                      hintText: hintText,
-                      hintMaxLines: 1,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      filled: false,
                     ),
                   ),
-                ),
+                  ListenableBuilder(
+                    listenable: Listenable.merge([
+                      controller.messageController,
+                      controller.groupName,
+                    ]),
+                    builder: (context, _) {
+                      final enabled = controller.canSend;
+                      return Container(
+                        height: ChatInputRow.height,
+                        width: 48,
+                        alignment: Alignment.center,
+                        child: controller.sending
+                            ? const SizedBox.square(
+                                dimension: 24,
+                                child: CircularProgressIndicator.adaptive(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : IconButton(
+                                key: const ValueKey('compose-send'),
+                                tooltip: l10n.send,
+                                onPressed: enabled ? controller.send : null,
+                                onLongPress: enabled
+                                    ? () => controller.onSendLongPress(
+                                        theme.bubbleColor,
+                                        theme.onBubbleColor,
+                                      )
+                                    : null,
+                                style: IconButton.styleFrom(
+                                  fixedSize: const Size.square(40),
+                                  minimumSize: const Size.square(40),
+                                  padding: EdgeInsets.zero,
+                                  backgroundColor: theme.bubbleColor,
+                                  foregroundColor: theme.onBubbleColor,
+                                  disabledBackgroundColor: theme
+                                      .colorScheme
+                                      .onSurface
+                                      .withAlpha(0x1f),
+                                  disabledForegroundColor: theme
+                                      .colorScheme
+                                      .onSurface
+                                      .withAlpha(0x61),
+                                ),
+                                icon: const Icon(Icons.send_outlined),
+                              ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 4),
+                ],
               ),
-              ListenableBuilder(
-                listenable: Listenable.merge([
-                  controller.messageController,
-                  controller.groupName,
-                ]),
-                builder: (context, _) {
-                  final enabled = controller.canSend;
-                  return Container(
-                    height: ChatInputRow.height,
-                    width: 48,
-                    alignment: Alignment.center,
-                    child: controller.sending
-                        ? const SizedBox.square(
-                            dimension: 24,
-                            child: CircularProgressIndicator.adaptive(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : IconButton(
-                            key: const ValueKey('compose-send'),
-                            tooltip: l10n.send,
-                            onPressed: enabled ? controller.send : null,
-                            style: IconButton.styleFrom(
-                              fixedSize: const Size.square(40),
-                              minimumSize: const Size.square(40),
-                              padding: EdgeInsets.zero,
-                              backgroundColor: theme.bubbleColor,
-                              foregroundColor: theme.onBubbleColor,
-                              disabledBackgroundColor: theme
-                                  .colorScheme
-                                  .onSurface
-                                  .withAlpha(0x1f),
-                              disabledForegroundColor: theme
-                                  .colorScheme
-                                  .onSurface
-                                  .withAlpha(0x61),
-                            ),
-                            icon: const Icon(Icons.send_outlined),
-                          ),
-                  );
-                },
-              ),
-              const SizedBox(width: 4),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The forwarded messages staged in the composer, with a button that takes
+/// them out.
+class _ForwardedRow extends StatelessWidget {
+  final NewPrivateChatController controller;
+
+  const _ForwardedRow(this.controller);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = L10n.of(context);
+    return Padding(
+      key: const ValueKey('compose-forwarded'),
+      padding: const EdgeInsets.fromLTRB(18, 8, 4, 0),
+      child: Row(
+        spacing: 8,
+        children: [
+          Icon(
+            Icons.forward_outlined,
+            size: 20,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          Expanded(
+            child: Text(
+              l10n.countForwardedMessages(controller.stagedContents.length),
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
+          IconButton(
+            tooltip: l10n.remove,
+            icon: const Icon(Icons.close_outlined, size: 20),
+            onPressed: controller.removeStagedContents,
+          ),
+        ],
       ),
     );
   }

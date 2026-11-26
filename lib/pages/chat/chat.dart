@@ -1902,7 +1902,8 @@ class ChatController extends State<ChatPageWithRoom>
     context.push(
       '/rooms/newprivatechat',
       extra: SharedDraft([
-        for (final event in forwardEvents) ContentShareItem(event.content.copy()),
+        for (final event in forwardEvents)
+          ContentShareItem(event.content.copy()),
       ]),
     );
   }

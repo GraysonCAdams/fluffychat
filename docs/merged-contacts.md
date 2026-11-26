@@ -393,8 +393,8 @@ Matrix user from the directory gets a Matrix direct chat instead.
 The search, the sources and starting a chat live in
 `lib/utils/new_chat/new_chat_search.dart` (`searchExistingChats`,
 `NewChatSources`, `startBridgeChat`, `addNewChatToMergedContact`) and the
-network sheet in `start_chat_sheet.dart` (`pickStartChatNetwork`), so the
-share page uses the same code.
+network sheet in `start_chat_sheet.dart` (`pickStartChatNetwork`), so Add
+people uses the same code.
 
 #### Two or more people: a group
 
@@ -445,8 +445,8 @@ share page uses the same code.
 The picking rules (`GroupDraft`), the bridge and room calls
 (`NewChatDelivery`) and the add flow (`toggleGroupMember`) are in
 `lib/utils/new_chat/new_group.dart`; the To field, group title and name dialog, history and
-composer are in `lib/pages/new_private_chat/compose_widgets.dart`. The
-share page's group chips and confirm sheet stay in
+composer are in `lib/pages/new_private_chat/compose_widgets.dart`. Add
+people's group chips are in
 `lib/pages/new_private_chat/new_group_widgets.dart`.
 
 #### Add people to a bridged group
@@ -480,46 +480,42 @@ reason, the ones added leave the chips, and the page stays. A refusal the
 bridge makes after the invite (a carrier group on the iMessage bridge) is
 a notice in the chat, not seen by the page.
 
-### Share page
+### Sharing and forwarding
 
-`ShareScaffoldDialog` (`lib/widgets/share_scaffold_dialog.dart`) is the
-page for the Android share sheet (when no chat shortcut was picked),
-forwarding messages from a chat and sharing from the image viewer. On a
-wide screen it is the same page in a dialog (`showScaffoldDialog`).
+Something shared into Seam from the Android share sheet (with no chat
+shortcut picked), messages forwarded from a chat and an image forwarded
+from the image viewer all open the compose screen (`/rooms/newprivatechat`)
+with a `SharedDraft` (`lib/utils/share_items.dart`) as the route's `extra`.
 
-- At rest: "Recent conversations", the first five chats in chat list
-  order with their last message, then "More recent conversations" (ten
-  more per tap), then the other chats A to Z under letter headers, with
-  the phone number as the second line when one is known. A merged contact
-  is one row (`existingChatsOf`, built on `MergedChatList`). Only chats the
-  user can write in are listed.
-- Typing searches like New Chat: "Your chats" (`searchExistingChats`)
-  and "Contacts" (bridge and phone contacts with no chat, and a typed
-  number, from `NewChatSources.people`). The user directory is not asked.
-- Tapping a row ticks it; several can be ticked. Ticking a contact opens
-  New Chat's network sheet and remembers the network (its icon replaces
-  the row's network icons); closing the sheet leaves it unticked.
-- The bottom bar holds the shared text in an editable field, or
-  thumbnails and a count for files ("Add a message" field), or a count of
-  forwarded messages, and one "Send to N chats" button.
-- Send, for each ticked row in turn: a merged contact sends to its
-  `send_via` room; a contact gets its chat started on the picked network
-  (`startBridgeChat`, then `addNewChatToMergedContact`). Files go first
-  through `sendAttachments`, then forwarded messages, then the text as its
-  own message. With one target the page opens that chat; with several it
-  goes to the chat list and says "Sent to N chats". A target that fails is
-  named in a snackbar and stays ticked, and the page stays open; the
-  others are already sent and are unticked.
-- "New group", the first row at rest and when searching, switches the page
-  to picking people for one new group, with New Chat's rules: the first
-  person fixes the network, others it cannot reach are greyed out with the
-  reason, chips show above the list, and the title reads "New group", then
-  "New group chat" from two people. Only one-to-one chats and contacts can
-  be picked. The button reads "Create group and send"; it opens New Chat's
-  confirm sheet, creates the group, sends the files, forwarded messages and
-  text there in the order above, and opens the group. The back button
-  leaves the mode and forgets the group; ticks made before it are kept and
-  still send to each chat separately.
+- The share is staged in the composer, never sent on arrival: files as
+  attachment tiles (`ComposerAttachmentStrip`, as in the chat), forwarded
+  messages as a "N messages" row with a remove button, and shared text or
+  a link in the text field.
+- The To field starts empty. Until a name is typed, "Recent conversations"
+  lists the user's eight most recent chats in chat list order (a merged
+  contact once); a tap makes one the recipient. Typing searches as New
+  Chat does. A group chat picked from the list or the search is the
+  recipient on its own; nobody else can join it.
+- With a recipient, the conversation shows above the composer as for New
+  Chat. A merged contact on two or more networks gets the chat's network
+  buttons (`NetworkSwitcherChips`, the widget behind `ChatNetworkIcons`)
+  in the app bar; the one picked is where the share goes, becomes the
+  contact's default as in the chat, and names the composer's hint.
+- Send works as New Chat's (an existing chat, a new direct chat on the
+  picked network, or a new group), then sends the files through
+  `sendAttachments`, the forwarded messages and the text, in that order
+  (`NewChatDelivery.sendShare`), and opens the chat. A failure is a
+  snackbar and the screen stays.
+- From the share sheet (`SharedDraft.fromShareIntent`), once everything
+  went out Seam returns to the app that shared: the `returnToSourceApp`
+  call on the share channel moves the single-task `MainActivity` to the
+  back and shows "Sent to <name> on <network>" as a system toast
+  (`shareSentToast`, "Sent to <name>" off the bridges). Leaving with back
+  instead drops the share and returns the same way, without a toast.
+- A long press on send offers iMessage's effects as in the chat when the
+  message goes out on iMessage (the chat's network, else the new group's)
+  and nothing is staged. A new direct chat's network is picked on send, so
+  it offers none.
 
 ### Merged chat screen
 
@@ -594,9 +590,12 @@ chips, with a link to the rest.
   (`MainActivity.kt`, `AndroidDirectShare`). `shareTargetRoute` turns
   `contact_<id>` into `/rooms/contact/<id>`, and a room ID into the room,
   or into its contact's screen when the room has since been merged. The
-  shared items go to the composer's target room.
-- Sharing to FluffyChat itself, without a chat shortcut, opens the share
-  page (above).
+  shared files are staged as the composer's attachments and the text goes
+  in its field; nothing is sent until the user presses send. Sending, or
+  leaving with back, returns to the sharing app as above, and the shared
+  text is never stored as the chat's draft.
+- Sharing to Seam itself, without a chat shortcut, opens the compose
+  screen (Sharing and forwarding, above).
 
 ## Phases
 
@@ -644,10 +643,11 @@ is the largest and carries the risk.
   (`test/utils/bridge_provisioning_test.dart`), the merge of the three
   sources and typed numbers (`test/utils/new_chat_people_test.dart`), and
   the result rows and network sheet (`test/widgets/new_chat_people_test.dart`).
-- New group chat: picking, the one-network rule, the confirm sheet and the
-  `create_group` call through a fake `NewChatDelivery`
-  (`test/widgets/new_group_chat_test.dart`), and the share page's New group
-  mode (`test/widgets/share_page_test.dart`).
+- Compose screen: chips, the one-network rule, the group title and the
+  `create_group` call through a fake `NewChatDelivery`, effects on send,
+  and sharing (recent chats, staging, the network buttons, returning to
+  the sharing app) in `test/widgets/compose_chat_test.dart`; a Direct
+  Share staged in a chat in `test/widgets/chat_share_staging_test.dart`.
 
 They live in `test/utils/merged_contacts/` (store, chat list collapse,
 `MergedOrder`, `MergedTimeline`, `SendRouter`, phone numbers, identifiers,

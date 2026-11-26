@@ -6,6 +6,7 @@
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat/chat_app_bar_title.dart';
 import 'package:fluffychat/pages/new_private_chat/compose_widgets.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
@@ -49,7 +50,9 @@ class NewPrivateChatView extends StatelessWidget {
         delivery: controller.widget.delivery,
       );
     } else if (controller.recipients.isEmpty) {
-      body = _StartList(controller);
+      body = controller.sharing
+          ? _RecentPeople(controller)
+          : _StartList(controller);
     } else {
       body = ComposeEmptyHistory(
         text: controller.group.isGroup
@@ -58,14 +61,16 @@ class NewPrivateChatView extends StatelessWidget {
       );
     }
     // The composer names the network the message goes out on: the chat's
-    // bridge space, else the group's network.
+    // bridge space (the one picked with the network buttons), else the
+    // group's network.
     final locals = MatrixLocals(l10n);
+    final sendRoom = controller.sendRoom;
     final hintText =
-        (conversation == null
+        (sendRoom == null
             ? null
             : spacesByChild(
                 client,
-              )[conversation.sendRoom.id]?.getLocalizedDisplayname(locals)) ??
+              )[sendRoom.id]?.getLocalizedDisplayname(locals)) ??
         controller.group.bridge?.displayName ??
         l10n.writeAMessage;
     return Scaffold(
@@ -79,6 +84,20 @@ class NewPrivateChatView extends StatelessWidget {
             ? GroupTitleButton(controller)
             : Text(controller.group.isGroup ? l10n.newGroupChat : l10n.newChat),
         backgroundColor: theme.scaffoldBackgroundColor,
+        // A conversation on two or more networks: the chat's network
+        // buttons pick the one the message goes out on.
+        actions: [
+          if (sendRoom != null && controller.conversationNetworks.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 8, right: 12),
+              child: NetworkSwitcherChips(
+                key: const ValueKey('compose-networks'),
+                networks: controller.conversationNetworks,
+                selectedRoomId: sendRoom.id,
+                onPick: controller.pickSendRoom,
+              ),
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -108,6 +127,42 @@ class NewPrivateChatView extends StatelessWidget {
           ComposeBar(controller, hintText: hintText),
         ],
       ),
+    );
+  }
+}
+
+/// What the conversation area shows for a share before anyone is in the
+/// To field: the user's recent chats, a tap putting one in it.
+class _RecentPeople extends StatelessWidget {
+  final NewPrivateChatController controller;
+
+  const _RecentPeople(this.controller);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final people = controller.recentPeople;
+    return ListView(
+      key: const ValueKey('compose-recent'),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      children: [
+        if (controller.offerPhoneContacts) PhoneContactsOfferTile(controller),
+        if (people.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text(
+              L10n.of(context).recentConversations,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        for (final person in people)
+          NewChatPersonTile(
+            person: person,
+            onTap: () => controller.pickPerson(person),
+          ),
+      ],
     );
   }
 }

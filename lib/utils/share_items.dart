@@ -73,8 +73,7 @@ class SharePayload {
     this.text = '',
   });
 
-  bool get isEmpty =>
-      files.isEmpty && contents.isEmpty && text.trim().isEmpty;
+  bool get isEmpty => files.isEmpty && contents.isEmpty && text.trim().isEmpty;
 }
 
 /// The toast shown as Seam goes back to the app that shared: the chat's

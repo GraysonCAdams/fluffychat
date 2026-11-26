@@ -13,6 +13,7 @@ import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
 import 'package:fluffychat/pages/new_private_chat/start_chat_sheet.dart';
 import 'package:fluffychat/utils/bridge_provisioning.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_timeline.dart';
+import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/utils/new_chat/add_people.dart' as add_people;
 import 'package:fluffychat/utils/new_chat/bridge_directory.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
@@ -291,18 +292,24 @@ class NewChatDelivery {
   Future<String> startMatrixChat(Client client, String userId) =>
       client.startDirectChat(userId);
 
-  /// Sends [text] to [room] as the chat's composer does.
-  Future<void> sendText(Room room, String text) => room.sendTextEvent(text);
+  /// Sends [text] to [room] as the chat's composer does, with [effect] when
+  /// one was picked.
+  Future<void> sendText(Room room, String text, {MessageEffect? effect}) =>
+      effect == null
+      ? room.sendTextEvent(text)
+      : room.sendTextEventWithEffect(text, effect);
 
   /// Sends what the compose screen staged to [room] as the chat's composer
   /// does: the files through [sendAttachments], then the forwarded
-  /// messages, then the text. Throws when anything was not sent, or when
-  /// the user turned down sending to the room's unverified devices.
+  /// messages, then the text, with [effect] when one was picked. Throws
+  /// when anything was not sent, or when the user turned down sending to
+  /// the room's unverified devices.
   Future<void> sendShare(
     BuildContext context,
     Room room,
-    SharePayload payload,
-  ) async {
+    SharePayload payload, {
+    MessageEffect? effect,
+  }) async {
     final proceed = await showTrustUserInRoomDialog(context, room);
     if (!proceed || !context.mounted) {
       throw StateError('Sending to ${room.id} was cancelled');
@@ -323,7 +330,9 @@ class NewChatDelivery {
     for (final content in payload.contents) {
       await room.sendEvent(content.copy());
     }
-    if (payload.text.trim().isNotEmpty) await room.sendTextEvent(payload.text);
+    if (payload.text.trim().isNotEmpty) {
+      await sendText(room, payload.text, effect: effect);
+    }
     if (failure case final error?) throw error;
   }
 

@@ -9,6 +9,8 @@ import 'package:cross_file/cross_file.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat/effects/message_effect_picker.dart'
+    as effects;
 import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat_view.dart';
 import 'package:fluffychat/pages/new_private_chat/qr_scanner_modal.dart';
@@ -20,6 +22,7 @@ import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
+import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/utils/new_chat/compose.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
@@ -623,7 +626,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// bridge, named when a name was typed. The message is sent once the
   /// room is there. A share waits until everything staged went out; one
   /// from the Android share sheet then returns to the app that shared.
-  Future<void> send() async {
+  Future<void> send({MessageEffect? effect}) async {
     if (!canSend) return;
     final payload = _payload;
     final client = Matrix.of(context).client;
@@ -631,20 +634,20 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     final room = sendRoom;
     if (existing != null && room != null) {
       if (!sharing) {
-        _sendText(room, payload.text);
+        _sendText(room, payload.text, effect);
         context.go(_routeOf(existing));
         return;
       }
       setState(() => sending = true);
       try {
-        await widget.delivery.sendShare(context, room, payload);
+        await widget.delivery.sendShare(context, room, payload, effect: effect);
       } catch (e, s) {
         Logs().w('Unable to send the share', e, s);
         if (mounted) {
           setState(() => sending = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.toLocalizedString(context))),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(e.toLocalizedString(context))));
         }
         return;
       }
@@ -661,9 +664,9 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     setState(() => sending = true);
     try {
       if (recipients.length == 1) {
-        await _startChatAndSend(client, recipients.single, payload);
+        await _startChatAndSend(client, recipients.single, payload, effect);
       } else {
-        await _createGroupAndSend(client, payload);
+        await _createGroupAndSend(client, payload, effect);
       }
     } finally {
       if (mounted) setState(() => sending = false);
@@ -690,13 +693,18 @@ class NewPrivateChatController extends State<NewPrivateChat> {
 
   /// Sends [payload] to the new room [roomId]: a share waits until all of it
   /// went out; plain text is sent as the chat shows it, without waiting.
-  Future<Room> _sendNew(Client client, String roomId, SharePayload payload) async {
+  Future<Room> _sendNew(
+    Client client,
+    String roomId,
+    SharePayload payload,
+    MessageEffect? effect,
+  ) async {
     final room = client.getRoomById(roomId);
     if (room == null) throw StateError('Room $roomId is not known');
     if (sharing) {
-      await widget.delivery.sendShare(context, room, payload);
+      await widget.delivery.sendShare(context, room, payload, effect: effect);
     } else {
-      _sendText(room, payload.text);
+      _sendText(room, payload.text, effect);
     }
     return room;
   }
@@ -705,6 +713,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     Client client,
     NewChatPerson<ExistingChat> person,
     SharePayload payload,
+    MessageEffect? effect,
   ) async {
     final ({String route, Room room})? sent;
     if (isMatrixOnlyPerson(person)) {
@@ -715,7 +724,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
             client,
             person.userIds.first,
           );
-          final room = await _sendNew(client, roomId, payload);
+          final room = await _sendNew(client, roomId, payload, effect);
           return (route: '/rooms/$roomId', room: room);
         },
       );
@@ -727,7 +736,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
         context: context,
         future: () async {
           final roomId = await widget.delivery.startChat(client, choice);
-          final room = await _sendNew(client, roomId, payload);
+          final room = await _sendNew(client, roomId, payload, effect);
           final contactId = await addNewChatToMergedContact(
             client,
             person,
@@ -747,7 +756,11 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     await _afterSend(sent.route, sent.room, person.name);
   }
 
-  Future<void> _createGroupAndSend(Client client, SharePayload payload) async {
+  Future<void> _createGroupAndSend(
+    Client client,
+    SharePayload payload,
+    MessageEffect? effect,
+  ) async {
     final network = group.network;
     if (network == null) return;
     final members = group.members;
@@ -761,7 +774,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
           members,
           network.type.nameAllowed && name.isNotEmpty ? name : null,
         );
-        final room = await _sendNew(client, created.roomId, payload);
+        final room = await _sendNew(client, created.roomId, payload, effect);
         return (created, room);
       },
     );
@@ -780,10 +793,40 @@ class NewPrivateChatController extends State<NewPrivateChat> {
 
   /// Sends [text] without waiting for the server: the chat it opens shows
   /// the message as sending, and as failed with a retry if it does not go.
-  void _sendText(Room room, String text) {
-    widget.delivery.sendText(room, text).catchError((Object e, StackTrace s) {
+  void _sendText(Room room, String text, MessageEffect? effect) {
+    widget.delivery.sendText(room, text, effect: effect).catchError((
+      Object e,
+      StackTrace s,
+    ) {
       Logs().w('Unable to send the first message', e, s);
     });
+  }
+
+  /// Whether a long press on send offers iMessage's effects: a typed
+  /// message with nothing staged (the bridge carries an effect on text
+  /// only), going out on iMessage. That is the chat's network when there
+  /// is one, else the new group's. A new direct chat's network is picked
+  /// only on send, so it offers none.
+  bool get effectsAvailable {
+    if (stagedFiles.isNotEmpty || stagedContents.isNotEmpty) return false;
+    if (messageController.text.trim().isEmpty) return false;
+    final room = sendRoom;
+    if (room != null) return canSendMessageEffects(room);
+    return group.isGroup && group.bridge?.name == 'imessage';
+  }
+
+  /// A long press on send: where [effectsAvailable], the effect picker,
+  /// whose pick sends the message with it. [bubbleColor] and
+  /// [onBubbleColor] are the send button's.
+  Future<void> onSendLongPress(Color bubbleColor, Color onBubbleColor) async {
+    if (!canSend || !effectsAvailable) return;
+    final effect = await effects.showMessageEffectPicker(
+      context,
+      text: messageController.text,
+      bubbleColor: bubbleColor,
+      onBubbleColor: onBubbleColor,
+    );
+    if (effect != null && mounted) await send(effect: effect);
   }
 
   @override
