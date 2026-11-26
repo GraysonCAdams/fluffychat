@@ -45,13 +45,16 @@ class _FakeMatrix extends MatrixState {
 }
 
 /// A canvas that draws nothing and keeps the names of the calls made on
-/// it.
+/// it, with the arguments of the last `drawAtlas`.
 class _RecordingCanvas implements Canvas {
   final calls = <String>[];
+  List<Object?>? atlas;
 
   @override
   dynamic noSuchMethod(Invocation invocation) {
-    calls.add(invocation.memberName.toString().split('"')[1]);
+    final name = invocation.memberName.toString().split('"')[1];
+    calls.add(name);
+    if (name == 'drawAtlas') atlas = invocation.positionalArguments;
     return null;
   }
 }
@@ -684,14 +687,17 @@ void main() {
       final first = scene.haptics.beats
           .map((beat) => beat.at.inMicroseconds / 1e6)
           .reduce(math.min);
-      for (final (at, drawn) in [(first - 0.005, 0), (first + 0.017, 1)]) {
-        final canvas = _RecordingCanvas();
-        scene.paint(canvas, const Size(360, 720), at);
-        expect(
-          canvas.calls.where((call) => call == 'drawAtlas'),
-          hasLength(drawn),
-        );
-      }
+      // Nothing a moment before the tick; a frame after it one copy,
+      // already more than half there.
+      final before = _RecordingCanvas();
+      scene.paint(before, const Size(360, 720), first - 0.005);
+      expect(before.calls, isNot(contains('drawAtlas')));
+      final after = _RecordingCanvas();
+      scene.paint(after, const Size(360, 720), first + 0.017);
+      expect(after.calls.where((call) => call == 'drawAtlas'), hasLength(1));
+      final [_, transforms as List, _, colors as List, ...] = after.atlas!;
+      expect(transforms, hasLength(1));
+      expect((colors.single as Color).a, greaterThan(0.5));
       scene.dispose();
     });
 

@@ -1619,7 +1619,7 @@ class SpotlightScene extends EffectScene {
     // dark conversation shows no light by being uncovered, so there the
     // pool is painted on strongly. The bubble is left out of it and keeps
     // its own colours.
-    final pool = palette.dark ? 0.3 : 0.1;
+    final pool = palette.dark ? 0.42 : 0.1;
     canvas.save();
     final bubble = origin.rrect;
     if (bubble != null) {
