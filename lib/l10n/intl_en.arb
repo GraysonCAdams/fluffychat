@@ -3680,6 +3680,18 @@
             }
         }
     },
+    "scheduleInstead": "Or send it later, without an effect",
+    "@scheduleInstead": {
+        "description": "Label at the foot of the effect sheet, beside the button that schedules the message in place of sending it with an effect."
+    },
+    "schedule": "Schedule",
+    "@schedule": {
+        "description": "Button at the foot of the effect sheet that opens scheduling for the typed message."
+    },
+    "schedulingUnavailable": "Scheduling is not available",
+    "@schedulingUnavailable": {
+        "description": "Title of the dialog shown when the schedule button is tapped on a homeserver that cannot hold messages to send later."
+    },
     "sentWithEffect": "Sent with {effect}",
     "@sentWithEffect": {
         "description": "Stands in for a message's text where an effect hides it (Invisible Ink in the chat list, notifications and reply quotes) and labels an effect message when animations are turned off.",

@@ -4,6 +4,10 @@
 
 // ignore_for_file: implementation_imports, depend_on_referenced_packages
 
+import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/effects/invisible_ink.dart';
@@ -11,10 +15,14 @@ import 'package:fluffychat/pages/chat/effects/message_effect_bubble.dart';
 import 'package:fluffychat/pages/chat/effects/message_effect_picker.dart';
 import 'package:fluffychat/pages/chat/effects/played_message_effects.dart';
 import 'package:fluffychat/pages/chat/effects/screen_effect_host.dart';
+import 'package:fluffychat/pages/chat/effects/screen_effect_scenes.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
+import 'package:fluffychat/utils/effect_haptics.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/widgets/matrix.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -34,6 +42,21 @@ class _FakeMatrix extends MatrixState {
 
   @override
   Client get client => fakeClient;
+}
+
+/// A canvas that draws nothing and keeps the names of the calls made on
+/// it, with the arguments of the last `drawAtlas`.
+class _RecordingCanvas implements Canvas {
+  final calls = <String>[];
+  List<Object?>? atlas;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    final name = invocation.memberName.toString().split('"')[1];
+    calls.add(name);
+    if (name == 'drawAtlas') atlas = invocation.positionalArguments;
+    return null;
+  }
 }
 
 /// Pumps until the app's localizations have loaded and its first page is
@@ -334,11 +357,24 @@ void main() {
         findsOneWidget,
       );
       expect(find.bySemanticsLabel(RegExp('The password')), findsNothing);
-      final blur = find.descendant(
-        of: find.byType(InvisibleInk),
-        matching: find.byType(ImageFiltered),
-      );
-      expect(tester.widget<ImageFiltered>(blur).enabled, isTrue);
+      // Nothing of the content is painted, blurred or otherwise: it is
+      // clipped away whole, and the specks lie over the bare bubble.
+      final clip = find.byKey(const ValueKey('invisible_ink_content'));
+      final size = tester.getSize(clip);
+      Rect shown() =>
+          tester.widget<ClipPath>(clip).clipper!.getClip(size).getBounds();
+      expect(shown().isEmpty, isTrue);
+      for (final type in [ImageFiltered, ShaderMask, BackdropFilter]) {
+        expect(
+          find.descendant(
+            of: find.byType(InvisibleInk),
+            matching: find.byType(type),
+          ),
+          findsNothing,
+        );
+      }
+      final particles = find.byKey(const ValueKey('invisible_ink_particles'));
+      expect(particles, findsOneWidget);
 
       final gesture = await tester.startGesture(
         tester.getCenter(find.byType(InvisibleInk)),
@@ -347,7 +383,8 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       await tester.pump();
       expect(ink(tester).isRevealed, isTrue);
-      expect(tester.widget<ImageFiltered>(blur).enabled, isFalse);
+      expect(shown(), Offset.zero & size);
+      expect(particles, findsNothing);
       expect(find.bySemanticsLabel(RegExp('The password')), findsOneWidget);
 
       await gesture.up();
@@ -357,14 +394,792 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       await tester.pump();
       expect(ink(tester).isHidden, isTrue);
-      expect(tester.widget<ImageFiltered>(blur).enabled, isTrue);
+      expect(shown().isEmpty, isTrue);
+      expect(particles, findsOneWidget);
       handle.dispose();
+    });
+
+    testWidgets('the reveal opens from the finger', (tester) async {
+      await pumpMessage(
+        tester,
+        effectEvent(MessageEffect.invisibleInk, body: 'The password'),
+      );
+      final clip = find.byKey(const ValueKey('invisible_ink_content'));
+      final size = tester.getSize(clip);
+      final gesture = await tester.startGesture(
+        tester.getTopLeft(find.byType(InvisibleInk)) + const Offset(20, 12),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      final shown = tester
+          .widget<ClipPath>(clip)
+          .clipper!
+          .getClip(size)
+          .getBounds();
+      expect(shown.center.dx, moreOrLessEquals(20, epsilon: 0.01));
+      expect(shown.center.dy, moreOrLessEquals(12, epsilon: 0.01));
+      expect(shown.width, greaterThan(0));
+      expect(shown.width, lessThan(size.width));
+      await gesture.up();
+      await tester.pump(const Duration(seconds: 8));
+    });
+
+    const bubble = Size(180, 44);
+    const white = Color(0xFFFFFFFF);
+
+    test('the specks are many, small and sharp', () {
+      final particles = InkParticles(math.Random(3));
+      for (final dpr in [1.0, 2.0, 2.625]) {
+        final n = particles.layout(bubble, 1.3, white, devicePixelRatio: dpr);
+        // Many hundreds over a one line bubble.
+        expect(n, InkParticles.countFor(bubble));
+        expect(n, greaterThan(1200));
+        for (var i = 0; i < n; i++) {
+          final [left, top, right, _, _, bottom, ...] = particles.positions
+              .sublist(i * 8, i * 8 + 8);
+          // Square, a pixel or a pixel and a half across.
+          expect(right - left, closeTo(bottom - top, 1e-4));
+          expect(right - left, inInclusiveRange(1 - 1e-4, 1.5 + 0.5 / dpr));
+          // Every edge on a physical pixel.
+          for (final edge in [left, top, right, bottom]) {
+            expect(edge * dpr, closeTo((edge * dpr).roundToDouble(), 1e-3));
+          }
+        }
+      }
+    });
+
+    test('the specks twinkle and drift slowly', () {
+      final particles = InkParticles(math.Random(3));
+      int alphaOf(int i) => particles.colors[i * 4] >>> 24;
+      final n = particles.layout(bubble, 2, white);
+      final before = [for (var i = 0; i < n; i++) alphaOf(i)];
+      final home = Float32List.fromList(particles.positions);
+      // No two frames alike: within a quarter second most specks have
+      // changed brightness, and some are near dark while others are full.
+      particles.layout(bubble, 2.25, white);
+      final after = [for (var i = 0; i < n; i++) alphaOf(i)];
+      var changed = 0;
+      for (var i = 0; i < n; i++) {
+        if ((after[i] - before[i]).abs() > 8) changed++;
+      }
+      expect(changed, greaterThan(n ~/ 2));
+      expect(after.reduce(math.min), lessThan(70));
+      expect(after.reduce(math.max), greaterThan(240));
+      // A whole second moves a speck a few pixels at most.
+      particles.layout(bubble, 3, white);
+      var moved = 0;
+      for (var i = 0; i < n; i++) {
+        final dx = particles.positions[i * 8] - home[i * 8];
+        final dy = particles.positions[i * 8 + 1] - home[i * 8 + 1];
+        expect(dx.abs() + dy.abs(), lessThanOrEqualTo(10));
+        if (dx != 0 || dy != 0) moved++;
+      }
+      expect(moved, greaterThan(n ~/ 4));
+    });
+
+    test('a frame of ink is one draw call and builds no image', () {
+      final particles = InkParticles(math.Random(3));
+      for (final time in [0.0, 0.5, 7.25]) {
+        final canvas = _RecordingCanvas();
+        particles.paint(canvas, bubble, time, white, devicePixelRatio: 2.625);
+        expect(canvas.calls, ['drawVertices']);
+      }
+    });
+
+    test('an opening reveal clears the specks inside it', () {
+      final particles = InkParticles(math.Random(3));
+      const center = Offset(60, 22);
+      final all = particles.layout(bubble, 1, white);
+      final left = particles.layout(
+        bubble,
+        1,
+        white,
+        clearCenter: center,
+        clearRadius: 30,
+      );
+      expect(left, lessThan(all - 200));
+      for (var i = 0; i < left; i++) {
+        final at = Offset(
+          particles.positions[i * 8] + 0.5,
+          particles.positions[i * 8 + 1] + 0.5,
+        );
+        expect((at - center).distance, greaterThan(29));
+      }
+    });
+  });
+
+  group('haptics', () {
+    /// Every call that sent something to the vibrator.
+    late List<MethodCall> played;
+
+    /// What the stand-in vibrator says it can do.
+    late HapticCapabilities vibrator;
+
+    setUp(() {
+      played = [];
+      vibrator = HapticCapabilities.pixel;
+      EffectHaptics.instance = EffectHaptics();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(EffectHaptics.channel, (call) async {
+            if (call.method == 'capabilities') {
+              return {
+                'primitives': {
+                  for (final MapEntry(:key, :value)
+                      in vibrator.primitives.entries)
+                    key.name: value.inMilliseconds,
+                },
+                'amplitudeControl': vibrator.amplitudeControl,
+              };
+            }
+            played.add(call);
+            return true;
+          });
+    });
+
+    tearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(EffectHaptics.channel, null),
+    );
+
+    /// A `compose` call as the vibrator plays it: each primitive with the
+    /// millisecond it starts on, one after the other.
+    List<(String, int)> composed(MethodCall call) {
+      expect(call.method, 'compose');
+      final beats = <(String, int)>[];
+      var cursor = 0;
+      for (final step in call.arguments as List) {
+        final [name as String, _, delay as int] = step as List;
+        cursor += delay;
+        beats.add((name, cursor));
+        cursor += vibrator
+            .primitives[HapticPrimitive.values.byName(name)]!
+            .inMilliseconds;
+      }
+      return beats;
+    }
+
+    List<double> scalesOf(MethodCall call) => [
+      for (final step in call.arguments as List) (step as List)[1] as double,
+    ];
+
+    /// The strength of a `waveform` call [ms] in.
+    int amplitudeAt(MethodCall call, int ms) {
+      final timings = ((call.arguments as Map)['timings'] as List).cast<int>();
+      final amplitudes = ((call.arguments as Map)['amplitudes'] as List)
+          .cast<int>();
+      var cursor = 0;
+      for (var i = 0; i < timings.length; i++) {
+        cursor += timings[i];
+        if (ms < cursor) return amplitudes[i];
+      }
+      return 0;
+    }
+
+    /// The scene the host plays first for [effect] in these tests.
+    T sceneOf<T extends EffectScene>(MessageEffect effect) =>
+        EffectScene.of(
+              effect,
+              EffectPalette.of(ThemeData()),
+              const EffectOrigin(),
+            )!
+            as T;
+
+    List<(String, int)> beats(String primitive, List<int> ms) => [
+      for (final at in ms) (primitive, at),
+    ];
+
+    // Each effect's beats as a Pixel plays them, worked out by hand from
+    // the timings its animation is written with.
+    final expected = <MessageEffect, List<(String, int)>>{
+      // The scene starts on the frame the bubble lands.
+      MessageEffect.slam: beats('thud', [0]),
+      // Grown at 180 ms: the 150 ms rise ends there and the thud starts.
+      // Then a tick on each shake to the right (11 a second) from the
+      // first after the thud's 300 ms until the bubble shrinks at 900 ms.
+      MessageEffect.loud: [
+        ('quickRise', 30),
+        ('thud', 180),
+        ...beats('tick', [568, 659, 750, 840]),
+      ],
+      // The lamp strikes at 700 ms, where the 500 ms rise ends; the
+      // circle opens out at 3700 ms, where the 150 ms rise ends.
+      MessageEffect.spotlight: [
+        ('slowRise', 200),
+        ('click', 700),
+        ('quickRise', 3550),
+        ('click', 3700),
+      ],
+      // The star lands 350 + 1450 ms in.
+      MessageEffect.shootingStar: [('slowRise', 1300), ('click', 1800)],
+      // Two heartbeats, then the heart lets go.
+      MessageEffect.love: [
+        ...beats('thud', [100, 420, 860, 1180]),
+        ('lowTick', 1550),
+      ],
+      // The glow gathers until the beams come on at 800 ms, then 22
+      // pulses 150 ms apart, a click on every fourth, and a click as the
+      // beams go off at 4100 ms.
+      MessageEffect.lasers: [
+        ('slowRise', 300),
+        for (var i = 0; i < 22; i++)
+          (i % 4 == 0 ? 'click' : 'tick', 800 + i * 150),
+        ('click', 4100),
+      ],
+      // A low tick as each shell leaves the ground, 450 ms before the
+      // thud of its burst.
+      MessageEffect.fireworks: [
+        for (final burst in [500, 1300, 2100, 2900, 3800, 4600]) ...[
+          ('lowTick', burst - 450),
+          ('thud', burst),
+        ],
+      ],
+    };
+
+    for (final MapEntry(key: effect, value: pattern) in expected.entries) {
+      testWidgets('${effect.name} is felt on its beats when it plays', (
+        tester,
+      ) async {
+        await pumpMessage(tester, effectEvent(effect));
+        // Slam is felt as it lands, a moment into the play.
+        if (effect == MessageEffect.slam) {
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(played, isEmpty);
+          await tester.pump(const Duration(milliseconds: 150));
+        } else {
+          await tester.pump();
+        }
+        expect(played, hasLength(1));
+        expect(composed(played.single), pattern);
+        await tester.pump(const Duration(seconds: 7));
+        await tester.pump();
+        expect(played, hasLength(1));
+      });
+    }
+
+    testWidgets('echo ticks once for every copy, as it comes up', (
+      tester,
+    ) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.echo));
+      await tester.pump();
+      final scene = sceneOf<EchoScene>(MessageEffect.echo);
+      final ticks = composed(played.single);
+      expect(ticks, hasLength(scene.copyCount));
+      expect(ticks.length, greaterThan(20));
+      expect(ticks.every((tick) => tick.$1 == 'tick'), isTrue);
+      expect(ticks, hasLength(48));
+      // Spread over the 1150 ms the copies come up in, never two at once.
+      expect(ticks.first.$2, lessThan(30));
+      expect(ticks.last.$2, inInclusiveRange(1100, 1150));
+      for (var i = 1; i < ticks.length; i++) {
+        expect(ticks[i].$2 - ticks[i - 1].$2, greaterThanOrEqualTo(10));
+      }
+      // Every one strong enough to be felt, the large copies firmer.
+      final scales = scalesOf(played.single);
+      expect(scales.reduce(math.min), greaterThanOrEqualTo(0.3));
+      expect(scales.reduce(math.max), greaterThan(0.6));
+      await tester.pump(const Duration(seconds: 6));
+    });
+
+    testWidgets('a copy of echo is on screen from the frame of its tick', (
+      tester,
+    ) async {
+      final scene = sceneOf<EchoScene>(MessageEffect.echo);
+      final first = scene.haptics.beats
+          .map((beat) => beat.at.inMicroseconds / 1e6)
+          .reduce(math.min);
+      // Nothing a moment before the tick; a frame after it one copy,
+      // already more than half there.
+      final before = _RecordingCanvas();
+      scene.paint(before, const Size(360, 720), first - 0.005);
+      expect(before.calls, isNot(contains('drawAtlas')));
+      final after = _RecordingCanvas();
+      scene.paint(after, const Size(360, 720), first + 0.017);
+      expect(after.calls.where((call) => call == 'drawAtlas'), hasLength(1));
+      final [_, transforms as List, _, colors as List, ...] = after.atlas!;
+      expect(transforms, hasLength(1));
+      expect((colors.single as Color).a, greaterThan(0.5));
+      scene.dispose();
+    });
+
+    testWidgets('balloons are felt once each, as each is let go', (
+      tester,
+    ) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.balloons));
+      await tester.pump();
+      final scene = sceneOf<BalloonsScene>(MessageEffect.balloons);
+      final felt = composed(played.single);
+      expect(felt, hasLength(scene.balloonCount));
+      expect(felt, hasLength(10));
+      // The near one is a click, the rest ticks.
+      expect(felt.where((beat) => beat.$1 == 'click'), hasLength(1));
+      expect(felt.where((beat) => beat.$1 == 'tick'), hasLength(9));
+      expect(felt.last.$2, inInclusiveRange(1000, 1400));
+      // No two let go together.
+      for (var i = 1; i < felt.length; i++) {
+        expect(felt[i].$2 - felt[i - 1].$2, greaterThanOrEqualTo(30));
+      }
+      // The balloons differ in size, so the ticks differ in strength.
+      expect(scalesOf(played.single).toSet().length, greaterThan(7));
+      await tester.pump(const Duration(seconds: 6));
+    });
+
+    testWidgets('a balloon comes over the edge on the frame of its tick', (
+      tester,
+    ) async {
+      final scene = sceneOf<BalloonsScene>(MessageEffect.balloons);
+      final first = scene.haptics.beats
+          .map((beat) => beat.at.inMicroseconds / 1e6)
+          .reduce(math.min);
+      int drawnAt(double t) {
+        final canvas = _RecordingCanvas();
+        scene.paint(canvas, const Size(360, 720), t);
+        // Each balloon has one highlight, an oval.
+        return canvas.calls.where((call) => call == 'drawOval').length;
+      }
+
+      expect(drawnAt(first - 0.005), 0);
+      expect(drawnAt(first + 0.017), 1);
+    });
+
+    testWidgets('confetti rumbles for as long as it falls', (tester) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.confetti));
+      await tester.pump();
+      final rumble = composed(played.single);
+      expect(rumble.length, greaterThan(45));
+      expect(rumble.first.$2, lessThan(400));
+      expect(rumble.last.$2, greaterThan(3600));
+      expect(rumble.last.$2 - rumble.first.$2, greaterThan(3300));
+      for (var i = 1; i < rumble.length; i++) {
+        expect(rumble[i].$2 - rumble[i - 1].$2, lessThanOrEqualTo(90));
+      }
+      // Textured: sharp and low ticks in turn, at many strengths, weak
+      // while the first pieces fall, strongest while the air is fullest
+      // around two seconds in, and weak again at the end.
+      expect(rumble.map((beat) => beat.$1).toSet(), {'tick', 'lowTick'});
+      final scales = scalesOf(played.single);
+      expect(scales.toSet().length, greaterThan(20));
+      final strongest = scales.indexOf(scales.reduce(math.max));
+      expect(rumble[strongest].$2, inInclusiveRange(1400, 2600));
+      expect(scales.first, lessThan(scales[strongest] - 0.3));
+      expect(scales.last, lessThan(scales[strongest] - 0.3));
+      await tester.pump(const Duration(seconds: 6));
+    });
+
+    testWidgets('confetti is a grainy hum where there are no primitives', (
+      tester,
+    ) async {
+      vibrator = const HapticCapabilities(amplitudeControl: true);
+      await pumpMessage(tester, effectEvent(MessageEffect.confetti));
+      await tester.pump();
+      final hum = played.single;
+      expect(hum.method, 'waveform');
+      final timings = ((hum.arguments as Map)['timings'] as List).cast<int>();
+      expect(timings.reduce((a, b) => a + b), greaterThan(3600));
+      // Every other 20 ms step is half as strong as the one before it.
+      // (Sampled between the ticks, which are pulses on top of the hum.)
+      expect(amplitudeAt(hum, 2050), greaterThan(60));
+      expect(amplitudeAt(hum, 2070), closeTo(amplitudeAt(hum, 2050) / 2, 4));
+      await tester.pump(const Duration(seconds: 6));
+    });
+
+    testWidgets('celebration crackles while the sparkler burns', (
+      tester,
+    ) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.celebration));
+      await tester.pump();
+      final crackle = composed(played.single);
+      expect(crackle.first, ('click', 200));
+      expect(crackle.length, greaterThan(30));
+      expect(crackle.last.$2, inInclusiveRange(3300, 3500));
+      await tester.pump(const Duration(seconds: 6));
+    });
+
+    group('gentle swells as the bubble grows', () {
+      // The bubble starts to grow at 288 ms, grows fastest at 1344 ms and
+      // is full size at 2400 ms.
+      testWidgets('as a rising and falling strength where it can vary', (
+        tester,
+      ) async {
+        await pumpMessage(tester, effectEvent(MessageEffect.gentle));
+        await tester.pump();
+        final swell = played.single;
+        expect(swell.method, 'waveform');
+        expect(amplitudeAt(swell, 200), 0);
+        final levels = [
+          for (var ms = 300; ms <= 2380; ms += 40) amplitudeAt(swell, ms),
+        ];
+        final peak = levels.indexOf(levels.reduce(math.max));
+        expect(300 + peak * 40, closeTo(1344, 60));
+        expect(levels[peak], closeTo(EffectBubble.gentleSwell * 255, 2));
+        for (var i = 1; i < levels.length; i++) {
+          if (i <= peak) {
+            expect(levels[i], greaterThanOrEqualTo(levels[i - 1]));
+          } else {
+            expect(levels[i], lessThanOrEqualTo(levels[i - 1]));
+          }
+        }
+        expect(levels.first, lessThan(5));
+        expect(levels.last, lessThan(5));
+        expect(amplitudeAt(swell, 2420), 0);
+        await tester.pump(const Duration(seconds: 3));
+      });
+
+      testWidgets('as a rise and a fall with primitives only', (tester) async {
+        vibrator = HapticCapabilities(
+          primitives: HapticCapabilities.pixel.primitives,
+        );
+        await pumpMessage(tester, effectEvent(MessageEffect.gentle));
+        await tester.pump();
+        expect(composed(played.single), [
+          ('slowRise', 844),
+          ('quickFall', 1344),
+        ]);
+        await tester.pump(const Duration(seconds: 3));
+      });
+
+      testWidgets('as one tick at its height on a plain vibrator', (
+        tester,
+      ) async {
+        vibrator = const HapticCapabilities();
+        await pumpMessage(tester, effectEvent(MessageEffect.gentle));
+        await tester.pump();
+        expect(played.single.method, 'waveform');
+        expect(played.single.arguments, {
+          'timings': [1344, 10],
+        });
+        await tester.pump(const Duration(seconds: 3));
+      });
+    });
+
+    testWidgets('lasers leave the bubble out of the dark and the beams', (
+      tester,
+    ) async {
+      const size = Size(360, 720);
+      const bubble = Rect.fromLTWH(200, 560, 148, 44);
+      final scene = LasersScene(
+        EffectPalette.of(ThemeData()),
+        const EffectOrigin(rect: bubble),
+        7,
+      );
+      // The pulses are the moments the beams are brightest.
+      for (final t in [0.5, ...scene.pulseTimes, 4.15]) {
+        final recorder = ui.PictureRecorder();
+        scene.paint(Canvas(recorder), size, t + 0.02);
+        final image = recorder.endRecording().toImageSync(360, 720);
+        final pixels = (await tester.runAsync(
+          () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+        ))!;
+        int alphaAt(Offset at) =>
+            pixels.getUint8((at.dy.toInt() * 360 + at.dx.toInt()) * 4 + 3);
+        // Nothing at all is painted over the bubble, corner to corner
+        // inside its rounded outline.
+        for (final at in [
+          bubble.center,
+          bubble.centerLeft + const Offset(4, 0),
+          bubble.centerRight - const Offset(4, 0),
+          bubble.topCenter + const Offset(0, 3),
+          bubble.bottomCenter - const Offset(0, 3),
+          bubble.topLeft + const Offset(10, 10),
+          bubble.bottomRight - const Offset(10, 10),
+        ]) {
+          expect(alphaAt(at), 0, reason: 'painted over the bubble at $at');
+        }
+        // The room around it is dark and lit.
+        expect(
+          alphaAt(bubble.topCenter - const Offset(0, 6)),
+          greaterThan(150),
+        );
+        expect(alphaAt(const Offset(40, 80)), greaterThan(150));
+        image.dispose();
+      }
+    });
+
+    testWidgets('nothing more is felt when the message rebuilds', (
+      tester,
+    ) async {
+      late VoidCallback rebuild;
+      await pumpMessage(
+        tester,
+        effectEvent(MessageEffect.fireworks),
+        rebuild: (r) => rebuild = r,
+      );
+      await tester.pump();
+      expect(played, hasLength(1));
+      await tester.pump(const Duration(seconds: 7));
+      rebuild();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(played, hasLength(1));
+    });
+
+    testWidgets('a replay is felt again', (tester) async {
+      final event = effectEvent(MessageEffect.love);
+      await pumpMessage(tester, event);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 5));
+      expect(played, hasLength(1));
+      replayMessageEffect(event);
+      await tester.pump();
+      expect(played.map(composed), [
+        expected[MessageEffect.love],
+        expected[MessageEffect.love],
+      ]);
+      await tester.pump(const Duration(seconds: 5));
+    });
+
+    for (final effect in [
+      MessageEffect.fireworks,
+      MessageEffect.slam,
+      MessageEffect.gentle,
+    ]) {
+      testWidgets('reduced motion is not felt (${effect.name})', (
+        tester,
+      ) async {
+        await pumpMessage(tester, effectEvent(effect), reducedMotion: true);
+        await tester.pump(const Duration(seconds: 1));
+        replayMessageEffect(effectEvent(effect));
+        await tester.pump(const Duration(seconds: 1));
+        expect(played, isEmpty);
+      });
+    }
+
+    testWidgets('nothing is felt on desktop', (tester) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.fireworks));
+      await tester.pump();
+      expect(host(tester).plays, 1);
+      await tester.pump(const Duration(seconds: 7));
+      expect(played, isEmpty);
+    }, variant: TargetPlatformVariant.desktop());
+
+    testWidgets('invisible ink ticks while a swipe reveals it', (tester) async {
+      await pumpMessage(
+        tester,
+        effectEvent(MessageEffect.invisibleInk, body: 'The password'),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(played, isEmpty);
+      final start = tester.getCenter(find.byType(InvisibleInk));
+      final gesture = await tester.startGesture(start - const Offset(40, 0));
+      await tester.pump();
+      expect(played.map(composed), [
+        beats('tick', [0]),
+      ]);
+      // Shorter than a tick's distance: nothing.
+      await gesture.moveBy(const Offset(6, 0));
+      await tester.pump();
+      expect(played, hasLength(1));
+      for (var i = 0; i < 4; i++) {
+        await gesture.moveBy(const Offset(InvisibleInk.tickDistance, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(played, hasLength(5));
+      // Once the ink has cleared, swiping over it is not felt.
+      await tester.pump(const Duration(seconds: 1));
+      expect(
+        tester.state<InvisibleInkState>(find.byType(InvisibleInk)).isRevealed,
+        isTrue,
+      );
+      for (var i = 0; i < 3; i++) {
+        await gesture.moveBy(const Offset(-InvisibleInk.tickDistance, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(played, hasLength(5));
+      await gesture.up();
+      await tester.pump(const Duration(seconds: 8));
+    });
+
+    testWidgets('invisible ink does not tick under reduced motion', (
+      tester,
+    ) async {
+      await pumpMessage(
+        tester,
+        effectEvent(MessageEffect.invisibleInk, body: 'The password'),
+        reducedMotion: true,
+      );
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(InvisibleInk)),
+      );
+      await gesture.moveBy(const Offset(30, 0));
+      await gesture.up();
+      await tester.pump(const Duration(seconds: 6));
+      expect(played, isEmpty);
+    });
+
+    testWidgets('previews in the picker are felt', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: L10n.localizationsDelegates,
+          supportedLocales: L10n.supportedLocales,
+          home: const Scaffold(
+            body: MessageEffectPicker(
+              text: 'Happy birthday',
+              bubbleColor: Colors.green,
+              onBubbleColor: Colors.white,
+            ),
+          ),
+        ),
+      );
+      await pumpUntilBuilt(tester);
+      // The frame on which the preview starts its clock, then its landing.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      // Slam, the first effect, previews by itself.
+      expect(played.map(composed), [expected[MessageEffect.slam]]);
+      await tester.tap(find.byKey(const ValueKey('effect_loud')));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      expect(composed(played.last), expected[MessageEffect.loud]);
+      await tester.pump(const Duration(seconds: 3));
+      expect(played, hasLength(2));
+    });
+  });
+
+  group('the schedule button', () {
+    Future<List<String>> pumpPicker(
+      WidgetTester tester, {
+      Future<bool>? canSchedule,
+    }) async {
+      final log = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: L10n.localizationsDelegates,
+          supportedLocales: L10n.supportedLocales,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async {
+                  final effect = await showMessageEffectPicker(
+                    context,
+                    text: 'Happy birthday',
+                    bubbleColor: Colors.green,
+                    onBubbleColor: Colors.white,
+                    onSchedule: () => log.add('schedule'),
+                    canSchedule: canSchedule,
+                  );
+                  log.add('closed with $effect');
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await pumpUntilBuilt(tester);
+      await tester.tap(find.text('Open'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      return log;
+    }
+
+    final button = find.byKey(const ValueKey('schedule_message'));
+
+    Color backgroundOf(WidgetTester tester) => tester
+        .widget<Material>(
+          find.descendant(of: button, matching: find.byType(Material)).first,
+        )
+        .color!;
+
+    testWidgets('is a labelled button of its own, apart from the effects', (
+      tester,
+    ) async {
+      await pumpPicker(tester, canSchedule: Future.value(true));
+      expect(button, findsOneWidget);
+      expect(
+        find.descendant(of: button, matching: find.text('Schedule')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: button,
+          matching: find.byIcon(Icons.schedule_outlined),
+        ),
+        findsOneWidget,
+      );
+      // Not one of the effect list's rows, and nowhere near the title:
+      // under the list, past a divider.
+      final list = find.descendant(
+        of: find.byType(MessageEffectPicker),
+        matching: find.byType(ListView),
+      );
+      expect(find.descendant(of: list, matching: button), findsNothing);
+      final divider = find.descendant(
+        of: find.byType(MessageEffectPicker),
+        matching: find.byType(Divider),
+      );
+      expect(
+        tester.getTopLeft(divider).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(list).dy),
+      );
+      expect(
+        tester.getTopLeft(button).dy,
+        greaterThan(tester.getTopLeft(divider).dy),
+      );
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('schedules where the homeserver can', (tester) async {
+      final log = await pumpPicker(tester, canSchedule: Future.value(true));
+      final scheme = Theme.of(tester.element(button)).colorScheme;
+      expect(backgroundOf(tester), scheme.secondaryContainer);
+      await tester.tap(button);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(log, ['schedule', 'closed with null']);
+      expect(find.byType(MessageEffectPicker), findsNothing);
+      expect(find.byType(AlertDialog), findsNothing);
+    });
+
+    testWidgets('is switched off and explains itself where it cannot', (
+      tester,
+    ) async {
+      final log = await pumpPicker(tester, canSchedule: Future.value(false));
+      final scheme = Theme.of(tester.element(button)).colorScheme;
+      expect(backgroundOf(tester), scheme.onSurface.withValues(alpha: 0.12));
+      await tester.tap(button);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      // A dialog says why, and nothing is scheduled.
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.text('Scheduling is not available'), findsOneWidget);
+      expect(
+        find.text('Your homeserver does not support scheduled messages'),
+        findsOneWidget,
+      );
+      expect(log, isEmpty);
+      await tester.tap(find.text('Ok'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      // The sheet is still there to pick an effect from.
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(MessageEffectPicker), findsOneWidget);
+      expect(log, isEmpty);
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('asks the homeserver before it schedules', (tester) async {
+      // Tapped while the answer is still on its way.
+      final answer = Completer<bool>();
+      final log = await pumpPicker(tester, canSchedule: answer.future);
+      await tester.tap(button);
+      await tester.pump();
+      expect(log, isEmpty);
+      answer.complete(false);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(log, isEmpty);
+      await tester.pump(const Duration(seconds: 3));
     });
   });
 
   group('the send button', () {
     Future<List<Object>> pumpSendButton(WidgetTester tester, Room room) async {
       final log = <Object>[];
+      // A phone's screen, so the sheet has a phone's room.
+      tester.view.physicalSize = const Size(412, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
           localizationsDelegates: L10n.localizationsDelegates,
@@ -435,6 +1250,14 @@ void main() {
         );
       }
       await tester.pump(const Duration(seconds: 5));
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('effect_lasers')),
+        -60,
+        scrollable: find.descendant(
+          of: find.byType(MessageEffectPicker),
+          matching: find.byType(Scrollable),
+        ),
+      );
       await tester.tap(find.byKey(const ValueKey('effect_lasers')));
       await tester.pump();
       await tester.pump(const Duration(seconds: 5));

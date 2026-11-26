@@ -8,6 +8,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/effects/invisible_ink.dart';
 import 'package:fluffychat/pages/chat/effects/played_message_effects.dart';
 import 'package:fluffychat/pages/chat/effects/screen_effect_host.dart';
+import 'package:fluffychat/utils/effect_haptics.dart';
 import 'package:fluffychat/utils/message_effects.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -19,8 +20,9 @@ import 'package:matrix/matrix.dart';
 /// covers it until touched. A screen effect leaves the bubble alone and
 /// plays on the [ScreenEffectHost] above it.
 ///
-/// Under reduced motion nothing moves; a line under the bubble names the
-/// effect it was sent with.
+/// Each play is felt too, on phones with haptics (see [EffectHaptics]).
+/// Under reduced motion nothing moves and nothing is felt; a line under the
+/// bubble names the effect it was sent with.
 class EffectBubble extends StatefulWidget {
   final MessageEffect effect;
   final Widget child;
@@ -51,11 +53,93 @@ class EffectBubble extends StatefulWidget {
 
   /// How long each bubble effect moves the bubble.
   static const slamDuration = Duration(milliseconds: 900);
-  static const loudDuration = Duration(milliseconds: 1900);
+  static const loudDuration = Duration(milliseconds: 1500);
   static const gentleDuration = Duration(milliseconds: 2400);
 
   /// The part of [slamDuration] before the bubble lands.
   static const slamImpact = 0.3;
+
+  /// The part of [loudDuration] the bubble takes to swell to full size.
+  static const loudGrown = 0.12;
+
+  /// The part of [gentleDuration] the bubble waits, small, before it grows.
+  static const gentleSmall = 0.12;
+
+  /// How strong the swell a gentle bubble is felt as gets, of full
+  /// strength: enough to notice, well short of a buzz.
+  static const gentleSwell = 0.45;
+
+  /// The part of [loudDuration] after which the bubble shrinks back.
+  static const loudHeld = 0.6;
+
+  /// How many times a second a loud bubble shakes from side to side.
+  static const loudShakeHz = 11.0;
+
+  static double _secondsOf(Duration duration, double part) =>
+      duration.inMicroseconds * part / 1e6;
+
+  /// What a bubble effect is felt as, from the start of the play. Slam's
+  /// thud belongs to its `SlamScene`, which starts as the bubble lands.
+  static HapticPattern hapticsOf(MessageEffect effect) {
+    switch (effect) {
+      case MessageEffect.loud:
+        final grown = _secondsOf(loudDuration, loudGrown);
+        final held = _secondsOf(loudDuration, loudHeld);
+        // The thud is still ringing for the first shakes (it lasts 300 ms
+        // on a Pixel), so the ticks start with the first shake after it.
+        final firstShake = ((grown + 0.3) * loudShakeHz - 0.25).ceil();
+        return HapticPattern([
+          // A quick rise as the bubble swells, a thud as it reaches full
+          // size.
+          HapticBeat.after(
+            HapticPrimitive.quickRise,
+            grown,
+            scale: 0.7,
+            endsAt: true,
+          ),
+          HapticBeat.after(HapticPrimitive.thud, grown, scale: 0.9),
+          // A tick each time the shaking bubble is thrown to the right,
+          // weaker as the shout dies down.
+          for (var k = firstShake; (k + 0.25) / loudShakeHz < held; k++)
+            HapticBeat.after(
+              HapticPrimitive.tick,
+              (k + 0.25) / loudShakeHz,
+              scale:
+                  0.5 -
+                  0.3 * ((k + 0.25) / loudShakeHz - grown) / (held - grown),
+            ),
+        ]);
+      case MessageEffect.gentle:
+        // A swell that grows as the bubble starts to grow, is strongest
+        // when it grows fastest, halfway, and has faded to nothing when
+        // the bubble is full size. A vibrator that cannot vary its
+        // strength but has the primitives gets a slow rise to the halfway
+        // point and a fall from it.
+        final start = _secondsOf(gentleDuration, gentleSmall);
+        final end = _secondsOf(gentleDuration, 1);
+        final middle = (start + end) / 2;
+        return HapticPattern(
+          [
+            HapticBeat.after(
+              HapticPrimitive.slowRise,
+              middle,
+              scale: 0.3,
+              endsAt: true,
+            ),
+            HapticBeat.after(HapticPrimitive.quickFall, middle, scale: 0.3),
+          ],
+          envelope: HapticEnvelope.swell(
+            start,
+            middle,
+            end,
+            level: gentleSwell,
+          ),
+          continuous: true,
+        );
+      default:
+        return HapticPattern.none;
+    }
+  }
 
   @override
   State<EffectBubble> createState() => EffectBubbleState();
@@ -112,6 +196,7 @@ class EffectBubbleState extends State<EffectBubble>
         effect,
         globalRect: _globalRect,
         text: widget.text,
+        borderRadius: widget.borderRadius,
         bubbleColor: widget.bubbleColor,
         onBubbleColor: widget.onBubbleColor,
       );
@@ -148,6 +233,7 @@ class EffectBubbleState extends State<EffectBubble>
     _controller
       ..duration = duration
       ..forward(from: 0);
+    EffectHaptics.instance.playFor(context, EffectBubble.hapticsOf(effect));
   }
 
   /// [child] where the effect has it at this moment; in place when
@@ -176,7 +262,7 @@ class EffectBubbleState extends State<EffectBubble>
               1 - 0.08 * math.exp(-5 * after) * math.sin(after * math.pi * 3);
         }
       case MessageEffect.loud:
-        const grown = 0.16, held = 0.68;
+        const grown = EffectBubble.loudGrown, held = EffectBubble.loudHeld;
         final double swell;
         if (v < grown) {
           swell = Easing.emphasizedDecelerate.transform(v / grown);
@@ -189,18 +275,20 @@ class EffectBubbleState extends State<EffectBubble>
                 (v - held) / (1 - held),
               );
         }
-        scale = 1 + 0.8 * swell;
+        scale = 1 + 0.9 * swell;
         // Shaking with its own noise while it is large.
         final seconds = v * EffectBubble.loudDuration.inMilliseconds / 1000;
         final shake = swell * (v < held ? 1 : 0.4);
         angle = math.sin(seconds * math.pi * 2 * 8.5) * 0.045 * shake;
         offset = Offset(
-          math.sin(seconds * math.pi * 2 * 11) * 3 * shake,
+          math.sin(seconds * math.pi * 2 * EffectBubble.loudShakeHz) *
+              3 *
+              shake,
           math.cos(seconds * math.pi * 2 * 7) * 2 * shake,
         );
       case MessageEffect.gentle:
         // Arrives small and takes its time growing up.
-        const small = 0.12;
+        const small = EffectBubble.gentleSmall;
         final grow = v < small
             ? 0.0
             : Curves.easeInOutSine.transform((v - small) / (1 - small));

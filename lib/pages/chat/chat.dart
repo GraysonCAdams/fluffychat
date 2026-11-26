@@ -1357,7 +1357,8 @@ class ChatController extends State<ChatPageWithRoom>
   /// What a long press on the send button does: the effect picker in a
   /// chat on the iMessage bridge, the scheduling options elsewhere, while
   /// a message is being edited and while attachments are staged (the
-  /// bridge carries an effect on text only). [bubbleColor] and [onBubbleColor]
+  /// bridge carries an effect on text only). The picker's own schedule
+  /// button is switched off on a homeserver without delayed events. [bubbleColor] and [onBubbleColor]
   /// are the send button's, the colours the message's bubble will have.
   Future<void> onSendLongPress(Color bubbleColor, Color onBubbleColor) =>
       effects.onSendLongPress(
@@ -1371,6 +1372,7 @@ class ChatController extends State<ChatPageWithRoom>
         onBubbleColor: onBubbleColor,
         send: (effect) => send(effect: effect),
         fallback: openSendOptions,
+        canSchedule: () => room.client.canScheduleMessages,
       );
 
   /// Sends what is in the composer; the typed text goes out with [effect]

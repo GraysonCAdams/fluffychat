@@ -86,6 +86,8 @@ class MainActivity : FlutterFragmentActivity() {
             // conversation channel to show the message.
             MethodChannel(eng.dartExecutor.binaryMessenger, ConversationNotifications.CHANNEL_NAME)
                 .setMethodCallHandler(ConversationNotifications(context.applicationContext))
+            MethodChannel(eng.dartExecutor.binaryMessenger, EffectHaptics.CHANNEL_NAME)
+                .setMethodCallHandler(EffectHaptics(context.applicationContext))
             MethodChannel(eng.dartExecutor.binaryMessenger, BubbleActivity.CHANNEL_NAME)
                 .setMethodCallHandler { call, result ->
                     when (call.method) {
