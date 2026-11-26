@@ -103,22 +103,61 @@ Room? existingGroupOf(
   for (final member in members) {
     final ghost =
         member.user.mxid ?? member.person.bridgeUsers[bridge.name]?.mxid;
-    if (ghost == null) return null;
+    Logs().d(
+      'Group lookup on ${bridge.name}: member user ${redactDigits(member.user.id)}, '
+      'resolved ghost ${redactDigits(member.user.mxid)}, '
+      'contact ghost ${redactDigits(member.person.bridgeUsers[bridge.name]?.mxid)}',
+    );
+    if (ghost == null) {
+      Logs().d('Group lookup on ${bridge.name}: a member has no ghost');
+      return null;
+    }
     wanted.add(ghost);
   }
+  Logs().d(
+    'Group lookup on ${bridge.name}: wanted ${wanted.map(redactDigits).toList()}',
+  );
   final matches = client.rooms.where((room) {
-    if (room.membership != Membership.join ||
-        room.isSpace ||
-        room.directChatMatrixID != null) {
-      return false;
+    if (room.membership != Membership.join || room.isSpace) return false;
+    final roomBridge = add_people.bridgeOfRoom(bridges, room)?.name;
+    final loaded = {
+      for (final user in room.getParticipants([
+        Membership.join,
+        Membership.invite,
+      ]))
+        user.id,
+      ...?room.summary.mHeroes,
+    };
+    // Only rooms on the bridge, or holding one of the ghosts, are worth a
+    // line in the log.
+    final relevant = roomBridge == bridge.name || wanted.any(loaded.contains);
+    String? reason;
+    Set<String>? others;
+    if (room.directChatMatrixID != null) {
+      reason = 'direct chat with ${redactDigits(room.directChatMatrixID)}';
+    } else if (roomBridge != bridge.name) {
+      reason = 'on bridge $roomBridge';
+    } else {
+      others = _othersOf(room, bridge);
+      if (others == null) {
+        reason = 'members not all loaded';
+      } else if (others.length != wanted.length ||
+          !others.containsAll(wanted)) {
+        reason = 'other members differ';
+      }
     }
-    if (add_people.bridgeOfRoom(bridges, room)?.name != bridge.name) {
-      return false;
+    if (relevant) {
+      Logs().d(
+        'Group lookup on ${bridge.name}: ${room.id} '
+        '${reason == null ? 'matches' : 'rejected, $reason'}; '
+        'joined ${room.summary.mJoinedMemberCount}, '
+        'invited ${room.summary.mInvitedMemberCount}, '
+        'heroes ${room.summary.mHeroes?.length}, '
+        'loaded ${loaded.map(redactDigits).toList()}, '
+        'others ${others?.map(redactDigits).toList()}',
+      );
     }
-    final others = _othersOf(room, bridge);
-    return others != null &&
-        others.length == wanted.length &&
-        others.containsAll(wanted);
+    return reason == null;
   }).toList();
   if (matches.isEmpty) return null;
   matches.sort(
@@ -126,6 +165,14 @@ Room? existingGroupOf(
   );
   return matches.first;
 }
+
+/// [text] with each run of five or more digits, such as a phone number in
+/// a ghost's Matrix ID, cut to its last two, for the log.
+String? redactDigits(String? text) => text?.replaceAllMapped(
+  RegExp(r'\d{5,}'),
+  (match) =>
+      '#' * (match[0]!.length - 2) + match[0]!.substring(match[0]!.length - 2),
+);
 
 /// What the user's networks answered about one person in the compose
 /// screen's To field, by bridge name.
@@ -160,7 +207,13 @@ class PersonReach {
     errors.remove(bridge);
     final future = () async {
       try {
-        users[bridge] = await resolve();
+        final user = await resolve();
+        users[bridge] = user;
+        Logs().d(
+          '$bridge resolved a person in the To field: '
+          'id ${redactDigits(user?.id)}, ghost ${redactDigits(user?.mxid)}, '
+          'chat ${user?.dmRoomId}',
+        );
       } catch (e, s) {
         Logs().w('$bridge could not resolve a person in the To field', e, s);
         // A bridge that cannot take this kind of identifier does not reach
