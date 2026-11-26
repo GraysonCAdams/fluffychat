@@ -142,7 +142,10 @@ class _SearchField extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(99),
                         ),
-                        textStyle: const TextStyle(fontSize: 12),
+                        // The theme's label style, so the text keeps the app font.
+                        textStyle: theme.textTheme.labelLarge?.copyWith(
+                          fontSize: 12,
+                        ),
                       ),
                       icon: const Icon(Icons.edit_outlined, size: 16),
                       label: Text(
