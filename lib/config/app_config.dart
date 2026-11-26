@@ -5,8 +5,11 @@
 
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
+
 abstract class AppConfig {
-  static const Color primaryColor = Color(0xFF261386);
+  // Seam Cobalt (brand/BRAND.md).
+  static const Color primaryColor = Color(0xFF1A5AD7);
 
   static const Color chatColor = primaryColor;
   static const double messageFontSize = 16.0;
@@ -15,23 +18,40 @@ abstract class AppConfig {
   static const bool hideTypingUsernames = false;
 
   static const String inviteLinkPrefix = 'https://matrix.to/#/';
-  static const String deepLinkPrefix = 'im.fluffychat://chat/';
   static const String schemePrefix = 'matrix:';
+  // Internal Android notification channel id, never shown to the user. All
+  // builds share it, so existing installs keep their channel settings.
   static const String pushNotificationsChannelId = 'fluffychat_push';
-  static const String pushNotificationsAppId = 'chat.fluffy.fluffychat';
   static const double borderRadius = 18.0;
   static const double spaceBorderRadius = 11.0;
   static const double columnWidth = 360.0;
 
-  static const String enablePushTutorial =
-      'https://ko-fi.com/post/How-can-I-get-Push-Notifications-without-Google-N7Q825URG6?fromEditor=true';
-  static const String encryptionTutorial =
-      'https://ko-fi.com/post/How-to-use-end-to-end-encryption-in-FluffyChat-A5O725WDR5';
-  static const String howDoIGetStickersTutorial =
-      'https://ko-fi.com/post/How-to-add-a-sticker-pack-to-FluffyChat-N4N01OXATI';
   static const String appId = 'im.fluffychat.app';
-  static const String appOpenUrlScheme = 'im.fluffychat';
-  static const String appSsoUrlScheme = 'im.fluffychat.auth';
+
+  /// The Play build's package name, and the base of its URL schemes.
+  static const String releasePackageName = 'dev.threeonetwo.seam';
+
+  /// Whether this is the published Seam app: a release build on Android,
+  /// which installs as [releasePackageName] (android/app/build.gradle.kts).
+  /// Debug and profile builds, and every other platform, keep the
+  /// identifiers the existing installs were set up under, so they upgrade
+  /// in place and stay logged in.
+  static bool get isPlayRelease =>
+      kReleaseMode &&
+      !kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.android;
+
+  /// The pusher app id the push gateway sees, before the device id is added.
+  static String get pushNotificationsAppId =>
+      isPlayRelease ? releasePackageName : 'chat.fluffy.fluffychat';
+
+  /// URL schemes for deep links and the SSO redirect. On Android these must
+  /// match the appUrlScheme and appSsoUrlScheme manifest placeholders.
+  static String get appOpenUrlScheme =>
+      isPlayRelease ? releasePackageName : 'im.fluffychat';
+  static String get appSsoUrlScheme =>
+      isPlayRelease ? '$releasePackageName.auth' : 'im.fluffychat.auth';
+  static String get deepLinkPrefix => '$appOpenUrlScheme://chat/';
   // Identifies the notification activation callback on Windows. Never change!
   static const String windowsNotificationGuid =
       '4894dfda-c70a-4ebc-b139-acae55f3988d';
@@ -62,11 +82,6 @@ abstract class AppConfig {
     host: 'raw.githubusercontent.com',
     path:
         'GraysonCAdams/fluffychat/refs/heads/main/recommended_homeservers.json',
-  );
-
-  static final Uri crashReportEndpoint = Uri(
-    scheme: 'https',
-    host: 'crash.fluffy.chat',
   );
 
   static const String mainIsolatePortName = 'main_isolate';

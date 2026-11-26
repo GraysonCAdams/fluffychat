@@ -42,7 +42,7 @@ class BackgroundPush {
   String? _fcmToken;
 
   String? get fcmToken => _fcmToken;
-  void Function(String errorMsg, {Uri? link})? onFcmError;
+  void Function(String errorMsg)? onFcmError;
   L10n? l10n;
 
   Future<void> loadLocale() async {
@@ -145,7 +145,7 @@ class BackgroundPush {
 
   factory BackgroundPush(
     MatrixState matrix, {
-    void Function(String errorMsg, {Uri? link})? onFcmError,
+    void Function(String errorMsg)? onFcmError,
   }) {
     final instance = BackgroundPush.clientOnly(matrix.widget.clients);
     instance.matrix = matrix;
@@ -326,20 +326,20 @@ class BackgroundPush {
     }
     await loadLocale();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (PlatformInfos.isAndroid) {
-        onFcmError?.call(
-          l10n!.noGoogleServicesWarning,
-          link: Uri.parse(AppConfig.enablePushTutorial),
-        );
-        return;
-      }
-      onFcmError?.call(l10n!.oopsPushError);
+      onFcmError?.call(
+        PlatformInfos.isAndroid
+            ? l10n!.noGoogleServicesWarning
+            : l10n!.oopsPushError,
+      );
     });
   }
 
   Future<void> setupFirebase(Client client) async {
     Logs().v('Setup firebase');
-    if (!firebaseEnabled) {
+    // A build without Firebase, or without a gateway of its own to send FCM
+    // pushes through, has only UnifiedPush.
+    if (!firebaseEnabled ||
+        AppSettings.pushNotificationsGatewayUrl.value.isEmpty) {
       await _noFcmWarning();
       return;
     }

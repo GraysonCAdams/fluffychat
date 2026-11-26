@@ -27,9 +27,14 @@ enum AppSettings<T> {
   showNoGoogle<bool>('chat.fluffy.show_no_google', false),
   unifiedPushRegistered<bool>('chat.fluffy.unifiedpush.registered', false),
   unifiedPushEndpoint<String>('chat.fluffy.unifiedpush.endpoint', ''),
+  // The Matrix push gateway for Firebase Cloud Messaging. Empty unless the
+  // build passes --dart-define=SEAM_PUSH_GATEWAY_URL=..., which only makes
+  // sense together with scripts/add-firebase-messaging.sh and a Firebase
+  // project of our own (android/store/STORE-LAUNCH.md, "Push"). Without one,
+  // push goes through UnifiedPush alone.
   pushNotificationsGatewayUrl<String>(
     'pushNotificationsGatewayUrl',
-    'https://push.fluffychat.im/_matrix/push/v1/notify',
+    String.fromEnvironment('SEAM_PUSH_GATEWAY_URL'),
   ),
   pushNotificationsPusherFormat<String>(
     'pushNotificationsPusherFormat',
@@ -72,22 +77,19 @@ enum AppSettings<T> {
   applicationName<String>('chat.fluffy.application_name', 'Seam'),
   defaultHomeserver<String>('chat.fluffy.default_homeserver', 'matrix.org'),
   // colorSchemeSeed stored as ARGB int
-  colorSchemeSeedInt<int>('chat.fluffy.color_scheme_seed', 0xFF5625BA),
+  colorSchemeSeedInt<int>('chat.fluffy.color_scheme_seed', 0xFF1A5AD7),
   emojiSuggestionLocale<String>('emoji_suggestion_locale', ''),
   enableSoftLogout<bool>('chat.fluffy.enable_soft_logout', true),
   enableMatrixNativeOIDC<bool>('chat.fluffy.enable_matrix_native_oidc', true),
   presetHomeserver<String>('chat.fluffy.preset_homeserver', ''),
   welcomeText<String>('chat.fluffy.welcome_text', ''),
-  website<String>('chat.fluffy.website_url', 'https://fluffychat.im'),
-  logoUrl<String>(
-    'chat.fluffy.logo_url',
-    'https://fluffychat.im/assets/favicon.png',
-  ),
+  website<String>('chat.fluffy.website_url', 'https://seam.312.dev'),
+  logoUrl<String>('chat.fluffy.logo_url', 'https://seam.312.dev/icon-512.png'),
   privacyPolicy<String>(
     'chat.fluffy.privacy_policy_url',
-    'https://fluffychat.im/privacy',
+    'https://seam.312.dev/privacy',
   ),
-  tos<String>('chat.fluffy.tos_url', 'https://fluffychat.im/tos'),
+  tos<String>('chat.fluffy.tos_url', 'https://seam.312.dev/terms'),
   sendTimelineEventTimeout<int>('chat.fluffy.send_timeline_event_timeout', 15),
   webNotificationSound<bool>('chat.fluffy.web_notification_sound', true),
   chatFilter<String>('chat.fluffy.chat_filter', 'allChats'),

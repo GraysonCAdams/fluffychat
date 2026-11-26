@@ -3182,7 +3182,7 @@
     "@showPhoneContacts": {
         "description": "Row in New Chat on Android that asks for the contacts permission so people from the phone's address book are listed."
     },
-    "showPhoneContactsHint": "Find anyone in your contacts on any network",
+    "showPhoneContactsHint": "Find anyone in your contacts on any network. Your contacts stay on this device and are matched here.",
     "@showPhoneContactsHint": {
         "description": "Second line of the row that asks for the contacts permission in New Chat."
     },
@@ -3395,5 +3395,21 @@
     "@originalProject": {
         "type": "String",
         "placeholders": {}
+    },
+    "showErrorReports": "Show error reports",
+    "@showErrorReports": {
+        "description": "Settings switch: when on, an unexpected error opens a dialog with its details and an option to report it."
+    },
+    "showErrorReportsDescription": "When something goes wrong, show the details and offer to open a bug report on GitHub. Nothing is sent automatically.",
+    "@showErrorReportsDescription": {
+        "description": "Subtitle of the showErrorReports switch."
+    },
+    "enterYourHomeserver": "Enter your Matrix homeserver",
+    "@enterYourHomeserver": {
+        "description": "Hint in the sign-in server field of the Play build, which lists no servers of its own."
+    },
+    "choosePhotosAndVideos": "Choose photos and videos",
+    "@choosePhotosAndVideos": {
+        "description": "Button in the gallery picker that opens the system photo picker, shown when the app may not read all photos and videos."
     }
 }

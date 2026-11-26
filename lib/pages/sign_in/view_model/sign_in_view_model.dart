@@ -57,6 +57,27 @@ class SignInViewModel extends ValueNotifier<SignInState> {
   Future<void> refreshPublicHomeservers() async {
     notifyListeners();
     value.publicHomeservers = AsyncSnapshot.waiting();
+    // The Play build recommends no server: it neither fetches the public
+    // list nor preselects matrix.org. The user types their own homeserver,
+    // which _filterHomeservers offers as a choice, and a server they signed
+    // in to before is offered again.
+    if (AppConfig.isPlayRelease) {
+      final remembered = AppSettings.store.getString(
+        AppSettings.defaultHomeserver.key,
+      );
+      final servers = [
+        if (remembered != null && remembered.isNotEmpty)
+          PublicHomeserverData(name: remembered),
+      ];
+      value.selectedHomeserver ??= servers.firstOrNull;
+      value.publicHomeservers = AsyncSnapshot.withData(
+        ConnectionState.done,
+        servers,
+      );
+      notifyListeners();
+      _filterHomeservers();
+      return;
+    }
     final defaultHomeserverData = PublicHomeserverData(
       name: AppSettings.defaultHomeserver.value,
     );

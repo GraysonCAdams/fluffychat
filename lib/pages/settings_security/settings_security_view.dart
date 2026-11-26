@@ -77,8 +77,8 @@ class SettingsSecurityView extends StatelessWidget {
                     setting: AppSettings.sendPublicReadReceipts,
                   ),
                   SettingsSwitchListTile.adaptive(
-                    title: L10n.of(context).shareCrashReports,
-                    subtitle: L10n.of(context).shareCrashReportsDescription,
+                    title: L10n.of(context).showErrorReports,
+                    subtitle: L10n.of(context).showErrorReportsDescription,
                     setting: AppSettings.autoSendErrorReports,
                     defaultValue: false,
                   ),

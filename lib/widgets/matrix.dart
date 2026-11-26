@@ -35,7 +35,6 @@ import 'package:matrix/encryption.dart';
 import 'package:matrix/matrix.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 import '../config/setting_keys.dart';
 import '../pages/key_verification/key_verification_dialog.dart';
@@ -369,7 +368,7 @@ class MatrixState extends State<Matrix> {
     if (PlatformInfos.isMobile) {
       backgroundPush = BackgroundPush(
         this,
-        onFcmError: (errorMsg, {Uri? link}) async {
+        onFcmError: (errorMsg) async {
           final context =
               FluffyChatApp.router.routerDelegate.navigatorKey.currentContext ??
               this.context;
@@ -378,17 +377,9 @@ class MatrixState extends State<Matrix> {
             context: context,
             title: L10n.of(context).pushNotificationsNotAvailable,
             message: errorMsg,
-            okLabel: link == null
-                ? L10n.of(context).ok
-                : L10n.of(context).learnMore,
+            okLabel: L10n.of(context).ok,
             cancelLabel: L10n.of(context).doNotShowAgain,
           );
-          if (result == OkCancelResult.ok && link != null) {
-            launchUrlString(
-              link.toString(),
-              mode: LaunchMode.externalApplication,
-            );
-          }
           if (result == OkCancelResult.cancel) {
             await AppSettings.showNoGoogle.setItem(true);
           }
