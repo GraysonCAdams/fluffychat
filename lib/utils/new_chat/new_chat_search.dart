@@ -214,16 +214,19 @@ class NewChatSources {
     await PhoneContacts.decline();
   }
 
-  /// One row per person for [query] across [chats] and these sources.
+  /// One row per person for [query] across [chats] and these sources,
+  /// with a row for a typed email too when [typedEmail] is set.
   List<NewChatPerson<ExistingChat>> people(
     String query,
-    List<ChatPersonInput<ExistingChat>> chats,
-  ) => mergeNewChatPeople(
+    List<ChatPersonInput<ExistingChat>> chats, {
+    bool typedEmail = false,
+  }) => mergeNewChatPeople(
     query: query,
     chats: chats,
     bridgeContacts: bridgeContacts,
     phoneBook: phoneBook,
     defaultRegion: MergeSuggestionService.defaultPhoneRegion(),
+    typedEmail: typedEmail,
   );
 
   void dispose() => _disposed = true;

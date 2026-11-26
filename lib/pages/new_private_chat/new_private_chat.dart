@@ -287,7 +287,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     final block = group.blockOf(person);
     return block == null
         ? null
-        : groupBlockReason(L10n.of(context), block, group.network);
+        : groupBlockReason(L10n.of(context), block, group.bridge);
   }
 
   /// The Next button: confirms the group in a [NewGroupSheet], creates it

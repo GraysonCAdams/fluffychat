@@ -604,7 +604,7 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
             ),
             title: name,
             subtitle: block != null
-                ? groupBlockReason(L10n.of(context), block, _group.network)
+                ? groupBlockReason(L10n.of(context), block, _group.bridge)
                 : phone != null
                 ? formatPhoneForDisplay(phone)
                 : _preview(context, chat),
@@ -665,7 +665,7 @@ class _ShareScaffoldDialogState extends State<ShareScaffoldDialog> {
                 ),
           title: person.name,
           subtitle: block != null
-              ? groupBlockReason(L10n.of(context), block, _group.network)
+              ? groupBlockReason(L10n.of(context), block, _group.bridge)
               : person.typed
               ? L10n.of(context).typedNumber
               : phone != null

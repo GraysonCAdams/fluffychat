@@ -3,13 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /// Starting a group on one of the user's networks from New Chat or the
-/// share page: the people picked so far, the network the first of them
-/// fixed, and the bridge calls behind it.
+/// share page, and adding people to a bridged group: the people picked so
+/// far, the network the first of them fixed (or the group's own), and the
+/// bridge calls behind it.
 library;
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/new_private_chat/start_chat_sheet.dart';
 import 'package:fluffychat/utils/bridge_provisioning.dart';
+import 'package:fluffychat/utils/new_chat/add_people.dart' as add_people;
 import 'package:fluffychat/utils/new_chat/bridge_directory.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
@@ -54,19 +56,42 @@ enum GroupBlock {
 
   /// The group's network cannot reach them.
   notOnNetwork,
+
+  /// They are in the group already.
+  member,
 }
 
-/// The people picked for a new group. The first person fixes the
-/// [network]; after that only people that network reaches can be added.
-/// Removing everyone clears the network.
+/// The people picked for a group. For a new group the first person fixes
+/// the [network], and removing everyone clears it; [GroupDraft.forRoom]
+/// picks people for a group that exists, on its own bridge. Either way only
+/// people the [bridge] reaches can be added.
 class GroupDraft extends ChangeNotifier {
   GroupNetwork? _network;
   final List<GroupMember> _members = [];
 
+  /// The existing group's bridge, which never changes.
+  final BridgeInfo? _roomBridge;
+
+  /// The Matrix IDs of the existing group's members.
+  final Set<String> _memberIds;
+
   /// People the network answered it cannot reach, by [groupMemberKey].
   final Set<String> _unreachable = {};
 
+  GroupDraft() : _roomBridge = null, _memberIds = {};
+
+  /// People to add to a group on [bridge] whose members are [memberIds].
+  GroupDraft.forRoom(BridgeInfo bridge, {Iterable<String> memberIds = const []})
+    : _roomBridge = bridge,
+      _memberIds = {...memberIds};
+
+  /// The new group's network, once its first person is picked. Null for
+  /// [GroupDraft.forRoom].
   GroupNetwork? get network => _network;
+
+  /// The bridge the people are added on: the existing group's, else the
+  /// new group's [network].
+  BridgeInfo? get bridge => _roomBridge ?? _network?.bridge;
   List<GroupMember> get members => List.unmodifiable(_members);
   bool get isEmpty => _members.isEmpty;
 
@@ -76,18 +101,34 @@ class GroupDraft extends ChangeNotifier {
   bool contains(NewChatPerson person) =>
       _members.any((member) => member.key == groupMemberKey(person));
 
+  /// Whether [userId] is a member of the existing group.
+  bool isMemberId(String userId) => _memberIds.contains(userId);
+
+  /// Whether [person] is known to be in the existing group: one of their
+  /// Matrix IDs, or the ghost the group's bridge lists them as, is a
+  /// member. Someone known only by a number or email is found out on the
+  /// pick, when the bridge names their ghost.
+  bool isMember(NewChatPerson person) {
+    if (_memberIds.isEmpty) return false;
+    if (person.userIds.any(_memberIds.contains)) return true;
+    final bridge = this.bridge;
+    final ghost = bridge == null ? null : person.bridgeUsers[bridge.name]?.mxid;
+    return ghost != null && _memberIds.contains(ghost);
+  }
+
   /// Why [person] cannot be added, or null when they can. Someone the
   /// network has not been asked about yet can be added; the network is
   /// asked on the pick.
   GroupBlock? blockOf(NewChatPerson person) {
     if (person.group) return GroupBlock.notAPerson;
-    final network = _network;
-    if (network == null || contains(person)) return null;
+    final bridge = this.bridge;
+    if (bridge == null || contains(person)) return null;
+    if (isMember(person)) return GroupBlock.member;
     if (_unreachable.contains(groupMemberKey(person))) {
       return GroupBlock.notOnNetwork;
     }
-    if (person.bridgeUsers.containsKey(network.bridge.name)) return null;
-    if (identifierForBridge(person, network.bridge) == null) {
+    if (person.bridgeUsers.containsKey(bridge.name)) return null;
+    if (identifierForBridge(person, bridge) == null) {
       return GroupBlock.notOnNetwork;
     }
     return null;
@@ -104,7 +145,7 @@ class GroupDraft extends ChangeNotifier {
   }
 
   void add(GroupMember member) {
-    assert(_network != null);
+    assert(bridge != null);
     if (_members.any((known) => known.key == member.key)) return;
     _members.add(member);
     notifyListeners();
@@ -112,7 +153,7 @@ class GroupDraft extends ChangeNotifier {
 
   void remove(String key) {
     _members.removeWhere((member) => member.key == key);
-    if (_members.isEmpty) {
+    if (_members.isEmpty && _roomBridge == null) {
       _network = null;
       _unreachable.clear();
     }
@@ -121,6 +162,13 @@ class GroupDraft extends ChangeNotifier {
 
   void markUnreachable(NewChatPerson person) {
     _unreachable.add(groupMemberKey(person));
+    notifyListeners();
+  }
+
+  /// Counts [userId] as a member of the existing group, such as someone
+  /// just invited.
+  void markMember(String userId) {
+    _memberIds.add(userId);
     notifyListeners();
   }
 
@@ -137,9 +185,10 @@ class GroupDraft extends ChangeNotifier {
 BridgeGroupType? preferredGroupType(List<BridgeGroupType> types) =>
     types.where((type) => type.id == 'group').firstOrNull ?? types.firstOrNull;
 
-/// How New Chat and the share page reach the bridges: reading the people
-/// sources, picking a network for a person, and starting groups. Widget
-/// tests replace it with a fake.
+/// How New Chat, the share page and Add people reach the bridges: reading
+/// the people sources, picking a network for a person, starting groups,
+/// and finding and inviting people for a bridged group. Widget tests
+/// replace it with a fake.
 class NewChatDelivery {
   const NewChatDelivery();
 
@@ -204,6 +253,17 @@ class NewChatDelivery {
     return directory.api.resolveIdentifier(bridge, identifier);
   }
 
+  /// The user's bridge that [room] is a portal of; null when it is not one
+  /// of theirs or the bridges cannot be reached.
+  Future<BridgeInfo?> bridgeOfRoom(Client client, Room room) async {
+    final directory = BridgeDirectory.forClient(client);
+    if (directory == null) return null;
+    return add_people.bridgeOfRoom(await directory.bridges(), room);
+  }
+
+  /// Invites [userId], a bridge ghost, to [room].
+  Future<void> invite(Room room, String userId) => room.invite(userId);
+
   /// Creates the group on [network] with [members], named [name], and
   /// waits until its room is on [client].
   Future<CreatedGroup> createGroup(
@@ -226,20 +286,20 @@ class NewChatDelivery {
 }
 
 /// The reason [block] shows under a person who cannot be added to a group
-/// on [network].
-String groupBlockReason(L10n l10n, GroupBlock block, GroupNetwork? network) =>
+/// on [bridge].
+String groupBlockReason(L10n l10n, GroupBlock block, BridgeInfo? bridge) =>
     switch (block) {
       GroupBlock.notAPerson => l10n.groupChatNotAPerson,
-      GroupBlock.notOnNetwork => l10n.notOnNetwork(
-        network?.bridge.displayName ?? '',
-      ),
+      GroupBlock.notOnNetwork => l10n.notOnNetwork(bridge?.displayName ?? ''),
+      GroupBlock.member => l10n.alreadyInThisGroup,
     };
 
-/// Adds [person] to [draft], or removes them when they are in it. The
-/// first person goes through the network picker, which fixes the group's
-/// network; later people are checked against that network, and one it
-/// cannot reach is marked so and named in a snackbar. True when [person]
-/// was added.
+/// Adds [person] to [draft], or removes them when they are in it. For a
+/// new group, the first person goes through the network picker, which
+/// fixes the group's network. Everyone else is checked against the draft's
+/// bridge: one it cannot reach is marked so and named in a snackbar, and
+/// one it names as a member of the existing group is marked a member. True
+/// when [person] was added.
 Future<bool> toggleGroupMember(
   BuildContext context,
   Client client,
@@ -256,38 +316,47 @@ Future<bool> toggleGroupMember(
   final block = draft.blockOf(person);
   if (block != null) {
     messenger.showSnackBar(
-      SnackBar(content: Text(groupBlockReason(l10n, block, draft.network))),
+      SnackBar(content: Text(groupBlockReason(l10n, block, draft.bridge))),
     );
     return false;
   }
-  final network = draft.network;
-  if (network == null) {
+  final bridge = draft.bridge;
+  if (bridge == null) {
     final picked = await delivery.pickGroupNetwork(context, client, person);
-    if (picked == null || draft.network != null) return false;
+    if (picked == null || draft.bridge != null) return false;
     final (network, user) = picked;
     draft.start(network, GroupMember(person, user));
     return true;
   }
-  var user = person.bridgeUsers[network.bridge.name];
+  var user = person.bridgeUsers[bridge.name];
   if (user == null) {
-    final identifier = identifierForBridge(person, network.bridge)!;
+    final identifier = identifierForBridge(person, bridge)!;
     final result = await showFutureLoadingDialog<BridgeUser?>(
       context: context,
-      future: () =>
-          delivery.resolveOnNetwork(client, network.bridge, identifier),
+      future: () => delivery.resolveOnNetwork(client, bridge, identifier),
     );
     if (result.isError) return false;
     user = result.asValue!.value;
   }
-  if (draft.network != network) return false;
+  if (draft.bridge != bridge) return false;
   if (user == null) {
     draft.markUnreachable(person);
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          '${person.name}: ${l10n.notOnNetwork(network.bridge.displayName)}',
+          '${person.name}: ${l10n.notOnNetwork(bridge.displayName)}',
         ),
       ),
+    );
+    return false;
+  }
+  final ghost = user.mxid;
+  if (ghost != null && draft.isMemberId(ghost)) {
+    // The row reads as a member from now on.
+    person.userIds.add(ghost);
+    draft.markMember(ghost);
+    messenger.showSnackBar(
+      SnackBar(content: Text('${person.name}: ${l10n.alreadyInThisGroup}')),
     );
     return false;
   }

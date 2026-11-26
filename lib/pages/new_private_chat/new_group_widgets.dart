@@ -7,8 +7,8 @@ import 'package:fluffychat/utils/new_chat/new_group.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// The people picked for a new group as removable chips, after the icon of
-/// the network the group starts on.
+/// The people picked for a group as removable chips, after the icon of the
+/// network they are added on.
 class GroupRecipientsBar extends StatelessWidget {
   final GroupDraft draft;
 
@@ -16,8 +16,8 @@ class GroupRecipientsBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final network = draft.network;
-    if (network == null) return const SizedBox.shrink();
+    final bridge = draft.bridge;
+    if (bridge == null) return const SizedBox.shrink();
     final l10n = L10n.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
@@ -28,11 +28,11 @@ class GroupRecipientsBar extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Tooltip(
-              message: network.bridge.displayName,
+              message: bridge.displayName,
               child: Avatar(
                 key: const ValueKey('group-network'),
-                mxContent: network.bridge.icon,
-                name: network.bridge.displayName,
+                mxContent: bridge.icon,
+                name: bridge.displayName,
                 size: 32,
                 borderRadius: BorderRadius.circular(8),
               ),

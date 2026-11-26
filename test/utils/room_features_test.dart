@@ -184,6 +184,35 @@ void main() {
       expect(features.acceptsMime('m.image', 'image/png'), isTrue);
     });
 
+    test('member_actions gives the support level of each action', () {
+      // The iMessage bridge's group feature set, cut down.
+      final group = RoomFeatures.fromJson({
+        'member_actions': {'invite': 2, 'kick': 2, 'leave': 1, 'ban': 0},
+      });
+      expect(group.allowsMemberAction(MemberAction.invite), isTrue);
+      expect(group.allowsMemberAction(MemberAction.leave), isTrue);
+      expect(group.allowsMemberAction(MemberAction.ban), isFalse);
+      expect(group.allowsMemberAction(MemberAction.revokeInvite), isFalse);
+    });
+
+    test('a room without member_actions takes no member action', () {
+      for (final content in <Object?>[
+        iMessageFeatures,
+        {'member_actions': 'invite'},
+        {
+          'member_actions': {'invite': '2'},
+        },
+      ]) {
+        expect(
+          RoomFeatures.fromJson(content).allowsMemberAction(
+            MemberAction.invite,
+          ),
+          isFalse,
+          reason: '$content',
+        );
+      }
+    });
+
     test('usableMimeTypes lists only usable levels', () {
       const features = FileFeatures(
         mimeTypes: {'video/mp4': 2, 'video/3gpp': 0, 'video/avi': -1},

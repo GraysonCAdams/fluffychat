@@ -12,6 +12,7 @@ import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/network_identity.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
+import 'package:fluffychat/utils/new_chat/add_people.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/room_features.dart';
 import 'package:fluffychat/utils/verified_room_extension.dart';
@@ -506,14 +507,26 @@ class ChatDetailsView extends StatelessWidget {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            trailing: !room.isDirectChat && room.canInvite
-                                ? TextButton.icon(
-                                    icon: Icon(Icons.add),
-                                    label: Text(L10n.of(context).invite),
-                                    onPressed: () =>
-                                        context.go('/rooms/${room.id}/invite'),
-                                  )
-                                : null,
+                            trailing: room.isDirectChat
+                                ? null
+                                : switch (addMembersEntryOf(room)) {
+                                    AddMembersEntry.invite => TextButton.icon(
+                                      icon: Icon(Icons.add),
+                                      label: Text(L10n.of(context).invite),
+                                      onPressed: () => context.go(
+                                        '/rooms/${room.id}/invite',
+                                      ),
+                                    ),
+                                    AddMembersEntry.addPeople =>
+                                      TextButton.icon(
+                                        icon: Icon(Icons.add),
+                                        label: Text(L10n.of(context).addPeople),
+                                        onPressed: () => context.go(
+                                          '/rooms/${room.id}/add-people',
+                                        ),
+                                      ),
+                                    null => null,
+                                  },
                           ),
                         ],
                       ],

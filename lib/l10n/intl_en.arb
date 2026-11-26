@@ -3629,5 +3629,54 @@
     "@leaveGroup": {
         "type": "String",
         "placeholders": {}
+    },
+    "addPeople": "Add people",
+    "@addPeople": {
+        "description": "Entry in a bridged group's details and member list, and the title of the page, for adding people by name, phone number or email on the group's network."
+    },
+    "addPeopleSearchHint": "Name, phone number or email",
+    "@addPeopleSearchHint": {
+        "description": "Hint in the search field of the Add people page."
+    },
+    "alreadyInThisGroup": "Already in this group",
+    "@alreadyInThisGroup": {
+        "description": "Why a person cannot be picked on the Add people page: they are a member of the group."
+    },
+    "emailAddress": "Email address",
+    "@emailAddress": {
+        "description": "Second line of the search result for an email typed into the search."
+    },
+    "addCountPeople": "{count, plural, =1{Add 1 person} other{Add {count} people}}",
+    "@addCountPeople": {
+        "type": "String",
+        "description": "Button on the Add people page that invites the picked people to the group.",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "countPeopleAdded": "{count, plural, =1{1 person added} other{{count} people added}}",
+    "@countPeopleAdded": {
+        "type": "String",
+        "description": "Snackbar after the Add people page invited everyone picked.",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "peopleNotAdded": "Not added",
+    "@peopleNotAdded": {
+        "description": "Title of the dialog listing the people the Add people page could not invite, one per line with the reason."
+    },
+    "addPeopleNetworkUnavailable": "{network} can't be reached right now, so no one can be added. Try again later.",
+    "@addPeopleNetworkUnavailable": {
+        "description": "Shown on the Add people page when the group's bridge is not one the user is logged in to or does not answer.",
+        "placeholders": {
+            "network": {
+                "type": "String"
+            }
+        }
     }
 }

@@ -69,6 +69,10 @@ class BridgeInfo {
   /// The first login's `space_room`: the space the bridge puts its chats in.
   final String? spaceRoomId;
 
+  /// `bridge_bot`: the bridge bot's Matrix ID, which its rooms name as
+  /// `bridgebot` in their `m.bridge` state.
+  final String? bridgeBot;
+
   const BridgeInfo({
     required this.name,
     required this.networkId,
@@ -76,6 +80,7 @@ class BridgeInfo {
     required this.icon,
     required this.loginId,
     this.spaceRoomId,
+    this.bridgeBot,
   });
 
   /// Reads a `whoami` body. Null when it has no network or no login, since
@@ -90,6 +95,7 @@ class BridgeInfo {
     if (loginId is! String || loginId.isEmpty) return null;
     final icon = network['network_icon'];
     final space = login['space_room'];
+    final bot = json['bridge_bot'];
     return BridgeInfo(
       name: name,
       networkId: network['network_id'] as String? ?? name,
@@ -97,6 +103,7 @@ class BridgeInfo {
       icon: icon is String && icon.isNotEmpty ? Uri.tryParse(icon) : null,
       loginId: loginId,
       spaceRoomId: space is String && space.isNotEmpty ? space : null,
+      bridgeBot: bot is String && bot.isNotEmpty ? bot : null,
     );
   }
 }
