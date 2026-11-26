@@ -491,6 +491,7 @@ class MatrixFeatures extends ChangeNotifier {
     }
 
     final contacts = <String>{};
+    final ownServer = me?.domain;
     var hasCustomEmotes = _hasEmotes(
       client.accountData['im.ponies.user_emotes']?.content,
     );
@@ -507,6 +508,11 @@ class MatrixFeatures extends ChangeNotifier {
         if (id == me || bridgeUsers.contains(id) || _looksLikeBot(id)) {
           continue;
         }
+        // Accounts on the user's own server are not counted: on a server
+        // run for bridges they are the user's own bots and agents, which
+        // the app cannot tell from people. Matrix contacts are people on
+        // other servers.
+        if (ownServer != null && id.domain == ownServer) continue;
         contacts.add(id);
       }
     }

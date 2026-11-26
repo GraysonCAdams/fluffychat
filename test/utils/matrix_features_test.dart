@@ -76,6 +76,13 @@ void main() {
       }
     });
 
+    test('accounts on the own server are not contacts', () {
+      final me = client.userID!;
+      addFakeChat(client, '!coach:x', 'Coach', partner: '@coach:${me.domain}');
+      expect(features.signals.realContacts, 0);
+      expect(features.signals.messengerMode, isTrue);
+    });
+
     test('the older uk.half-shot.bridge event marks a chat bridged', () {
       final room = addFakeChat(client, '!a:x', 'A', partner: '@ghost:x');
       addFakeBridge(room, type: 'uk.half-shot.bridge');
@@ -102,8 +109,9 @@ void main() {
         'Telegram bridge',
         partner: '@telegrambot:x',
       );
-      // The fake chat's default sender is a member too.
-      expect(features.signals.realContacts, 1);
+      // The fake chat's default sender is a member too, on the own server,
+      // so it does not count either.
+      expect(features.signals.realContacts, 0);
       expect(
         features.bridgeUsers,
         containsAll(['@imessage_tel=3a+14045550142:x', '@imessagebot:x']),
