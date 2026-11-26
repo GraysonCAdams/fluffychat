@@ -23,6 +23,7 @@ import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/room_unread.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/public_room_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
+import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/merged_contacts/merge_suggestion_banner.dart';
 import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
 import 'package:flutter/services.dart';
@@ -908,13 +909,20 @@ class _PinnedChat extends StatelessWidget {
                       SelectableAvatar(
                         selected: selected,
                         size: _avatarSize,
-                        child: Avatar(
-                          mxContent: contact?.avatar ?? room.avatar,
-                          name: name,
-                          size: _avatarSize,
-                          presenceUserId:
-                              (contact?.sendViaRoom ?? room).directChatMatrixID,
-                        ),
+                        // A group without a picture shows its members.
+                        child: contact == null && GroupAvatar.shows(room)
+                            ? GroupAvatar(
+                                room: room,
+                                name: name,
+                                size: _avatarSize,
+                              )
+                            : Avatar(
+                                mxContent: contact?.avatar ?? room.avatar,
+                                name: name,
+                                size: _avatarSize,
+                                presenceUserId: (contact?.sendViaRoom ?? room)
+                                    .directChatMatrixID,
+                              ),
                       ),
                       // An unread pin shows its newest message in a small speech
                       // bubble over the top of the avatar.

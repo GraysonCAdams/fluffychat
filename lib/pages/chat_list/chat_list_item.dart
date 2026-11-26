@@ -27,6 +27,7 @@ import 'package:matrix/matrix.dart';
 import '../../config/themes.dart';
 import '../../utils/date_time_extension.dart';
 import '../../widgets/avatar.dart';
+import '../../widgets/group_avatar.dart';
 
 /// The one-time passcode a chat list row offers to copy, from the latest
 /// message of an unread chat when someone else sent it. Once the chat is
@@ -235,36 +236,48 @@ class _ChatListItemState extends State<ChatListItem> {
                           // space it belongs to (for bridges, the network) is
                           // a small badge in the corner, outlined in the
                           // tile's background so it reads as separate. A
+                          // group without a picture shows its members. A
                           // selected chat shows a check instead of both.
                           SelectableAvatar(
                             selected: selected,
                             size: Avatar.defaultSize,
-                            child: Avatar(
-                              shapeBorder: room.isSpace
-                                  ? RoundedSuperellipseBorder(
-                                      side: BorderSide(
-                                        width: 1,
-                                        color: theme.dividerColor,
-                                      ),
-                                      borderRadius: BorderRadius.circular(
-                                        AppConfig.spaceBorderRadius,
-                                      ),
-                                    )
-                                  : null,
-                              borderRadius: room.isSpace
-                                  ? BorderRadius.circular(
-                                      AppConfig.spaceBorderRadius,
-                                    )
-                                  : null,
-                              mxContent: contact?.avatar ?? room.avatar,
-                              size: Avatar.defaultSize,
-                              name: displayname,
-                              presenceUserId:
-                                  contact?.sendViaRoom.directChatMatrixID ??
-                                  room.directChatMatrixID,
-                              presenceBackgroundColor: backgroundColor,
-                              onTap: () => onLongPress?.call(context),
-                            ),
+                            child: contact == null && GroupAvatar.shows(room)
+                                ? GroupAvatar(
+                                    room: room,
+                                    name: displayname,
+                                    outlineColor:
+                                        backgroundColor ??
+                                        theme.colorScheme.surface,
+                                    onTap: () => onLongPress?.call(context),
+                                  )
+                                : Avatar(
+                                    shapeBorder: room.isSpace
+                                        ? RoundedSuperellipseBorder(
+                                            side: BorderSide(
+                                              width: 1,
+                                              color: theme.dividerColor,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              AppConfig.spaceBorderRadius,
+                                            ),
+                                          )
+                                        : null,
+                                    borderRadius: room.isSpace
+                                        ? BorderRadius.circular(
+                                            AppConfig.spaceBorderRadius,
+                                          )
+                                        : null,
+                                    mxContent: contact?.avatar ?? room.avatar,
+                                    size: Avatar.defaultSize,
+                                    name: displayname,
+                                    presenceUserId:
+                                        contact
+                                            ?.sendViaRoom
+                                            .directChatMatrixID ??
+                                        room.directChatMatrixID,
+                                    presenceBackgroundColor: backgroundColor,
+                                    onTap: () => onLongPress?.call(context),
+                                  ),
                           ),
                           if (selected ||
                               !AppSettings.chatListNetworkBadges.value)
