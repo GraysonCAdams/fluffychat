@@ -68,13 +68,19 @@ class SpacesNavigationRail extends StatelessWidget {
                           return NaviRailItem(
                             isSelected: activeSpaceId == null,
                             onTap: onGoToChats,
-                            icon: const Padding(
-                              padding: EdgeInsets.all(12.0),
-                              child: Icon(Icons.forum_outlined),
-                            ),
-                            selectedIcon: const Padding(
-                              padding: EdgeInsets.all(12.0),
-                              child: Icon(Icons.forum),
+                            // All chats is Seam itself, so its tab is the app
+                            // tile, sized and shaped like the network tiles
+                            // below it.
+                            icon: ClipRSuperellipse(
+                              borderRadius: BorderRadius.circular(
+                                AppConfig.spaceBorderRadius,
+                              ),
+                              child: Image.asset(
+                                'assets/seam/seam_app_icon.png',
+                                width: Avatar.defaultSize,
+                                height: Avatar.defaultSize,
+                                filterQuality: FilterQuality.medium,
+                              ),
                             ),
                             toolTip: L10n.of(context).chats,
                             unreadCount: unreadRoomIds.length,
