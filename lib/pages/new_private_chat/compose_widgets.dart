@@ -22,7 +22,10 @@ import 'package:matrix/matrix.dart';
 
 /// The compose screen's To field: "To:", the people picked as removable
 /// chips, and the text field that searches for more, all in one wrapping
-/// row.
+/// row. With chips, "To:" is the row's first item, so it sits on the
+/// centre line of the chips beside it, and the field is only as wide as
+/// its text, so it stays on the chips' line until the text needs a line of
+/// its own. With none, the field fills the line beside "To:".
 class RecipientField extends StatelessWidget {
   final NewPrivateChatController controller;
 
@@ -33,6 +36,38 @@ class RecipientField extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
     final recipients = controller.recipients;
+    final label = Text(
+      key: const ValueKey('compose-to-label'),
+      l10n.composeTo,
+      style: theme.textTheme.bodyLarge?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+    );
+    final field = TextField(
+      key: const ValueKey('compose-to'),
+      controller: controller.controller,
+      focusNode: controller.textFieldFocus,
+      autofocus: true,
+      onChanged: controller.searchUsers,
+      onSubmitted: controller.submitSearch,
+      // Keeps the focus here after Enter makes a chip.
+      onEditingComplete: () {},
+      textInputAction: TextInputAction.done,
+      keyboardType: TextInputType.text,
+      style: theme.textTheme.bodyLarge,
+      decoration: InputDecoration(
+        isDense: true,
+        filled: false,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+        hintText: recipients.isEmpty ? l10n.newChatSearchHint : null,
+        hintStyle: theme.textTheme.bodyLarge?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: controller.textFieldFocus.requestFocus,
@@ -40,77 +75,46 @@ class RecipientField extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 56),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+          // The field keeps its place in the tree whichever way "To:" is
+          // laid out, so it keeps its focus as the first chip comes and the
+          // last one goes.
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             spacing: 8,
             children: [
-              SizedBox(
-                height: 40,
-                child: Center(
-                  child: Text(
-                    l10n.composeTo,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ),
+              if (recipients.isEmpty) label,
               Expanded(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    for (final person in recipients)
-                      InputChip(
-                        key: ValueKey(
-                          'recipient-chip-${groupMemberKey(person)}',
-                        ),
-                        avatar: Avatar(
-                          mxContent: person.avatar,
-                          name: person.name,
-                          size: 24,
-                        ),
-                        label: Text(person.name),
-                        deleteButtonTooltipMessage: l10n.remove,
-                        onDeleted: () =>
-                            controller.removeRecipient(groupMemberKey(person)),
-                      ),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 96),
-                      child: IntrinsicWidth(
-                        child: TextField(
-                          key: const ValueKey('compose-to'),
-                          controller: controller.controller,
-                          focusNode: controller.textFieldFocus,
-                          autofocus: true,
-                          onChanged: controller.searchUsers,
-                          onSubmitted: controller.submitSearch,
-                          // Keeps the focus here after Enter makes a chip.
-                          onEditingComplete: () {},
-                          textInputAction: TextInputAction.done,
-                          keyboardType: TextInputType.text,
-                          style: theme.textTheme.bodyLarge,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            filled: false,
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 10,
-                            ),
-                            hintText: recipients.isEmpty
-                                ? l10n.newChatSearchHint
-                                : null,
-                            hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (recipients.isNotEmpty) label,
+                      for (final person in recipients)
+                        InputChip(
+                          key: ValueKey(
+                            'recipient-chip-${groupMemberKey(person)}',
+                          ),
+                          avatar: Avatar(
+                            mxContent: person.avatar,
+                            name: person.name,
+                            size: 24,
+                          ),
+                          label: Text(person.name),
+                          deleteButtonTooltipMessage: l10n.remove,
+                          onDeleted: () => controller.removeRecipient(
+                            groupMemberKey(person),
                           ),
                         ),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: recipients.isEmpty ? double.infinity : 24,
+                        ),
+                        child: IntrinsicWidth(child: field),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -122,8 +126,9 @@ class RecipientField extends StatelessWidget {
 }
 
 /// The network the first message goes out on, under the To field: the
-/// existing chat's network, the network a new group is created on, or for
-/// one person with no chat yet a note that the network is picked on send.
+/// existing direct chat's bridge space, or for one person with no chat yet
+/// a note that the network is picked on send. A group shows none, as the
+/// composer's hint names its network.
 class ComposeNetworkLine extends StatelessWidget {
   final NewPrivateChatController controller;
 
@@ -133,32 +138,32 @@ class ComposeNetworkLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
+    if (controller.group.isGroup) return const SizedBox.shrink();
     final conversation = controller.conversation;
-    final bridge = controller.group.bridge;
-    final Uri? icon;
+    final Widget leading;
     final String label;
     if (conversation != null) {
       final space = spacesByChild(
         Matrix.of(context).client,
       )[conversation.sendRoom.id];
-      if (space != null) {
-        icon = space.avatar;
-        label = l10n.composeChatOn(
-          space.getLocalizedDisplayname(MatrixLocals(l10n)),
-        );
-      } else if (bridge != null) {
-        icon = bridge.icon;
-        label = l10n.composeChatOn(bridge.displayName);
-      } else {
-        return const SizedBox.shrink();
-      }
-    } else if (bridge != null) {
-      icon = bridge.icon;
-      label = l10n.composeGroupOn(bridge.displayName);
+      if (space == null) return const SizedBox.shrink();
+      label = l10n.composeChatOn(
+        space.getLocalizedDisplayname(MatrixLocals(l10n)),
+      );
+      leading = Avatar(
+        mxContent: space.avatar,
+        name: label,
+        size: 20,
+        borderRadius: BorderRadius.circular(6),
+      );
     } else if (controller.recipients.length == 1 &&
         !isMatrixOnlyPerson(controller.recipients.single)) {
-      icon = null;
       label = l10n.composeNetworkOnSend;
+      leading = Icon(
+        Icons.swap_horiz_outlined,
+        size: 20,
+        color: theme.colorScheme.onSurfaceVariant,
+      );
     } else {
       return const SizedBox.shrink();
     }
@@ -168,22 +173,7 @@ class ComposeNetworkLine extends StatelessWidget {
       child: Row(
         spacing: 8,
         children: [
-          if (bridge != null || conversation != null)
-            Avatar(
-              key: bridge != null && conversation == null
-                  ? const ValueKey('group-network')
-                  : null,
-              mxContent: icon,
-              name: label,
-              size: 20,
-              borderRadius: BorderRadius.circular(6),
-            )
-          else
-            Icon(
-              Icons.swap_horiz_outlined,
-              size: 20,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+          leading,
           Expanded(
             child: Text(
               label,
@@ -200,34 +190,134 @@ class ComposeNetworkLine extends StatelessWidget {
   }
 }
 
-/// The name of a new group, under the To field while it holds two or more
-/// people on a network that takes a name.
-class GroupNameField extends StatelessWidget {
+/// The compose screen's title while it makes a new group on a network
+/// that takes a name: "New group chat", or the name once one is set, with
+/// a pencil. A tap opens [showGroupNameDialog].
+class GroupTitleButton extends StatelessWidget {
   final NewPrivateChatController controller;
 
-  const GroupNameField(this.controller, {super.key});
+  const GroupTitleButton(this.controller, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = L10n.of(context);
+    return ListenableBuilder(
+      listenable: controller.groupName,
+      builder: (context, _) {
+        final name = controller.groupName.text.trim();
+        return InkWell(
+          key: const ValueKey('group-title'),
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => showGroupNameDialog(context, controller),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 8,
+              children: [
+                Flexible(
+                  child: Text(
+                    name.isEmpty ? l10n.newGroupChat : name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Icon(
+                  Icons.edit_outlined,
+                  size: 18,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Asks for the new group's name and puts it in the controller's
+/// `groupName`. Save stays off while the field is empty on a network that
+/// needs a name; an empty name elsewhere leaves the group unnamed.
+Future<void> showGroupNameDialog(
+  BuildContext context,
+  NewPrivateChatController controller,
+) async {
+  final name = await showDialog<String>(
+    context: context,
+    builder: (_) => _GroupNameDialog(
+      initial: controller.groupName.text,
+      required: controller.group.network?.type.nameRequired ?? false,
+      rcsOnly: controller.group.network?.bridge.name == 'gmessages',
+    ),
+  );
+  if (name != null) controller.groupName.text = name;
+}
+
+class _GroupNameDialog extends StatefulWidget {
+  final String initial;
+  final bool required;
+
+  /// Whether to say that only an RCS group keeps the name.
+  final bool rcsOnly;
+
+  const _GroupNameDialog({
+    required this.initial,
+    required this.required,
+    required this.rcsOnly,
+  });
+
+  @override
+  State<_GroupNameDialog> createState() => _GroupNameDialogState();
+}
+
+class _GroupNameDialogState extends State<_GroupNameDialog> {
+  late final TextEditingController _name = TextEditingController(
+    text: widget.initial,
+  );
+
+  bool get _canSave => !widget.required || _name.text.trim().isNotEmpty;
+
+  void _save() {
+    if (_canSave) Navigator.of(context).pop(_name.text.trim());
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final network = controller.group.network;
-    final required = network?.type.nameRequired ?? false;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-      child: TextField(
+    return AlertDialog(
+      title: Text(widget.required ? l10n.groupName : l10n.groupNameOptional),
+      content: TextField(
         key: const ValueKey('group-name'),
-        controller: controller.groupName,
+        controller: _name,
+        autofocus: true,
         textCapitalization: TextCapitalization.sentences,
-        textInputAction: TextInputAction.next,
-        onSubmitted: (_) => controller.messageFocus.requestFocus(),
+        textInputAction: TextInputAction.done,
+        onChanged: (_) => setState(() {}),
+        onSubmitted: (_) => _save(),
         decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.group_outlined),
-          labelText: required ? l10n.groupName : l10n.groupNameOptional,
-          helperText: network?.bridge.name == 'gmessages'
-              ? l10n.groupNameRcsOnly
-              : null,
+          labelText: l10n.name,
+          helperText: widget.rcsOnly ? l10n.groupNameRcsOnly : null,
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.cancel),
+        ),
+        TextButton(
+          key: const ValueKey('group-name-save'),
+          onPressed: _canSave ? _save : null,
+          child: Text(l10n.save),
+        ),
+      ],
     );
   }
 }

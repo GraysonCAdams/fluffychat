@@ -468,8 +468,8 @@ class NewPrivateChatController extends State<NewPrivateChat> {
         : groupBlockReason(L10n.of(context), block, group.bridge);
   }
 
-  /// Whether the group name field shows: two or more people, no group with
-  /// them yet, and a network that takes a name.
+  /// Whether the title can name the group: two or more people, no group
+  /// with them yet, and a network that takes a name.
   bool get showGroupName =>
       group.isGroup &&
       conversation == null &&
