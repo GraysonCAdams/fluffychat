@@ -140,7 +140,8 @@ Future<void> recordAnimation(
   } else {
     expect(
       text,
-      file.readAsStringSync(),
+      // A Windows checkout may have turned the file's line ends into CRLF.
+      file.readAsStringSync().replaceAll('\r\n', '\n'),
       reason: '${spec.name} moves differently from ${file.path}',
     );
   }
