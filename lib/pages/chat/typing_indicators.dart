@@ -7,6 +7,7 @@ import 'package:collection/collection.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
+import 'package:fluffychat/pages/chat/events/message.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/typing_animation.dart';
@@ -39,8 +40,9 @@ class TypingIndicators extends StatelessWidget {
 
 /// Shows who is typing in any of [rooms], other than the user.
 ///
-/// In a group the bubble follows the typing people's avatars, 8dp past
-/// them. In a one-to-one conversation ([oneToOne]) there is nobody to tell
+/// In a group the typing person's avatar sits where a message run's
+/// sender avatar does, at its size, and the bubble starts 8dp past it, in
+/// line with the incoming message bubbles. In a one-to-one conversation ([oneToOne]) there is nobody to tell
 /// apart, so the bubble has no avatar and lines up with the other person's
 /// message bubbles: 8dp from the edge, as close under their newest message
 /// as the next bubble of their run would be, or as far as a change of
@@ -97,7 +99,12 @@ class _TypingIndicatorRowState extends State<TypingIndicatorRow> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const avatarSize = Avatar.defaultSize / 2;
+    const avatarSize = Message.senderAvatarSize;
+    // Two people typing share the one avatar's square, each a little
+    // smaller and offset on the diagonal.
+    const pairSize = 22.0;
+    // A one-to-one bubble has no avatar beside it and keeps its own height.
+    const oneToOneHeight = Avatar.defaultSize / 2;
 
     return StreamBuilder<Object>(
       stream: _typingUpdates,
@@ -136,7 +143,10 @@ class _TypingIndicatorRowState extends State<TypingIndicatorRow> {
             constraints: const BoxConstraints(
               maxWidth: FluffyThemes.maxTimelineWidth,
             ),
-            height: typing ? avatarSize + padding.vertical : 0,
+            height: typing
+                ? (widget.oneToOne ? oneToOneHeight : avatarSize) +
+                      padding.vertical
+                : 0,
             duration: FluffyThemes.animationDuration,
             curve: FluffyThemes.animationCurve,
             alignment: Alignment.topLeft,
@@ -146,33 +156,34 @@ class _TypingIndicatorRowState extends State<TypingIndicatorRow> {
             child: Row(
               children: [
                 if (!widget.oneToOne) ...[
-                  // As wide as the avatars it holds, so the bubble sits 8dp
-                  // from them; a second avatar overlaps the first by 8dp.
-                  Container(
-                    alignment: Alignment.center,
-                    height: avatarSize,
-                    width: typingUsers.length == 2
-                        ? avatarSize + 16
-                        : avatarSize,
-                    child: Stack(
-                      children: [
-                        if (typingUsers.isNotEmpty)
-                          Avatar(
+                  SizedBox.square(
+                    dimension: avatarSize,
+                    child: typingUsers.length == 2
+                        ? Stack(
+                            children: [
+                              Avatar(
+                                size: pairSize,
+                                mxContent: typingUsers.first.avatarUrl,
+                                name: typingUsers.first.calcDisplayname(),
+                              ),
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Avatar(
+                                  size: pairSize,
+                                  mxContent: typingUsers.last.avatarUrl,
+                                  name: typingUsers.last.calcDisplayname(),
+                                ),
+                              ),
+                            ],
+                          )
+                        : typingUsers.isNotEmpty
+                        ? Avatar(
                             size: avatarSize,
                             mxContent: typingUsers.first.avatarUrl,
                             name: typingUsers.first.calcDisplayname(),
-                          ),
-                        if (typingUsers.length == 2)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 16),
-                            child: Avatar(
-                              size: avatarSize,
-                              mxContent: typingUsers.last.avatarUrl,
-                              name: typingUsers.last.calcDisplayname(),
-                            ),
-                          ),
-                      ],
-                    ),
+                          )
+                        : null,
                   ),
                   const SizedBox(width: 8),
                 ],

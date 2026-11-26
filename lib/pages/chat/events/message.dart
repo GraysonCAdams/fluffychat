@@ -38,6 +38,10 @@ import 'state_message.dart';
 import 'swipe_to_reply.dart';
 
 class Message extends StatelessWidget {
+  /// The size of a sender's avatar beside their run in a group; the
+  /// run's bubbles start 8dp past it.
+  static const double senderAvatarSize = 32;
+
   final Event event;
   final Event? nextEvent;
   final Event? previousEvent;
@@ -205,7 +209,6 @@ class Message extends StatelessWidget {
     final showSender = !ownMessage && !event.room.isDirectChat;
     final firstOfRun = !nextEventSameSender;
     final lastOfRun = !previousEventSameSender;
-    const senderAvatarSize = 32.0;
     final bubbleIndent = showSender ? senderAvatarSize + 8 : 0.0;
     final noBubble =
         ({

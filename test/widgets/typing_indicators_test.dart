@@ -193,6 +193,41 @@ void main() {
     expect(typingBubbleRect(tester).left, avatar.right + 8);
   });
 
+  testWidgets('a group lines the avatar and bubble up with the messages', (
+    tester,
+  ) async {
+    final room = client.rooms.firstWhere(
+      (room) => !room.isSpace && !room.isDirectChat,
+    );
+    setTyping(room, ['@alice:example.org']);
+    addTearDown(() => room.ephemerals.remove('m.typing'));
+
+    await pump(
+      tester,
+      room: room,
+      sender: '@alice:example.org',
+      typing: TypingIndicatorRow(
+        rooms: [room],
+        oneToOne: false,
+        newestFromOwn: false,
+      ),
+    );
+
+    Rect avatarIn(Type row) => tester.getRect(
+      find
+          .descendant(of: find.byType(row), matching: find.byType(Avatar))
+          .first,
+    );
+    final messageAvatar = avatarIn(Message);
+    final typingAvatar = avatarIn(TypingIndicatorRow);
+    expect(typingAvatar.left, moreOrLessEquals(messageAvatar.left, epsilon: 1));
+    expect(typingAvatar.width, moreOrLessEquals(messageAvatar.width, epsilon: 1));
+    expect(
+      typingBubbleRect(tester).left,
+      moreOrLessEquals(bubbleRect(tester, 'Hello there').left, epsilon: 1),
+    );
+  });
+
   testWidgets('a merged contact typing in a room not sent to still shows', (
     tester,
   ) async {
