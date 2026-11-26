@@ -1,0 +1,98 @@
+<!--
+SPDX-FileCopyrightText: 2026 Grayson Adams
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
+# Parity goldens
+
+The Seam website ([seam.312.dev](https://seam.312.dev), repo
+`GraysonCAdams/seam-site`) shows HTML recreations of this app's screens.
+This folder renders the same screens with the app's real widgets, without a
+phone, so the site can diff its HTML against them. The site's
+`pnpm parity:sync` pulls this branch, runs the harness, copies
+`goldens/*.png` and compares its recreations with them.
+
+## Rule
+
+Any change to a widget listed in the site's component map (seam-site
+`docs/ARCHITECTURE.md`, section 5.2) is followed by regenerating the goldens
+here and running `pnpm parity:sync` in the site, so its recreation is checked
+against the new look.
+
+## Running
+
+```sh
+flutter test test/parity --update-goldens   # rewrite goldens/*.png
+flutter test test/parity                    # compare against them
+```
+
+Add `--dart-define=PARITY_LOG=true` to print each HTTP request the fake
+server answers and how far each screen got.
+
+## What it renders
+
+Each `fixtures/<screen>.json` comes from the site (its `pnpm parity:sync`
+refreshes them; the `Scene` type in seam-site `src/ui/types.ts` describes the
+fields) and becomes `goldens/<screen>.png`, exactly 1080 x 2410 pixels: the
+reference phone's screen at 411.43 x 918.1 logical pixels and a density of
+2.625, with its status bar (65.7) and navigation bar (36.2) as system
+padding. The theme is the app's own (`FluffyThemes.buildTheme`), dark, with a
+seed of HCT hue 268.4, which gives the phone's accents (primary `#B0C6FF`,
+primaryContainer `#18438F`, secondaryContainer `#404659`; a test checks
+them). Text uses Roboto, Roboto Mono Bold for initials and the Material
+icons, so glyphs are real, not test boxes.
+
+Every screen is the app's real page, not a copy of its layout:
+
+| Screen | Page pumped | What the harness supplies |
+|---|---|---|
+| `chat-list` | `ChatList` | rooms, pins, the unread chats below the fold behind the "N unread" chip, the bridges' spaces behind the "All" menu |
+| `chat-list-selected` | `ChatList` | as above, then a long press on the selected row and the fixture's scroll |
+| `chat-list-search` | `ChatList` | types the query; the fake server answers the message search with the fixture's hits and leaves its next page pending, as the phone showed it |
+| `network-menu` | `ChatList` | taps the "All" chip; the menu's rows are the spaces the fixture names |
+| `chat-dm` | `ChatPage` | a direct chat on one network, its timeline and its bridge space |
+| `chat-dm-linked` | `ChatPage` (merged contact) | a room per network merged into one contact, so the network switcher shows |
+| `new-chat` | `NewPrivateChat` | the contacts offer (through `NewChatDelivery`) |
+| `new-chat-results` | `NewPrivateChat` | the results as existing chats (merged where they span networks), then types the query |
+
+What stands in for the rest of the app:
+
+- `ParityClient` (`harness.dart`) is a matrix `Client` with an in-memory
+  database that looks logged in and synced. Its HTTP client is a fake server:
+  media requests get a flat grey picture (`#353535`, in the shape a message
+  photo asks for), the own profile is "Robin" with a picture, the directory
+  and message searches answer from the fixture, anything else is not found.
+  A fixture's `picture: true` therefore shows as a plain disc, never a photo.
+- `ParityRoom` opens a timeline of the events the fixture lists instead of
+  asking a server, and keeps read markers and typing local.
+- `ParityMatrix` stands in for the app's `Matrix` widget with that client.
+- The plugins the app starts on Android (shared intents, shortcuts, calls,
+  managed configuration) get channels that answer nothing.
+- Times are set relative to today so the list prints the fixture's labels
+  ("21:16" today, "Tue" for the last Tuesday). A "Tue" label shows a date
+  instead during the first week of January.
+
+One change in `lib/` serves this: `PlatformInfos.debugOperatingSystem`
+(`lib/utils/platform_infos.dart`, `@visibleForTesting`). The harness sets it
+to `android` so the app takes its Android code paths (for example, it reads
+the 24-hour clock setting from the system) while the test runs on a desktop.
+It is null in the app.
+
+## Known gaps
+
+- Text whose style names no font family at all falls back to the test
+  engine's box font, because Flutter tests cannot change that fallback. The
+  one such text on these screens is the homeserver button in the chat list
+  search header (`chat_list_header.dart`, `TextStyle(fontSize: 12)`), which
+  shows as blocks in `chat-list-search.png` and leaves the query field
+  narrower than on the phone.
+- Photos in a conversation take the size the app gives them; the fixture's
+  `tint` and `outlined` hints about the phone's photo are not reproduced.
+
+## Fonts
+
+`fonts/` holds TTFs made from the site's `@fontsource` packages (OFL 1.1,
+licences beside them) by `tool/make_fonts.py`, since Flutter cannot load
+woff2. The icon font comes from the Flutter SDK through the test asset
+bundle.
