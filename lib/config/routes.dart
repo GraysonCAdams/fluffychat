@@ -36,6 +36,7 @@ import 'package:fluffychat/pages/settings_style/settings_style.dart';
 import 'package:fluffychat/pages/sign_in/sign_in_page.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
+import 'package:fluffychat/widgets/chat_windows_host.dart';
 import 'package:fluffychat/widgets/config_viewer.dart';
 import 'package:fluffychat/widgets/layouts/empty_page.dart';
 import 'package:fluffychat/widgets/layouts/two_column_layout.dart';
@@ -63,7 +64,10 @@ abstract class AppRoutes {
 
   AppRoutes();
 
-  static final List<RouteBase> routes = [
+  /// The app's route table, built anew on each read: a [ShellRoute] holds
+  /// its navigator's key, and the main window's router and each chat
+  /// window's ([ChatWindowScope]) need their own.
+  static List<RouteBase> get routes => [
     GoRoute(
       path: '/',
       redirect: (context, state) =>
@@ -123,10 +127,12 @@ abstract class AppRoutes {
       // Never use a transition on the shell route. Changing the PageBuilder
       // here based on a MediaQuery causes the child to briefly be rendered
       // twice with the same GlobalKey, blowing up the rendering.
+      // A chat window shows its chat without the list beside it.
       pageBuilder: (context, state, child) => noTransitionPageBuilder(
         context,
         state,
         FluffyThemes.isColumnMode(context) &&
+                !ChatWindowScope.isChatWindow(context) &&
                 state.fullPath?.startsWith('/rooms/settings') == false
             ? TwoColumnLayout(
                 mainView: ChatList(
@@ -143,10 +149,12 @@ abstract class AppRoutes {
         GoRoute(
           path: '/rooms',
           redirect: loggedOutRedirect,
+          // In a chat window this page only sits under the chat, never shown.
           pageBuilder: (context, state) => defaultPageBuilder(
             context,
             state,
-            FluffyThemes.isColumnMode(context)
+            FluffyThemes.isColumnMode(context) ||
+                    ChatWindowScope.isChatWindow(context)
                 ? const EmptyPage()
                 : ChatList(
                     activeChat: _activeChat(state),

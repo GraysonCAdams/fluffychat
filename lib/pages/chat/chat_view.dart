@@ -17,6 +17,7 @@ import 'package:fluffychat/utils/account_config.dart';
 import 'package:fluffychat/utils/android_bubble.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
 import 'package:fluffychat/widgets/chat_settings_popup_menu.dart';
+import 'package:fluffychat/widgets/chat_windows_host.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
 import 'package:fluffychat/widgets/pulsating_widget.dart';
@@ -110,10 +111,11 @@ class ChatView extends StatelessWidget {
                         tooltip: L10n.of(context).backToMainChat,
                         color: theme.colorScheme.onSecondaryContainer,
                       )
-                    // A chat bubble shows only this chat, so there is
-                    // nothing to go back to.
+                    // A chat bubble and a chat window show only this
+                    // chat, so there is nothing to go back to.
                     : FluffyThemes.isColumnMode(context) ||
-                          AndroidBubble.isActive.value
+                          AndroidBubble.isActive.value ||
+                          ChatWindowScope.isChatWindow(context)
                     ? null
                     : const Center(child: BackButton()),
                 titleSpacing: FluffyThemes.isColumnMode(context) ? 24 : 0,
@@ -265,6 +267,9 @@ class ChatView extends StatelessWidget {
                       onChatDetails: controller.isMerged
                           ? controller.openDetails
                           : null,
+                      onOpenInNewWindow: controller.chatWindowTarget == null
+                          ? null
+                          : controller.openInNewWindow,
                     ),
                   ],
                 ],

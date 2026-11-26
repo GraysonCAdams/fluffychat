@@ -62,6 +62,7 @@ Future<void> markRoomRead(Room room) async {
 }
 
 enum _MoreAction {
+  openInNewWindow,
   mergeWith,
   manage,
   unmerge,
@@ -196,6 +197,8 @@ List<(_MoreAction, String)> _moreActions(
   final room = single?.room;
 
   return [
+    if (single != null && controller.chatWindowTarget(single.room) != null)
+      (_MoreAction.openInNewWindow, l10n.openInNewWindow),
     if (single != null && single.contact != null) ...[
       (_MoreAction.manage, l10n.manageLinkedChats),
       (_MoreAction.unmerge, l10n.unmerge),
@@ -353,6 +356,9 @@ Future<void> _onMore(
   final rooms = [for (final chat in chats) ...chat.rooms];
 
   switch (action) {
+    case _MoreAction.openInNewWindow:
+      controller.openInNewWindow(room);
+      controller.clearSelection();
     case _MoreAction.mergeWith:
       controller.clearSelection();
       await mergeChatWith(controller, room);

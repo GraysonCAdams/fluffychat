@@ -1276,6 +1276,12 @@
         "type": "String",
         "placeholders": {}
     },
+    "openInNewWindow": "Open in new window",
+    "@openInNewWindow": {
+        "description": "Opens a chat in a window of its own, from the chat list's and the chat's More menus.",
+        "type": "String",
+        "placeholders": {}
+    },
     "link": "Link",
     "or": "Or",
     "@or": {
