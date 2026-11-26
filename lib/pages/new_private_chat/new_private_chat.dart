@@ -149,6 +149,11 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// Why each bridge failed to say which groups it creates.
   final Map<String, String> _groupTypeErrors = {};
 
+  /// What each bridge can look a person up by, by bridge name. A bridge is
+  /// asked about people only once this is known, so a number never goes
+  /// to a network that cannot take one.
+  final Map<String, BridgeLookups> _lookups = {};
+
   /// The networks of the first person in the To field, which the network
   /// switcher offers when there are two or more. Empty for a group chat or
   /// nobody.
@@ -178,30 +183,45 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     return first == null || first.group ? null : _reach[groupMemberKey(first)];
   }
 
-  /// The networks that failed to answer about the first person and are not
-  /// in the switcher, so the user sees them and can ask again.
-  List<(BridgeInfo, String)> get failedNetworks {
-    final reach = firstReach;
-    if (reach == null) return const [];
+  /// Each network that failed to answer about someone in the To field,
+  /// with the person and the reason, so the user sees it and can ask
+  /// again. For the first person, a network in the switcher is left out.
+  List<({NewChatPerson<ExistingChat> person, BridgeInfo bridge, String error})>
+  get failedNetworks {
     final shown = {for (final network in networks) ?network.bridge?.name};
     return [
-      for (final bridge in orderBridgesForSwitcher(bridges))
-        if (reach.errors[bridge.name] case final error?)
-          if (!shown.contains(bridge.name)) (bridge, error),
+      for (final (index, person) in recipients.indexed)
+        if (_reach[groupMemberKey(person)] case final reach?)
+          for (final bridge in orderBridgesForSwitcher(bridges))
+            if (reach.errors[bridge.name] case final error?)
+              if (index > 0 || !shown.contains(bridge.name))
+                (person: person, bridge: bridge, error: error),
     ];
+  }
+
+  /// Whether the networks are still being asked about the first person,
+  /// or about what they look people up by.
+  bool get checkingNetworks {
+    final reach = firstReach;
+    if (reach == null) return false;
+    return reach.asking ||
+        bridges.any((bridge) => !_lookups.containsKey(bridge.name));
   }
 
   /// Whether the first person was checked and no network reaches them.
   bool get unreachable {
     final first = recipients.firstOrNull;
-    final reach = firstReach;
     return first != null &&
-        reach != null &&
+        firstReach != null &&
         !isMatrixOnlyPerson(first) &&
-        !reach.asking &&
+        !checkingNetworks &&
         bridges.isNotEmpty &&
         networks.isEmpty;
   }
+
+  /// The logo of [bridge]'s network, as the switcher shows it.
+  Uri? networkLogo(BridgeInfo bridge) =>
+      bridgeLogo(Matrix.of(context).client, bridge);
 
   /// Why [network] cannot take everyone in the To field, or null when it
   /// can. One person can be reached on any of their networks; a group
@@ -283,11 +303,9 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     );
   }
 
-  /// Asks [bridge] again about the first person after it failed to answer.
-  void retryNetwork(BridgeInfo bridge) {
-    final first = recipients.firstOrNull;
-    if (first != null) _recheck(first, bridge: bridge.name);
-  }
+  /// Asks [bridge] again about [person] after it failed to answer.
+  void retryNetwork(NewChatPerson<ExistingChat> person, BridgeInfo bridge) =>
+      _recheck(person, bridge: bridge.name);
 
   /// Forgets the failed answers about [person], of [bridge] or of every
   /// network, and asks again.
@@ -306,16 +324,18 @@ class NewPrivateChatController extends State<NewPrivateChat> {
 
   /// Asks each network that has not answered yet whether it reaches
   /// [person]: a bridge that lists them answers without being asked, and
-  /// one with nothing to look them up by does not reach them.
+  /// one with nothing it can look them up by does not reach them. A bridge
+  /// whose lookups are not known yet is asked once they are.
   void _check(NewChatPerson<ExistingChat> person) {
     if (person.group) return;
     final client = Matrix.of(context).client;
     final reach = _reach.putIfAbsent(groupMemberKey(person), PersonReach.new);
     final chat = existingDirectChatOf(client, person);
     for (final bridge in bridges) {
-      if (reach.handled(bridge.name)) continue;
+      final lookups = _lookups[bridge.name];
+      if (lookups == null || reach.handled(bridge.name)) continue;
       final identifier =
-          identifierForBridge(person, bridge) ??
+          identifierForBridge(person, bridge, lookups: lookups) ??
           ghostOnBridge(bridges, chat, bridge);
       if (identifier != null) reach.identifiers[bridge.name] = identifier;
       final known = person.bridgeUsers[bridge.name];
@@ -334,27 +354,44 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     }
   }
 
-  /// Asks each bridge that has not answered yet which groups it creates,
-  /// once at a time.
-  Future<void> _askGroupTypes() {
-    if (bridges.every((bridge) => _groupTypes.containsKey(bridge.name))) {
+  /// Asks each bridge that has not answered yet what it looks people up
+  /// by and which groups it creates, once at a time. The people in the To
+  /// field are then asked about on it.
+  Future<void> _askCapabilities() {
+    if (bridges.every(
+      (bridge) =>
+          _lookups.containsKey(bridge.name) &&
+          _groupTypes.containsKey(bridge.name),
+    )) {
       return Future.value();
     }
-    return _askingGroupTypes ??= _fetchGroupTypes().whenComplete(
-      () => _askingGroupTypes = null,
+    return _askingCapabilities ??= _fetchCapabilities().whenComplete(
+      () => _askingCapabilities = null,
     );
   }
 
-  Future<void>? _askingGroupTypes;
+  Future<void>? _askingCapabilities;
 
-  Future<void> _fetchGroupTypes() async {
+  Future<void> _fetchCapabilities() async {
     final client = Matrix.of(context).client;
     final pending = [
       for (final bridge in bridges)
-        if (!_groupTypes.containsKey(bridge.name)) bridge,
+        if (!_lookups.containsKey(bridge.name) ||
+            !_groupTypes.containsKey(bridge.name))
+          bridge,
     ];
     await Future.wait(
       pending.map((bridge) async {
+        try {
+          _lookups[bridge.name] = await widget.delivery.lookupsOn(
+            client,
+            bridge,
+          );
+        } catch (e, s) {
+          Logs().w('${bridge.name} did not say what it looks up', e, s);
+          _lookups[bridge.name] = BridgeLookups.knownFor(bridge);
+        }
+        if (_groupTypes.containsKey(bridge.name)) return;
         try {
           _groupTypes[bridge.name] = await widget.delivery.groupTypeOn(
             client,
@@ -367,7 +404,11 @@ class NewPrivateChatController extends State<NewPrivateChat> {
         }
       }),
     );
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {
+      recipients.forEach(_check);
+      _findConversation();
+    });
   }
 
   /// Makes the group again on [network], with everyone as its bridge
@@ -379,6 +420,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
       GroupNetwork(bridge, type),
       GroupMember(recipients.first, network.user!),
     );
+    group.lookups = _lookups[bridge.name];
     for (final person in recipients.skip(1)) {
       group.add(
         GroupMember(
@@ -441,6 +483,15 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// contacts, one row per person. Directory results follow them.
   List<NewChatPerson<ExistingChat>> people = const [];
 
+  /// The [people] the suggestions list. Once someone is in the To field,
+  /// group chats are left out: only people can join them.
+  List<NewChatPerson<ExistingChat>> get suggestedPeople => recipients.isEmpty
+      ? people
+      : [
+          for (final person in people)
+            if (!person.group) person,
+        ];
+
   /// The search [people] was built for, and its chats, for rebuilding
   /// [people] when a slower source arrives.
   String _peopleQuery = '';
@@ -488,7 +539,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     // The bridges' list may be what came: the people in the To field are
     // asked about on each new one, and the group lookup reads it.
     recipients.forEach(_check);
-    _askGroupTypes();
+    _askCapabilities();
     _findConversation();
     if (searchResponse == null || _peopleQuery.isEmpty) {
       setState(() {});
@@ -697,18 +748,15 @@ class NewPrivateChatController extends State<NewPrivateChat> {
       }
       // The first person's network is needed: wait for the answers.
       final reach = _reach[groupMemberKey(first)];
-      final waiting = [
-        if (reach != null && reach.asking) reach.settled(),
-        _askGroupTypes(),
-      ];
-      if (waiting.isNotEmpty) {
-        await showFutureLoadingDialog(
-          context: context,
-          future: () => Future.wait(waiting),
-        );
-        if (!mounted) return false;
-        setState(_findConversation);
-      }
+      await showFutureLoadingDialog(
+        context: context,
+        future: () async {
+          await _askCapabilities();
+          await reach?.settled();
+        },
+      );
+      if (!mounted) return false;
+      setState(_findConversation);
       final network = selectedNetwork;
       final bridge = network?.bridge;
       if (network == null || bridge == null) {
@@ -745,6 +793,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
         return false;
       }
       group.start(GroupNetwork(bridge, type), GroupMember(first, user));
+      group.lookups = _lookups[bridge.name];
     }
     final added = await toggleGroupMember(
       context,

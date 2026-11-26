@@ -6,9 +6,10 @@ import 'package:fluffychat/utils/bridge_provisioning.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:matrix/matrix.dart';
 
-/// The user's bridges, their contact lists and the groups they create, for
-/// New Chat, one per client. Bridges and contacts are kept for [lifetime]
-/// so reopening New Chat does not ask every bridge again.
+/// The user's bridges, their contact lists, the groups they create and
+/// what they look people up by, for New Chat, one per client. Bridges and
+/// contacts are kept for [lifetime] so reopening New Chat does not ask
+/// every bridge again.
 class BridgeDirectory {
   final BridgeProvisioning api;
 
@@ -59,18 +60,36 @@ class BridgeDirectory {
     return _bridges!;
   }
 
-  final Map<String, Future<List<BridgeGroupType>>> _groupTypes = {};
+  final Map<String, Future<Map<String, Object?>?>> _capabilities = {};
 
-  /// The kinds of group [bridge] can create, asked once per directory. A
-  /// bridge whose capabilities cannot be read creates none.
-  Future<List<BridgeGroupType>> groupTypes(BridgeInfo bridge) =>
-      _groupTypes[bridge.name] ??= api.groupTypes(bridge).catchError((
-        Object e,
-      ) {
-        Logs().w('Unable to read the capabilities of ${bridge.name}', e);
-        _groupTypes.remove(bridge.name);
-        return const <BridgeGroupType>[];
-      });
+  /// [bridge]'s capabilities, asked once per directory; null when they
+  /// cannot be read, which is asked again next time.
+  Future<Map<String, Object?>?> _capabilitiesOf(BridgeInfo bridge) =>
+      _capabilities[bridge.name] ??= api
+          .capabilities(bridge)
+          .then<Map<String, Object?>?>((json) => json)
+          .catchError((Object e) {
+            Logs().w('Unable to read the capabilities of ${bridge.name}', e);
+            _capabilities.remove(bridge.name);
+            return null;
+          });
+
+  /// The kinds of group [bridge] can create. A bridge whose capabilities
+  /// cannot be read creates none.
+  Future<List<BridgeGroupType>> groupTypes(BridgeInfo bridge) async {
+    final capabilities = await _capabilitiesOf(bridge);
+    return capabilities == null ? const [] : groupTypesOf(capabilities);
+  }
+
+  /// What [bridge] can look a person up by: what its capabilities
+  /// declare, else what its network is known to take.
+  Future<BridgeLookups> lookups(BridgeInfo bridge) async {
+    final capabilities = await _capabilitiesOf(bridge);
+    return (capabilities == null
+            ? null
+            : BridgeLookups.fromCapabilities(capabilities)) ??
+        BridgeLookups.knownFor(bridge);
+  }
 
   /// Every contact of every bridge that lists them. A bridge that fails or
   /// has no contact list adds none.

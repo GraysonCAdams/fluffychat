@@ -84,6 +84,10 @@ class GroupDraft extends ChangeNotifier {
   /// People the network answered it cannot reach, by [groupMemberKey].
   final Set<String> _unreachable = {};
 
+  /// What the [bridge] can look people up by; null until known, when a
+  /// number or email is tried on any bridge.
+  BridgeLookups? lookups;
+
   GroupDraft() : _roomBridge = null, _memberIds = {};
 
   /// People to add to a group on [bridge] whose members are [memberIds].
@@ -134,7 +138,7 @@ class GroupDraft extends ChangeNotifier {
       return GroupBlock.notOnNetwork;
     }
     if (person.bridgeUsers.containsKey(bridge.name)) return null;
-    if (identifierForBridge(person, bridge) == null) {
+    if (identifierForBridge(person, bridge, lookups: lookups) == null) {
       return GroupBlock.notOnNetwork;
     }
     return null;
@@ -209,6 +213,14 @@ class NewChatDelivery {
     final directory = BridgeDirectory.forClient(client);
     if (directory == null) return false;
     return (await directory.bridges()).isNotEmpty;
+  }
+
+  /// What [bridge] can look a person up by: what its capabilities declare,
+  /// else what its network is known to take.
+  Future<BridgeLookups> lookupsOn(Client client, BridgeInfo bridge) async {
+    final directory = BridgeDirectory.forClient(client);
+    if (directory == null) return BridgeLookups.knownFor(bridge);
+    return directory.lookups(bridge);
   }
 
   /// The kind of group [bridge] creates, or null when it creates none.
@@ -370,7 +382,11 @@ Future<bool> toggleGroupMember(
   if (bridge == null) return false;
   var user = person.bridgeUsers[bridge.name];
   if (user == null) {
-    final identifier = identifierForBridge(person, bridge)!;
+    final identifier = identifierForBridge(
+      person,
+      bridge,
+      lookups: draft.lookups,
+    )!;
     while (true) {
       // The error is caught here rather than by the loading dialog, which
       // would show it without saying who or where.
@@ -398,7 +414,9 @@ Future<bool> toggleGroupMember(
       if (!context.mounted || result.isError) return false;
       final answer = result.asValue!.value;
       final error = answer.error;
-      if (error == null) {
+      // A bridge that cannot take this kind of identifier does not reach
+      // the person, like one that answered "not found".
+      if (error == null || bridgeRejectsIdentifier(error)) {
         user = answer.user;
         break;
       }

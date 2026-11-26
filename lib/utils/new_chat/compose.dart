@@ -103,22 +103,61 @@ Room? existingGroupOf(
   for (final member in members) {
     final ghost =
         member.user.mxid ?? member.person.bridgeUsers[bridge.name]?.mxid;
-    if (ghost == null) return null;
+    Logs().d(
+      'Group lookup on ${bridge.name}: member user ${redactDigits(member.user.id)}, '
+      'resolved ghost ${redactDigits(member.user.mxid)}, '
+      'contact ghost ${redactDigits(member.person.bridgeUsers[bridge.name]?.mxid)}',
+    );
+    if (ghost == null) {
+      Logs().d('Group lookup on ${bridge.name}: a member has no ghost');
+      return null;
+    }
     wanted.add(ghost);
   }
+  Logs().d(
+    'Group lookup on ${bridge.name}: wanted ${wanted.map(redactDigits).toList()}',
+  );
   final matches = client.rooms.where((room) {
-    if (room.membership != Membership.join ||
-        room.isSpace ||
-        room.directChatMatrixID != null) {
-      return false;
+    if (room.membership != Membership.join || room.isSpace) return false;
+    final roomBridge = add_people.bridgeOfRoom(bridges, room)?.name;
+    final loaded = {
+      for (final user in room.getParticipants([
+        Membership.join,
+        Membership.invite,
+      ]))
+        user.id,
+      ...?room.summary.mHeroes,
+    };
+    // Only rooms on the bridge, or holding one of the ghosts, are worth a
+    // line in the log.
+    final relevant = roomBridge == bridge.name || wanted.any(loaded.contains);
+    String? reason;
+    Set<String>? others;
+    if (room.directChatMatrixID != null) {
+      reason = 'direct chat with ${redactDigits(room.directChatMatrixID)}';
+    } else if (roomBridge != bridge.name) {
+      reason = 'on bridge $roomBridge';
+    } else {
+      others = _othersOf(room, bridge);
+      if (others == null) {
+        reason = 'members not all loaded';
+      } else if (others.length != wanted.length ||
+          !others.containsAll(wanted)) {
+        reason = 'other members differ';
+      }
     }
-    if (add_people.bridgeOfRoom(bridges, room)?.name != bridge.name) {
-      return false;
+    if (relevant) {
+      Logs().d(
+        'Group lookup on ${bridge.name}: ${room.id} '
+        '${reason == null ? 'matches' : 'rejected, $reason'}; '
+        'joined ${room.summary.mJoinedMemberCount}, '
+        'invited ${room.summary.mInvitedMemberCount}, '
+        'heroes ${room.summary.mHeroes?.length}, '
+        'loaded ${loaded.map(redactDigits).toList()}, '
+        'others ${others?.map(redactDigits).toList()}',
+      );
     }
-    final others = _othersOf(room, bridge);
-    return others != null &&
-        others.length == wanted.length &&
-        others.containsAll(wanted);
+    return reason == null;
   }).toList();
   if (matches.isEmpty) return null;
   matches.sort(
@@ -126,6 +165,14 @@ Room? existingGroupOf(
   );
   return matches.first;
 }
+
+/// [text] with each run of five or more digits, such as a phone number in
+/// a ghost's Matrix ID, cut to its last two, for the log.
+String? redactDigits(String? text) => text?.replaceAllMapped(
+  RegExp(r'\d{5,}'),
+  (match) =>
+      '#' * (match[0]!.length - 2) + match[0]!.substring(match[0]!.length - 2),
+);
 
 /// What the user's networks answered about one person in the compose
 /// screen's To field, by bridge name.
@@ -154,15 +201,28 @@ class PersonReach {
   bool get asking => _asking.isNotEmpty;
 
   /// Asks [bridge] about the person with [resolve] and records the answer,
-  /// or the reason when it fails. Completes either way.
+  /// or the reason when it fails. A bridge that rejects the identifier
+  /// itself counts as one that does not reach them. Completes either way.
   Future<void> ask(String bridge, Future<BridgeUser?> Function() resolve) {
     errors.remove(bridge);
     final future = () async {
       try {
-        users[bridge] = await resolve();
+        final user = await resolve();
+        users[bridge] = user;
+        Logs().d(
+          '$bridge resolved a person in the To field: '
+          'id ${redactDigits(user?.id)}, ghost ${redactDigits(user?.mxid)}, '
+          'chat ${user?.dmRoomId}',
+        );
       } catch (e, s) {
         Logs().w('$bridge could not resolve a person in the To field', e, s);
-        errors[bridge] = bridgeErrorReason(e);
+        // A bridge that cannot take this kind of identifier does not reach
+        // the person; anything else is a failure to answer.
+        if (bridgeRejectsIdentifier(e)) {
+          users[bridge] = null;
+        } else {
+          errors[bridge] = bridgeErrorReason(e);
+        }
       }
     }();
     _asking[bridge] = future;
@@ -212,6 +272,27 @@ class ComposeNetwork {
     room == null ? bridge?.networkId : NetworkColors.bridgeIdOf(room!),
   );
 }
+
+/// The space [bridge] puts its chats in: the one its `whoami` names, else
+/// the space of any of its chats. Null when there is none.
+Room? bridgeSpace(Client client, BridgeInfo bridge) {
+  final spaceId = bridge.spaceRoomId;
+  final named = spaceId == null ? null : client.getRoomById(spaceId);
+  if (named != null) return named;
+  final spaces = spacesByChild(client);
+  for (final room in client.rooms) {
+    if (room.isSpace) continue;
+    final space = spaces[room.id];
+    if (space == null) continue;
+    if (add_people.bridgeOfRoom([bridge], room) != null) return space;
+  }
+  return null;
+}
+
+/// The logo of [bridge]'s network: its space's avatar, as the network
+/// switcher shows it, else the bridge's own icon.
+Uri? bridgeLogo(Client client, BridgeInfo bridge) =>
+    bridgeSpace(client, bridge)?.avatar ?? bridge.icon;
 
 /// The rooms of [chat]: every room of a merged contact, newest first, else
 /// the chat's room.
@@ -269,12 +350,7 @@ List<ComposeNetwork> composeNetworksOf(
         (dmRoom?.membership == Membership.join ? dmRoom : null);
     if (room == null && user == null) continue;
     if (room != null) placed.add(room.id);
-    final spaceId = bridge.spaceRoomId;
-    final space = room != null
-        ? spaces[room.id]
-        : spaceId == null
-        ? null
-        : client.getRoomById(spaceId);
+    final space = room != null ? spaces[room.id] : bridgeSpace(client, bridge);
     networks.add(
       ComposeNetwork(
         bridge: bridge,

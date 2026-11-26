@@ -361,7 +361,7 @@ a row, or Enter (the top row for the typed text, a typed number or email
 included, else a typed Matrix ID), puts the person in the To field as a
 chip and clears the search; the chip's remove button, a second tap on the
 row, or backspace in the empty field takes them out. A group chat in the
-results opens when nobody is in the To field yet, and is greyed out once
+results opens when nobody is in the To field yet, and is not listed once
 someone is. Before anyone is picked, the area shows the phone contacts
 offer, the invite link, the QR code and, for an account with no bridges,
 the Matrix-only "Create group" page (`/rooms/newgroup`); Create group from
@@ -371,18 +371,29 @@ the account menu (`?group=1`) goes straight there on such an account.
 
 Each person put in the To field is asked about on every network
 (`PersonReach` in `lib/utils/new_chat/compose.dart`): a bridge that lists
-them answers by itself, one with nothing to look them up by does not reach
-them, and the rest get `resolve_identifier` with the ghost's ID when that
-bridge listed them, else the number, else the email, else the ghost of
-their chat on that network. Numbers from the address book are sent only to
-these bridges, and only for the people picked. A network whose
+them answers by itself, one with nothing it can look them up by does not
+reach them, and the rest get `resolve_identifier` with the ghost's ID when
+that bridge listed them, else the number, else the email, else the ghost
+of their chat on that network. A number or email goes only to a bridge
+that takes one (`BridgeLookups`): what `resolve_identifier` in its
+`GET /v3/capabilities` declares (`lookup_phone` or `any_phone`,
+`lookup_email`), else, for a bridge that declares no lookups, the networks
+known to take numbers (iMessage, Google Messages, Signal, WhatsApp,
+Telegram) and email (iMessage). LinkedIn declares none and gets neither;
+asked about a number, it answers 500 "Internal error resolving
+identifier". Numbers from the address book are sent only to these
+bridges, and only for the people picked. A network whose
 `resolve_identifier` fails (an HTTP error other than `M_NOT_FOUND`, such
-as iMessage's 500 when Apple refuses lookups) is never treated as "not
-found": a line under the To field shows its logo, "Couldn't check:" with
-the bridge's message and a retry button, and with no network reaching the
-person the conversation says "Couldn't check this person" and send stays
-off. When every network answered and none reaches them, it says "None of
-your networks can reach this person".
+as iMessage's 500 when Apple refuses lookups, or a timeout) is never
+treated as "not found": a line under the To field shows the network's
+logo, "Couldn't check <name> on <network>:" with the bridge's message and
+a retry button, one line per person and network, hidden while a name is
+typed into the To field. An error that says the identifier itself is
+invalid or unsupported (`bridgeRejectsIdentifier`) counts as "not found".
+With no network reaching the first person the conversation says
+"Couldn't check this person" and send stays off. When every network
+answered and none reaches them, it says "None of your networks can reach
+this person".
 
 The first person's networks (`composeNetworksOf`) are each network with a
 chat with them (every room of a merged contact, or the direct chat a

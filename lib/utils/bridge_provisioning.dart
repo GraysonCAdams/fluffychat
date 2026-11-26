@@ -171,6 +171,79 @@ class BridgeUser {
   }
 }
 
+/// What a bridge can look a person up by in `resolve_identifier`.
+class BridgeLookups {
+  /// Whether it takes a phone number: `lookup_phone`, or `any_phone` for a
+  /// network that reaches any number without a lookup.
+  final bool phone;
+
+  /// Whether it takes an email address (`lookup_email`).
+  final bool email;
+
+  const BridgeLookups({required this.phone, required this.email});
+
+  /// The networks known to take phone numbers, by bridge name or network
+  /// ID, for a bridge that does not declare its lookups.
+  static const phoneNetworks = {
+    'imessage',
+    'gmessages',
+    'signal',
+    'whatsapp',
+    'telegram',
+  };
+
+  /// The networks known to take email addresses, likewise.
+  static const emailNetworks = {'imessage'};
+
+  /// From `resolve_identifier` in a bridge's `GET /v3/capabilities`
+  /// (`ResolveIdentifierCapabilities` in mautrix-go). Null when it declares
+  /// no way to look anyone up, as a bridge that predates the field does.
+  static BridgeLookups? fromCapabilities(Map<String, Object?> json) {
+    final lookups = json['resolve_identifier'];
+    if (lookups is! Map) return null;
+    bool flag(String key) => lookups[key] == true;
+    final phone = flag('lookup_phone') || flag('any_phone');
+    final email = flag('lookup_email');
+    if (!phone && !email && !flag('lookup_username')) return null;
+    return BridgeLookups(phone: phone, email: email);
+  }
+
+  /// What [bridge] is known to take, by its name or network ID.
+  static BridgeLookups knownFor(BridgeInfo bridge) {
+    bool known(Set<String> networks) =>
+        networks.contains(bridge.name) || networks.contains(bridge.networkId);
+    return BridgeLookups(
+      phone: known(phoneNetworks),
+      email: known(emailNetworks),
+    );
+  }
+}
+
+/// The kinds of group in a bridge's [capabilities] (`group_creation`).
+/// Empty when it creates none.
+List<BridgeGroupType> groupTypesOf(Map<String, Object?> capabilities) {
+  final types = capabilities['group_creation'];
+  if (types is! Map) return const [];
+  return [
+    for (final MapEntry(:key, :value) in types.entries)
+      if (key is String) BridgeGroupType.fromJson(key, value),
+  ];
+}
+
+/// Whether [error], from `resolve_identifier`, says the bridge cannot take
+/// that kind of identifier at all (such as a phone number on a network of
+/// usernames), which means the person is not reachable there rather than
+/// that the bridge failed to answer.
+bool bridgeRejectsIdentifier(Object error) {
+  if (error is! BridgeProvisioningException) return false;
+  final text = '${error.errcode ?? ''} ${error.error ?? ''}'.toLowerCase();
+  return RegExp(
+    r'(invalid|unsupported|not supported|unrecognized)[^.]*identifier'
+    r'|identifier[^.]*(invalid|not supported|unsupported)'
+    r'|invalid (phone|email|user ?name)',
+  ).hasMatch(text);
+}
+
 /// One kind of group a bridge can create: an entry of `group_creation` in
 /// its `GET /v3/capabilities` (`GroupTypeCapabilities` in mautrix-go).
 class BridgeGroupType {
@@ -399,17 +472,15 @@ class BridgeProvisioning {
     return roomId;
   }
 
+  /// `GET /v3/capabilities`: what [bridge] can do through this API
+  /// (`ProvisioningCapabilities` in mautrix-go).
+  Future<Map<String, Object?>> capabilities(BridgeInfo bridge) =>
+      _send(bridge.name, 'GET', ['capabilities']);
+
   /// The kinds of group [bridge] can create, from `GET /v3/capabilities`
   /// (`group_creation`). Empty when it creates none.
-  Future<List<BridgeGroupType>> groupTypes(BridgeInfo bridge) async {
-    final json = await _send(bridge.name, 'GET', ['capabilities']);
-    final types = json['group_creation'];
-    if (types is! Map) return const [];
-    return [
-      for (final MapEntry(:key, :value) in types.entries)
-        if (key is String) BridgeGroupType.fromJson(key, value),
-    ];
-  }
+  Future<List<BridgeGroupType>> groupTypes(BridgeInfo bridge) async =>
+      groupTypesOf(await capabilities(bridge));
 
   /// `POST /v3/create_group/{type}`: creates a group of [type] with
   /// [participants] (network user IDs, as `resolve_identifier` answers
