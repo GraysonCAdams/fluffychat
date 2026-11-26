@@ -154,7 +154,8 @@ class PersonReach {
   bool get asking => _asking.isNotEmpty;
 
   /// Asks [bridge] about the person with [resolve] and records the answer,
-  /// or the reason when it fails. Completes either way.
+  /// or the reason when it fails. A bridge that rejects the identifier
+  /// itself counts as one that does not reach them. Completes either way.
   Future<void> ask(String bridge, Future<BridgeUser?> Function() resolve) {
     errors.remove(bridge);
     final future = () async {
@@ -162,7 +163,13 @@ class PersonReach {
         users[bridge] = await resolve();
       } catch (e, s) {
         Logs().w('$bridge could not resolve a person in the To field', e, s);
-        errors[bridge] = bridgeErrorReason(e);
+        // A bridge that cannot take this kind of identifier does not reach
+        // the person; anything else is a failure to answer.
+        if (bridgeRejectsIdentifier(e)) {
+          users[bridge] = null;
+        } else {
+          errors[bridge] = bridgeErrorReason(e);
+        }
       }
     }();
     _asking[bridge] = future;
@@ -212,6 +219,27 @@ class ComposeNetwork {
     room == null ? bridge?.networkId : NetworkColors.bridgeIdOf(room!),
   );
 }
+
+/// The space [bridge] puts its chats in: the one its `whoami` names, else
+/// the space of any of its chats. Null when there is none.
+Room? bridgeSpace(Client client, BridgeInfo bridge) {
+  final spaceId = bridge.spaceRoomId;
+  final named = spaceId == null ? null : client.getRoomById(spaceId);
+  if (named != null) return named;
+  final spaces = spacesByChild(client);
+  for (final room in client.rooms) {
+    if (room.isSpace) continue;
+    final space = spaces[room.id];
+    if (space == null) continue;
+    if (add_people.bridgeOfRoom([bridge], room) != null) return space;
+  }
+  return null;
+}
+
+/// The logo of [bridge]'s network: its space's avatar, as the network
+/// switcher shows it, else the bridge's own icon.
+Uri? bridgeLogo(Client client, BridgeInfo bridge) =>
+    bridgeSpace(client, bridge)?.avatar ?? bridge.icon;
 
 /// The rooms of [chat]: every room of a merged contact, newest first, else
 /// the chat's room.
@@ -269,12 +297,7 @@ List<ComposeNetwork> composeNetworksOf(
         (dmRoom?.membership == Membership.join ? dmRoom : null);
     if (room == null && user == null) continue;
     if (room != null) placed.add(room.id);
-    final spaceId = bridge.spaceRoomId;
-    final space = room != null
-        ? spaces[room.id]
-        : spaceId == null
-        ? null
-        : client.getRoomById(spaceId);
+    final space = room != null ? spaces[room.id] : bridgeSpace(client, bridge);
     networks.add(
       ComposeNetwork(
         bridge: bridge,

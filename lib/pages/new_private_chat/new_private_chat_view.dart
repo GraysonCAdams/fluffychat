@@ -79,8 +79,7 @@ class NewPrivateChatView extends StatelessWidget {
               )[sendRoom.id]?.getLocalizedDisplayname(MatrixLocals(l10n))) ??
         l10n.writeAMessage;
     final checking =
-        !controller.showNetworkSwitcher &&
-        (controller.firstReach?.asking ?? false);
+        !controller.showNetworkSwitcher && controller.checkingNetworks;
     return Scaffold(
       appBar: AppBar(
         scrolledUnderElevation: 0,

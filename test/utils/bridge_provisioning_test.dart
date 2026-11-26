@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:fluffychat/utils/bridge_provisioning.dart';
@@ -239,6 +240,70 @@ void main() {
       (_) async => _json(200, {'resolve_identifier': <String, Object?>{}}),
     ).groupTypes(gmessages);
     expect(types, isEmpty);
+  });
+
+  group('lookups', () {
+    const linkedin = BridgeInfo(
+      name: 'linkedin',
+      networkId: 'linkedin',
+      displayName: 'LinkedIn',
+      icon: null,
+      loginId: 'l',
+    );
+
+    test('Google Messages takes any phone number without a lookup', () {
+      final lookups = BridgeLookups.fromCapabilities({
+        'resolve_identifier': {'create_dm': true, 'any_phone': true},
+      })!;
+      expect(lookups.phone, isTrue);
+      expect(lookups.email, isFalse);
+    });
+
+    test('a bridge of usernames takes no numbers or emails', () {
+      final lookups = BridgeLookups.fromCapabilities({
+        'resolve_identifier': {'lookup_username': true, 'search': true},
+      })!;
+      expect(lookups.phone, isFalse);
+      expect(lookups.email, isFalse);
+    });
+
+    test('a bridge that declares no lookups is what its network takes', () {
+      // LinkedIn declares only create_dm and search.
+      expect(
+        BridgeLookups.fromCapabilities({
+          'resolve_identifier': {'create_dm': true, 'search': true},
+        }),
+        isNull,
+      );
+      expect(BridgeLookups.knownFor(linkedin).phone, isFalse);
+      expect(BridgeLookups.knownFor(gmessages).phone, isTrue);
+    });
+  });
+
+  test('an error that rejects the identifier is told from a failure', () {
+    expect(
+      bridgeRejectsIdentifier(
+        const BridgeProvisioningException(
+          'linkedin',
+          statusCode: 500,
+          errcode: 'M_UNKNOWN',
+          error: 'invalid identifier: +14045550101',
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      bridgeRejectsIdentifier(
+        const BridgeProvisioningException(
+          'linkedin',
+          statusCode: 500,
+          errcode: 'M_UNKNOWN',
+          error: 'Internal error resolving identifier',
+        ),
+      ),
+      isFalse,
+    );
+    expect(bridgeRejectsIdentifier(TimeoutException('no answer')), isFalse);
   });
 
   test('create_group posts the participants and name to its type', () async {

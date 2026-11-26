@@ -3304,8 +3304,23 @@
     },
     "networkCheckFailed": "Couldn't check: {error}",
     "@networkCheckFailed": {
-        "description": "On the compose screen, under the To field next to a network's logo, when its bridge failed to answer whether it reaches the person picked, with the bridge's reason. A retry button follows it.",
+        "description": "Snackbar on the compose screen when a network failed to say which groups it creates, with the bridge's reason.",
         "placeholders": {
+            "error": {
+                "type": "String"
+            }
+        }
+    },
+    "personOnNetworkCheckFailed": "Couldn't check {name} on {network}: {error}",
+    "@personOnNetworkCheckFailed": {
+        "description": "On the compose screen, under the To field next to a network's logo, when its bridge failed to answer whether it reaches a person in the To field, with the bridge's reason. A retry button follows it.",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            },
+            "network": {
+                "type": "String"
+            },
             "error": {
                 "type": "String"
             }

@@ -191,37 +191,53 @@ class ComposeNetworkSwitcher extends StatelessWidget {
 }
 
 /// Under the To field, each network that failed to answer whether it
-/// reaches the first person, with the bridge's reason and a retry button,
-/// so a failing network never reads as one that does not know them.
+/// reaches someone in the To field, one line each naming the person and
+/// the network with the bridge's reason and a retry button, so a failing
+/// network never reads as one that does not know them. The lines hide while
+/// a name is typed, so they do not read as about the search.
 class ComposeNetworkCheckFailed extends StatelessWidget {
   final NewPrivateChatController controller;
 
   const ComposeNetworkCheckFailed(this.controller, {super.key});
+
+  /// The longest name a line shows before it is cut short.
+  static const int _nameLength = 24;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
     final failed = controller.failedNetworks;
-    if (failed.isEmpty) return const SizedBox.shrink();
+    if (failed.isEmpty || controller.controller.text.isNotEmpty) {
+      return const SizedBox.shrink();
+    }
     return Padding(
       key: const ValueKey('compose-check-failed'),
       padding: const EdgeInsets.fromLTRB(16, 0, 4, 4),
       child: Column(
         children: [
-          for (final (bridge, error) in failed)
+          for (final (:person, :bridge, :error) in failed)
             Row(
+              key: ValueKey(
+                'check-failed-${bridge.name}-${groupMemberKey(person)}',
+              ),
               spacing: 8,
               children: [
                 Avatar(
-                  mxContent: bridge.icon,
+                  mxContent: controller.networkLogo(bridge),
                   name: bridge.displayName,
                   size: 20,
                   borderRadius: BorderRadius.circular(5),
                 ),
                 Expanded(
                   child: Text(
-                    l10n.networkCheckFailed(error),
+                    l10n.personOnNetworkCheckFailed(
+                      person.name.length > _nameLength
+                          ? '${person.name.substring(0, _nameLength - 1)}…'
+                          : person.name,
+                      bridge.displayName,
+                      error,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelLarge?.copyWith(
@@ -232,7 +248,7 @@ class ComposeNetworkCheckFailed extends StatelessWidget {
                 IconButton(
                   tooltip: l10n.tryAgain,
                   icon: const Icon(Icons.refresh_outlined),
-                  onPressed: () => controller.retryNetwork(bridge),
+                  onPressed: () => controller.retryNetwork(person, bridge),
                 ),
               ],
             ),

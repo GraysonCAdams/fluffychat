@@ -4,6 +4,7 @@
 
 // ignore_for_file: depend_on_referenced_packages, implementation_imports
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cross_file/cross_file.dart';
@@ -19,6 +20,7 @@ import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
 import 'package:fluffychat/utils/new_chat/new_group.dart';
 import 'package:fluffychat/utils/share_items.dart';
+import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -56,6 +58,16 @@ const _telegram = BridgeInfo(
   displayName: 'Telegram',
   icon: null,
   loginId: 'login-telegram',
+);
+
+/// A network of usernames, which takes no phone numbers.
+const _linkedin = BridgeInfo(
+  name: 'linkedin',
+  networkId: 'linkedin',
+  displayName: 'LinkedIn',
+  icon: null,
+  loginId: 'login-linkedin',
+  bridgeBot: '@linkedinbot:x',
 );
 
 const _imessageGroup = BridgeGroupType(id: 'group', nameAllowed: true);
@@ -102,7 +114,7 @@ class _FakeDelivery extends NewChatDelivery {
 
   @override
   Future<void> loadSources(Client client, NewChatSources sources) async {
-    sources.bridges = [_imessage, _gmessages, _telegram];
+    sources.bridges = [_imessage, _gmessages, _telegram, _linkedin];
     sources.bridgeContacts = bridgeContacts;
     // As the real sources do when the bridges answer.
     sources.onChanged();
@@ -110,6 +122,14 @@ class _FakeDelivery extends NewChatDelivery {
 
   @override
   Future<bool> hasBridges(Client client) async => bridges;
+
+  /// What each bridge declares it looks people up by, by bridge name;
+  /// a bridge with none is what its network is known to take.
+  final Map<String, BridgeLookups> lookups = {};
+
+  @override
+  Future<BridgeLookups> lookupsOn(Client client, BridgeInfo bridge) async =>
+      lookups[bridge.name] ?? BridgeLookups.knownFor(bridge);
 
   @override
   Future<BridgeGroupType?> groupTypeOn(
@@ -930,7 +950,10 @@ void main() {
       await tester.pumpAndSettle();
       // Google Messages answered it does not reach them, but iMessage
       // failing is no "not found": nothing is picked and send stays off.
-      expect(find.text("Couldn't check: lookup refused"), findsOneWidget);
+      expect(
+        find.text("Couldn't check +1 404 555 0199 on iMessage: lookup refused"),
+        findsOneWidget,
+      );
       expect(find.text("Couldn't check this person"), findsOneWidget);
       expect(networks, findsNothing);
       await tester.enterText(messageField, 'hey');
@@ -952,11 +975,134 @@ void main() {
         delivery.resolved.where((asked) => asked.startsWith('imessage')),
         hasLength(2),
       );
-      expect(find.text("Couldn't check: lookup refused"), findsNothing);
+      expect(find.textContaining("Couldn't check"), findsNothing);
       expect(composerHint(tester), 'iMessage');
       await tester.tap(find.byKey(const ValueKey('compose-send')));
       await tester.pumpAndSettle();
       expect(delivery.started, ['imessage +14045550199']);
+    });
+
+    Future<void> typeNumber(WidgetTester tester) async {
+      await tester.enterText(toField, '404-555-0199');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a typed number is never sent to a network that takes no '
+        'phone numbers', (tester) async {
+      // Telegram declares it does not look up numbers; LinkedIn declares
+      // nothing and is not a network of phone numbers.
+      delivery.lookups['telegram'] = const BridgeLookups(
+        phone: false,
+        email: false,
+      );
+      await pump(tester);
+      await typeNumber(tester);
+      expect(delivery.resolved, [
+        'imessage +14045550199',
+        'gmessages +14045550199',
+      ]);
+      expect(find.textContaining("Couldn't check"), findsNothing);
+    });
+
+    testWidgets('a bridge that rejects the identifier is a network the person '
+        'is not on, without a failure line', (tester) async {
+      delivery.reachable['imessage +14045550199'] = const BridgeUser(
+        id: 'imsg-0199',
+      );
+      delivery.resolveErrors['gmessages'] = const BridgeProvisioningException(
+        'gmessages',
+        statusCode: 500,
+        errcode: 'M_UNKNOWN',
+        error: 'invalid identifier: +14045550199',
+      );
+      await pump(tester);
+      await typeNumber(tester);
+      expect(delivery.resolved, contains('gmessages +14045550199'));
+      expect(find.byKey(const ValueKey('compose-check-failed')), findsNothing);
+      expect(find.textContaining("Couldn't check"), findsNothing);
+      expect(composerHint(tester), 'iMessage');
+    });
+
+    testWidgets('a network that times out keeps its line, with its logo and '
+        'the person named; the lines hide while a name is typed', (
+      tester,
+    ) async {
+      final sms = addFakeChat(
+        client,
+        '!someone-gm:x',
+        'Someone Sms',
+        partner: '@gmessages_someone:x',
+      );
+      addFakeBridge(sms, bot: _gmessages.bridgeBot!);
+      addFakeSpace(client, '!gspace:x', 'Google Messages', [sms.id]).setState(
+        StrippedStateEvent(
+          type: EventTypes.RoomAvatar,
+          content: {'url': 'mxc://x/gmessages-logo'},
+          senderId: '@gmessagesbot:x',
+          stateKey: '',
+        ),
+      );
+      delivery.reachable['imessage +14045550199'] = const BridgeUser(
+        id: 'imsg-0199',
+      );
+      delivery.resolveErrors['gmessages'] = TimeoutException(
+        'no answer',
+        const Duration(seconds: 30),
+      );
+      await pump(tester);
+      await typeNumber(tester);
+      final line = find.byKey(
+        const ValueKey('check-failed-gmessages-+14045550199'),
+      );
+      expect(line, findsOneWidget);
+      expect(
+        find.descendant(
+          of: line,
+          matching: find.textContaining(
+            "Couldn't check +1 404 555 0199 on Google Messages: ",
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<Avatar>(
+              find.descendant(of: line, matching: find.byType(Avatar)),
+            )
+            .mxContent,
+        Uri.parse('mxc://x/gmessages-logo'),
+      );
+
+      // Typing a name: the line is about the chip, not the search.
+      await tester.enterText(toField, 'qu');
+      await tester.pump();
+      expect(line, findsNothing);
+      await tester.enterText(toField, '');
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pumpAndSettle();
+      expect(line, findsOneWidget);
+    });
+
+    testWidgets('each person a network failed on gets a line of their own', (
+      tester,
+    ) async {
+      delivery.resolveErrors['gmessages'] = TimeoutException('no answer');
+      await pump(tester);
+      await pick(tester, 'quinn', 'Quinn Imsg');
+      await pick(tester, 'quinby', 'Quinby Imsg');
+      expect(
+        find.byKey(const ValueKey('check-failed-gmessages-+14045550101')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('check-failed-gmessages-+14045550102')),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining("Couldn't check Quinby Imsg on Google Messages"),
+        findsOneWidget,
+      );
     });
 
     testWidgets('no network reaches them: says so and holds send', (

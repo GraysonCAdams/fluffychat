@@ -354,9 +354,14 @@ List<BridgeInfo> orderBridgesForSwitcher(List<BridgeInfo> bridges) {
 /// What to pass [bridge]'s `resolve_identifier` and `create_dm` for
 /// [person]: the ghost's Matrix ID when that bridge lists them, else their
 /// phone number, else their email, else the other person's Matrix ID when
-/// [person] is a chat with one person on [bridge]'s network. Null when
-/// there is nothing to try.
-String? identifierForBridge(NewChatPerson person, BridgeInfo bridge) {
+/// [person] is a chat with one person on [bridge]'s network. A number or
+/// email is passed only where [lookups] says the bridge takes one. Null
+/// when there is nothing to try.
+String? identifierForBridge(
+  NewChatPerson person,
+  BridgeInfo bridge, {
+  BridgeLookups? lookups,
+}) {
   final known = person.bridgeUsers[bridge.name];
   final onBridge =
       !person.group &&
@@ -365,7 +370,7 @@ String? identifierForBridge(NewChatPerson person, BridgeInfo bridge) {
         (network) => network.key == NetworkRef.ofBridge(bridge).key,
       );
   return known?.mxid ??
-      person.phone ??
-      person.email ??
+      (lookups?.phone ?? true ? person.phone : null) ??
+      (lookups?.email ?? true ? person.email : null) ??
       (onBridge ? person.userIds.single : null);
 }
