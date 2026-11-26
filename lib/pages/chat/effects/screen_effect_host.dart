@@ -41,28 +41,43 @@ class ScreenEffectHostState extends State<ScreenEffectHost>
   /// How many scenes have started here.
   int get plays => _plays;
 
+  /// The scene on screen now, or null.
+  @visibleForTesting
+  EffectScene? get scene => _scene;
+
   @override
   void initState() {
     super.initState();
     EffectHaptics.instance.prepare();
   }
 
+  /// [globalRect] (in global coordinates) in this area's own.
+  Rect? _local(Rect? globalRect) {
+    if (globalRect == null || !mounted) return null;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return null;
+    return box.globalToLocal(globalRect.topLeft) & globalRect.size;
+  }
+
   /// Starts [effect]'s scene for the bubble at [globalRect] (in global
   /// coordinates), in place of any scene still running, with the scene's
-  /// haptics. Returns whether the effect has a scene.
+  /// haptics. A scene that follows its bubble asks [globalRectOf] where
+  /// the bubble is on every frame, and keeps the last place it was found
+  /// once it is gone. Returns whether the effect has a scene.
   bool play(
     MessageEffect effect, {
     Rect? globalRect,
+    Rect? Function()? globalRectOf,
     String text = '',
     BorderRadius? borderRadius,
     Color? bubbleColor,
     Color? onBubbleColor,
   }) {
-    final box = context.findRenderObject();
-    Rect? rect;
-    if (globalRect != null && box is RenderBox && box.hasSize) {
-      rect = box.globalToLocal(globalRect.topLeft) & globalRect.size;
-    }
+    final rect = _local(globalRect);
+    var last = rect;
+    final track = globalRectOf == null
+        ? null
+        : () => last = _local(globalRectOf()) ?? last;
     final scene = EffectScene.of(
       effect,
       EffectPalette.of(
@@ -71,8 +86,13 @@ class ScreenEffectHostState extends State<ScreenEffectHost>
         onBubble: onBubbleColor,
       ),
       borderRadius == null
-          ? EffectOrigin(rect: rect, text: text)
-          : EffectOrigin(rect: rect, text: text, borderRadius: borderRadius),
+          ? EffectOrigin(rect: rect, text: text, track: track)
+          : EffectOrigin(
+              rect: rect,
+              text: text,
+              borderRadius: borderRadius,
+              track: track,
+            ),
       seed: _plays + 7,
     );
     if (scene == null) return false;

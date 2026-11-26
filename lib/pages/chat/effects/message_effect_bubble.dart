@@ -195,6 +195,7 @@ class EffectBubbleState extends State<EffectBubble>
       ScreenEffectHost.maybeOf(context)?.play(
         effect,
         globalRect: _globalRect,
+        globalRectOf: () => mounted ? _globalRect : null,
         text: widget.text,
         borderRadius: widget.borderRadius,
         bubbleColor: widget.bubbleColor,
