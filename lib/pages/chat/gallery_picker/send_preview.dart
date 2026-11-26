@@ -24,9 +24,7 @@ class SendPreview extends StatefulWidget {
   final ThumbnailCache thumbnails;
   final String recipientName;
   final TextEditingController caption;
-  final bool hd;
   final bool sending;
-  final VoidCallback onToggleHd;
   final VoidCallback onClose;
   final VoidCallback onOpenCamera;
   final VoidCallback onSend;
@@ -36,9 +34,7 @@ class SendPreview extends StatefulWidget {
     required this.thumbnails,
     required this.recipientName,
     required this.caption,
-    required this.hd,
     required this.sending,
-    required this.onToggleHd,
     required this.onClose,
     required this.onOpenCamera,
     required this.onSend,
@@ -150,12 +146,6 @@ class _SendPreviewState extends State<SendPreview> {
                   ),
                 ),
                 IconButton(
-                  tooltip: l10n.sendInHd,
-                  isSelected: widget.hd,
-                  onPressed: widget.onToggleHd,
-                  icon: _HdBadge(enabled: widget.hd),
-                ),
-                IconButton(
                   tooltip: l10n.openCamera,
                   icon: const Icon(Icons.add_a_photo_outlined),
                   onPressed: widget.onOpenCamera,
@@ -257,35 +247,6 @@ class _SendPreviewState extends State<SendPreview> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Rounded "HD" text badge; filled when full-quality sending is on.
-class _HdBadge extends StatelessWidget {
-  final bool enabled;
-
-  const _HdBadge({required this.enabled});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = theme.colorScheme.onSurface;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-      decoration: BoxDecoration(
-        color: enabled ? color : Colors.transparent,
-        border: Border.all(color: color, width: 2),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Text(
-        'HD',
-        style: theme.textTheme.labelMedium?.copyWith(
-          fontWeight: FontWeight.w900,
-          color: enabled ? theme.colorScheme.surface : color,
-        ),
       ),
     );
   }

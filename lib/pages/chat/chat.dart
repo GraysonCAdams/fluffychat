@@ -407,7 +407,6 @@ class ChatController extends State<ChatPageWithRoom>
   final List<XFile> pendingAttachments = [];
 
   /// Whether the staged files were picked to send at full quality.
-  bool _pendingAttachmentsInHd = false;
 
   void addPendingAttachments(Iterable<XFile> files) =>
       setState(() => pendingAttachments.addAll(files));
@@ -452,7 +451,6 @@ class ChatController extends State<ChatPageWithRoom>
     setState(() {
       showAttachmentPanel = false;
       pendingAttachments.addAll(result.files);
-      _pendingAttachmentsInHd = result.hd;
     });
     final caption = result.caption.trim();
     if (caption.isNotEmpty && sendController.text.trim().isEmpty) {
@@ -1307,16 +1305,13 @@ class ChatController extends State<ChatPageWithRoom>
     if (!mounted || !proceed) return;
     if (pendingAttachments.isNotEmpty) {
       final files = List.of(pendingAttachments);
-      final hd = _pendingAttachmentsInHd;
       setState(() {
         pendingAttachments.clear();
-        _pendingAttachmentsInHd = false;
         showAttachmentPanel = false;
       });
       await sendAttachments(
         room: target,
         files: files,
-        compress: !hd,
         threadRootEventId: activeThreadId,
         threadLastEventId: threadLastEventId,
         scaffoldMessenger: ScaffoldMessenger.of(context),

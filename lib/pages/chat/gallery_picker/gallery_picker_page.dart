@@ -20,14 +20,7 @@ class GalleryPickerResult {
   final List<XFile> files;
   final String caption;
 
-  /// Send at full quality instead of the usual compressed size.
-  final bool hd;
-
-  const GalleryPickerResult({
-    required this.files,
-    required this.caption,
-    required this.hd,
-  });
+  const GalleryPickerResult({required this.files, required this.caption});
 }
 
 /// Opens the full-screen camera and gallery picker. Resolves to null when
@@ -74,7 +67,7 @@ class _GalleryPickerPageState extends State<GalleryPickerPage> {
   late final Future<PermissionState> _galleryPermission =
       PhotoManager.requestPermissionExtend();
 
-  /// Built once and reused, so page rebuilds (switching views, toggling HD,
+  /// Built once and reused, so page rebuilds (switching views,
   /// sending) never rebuild the grid.
   late final Widget _sheet = MediaGridSheet(
     selection: _selection,
@@ -87,7 +80,6 @@ class _GalleryPickerPageState extends State<GalleryPickerPage> {
   /// selection via the camera button in the send preview.
   bool _cameraRequested = false;
   int _lastLength = 0;
-  bool _hd = false;
   bool _sending = false;
 
   bool get _showCamera => _selection.isEmpty || _cameraRequested;
@@ -152,12 +144,8 @@ class _GalleryPickerPageState extends State<GalleryPickerPage> {
             files.add(media.file);
           case GalleryMedia():
             final entity = media.entity;
-            // In HD the untouched original is preferred. Otherwise the
-            // platform's displayable copy is enough (on iOS that is a JPEG
-            // rather than the HEIC original).
-            final file = _hd
-                ? await entity.originFile ?? await entity.file
-                : await entity.file ?? await entity.originFile;
+            // Media always goes as the untouched original.
+            final file = await entity.originFile ?? await entity.file;
             if (file == null) continue;
             files.add(
               XFile(
@@ -172,13 +160,9 @@ class _GalleryPickerPageState extends State<GalleryPickerPage> {
         setState(() => _sending = false);
         return;
       }
-      Navigator.of(context).pop(
-        GalleryPickerResult(
-          files: files,
-          caption: _caption.text.trim(),
-          hd: _hd,
-        ),
-      );
+      Navigator.of(
+        context,
+      ).pop(GalleryPickerResult(files: files, caption: _caption.text.trim()));
     } catch (e, s) {
       Logs().w('Unable to resolve picked media', e, s);
       if (!mounted) return;
@@ -253,9 +237,7 @@ class _GalleryPickerPageState extends State<GalleryPickerPage> {
                               thumbnails: _thumbnails,
                               recipientName: widget.recipientName,
                               caption: _caption,
-                              hd: _hd,
                               sending: _sending,
-                              onToggleHd: () => setState(() => _hd = !_hd),
                               onClose: _close,
                               onOpenCamera: () =>
                                   setState(() => _cameraRequested = true),

@@ -16,10 +16,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart' hide Result;
 import 'package:mime/mime.dart';
 
-/// Files smaller than this are sent as they are: compressing them saves
-/// almost nothing and costs a transcode.
-const int _minSizeToCompress = 20 * 1000;
-
 /// Upload limit assumed when the homeserver does not report `m.upload.size`.
 const int _fallbackMaxUploadSize = 100 * 1000 * 1000;
 
@@ -27,16 +23,14 @@ const int _fallbackMaxUploadSize = 100 * 1000 * 1000;
 ///
 /// This is the upload path shared by the composer and the gallery picker, and
 /// it produces the same events as `SendFileDialog`: the mime type comes from
-/// the picker or the file path, images are shrunk to 1600 px on their longest
-/// side when [compress] is true (animated images keep all frames because the
-/// client's image resizer skips them), videos on mobile get a thumbnail and are
-/// transcoded when [compress] is true, and anything over the homeserver's
-/// upload limit is refused before it is uploaded.
+/// the picker or the file path, images and videos are sent as the original
+/// (videos on mobile also get a thumbnail), and anything over the
+/// homeserver's upload limit is refused before it is uploaded.
 ///
 /// Each file is then fitted to what [room]'s bridge accepts, from its
 /// `com.beeper.room_features` state (see [adaptMediaForRoom]): an image type
 /// the room does not take is re-encoded as PNG, a video as MP4 where the
-/// platform can transcode, else either goes as `m.file` when the room takes
+/// platform can transcode (the only time a video is transcoded), else either goes as `m.file` when the room takes
 /// that, and one the bridge would refuse or that is over the room's size
 /// limit is not sent. Rooms without that state are unaffected.
 ///
@@ -55,7 +49,6 @@ const int _fallbackMaxUploadSize = 100 * 1000 * 1000;
 Future<void> sendAttachments({
   required Room room,
   required List<XFile> files,
-  bool compress = true,
   String? threadRootEventId,
   String? threadLastEventId,
   ScaffoldMessengerState? scaffoldMessenger,
@@ -108,7 +101,6 @@ Future<void> sendAttachments({
           room: room,
           features: features,
           xfile: xfile,
-          compress: compress,
           maxUploadSize: maxUploadSize,
           threadRootEventId: threadRootEventId,
           threadLastEventId: threadLastEventId,
@@ -147,7 +139,6 @@ Future<void> _sendOne({
   required Room room,
   required RoomFeatures features,
   required XFile xfile,
-  required bool compress,
   required int maxUploadSize,
   required String? threadRootEventId,
   required String? threadLastEventId,
@@ -162,17 +153,9 @@ Future<void> _sendOne({
 
   final MatrixFile file;
   MatrixImageFile? thumbnail;
-  var transcoded = false;
   if (isMobileVideo) {
     thumbnail = await xfile.getVideoThumbnail();
-    final length = (await Result.capture(xfile.length())).asValue?.value;
-    transcoded = compress && length != null && length > _minSizeToCompress;
-    onCompressStart();
-    try {
-      file = await xfile.getVideoInfo(compress: transcoded);
-    } finally {
-      onCompressEnd();
-    }
+    file = await xfile.getVideoInfo(compress: false);
   } else {
     file = MatrixFile(
       bytes: await xfile.readAsBytes(),
@@ -185,9 +168,7 @@ Future<void> _sendOne({
     features: features,
     file: file,
     thumbnail: thumbnail,
-    // A transcode that already ran and still left an unaccepted type is not
-    // tried again.
-    convertVideo: canTranscodeVideo && !transcoded
+    convertVideo: canTranscodeVideo
         ? () async {
             onCompressStart();
             try {
@@ -206,7 +187,6 @@ Future<void> _sendOne({
   Future<void> send() => room.sendFileEvent(
     adapted.file,
     thumbnail: adapted.thumbnail,
-    shrinkImageMaxDimension: compress ? 1600 : null,
     extraContent: adapted.extraContent,
     threadRootEventId: threadRootEventId,
     threadLastEventId: threadLastEventId,
