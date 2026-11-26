@@ -8,6 +8,7 @@ import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/dummy_chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/hold_then_drag.dart';
@@ -120,6 +121,9 @@ class ChatListViewBody extends StatelessWidget {
               onOpenDirectory: () => controller.setSpaceDirectoryOpen(true),
             ),
           ),
+        // Shown under the header while the app is out of step with the
+        // server, instead of inside the search field.
+        const SliverToBoxAdapter(child: SyncStatusStrip()),
         SliverList(
           delegate: SliverChildListDelegate([
             if (controller.isSearchMode) ...[

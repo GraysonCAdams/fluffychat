@@ -116,8 +116,15 @@ abstract class FluffyThemes {
       ),
       chipTheme: ChipThemeData(
         showCheckmark: false,
-        backgroundColor: colorScheme.surfaceContainer,
-        side: BorderSide.none,
+        // Outlined at rest, filled only when selected (Material 3 filter
+        // chips), so the selected one is the only filled shape in a row.
+        backgroundColor: colorScheme.surface,
+        selectedColor: colorScheme.secondaryContainer,
+        side: WidgetStateBorderSide.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? BorderSide.none
+              : BorderSide(color: colorScheme.outlineVariant),
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppConfig.borderRadius),
         ),
