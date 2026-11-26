@@ -4,16 +4,28 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/config/themes.dart';
+import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/room_status_extension.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
+/// The faces of the members whose read receipt is at or after [event].
+///
+/// Under the newest message of a direct chat these are bare faces on a row
+/// of their own. With [label], as under the user's newest message in a
+/// group, they follow "Seen by" at the end of the bubble.
 class SeenByRow extends StatefulWidget {
   final Event event;
   final Timeline timeline;
-  const SeenByRow({super.key, required this.event, required this.timeline});
+  final bool label;
+  const SeenByRow({
+    super.key,
+    required this.event,
+    required this.timeline,
+    this.label = false,
+  });
 
   @override
   State<SeenByRow> createState() => _SeenByRowState();
@@ -58,6 +70,7 @@ class _SeenByRowState extends State<SeenByRow> {
           timeline,
           eventId: event.eventId,
         );
+        if (widget.label) return _labelled(context, seenByUsers);
         return Container(
           width: double.infinity,
           alignment: Alignment.center,
@@ -112,6 +125,51 @@ class _SeenByRowState extends State<SeenByRow> {
           ),
         );
       },
+    );
+  }
+
+  Widget _labelled(BuildContext context, List<User> seenByUsers) {
+    const maxAvatars = 7;
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
+    final extra = seenByUsers.length - maxAvatars;
+    return AnimatedSize(
+      duration: FluffyThemes.animationDuration,
+      curve: FluffyThemes.animationCurve,
+      alignment: Alignment.topRight,
+      child: seenByUsers.isEmpty
+          ? const SizedBox(width: double.infinity)
+          : Container(
+              width: double.infinity,
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 2,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 2),
+                    child: Text(
+                      L10n.of(context).seenBy,
+                      style: TextStyle(fontSize: 11, color: color),
+                    ),
+                  ),
+                  for (final user in seenByUsers.take(maxAvatars))
+                    Tooltip(
+                      message: user.calcDisplayname(),
+                      child: Avatar(
+                        mxContent: user.avatarUrl,
+                        name: user.calcDisplayname(),
+                        size: 16,
+                      ),
+                    ),
+                  if (extra > 0)
+                    Text(
+                      '+$extra',
+                      style: TextStyle(fontSize: 11, color: color),
+                    ),
+                ],
+              ),
+            ),
     );
   }
 }

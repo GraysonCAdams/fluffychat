@@ -18,6 +18,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/routed_event.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/widgets/avatar.dart';
+import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/member_actions_popup_menu_button.dart';
 import 'package:flutter/services.dart';
@@ -25,6 +26,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
 import '../../../config/app_config.dart';
+import '../seen_by_row.dart';
 import '../sticker_picker_dialog.dart';
 import 'message_content.dart';
 import 'message_reactions.dart';
@@ -81,8 +83,8 @@ class Message extends StatelessWidget {
   /// hide its time.
   final void Function(Event)? onToggleTime;
 
-  /// Marks the user's newest message as sent once the server has it. Read
-  /// receipts are not shown.
+  /// Marks the user's newest message as sent once the server has it. In a
+  /// group it also shows who has read it, see [SeenByRow].
   final bool showDeliveryStatus;
 
   const Message(
@@ -275,6 +277,10 @@ class Message extends StatelessWidget {
     final showTime = event.status.isSent && (selected || timeRevealed);
     final showSentMark =
         ownMessage && showDeliveryStatus && event.status.isSent;
+    // In a group, the faces of who has read the user's newest message, under
+    // it.
+    final showSeenBy =
+        ownMessage && showDeliveryStatus && event.room.isGroupChat;
     // The line under the bubble: its time, network, edit mark and delivery
     // state, each only when there is something to say.
     final hasStatusLine =
@@ -762,6 +768,12 @@ class Message extends StatelessWidget {
                                     ],
                                   ],
                                 ),
+                              ),
+                            if (showSeenBy)
+                              SeenByRow(
+                                event: event,
+                                timeline: timeline,
+                                label: true,
                               ),
                             Padding(
                               padding: EdgeInsets.only(left: bubbleIndent),

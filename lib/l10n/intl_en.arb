@@ -3578,5 +3578,11 @@
     "@matrixFeatureHide": {
         "type": "String",
         "placeholders": {}
+    },
+    "seenBy": "Seen by",
+    "@seenBy": {
+        "type": "String",
+        "description": "Before the faces of the group members who have read the user's last message",
+        "placeholders": {}
     }
 }

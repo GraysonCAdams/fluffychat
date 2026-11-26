@@ -20,6 +20,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extensi
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
+import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/mxc_image_viewer.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -129,7 +130,7 @@ class ChatEventList extends StatelessWidget {
     final colorByNetwork = AppSettings.networkBubbleColors.value;
 
     // The user's newest message, which shows under its bubble that it was
-    // sent.
+    // sent and, in a group, who has read it.
     final newestOwnEvent = events.firstWhereOrNull(
       (event) =>
           event.senderId == event.room.client.userID &&
@@ -189,7 +190,9 @@ class ChatEventList extends StatelessWidget {
                       return Column(
                         mainAxisSize: .min,
                         children: [
-                          if (events.isNotEmpty)
+                          // A group shows who has read the user's newest
+                          // message under that message instead.
+                          if (events.isNotEmpty && !controller.room.isGroupChat)
                             SeenByRow(event: events.first, timeline: timeline),
                           TypingIndicators(controller),
                           EncryptionInfo(room: controller.room),
