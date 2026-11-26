@@ -40,7 +40,7 @@ Seam Cobalt was chosen to sit apart from other messaging blues (Google Messages 
 | Mark on a white or light background | `svg/seam-mark-on-light.svg` |
 | One-colour glyph (status bar, notifications, UI) | `svg/seam-glyph.svg` (`currentColor`), or `-white` / `-dark` |
 | Android launcher icon | `android/res/` (adaptive icon: foreground, cobalt background, monochrome layer, plus legacy PNGs) |
-| Android notification icon | `android/res/drawable/ic_stat_seam.xml` (a vector drawable written by `source/notification_icon.py`; the glyph fills the 24 dp icon with a 1 dp margin on its longer side) |
+| Android notification icon | `android/res/drawable/ic_stat_seam.xml` (a vector drawable written by `source/notification_icon.py`; the status-bar variant of the glyph: bubble, tail and stitches only, with no needle or thread; it fills the 24 dp icon with a 1 dp margin on its longer side) |
 | Play Store icon | `store/play-store-icon-512.png` (512 x 512, square, no rounding or shadow) |
 | Windows | `windows/app_icon.ico` (exe and taskbar), `tray_icon.ico`, `titlebar_light.ico` and `titlebar_dark.ico` (the bare mark for a light or dark caption; not used by the app, which hides the native title bar) |
 | Web | `web/favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` |

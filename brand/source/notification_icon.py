@@ -1,7 +1,7 @@
 # Writes the Android notification icon as a vector drawable, drawn from the same geometry as the glyph
 # (seam_mark.py), so the status bar draws it sharp at every density.
-# The glyph's masks (the stitches cut out of the bubble, the gap between the bubble and the needle and
-# thread behind it) are resolved into one filled outline with Skia's path operations. The outline is
+# The bubble with its stitches cut out, without the needle and thread, is resolved into one filled
+# outline with Skia's path operations. The outline is
 # scaled to fill the 24 dp icon with a 1 dp margin on its longer side, as the system's own status bar
 # icons do.
 # Usage: python3 source/notification_icon.py <out.xml>
@@ -37,28 +37,15 @@ shape=ellipse(G['CX'],G['CY'],G['RX'],G['RY'])
 tail=G['TAIL'].split('d="')[1].split('"')[0]
 shape=op(shape,svg_path(tail),U)
 
-# needle: drawn at the origin, then rotated about its eye end and moved into place
-import math
-a=math.radians(G['ANG']); c,s=math.cos(a),math.sin(a)
-needle=svg_path(G['BLADE']+' '+G['EYE'],(c,s,-s,c,G['NX1'],G['NY1']))
-needle.fillType=pathops.FillType.EVEN_ODD; needle.simplify()
-threads=op(stroked(svg_path(G['THREAD']),G['TW']),stroked(svg_path(G['TAILTHREAD']),G['TW']),U)
-
-# behind the bubble: needle and threads, minus the bubble widened by half the gap
-gap=op(shape,stroked(shape,G['GAP'],pathops.LineCap.BUTT_CAP),U)
-behind=op(op(needle,threads,U),gap,D)
-# the bubble with its four stitches cut out
+# the bubble with its four stitches cut out; the needle and thread are left off, which keeps the
+# silhouette readable at status-bar size
 stitches=pathops.Path()
 pts=G['PTS']
 for a0,b0 in [(0,2),(4,6),(8,10),(12,14)]:
     line=pathops.Path(); line.moveTo(*pts[a0])
     for x,y in pts[a0+1:b0+1]: line.lineTo(x,y)
     stitches=op(stitches,stroked(line,16),U)
-body=op(shape,stitches,D)
-# the thread ends where they go into the first and last stitch holes, drawn over the bubble
-holes=op(ellipse(*G['FIRST'],22,22),ellipse(*G['LAST'],22,22),U)
-ends=op(threads,holes,I)
-glyph=op(op(behind,body,U),ends,U)
+glyph=op(shape,stitches,D)
 
 # fit the glyph's bounds into 22 x 22 dp, centred in the 24 dp icon
 x0,y0,x1,y1=glyph.bounds
