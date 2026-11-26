@@ -109,7 +109,7 @@ abstract class EffectScene {
   Offset shake(double t) => Offset.zero;
 
   /// What the scene is felt as, timed from its start to land on its beats.
-  List<HapticBeat> get haptics => const [];
+  HapticPattern get haptics => HapticPattern.none;
 
   double get seconds => duration.inMicroseconds / 1e6;
 
@@ -241,7 +241,7 @@ class BalloonsScene extends EffectScene {
   /// A soft tick as each balloon is let go, firmer for the near ones.
   /// Balloons let go within a tenth of a second of the last tick share it.
   @override
-  List<HapticBeat> get haptics {
+  HapticPattern get haptics {
     final beats = <HapticBeat>[];
     var last = double.negativeInfinity;
     for (final b in [
@@ -257,7 +257,7 @@ class BalloonsScene extends EffectScene {
         ),
       );
     }
-    return beats;
+    return HapticPattern(beats);
   }
 
   @override
@@ -382,10 +382,10 @@ class ConfettiScene extends EffectScene {
 
   /// A burst of light ticks as most of the confetti lets go at once.
   @override
-  List<HapticBeat> get haptics => [
+  HapticPattern get haptics => HapticPattern([
     for (var i = 0; i < 8; i++)
       HapticBeat.after(HapticPrimitive.tick, i * 0.045, scale: 0.6 - i * 0.05),
-  ];
+  ]);
 
   @override
   void paint(Canvas canvas, Size size, double t) {
@@ -489,10 +489,10 @@ class LoveScene extends EffectScene {
   /// apart as a thud lasts on a Pixel (300 ms), so the second does not
   /// wait for the first to end.
   @override
-  List<HapticBeat> get haptics => [
+  HapticPattern get haptics => HapticPattern([
     HapticBeat.after(HapticPrimitive.thud, _breath / 4, scale: 0.8),
     HapticBeat.after(HapticPrimitive.thud, _breath / 4 + 0.3, scale: 0.5),
-  ];
+  ]);
 
   @override
   void paint(Canvas canvas, Size size, double t) {
@@ -618,10 +618,10 @@ class LasersScene extends EffectScene {
 
   /// A low pulse on every beat while the room is dark.
   @override
-  List<HapticBeat> get haptics => [
+  HapticPattern get haptics => HapticPattern([
     for (var t = 0.35; t < seconds - 0.7; t += _beat)
       HapticBeat.after(HapticPrimitive.lowTick, t),
-  ];
+  ]);
 
   @override
   void paint(Canvas canvas, Size size, double t) {
@@ -741,14 +741,14 @@ class FireworksScene extends EffectScene {
 
   /// A thud as each shell bursts, the big ones harder.
   @override
-  List<HapticBeat> get haptics => [
+  HapticPattern get haptics => HapticPattern([
     for (final shell in _shells)
       HapticBeat.after(
         HapticPrimitive.thud,
         shell.at,
         scale: 0.5 + (shell.radius - 0.36) / 0.24 * 0.5,
       ),
-  ];
+  ]);
 
   static const _climb = 0.45;
   static const _life = 1.9;
@@ -897,10 +897,10 @@ class CelebrationScene extends EffectScene {
   /// A burst of light ticks as the sparkler catches and its first sparks
   /// fly.
   @override
-  List<HapticBeat> get haptics => [
+  HapticPattern get haptics => HapticPattern([
     for (var i = 0; i < 10; i++)
       HapticBeat.after(HapticPrimitive.tick, 0.2 + i * 0.06, scale: 0.5),
-  ];
+  ]);
 
   @override
   void paint(Canvas canvas, Size size, double t) {
@@ -996,11 +996,22 @@ class ShootingStarScene extends EffectScene {
   static const _start = 0.35;
   static const _flight = 1.45;
 
-  /// One gentle tick as the star lands and blooms.
+  /// A slow rise that peaks as the star lands, then a gentle tick as it
+  /// blooms; on phones without the primitives, a swell over the flight
+  /// that fades with the bloom.
   @override
-  List<HapticBeat> get haptics => [
-    HapticBeat.after(HapticPrimitive.tick, _start + _flight, scale: 0.5),
-  ];
+  HapticPattern get haptics => HapticPattern(
+    [
+      HapticBeat.after(
+        HapticPrimitive.slowRise,
+        _start + _flight,
+        scale: 0.35,
+        endsAt: true,
+      ),
+      HapticBeat.after(HapticPrimitive.tick, _start + _flight, scale: 0.5),
+    ],
+    swell: HapticSwell.after(_start, _start + _flight, _start + _flight + 0.5),
+  );
 
   Offset _at(Size size, double p) {
     final a = Offset(-size.width * 0.08, size.height * 0.78);
@@ -1111,11 +1122,21 @@ class SpotlightScene extends EffectScene {
   /// When the spot comes to rest on the bubble, in seconds.
   static const _arrived = 1.0;
 
-  /// One gentle tick as the spot comes to rest.
+  /// A slow rise as the spot swings in, peaking as it comes to rest with a
+  /// gentle tick; on phones without the primitives, a swell over the swing.
   @override
-  List<HapticBeat> get haptics => [
-    HapticBeat.after(HapticPrimitive.tick, _arrived, scale: 0.5),
-  ];
+  HapticPattern get haptics => HapticPattern(
+    [
+      HapticBeat.after(
+        HapticPrimitive.slowRise,
+        _arrived,
+        scale: 0.3,
+        endsAt: true,
+      ),
+      HapticBeat.after(HapticPrimitive.tick, _arrived, scale: 0.5),
+    ],
+    swell: HapticSwell.after(0.15, _arrived, _arrived + 0.3, amplitude: 50),
+  );
 
   @override
   void paint(Canvas canvas, Size size, double t) {
@@ -1218,9 +1239,9 @@ class EchoScene extends EffectScene {
 
   /// One gentle tick as the copies start to stream out.
   @override
-  List<HapticBeat> get haptics => [
+  HapticPattern get haptics => HapticPattern([
     HapticBeat.after(HapticPrimitive.tick, 0, scale: 0.5),
-  ];
+  ]);
 
   @override
   void paint(Canvas canvas, Size size, double t) {
@@ -1291,7 +1312,7 @@ class SlamScene extends EffectScene {
 
   /// A heavy thud: the scene starts as the bubble lands.
   @override
-  List<HapticBeat> get haptics => [HapticBeat.after(HapticPrimitive.thud, 0)];
+  HapticPattern get haptics => HapticPattern([HapticBeat.after(HapticPrimitive.thud, 0)]);
 
   @override
   Offset shake(double t) {
