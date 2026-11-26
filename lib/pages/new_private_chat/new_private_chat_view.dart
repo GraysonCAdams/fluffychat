@@ -296,6 +296,7 @@ class _StartList extends StatelessWidget {
 /// contacts one row each, then Matrix users from the directory. A tap puts
 /// one in the To field; someone already there shows a tick, and someone
 /// who cannot join the people picked so far is greyed out with the reason.
+/// Once someone is picked, group chats are not listed.
 class _Suggestions extends StatelessWidget {
   final NewPrivateChatController controller;
 
@@ -337,7 +338,7 @@ class _Suggestions extends StatelessWidget {
         if (result == null) {
           return const Center(child: CircularProgressIndicator.adaptive());
         }
-        final people = controller.people;
+        final people = controller.suggestedPeople;
         final offer = controller.offerPhoneContacts ? 1 : 0;
         if (result.isEmpty && people.isEmpty && offer == 0) {
           return Column(

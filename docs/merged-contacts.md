@@ -361,7 +361,7 @@ a row, or Enter (the top row for the typed text, a typed number or email
 included, else a typed Matrix ID), puts the person in the To field as a
 chip and clears the search; the chip's remove button, a second tap on the
 row, or backspace in the empty field takes them out. A group chat in the
-results opens when nobody is in the To field yet, and is greyed out once
+results opens when nobody is in the To field yet, and is not listed once
 someone is. Before anyone is picked, the area shows the phone contacts
 offer, the invite link, the QR code and, for an account with no bridges,
 the Matrix-only "Create group" page (`/rooms/newgroup`); Create group from

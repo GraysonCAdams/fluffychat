@@ -761,6 +761,27 @@ void main() {
     });
   });
 
+  testWidgets('with someone in the To field, group chats are not suggested', (
+    tester,
+  ) async {
+    addTripGroup();
+    await pump(tester);
+    await search(tester, 'trip');
+    // Nobody picked yet: the group is offered, and opens.
+    expect(find.text('Trip crew'), findsOneWidget);
+
+    await tester.enterText(toField, '');
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    await pick(tester, 'quinn', 'Quinn Imsg');
+    await search(tester, 'trip');
+    expect(find.text('Trip crew'), findsNothing);
+    expect(find.text("Group chats can't be added"), findsNothing);
+    // A group bubble looks its sender up in the database, whose
+    // transaction holds a ten-second timer in the test's fake time.
+    await tester.pump(const Duration(seconds: 11));
+  });
+
   testWidgets('the group\'s network blocks people it cannot reach', (
     tester,
   ) async {

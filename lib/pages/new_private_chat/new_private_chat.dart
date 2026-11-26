@@ -483,6 +483,15 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// contacts, one row per person. Directory results follow them.
   List<NewChatPerson<ExistingChat>> people = const [];
 
+  /// The [people] the suggestions list. Once someone is in the To field,
+  /// group chats are left out: only people can join them.
+  List<NewChatPerson<ExistingChat>> get suggestedPeople => recipients.isEmpty
+      ? people
+      : [
+          for (final person in people)
+            if (!person.group) person,
+        ];
+
   /// The search [people] was built for, and its chats, for rebuilding
   /// [people] when a slower source arrives.
   String _peopleQuery = '';
