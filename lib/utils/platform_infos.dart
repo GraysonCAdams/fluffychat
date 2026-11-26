@@ -16,12 +16,21 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../config/app_config.dart';
 
 abstract class PlatformInfos {
+  /// The operating system to behave as, in place of the one the app runs
+  /// on, as a `Platform.operatingSystem` value. Lets tests render a screen
+  /// the way a phone shows it; null in the app.
+  @visibleForTesting
+  static String? debugOperatingSystem;
+
+  static String get _operatingSystem =>
+      debugOperatingSystem ?? Platform.operatingSystem;
+
   static bool get isWeb => kIsWeb;
-  static bool get isLinux => !kIsWeb && Platform.isLinux;
-  static bool get isWindows => !kIsWeb && Platform.isWindows;
-  static bool get isMacOS => !kIsWeb && Platform.isMacOS;
-  static bool get isIOS => !kIsWeb && Platform.isIOS;
-  static bool get isAndroid => !kIsWeb && Platform.isAndroid;
+  static bool get isLinux => !kIsWeb && _operatingSystem == 'linux';
+  static bool get isWindows => !kIsWeb && _operatingSystem == 'windows';
+  static bool get isMacOS => !kIsWeb && _operatingSystem == 'macos';
+  static bool get isIOS => !kIsWeb && _operatingSystem == 'ios';
+  static bool get isAndroid => !kIsWeb && _operatingSystem == 'android';
 
   static bool get isCupertinoStyle => isIOS || isMacOS;
 
