@@ -81,3 +81,11 @@ path = [
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026-Present Christian Kußowski"
 SPDX-License-Identifier = "LicenseRef-All-Rights-Reserved"
+
+[[annotations]]
+path = [
+    "brand/**"
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Grayson Adams"
+SPDX-License-Identifier = "LicenseRef-All-Rights-Reserved"

@@ -1,0 +1,80 @@
+# Seam brand
+
+**Seam** is this app's name. Tagline: **Where your threads meet.** One inbox for every network,
+each conversation a thread, sewn together.
+
+![Brand preview](preview.png)
+
+## The mark
+
+A round speech bubble made of two pieces of fabric, sewn together and caught mid-stitch:
+
+- **Bubble:** nearly circular, with a normal speech-bubble tail at the lower left.
+- **Seam:** a gentle S across the middle. Periwinkle above, white below.
+- **Stitches:** four running stitches along the seam, cut out of the bubble.
+- **Thread:** a free end hangs out and down from the first stitch at the left, where the seam started.
+  The working thread runs from the last stitch at the right to the needle.
+- **Needle:** sits behind the bubble, its eye out at the top right, separated from the bubble by a
+  gap of background colour.
+
+The thread and needle follow how hand sewing really works: the needle is always at the most recent
+stitch, and the loose end is where the sewing began.
+
+## Colour
+
+| Name | Hex | Use |
+|---|---|---|
+| Seam Cobalt | `#1A5AD7` | Icon background; the mark's colour on light backgrounds |
+| Periwinkle | `#9ABAF0` | Upper half of the bubble |
+| White | `#FFFFFF` | Lower half, needle and thread; the glyph on dark backgrounds |
+| Glyph dark | `#1F1F1F` | The glyph on light backgrounds |
+
+Seam Cobalt was chosen to sit apart from other messaging blues (Google Messages `#1A73E8`, Signal
+`#3A76F0`, Messenger `#0084FF`, LinkedIn `#0A66C2`).
+
+## Which file for what
+
+| Need | File |
+|---|---|
+| App icon, any size | `svg/seam-app-icon.svg` (square; launchers and stores apply their own mask) |
+| Mark on a dark or cobalt background | `svg/seam-mark.svg` |
+| Mark on a white or light background | `svg/seam-mark-on-light.svg` |
+| One-colour glyph (status bar, notifications, UI) | `svg/seam-glyph.svg` (`currentColor`), or `-white` / `-dark` |
+| Android launcher icon | `android/res/` (adaptive icon: foreground, cobalt background, monochrome layer, plus legacy PNGs) |
+| Android notification icon | `android/res/drawable-*/ic_stat_seam.png` |
+| Play Store icon | `store/play-store-icon-512.png` (512 x 512, square, no rounding or shadow) |
+| Web | `web/favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` |
+| Raster sizes | `png/` (app icon square and round, marks, glyphs) |
+
+To use the Android set, copy the contents of `android/res/` into `android/app/src/main/res/`.
+
+## Rules
+
+- **Clear space:** keep at least a quarter of the mark's width empty around it.
+- **Minimum size:** the app icon reads down to 24 px; the glyph down to 16 px. Below 48 px the needle's
+  eye and the thread ends simplify, which is expected.
+- **Safe zone:** the mark sits inside Android's adaptive-icon safe zone (farthest point 191 of 198 px on
+  the 432 px icon), so no launcher shape clips it. Keep it there if the geometry changes.
+- **Don't:** recolour the needle or thread, add an outline, a gradient or a shadow, rotate or mirror the
+  mark, put the white mark on a white background, add dots or text inside the bubble, or separate the
+  needle from the bubble.
+
+## Typography
+
+For a wordmark and headings, use **Plus Jakarta Sans** (SIL Open Font License), carried over from the
+original Seam project. Google Sans Flex was also used there; check its licence before shipping it.
+
+## Rebuilding
+
+Everything is generated from one geometry in `source/seam_mark.py`. Change it there, then from this
+folder run:
+
+    python3 source/build_brand.py
+
+It needs Python 3 with Pillow, and Google Chrome to rasterise the SVGs. It rewrites `svg/`, `png/`,
+`android/`, `store/` and `web/`. Then refresh `preview.png` if the look changed.
+
+## Licence
+
+The Seam name and these assets belong to Grayson Adams; all rights reserved (see `REUSE.toml`). They are
+not covered by the app's AGPL licence.
