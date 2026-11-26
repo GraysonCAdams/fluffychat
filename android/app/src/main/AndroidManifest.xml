@@ -162,7 +162,22 @@
         <!-- From flutter_local_notifications package for notification actions -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
 
-        <!-- To make notifications available in Android Auto -->
+        <!-- To make notifications and the conversation list available in Android Auto.
+             The Play Store workflows delete from this line through the car
+             application meta-data below, so the car app service stays in
+             between. -->
+        <service
+            android:name=".SeamCarAppService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.MESSAGING" />
+            </intent-filter>
+        </service>
+        <!-- ConversationItem needs Car API level 7. -->
+        <meta-data
+            android:name="androidx.car.app.minCarApiLevel"
+            android:value="7" />
         <meta-data
             android:name="com.google.android.gms.car.application"
             android:resource="@xml/automotive_app_desc"/>
