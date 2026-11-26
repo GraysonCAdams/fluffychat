@@ -101,6 +101,26 @@ abstract final class WindowsShell {
       .lookupFunction<Int32 Function(Pointer), int Function(Pointer)>(
         'DestroyIcon',
       );
+  static final _loadImage = _user32
+      .lookupFunction<
+        Pointer Function(Pointer, Pointer<Utf16>, Uint32, Int32, Int32, Uint32),
+        Pointer Function(Pointer, Pointer<Utf16>, int, int, int, int)
+      >('LoadImageW');
+  static final _sendMessage = _user32
+      .lookupFunction<
+        IntPtr Function(Pointer, Uint32, IntPtr, IntPtr),
+        int Function(Pointer, int, int, int)
+      >('SendMessageW');
+  static final _getSystemMetrics = _user32
+      .lookupFunction<Int32 Function(Int32), int Function(int)>(
+        'GetSystemMetrics',
+      );
+
+  static const _imageIcon = 1;
+  static const _lrLoadFromFile = 0x10;
+  static const _wmSetIcon = 0x80;
+  static const _iconSmall = 0;
+  static const _smCxSmIcon = 49;
 
   static const _dwmwaUseImmersiveDarkMode = 20;
   static const _dwmwaCaptionColor = 35;
@@ -115,6 +135,7 @@ abstract final class WindowsShell {
   static Pointer? _hwnd;
   static Pointer<Pointer<IntPtr>>? _taskbar;
   static Pointer? _overlayIcon;
+  static Pointer? _captionIcon;
   static String? _lastCaption;
   static String? _lastBadge;
 
@@ -162,6 +183,43 @@ abstract final class WindowsShell {
       _dwmSetWindowAttribute(hwnd, _dwmwaTextColor, value, 4);
     } finally {
       calloc.free(value);
+    }
+    _setCaptionIcon(hwnd, brightness);
+  }
+
+  /// Gives the title bar the bare Seam mark in the variant that suits the
+  /// caption, instead of the cobalt app tile. Only the window's small icon
+  /// changes; the taskbar and Alt+Tab keep the executable's app icon.
+  static void _setCaptionIcon(Pointer hwnd, Brightness brightness) {
+    final name = brightness == Brightness.dark
+        ? 'titlebar_dark.ico'
+        : 'titlebar_light.ico';
+    final path = [
+      File(Platform.resolvedExecutable).parent.path,
+      'data',
+      'flutter_assets',
+      'assets',
+      'seam',
+      name,
+    ].join(Platform.pathSeparator);
+    final nativePath = path.toNativeUtf16();
+    try {
+      final size = _getSystemMetrics(_smCxSmIcon);
+      final icon = _loadImage(
+        nullptr,
+        nativePath,
+        _imageIcon,
+        size,
+        size,
+        _lrLoadFromFile,
+      );
+      if (icon.address == 0) return;
+      _sendMessage(hwnd, _wmSetIcon, _iconSmall, icon.address);
+      final previous = _captionIcon;
+      if (previous != null) _destroyIcon(previous);
+      _captionIcon = icon;
+    } finally {
+      calloc.free(nativePath);
     }
   }
 
