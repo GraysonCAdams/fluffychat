@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cross_file/cross_file.dart';
@@ -69,5 +70,26 @@ void main() {
     await pump(tester, XFile('clip.mp4'), poster: (_) async => null);
     await tester.pumpAndSettle();
     expect(placeholder, findsOneWidget);
+  });
+
+  testWidgets('a tap on a staged video plays it full screen, and close '
+      'returns', (tester) async {
+    final directory = Directory.systemTemp.createTempSync('staged-video');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final file = File('${directory.path}${Platform.pathSeparator}clip.mp4')
+      ..writeAsBytesSync([0, 0, 0, 0]);
+    await pump(tester, XFile(file.path), poster: (_) async => null);
+    // The lower left of the tile, clear of the remove badge's target.
+    await tester.tapAt(
+      tester.getBottomLeft(placeholder) + const Offset(12, -12),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(const ValueKey('staged-video')), findsOneWidget);
+
+    await tester.tap(find.byType(CloseButton));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(const ValueKey('staged-video')), findsNothing);
   });
 }

@@ -4,15 +4,19 @@
 
 import 'dart:io';
 
+import 'package:chewie/chewie.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/image_viewer/video_player.dart';
+import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/size_string.dart';
 import 'package:fluffychat/utils/video_poster.dart';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 import 'package:mime/mime.dart';
+import 'package:video_player/video_player.dart';
 
 /// Side of the square thumbnail tile for one staged attachment.
 const double _tileSize = 72;
@@ -41,7 +45,8 @@ const double _hitTarget = 48;
 ///
 /// Each file becomes a rounded square tile: a picture for images, the first
 /// frame for videos (a placeholder until it is read), and an icon with the
-/// file name for anything else. Tapping a picture opens it full screen.
+/// file name for anything else. Tapping a picture opens it full screen, and
+/// tapping a video plays it full screen.
 /// A small round badge on the tile's top-right corner removes it through
 /// [onRemove]. The strip collapses to nothing when [files] is empty and
 /// animates its height as the first file arrives or the last one leaves.
@@ -125,7 +130,20 @@ class _AttachmentChip extends StatelessWidget {
         child: _ImagePreview(file: file),
       );
     } else if (mimeType.startsWith('video/')) {
-      preview = _VideoPreview(file: file, poster: poster);
+      final video = _VideoPreview(file: file, poster: poster);
+      // Tapping a video plays it full screen, where videos can be played
+      // and the file is on disk for the player to read.
+      preview = PlatformInfos.supportsVideoPlayer && _isOnDisk(file)
+          ? GestureDetector(
+              onTap: () => Navigator.of(context, rootNavigator: true).push(
+                MaterialPageRoute<void>(
+                  fullscreenDialog: true,
+                  builder: (_) => _FullScreenVideo(file: file),
+                ),
+              ),
+              child: video,
+            )
+          : video;
     } else {
       preview = _FilePreview(file: file, mimeType: mimeType);
     }
@@ -402,6 +420,73 @@ class _VideoPreviewState extends State<_VideoPreview> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A staged video on its own page, playing with the controls of a received
+/// one, and a close button.
+class _FullScreenVideo extends StatefulWidget {
+  final XFile file;
+
+  const _FullScreenVideo({required this.file});
+
+  @override
+  State<_FullScreenVideo> createState() => _FullScreenVideoState();
+}
+
+class _FullScreenVideoState extends State<_FullScreenVideo> {
+  late final VideoPlayerController _video = VideoPlayerController.file(
+    File(widget.file.path),
+  );
+  ChewieController? _chewie;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _open();
+  }
+
+  Future<void> _open() async {
+    try {
+      await _video.initialize();
+      if (!mounted) return;
+      setState(() => _chewie = videoChewieController(_video, looping: true));
+    } catch (e, s) {
+      Logs().w('Unable to play a staged video', e, s);
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _chewie?.dispose();
+    _video.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chewie = _chewie;
+    return Scaffold(
+      key: const ValueKey('staged-video'),
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: const CloseButton(),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: chewie != null
+              ? Chewie(controller: chewie)
+              : _failed
+              ? const Icon(Icons.error_outline, color: Colors.white, size: 48)
+              : const CircularProgressIndicator.adaptive(),
+        ),
+      ),
     );
   }
 }
