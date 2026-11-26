@@ -9,6 +9,7 @@ import 'dart:ui' as ui;
 
 import 'package:ffi/ffi.dart';
 import 'package:fluffychat/config/setting_keys.dart';
+import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -622,11 +623,14 @@ class _TrayEvents with tray.TrayListener {
 }
 
 /// The window's own top edge on Windows, where the native title bar used to
-/// be. Panes run to the top edge and the window buttons float over the top
-/// right; the right-hand pane's app bars leave [buttonsWidth] free for them
-/// ([WindowsCaptionInset]). Empty parts of the top [dragHeight] band, such as
-/// the space beside an app bar's title, move the window: the drag area sits
-/// behind the panes, so anything in them that takes the pointer still does.
+/// be. In the column layout the panes run to the top edge and the window
+/// buttons float over the top right; the right-hand pane's app bars leave
+/// [buttonsWidth] free for them ([WindowsCaptionInset]). A window narrow
+/// enough for the single-column layout has no pane to the right to float
+/// over, so the content starts below a [buttonsHeight] band that holds the
+/// buttons. Empty parts of the top [dragHeight] band move the window: the
+/// drag area sits behind the content, so anything there that takes the
+/// pointer still does.
 class WindowsChrome extends StatelessWidget {
   final Widget child;
 
@@ -635,12 +639,17 @@ class WindowsChrome extends StatelessWidget {
   /// Width of the three window buttons.
   static const double buttonsWidth = 138;
 
+  /// Height of the window buttons.
+  static const double buttonsHeight = 32;
+
   /// Height of the band that moves the window, an app bar's height.
   static const double dragHeight = 56;
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final mediaQuery = MediaQuery.of(context);
+    final columns = FluffyThemes.isColumnModeByWidth(mediaQuery.size.width);
     return Stack(
       children: [
         const Positioned(
@@ -650,7 +659,20 @@ class WindowsChrome extends StatelessWidget {
           height: dragHeight,
           child: DragToMoveArea(child: SizedBox.expand()),
         ),
-        child,
+        if (columns)
+          child
+        else
+          MediaQuery(
+            data: mediaQuery.copyWith(
+              padding: mediaQuery.padding.copyWith(
+                top: mediaQuery.padding.top + buttonsHeight,
+              ),
+              viewPadding: mediaQuery.viewPadding.copyWith(
+                top: mediaQuery.viewPadding.top + buttonsHeight,
+              ),
+            ),
+            child: child,
+          ),
         Positioned(
           top: 0,
           right: 0,
