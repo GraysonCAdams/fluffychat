@@ -90,6 +90,14 @@ class ChatListViewBody extends StatelessWidget {
             bottom: MediaQuery.viewPaddingOf(context).bottom + 16,
             child: Center(child: _UnreadBelowChip(controller)),
           ),
+        // Over the list, above New chat and the unread chip, while the app is
+        // out of step with the server.
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: MediaQuery.viewPaddingOf(context).bottom + 16 + 56 + 12,
+          child: const Center(child: SyncStatusToast()),
+        ),
       ],
     );
   }
@@ -121,9 +129,6 @@ class ChatListViewBody extends StatelessWidget {
               onOpenDirectory: () => controller.setSpaceDirectoryOpen(true),
             ),
           ),
-        // Shown under the header while the app is out of step with the
-        // server, instead of inside the search field.
-        const SliverToBoxAdapter(child: SyncStatusStrip()),
         SliverList(
           delegate: SliverChildListDelegate([
             if (controller.isSearchMode) ...[
@@ -455,8 +460,8 @@ class _UnreadBelowChip extends StatelessWidget {
 
   const _UnreadBelowChip(this.controller);
 
-  static const double _rowHeight = 76;
-  static const double _unreadRowHeight = 97;
+  static const double _rowHeight = 68;
+  static const double _unreadRowHeight = 89;
   static const double _headerHeight = 72 + 39;
   static const double _pinsHeight = 146;
 
