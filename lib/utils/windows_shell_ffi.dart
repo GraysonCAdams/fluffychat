@@ -526,6 +526,12 @@ abstract final class WindowsDesktop {
   static Future<void> init(List<String> args, L10n l10n) async {
     try {
       await windowManager.ensureInitialized();
+      // The app draws its own window buttons (WindowsChrome) and runs its
+      // panes to the top edge, so Windows keeps only the resizable frame.
+      await windowManager.setTitleBarStyle(
+        TitleBarStyle.hidden,
+        windowButtonVisibility: false,
+      );
       await _restoreBounds();
       windowManager.addListener(_WindowEvents());
       await windowManager.setPreventClose(true);
@@ -676,5 +682,112 @@ class _TrayEvents with tray.TrayListener {
       case 'quit':
         WindowsDesktop.quit();
     }
+  }
+}
+
+/// The window's own top edge on Windows, where the native title bar used to
+/// be. Each pane paints [height] extra pixels of its own colour at its top
+/// (the space comes in as top padding), so dividers run to the window edge;
+/// the window buttons float at the top right and the rest of the strip
+/// moves the window.
+class WindowsChrome extends StatelessWidget {
+  final Widget child;
+
+  const WindowsChrome({required this.child, super.key});
+
+  /// Height of the strip; also the space each pane leaves at its top.
+  static const double height = 32;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final brightness = Theme.of(context).brightness;
+    return Stack(
+      children: [
+        MediaQuery(
+          data: media.copyWith(
+            padding: media.padding.copyWith(top: media.padding.top + height),
+            viewPadding: media.viewPadding.copyWith(
+              top: media.viewPadding.top + height,
+            ),
+          ),
+          child: child,
+        ),
+        const Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: height,
+          child: DragToMoveArea(child: SizedBox.expand()),
+        ),
+        Positioned(
+          top: 0,
+          right: 0,
+          height: height,
+          child: _WindowButtons(brightness: brightness),
+        ),
+      ],
+    );
+  }
+}
+
+class _WindowButtons extends StatefulWidget {
+  final Brightness brightness;
+
+  const _WindowButtons({required this.brightness});
+
+  @override
+  State<_WindowButtons> createState() => _WindowButtonsState();
+}
+
+class _WindowButtonsState extends State<_WindowButtons> with WindowListener {
+  bool _maximized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    windowManager.addListener(this);
+    windowManager.isMaximized().then((value) {
+      if (mounted) setState(() => _maximized = value);
+    });
+  }
+
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  @override
+  void onWindowMaximize() => setState(() => _maximized = true);
+
+  @override
+  void onWindowUnmaximize() => setState(() => _maximized = false);
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = widget.brightness;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        WindowCaptionButton.minimize(
+          brightness: brightness,
+          onPressed: windowManager.minimize,
+        ),
+        _maximized
+            ? WindowCaptionButton.unmaximize(
+                brightness: brightness,
+                onPressed: windowManager.unmaximize,
+              )
+            : WindowCaptionButton.maximize(
+                brightness: brightness,
+                onPressed: windowManager.maximize,
+              ),
+        WindowCaptionButton.close(
+          brightness: brightness,
+          onPressed: windowManager.close,
+        ),
+      ],
+    );
   }
 }

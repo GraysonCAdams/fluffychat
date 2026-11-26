@@ -131,7 +131,7 @@ class FluffyChatApp extends StatelessWidget {
             ),
           );
           if (!PlatformInfos.isWindows) return app;
-          return WindowsTitleBarSync(child: app);
+          return WindowsTitleBarSync(child: WindowsChrome(child: app));
         },
       ),
     );

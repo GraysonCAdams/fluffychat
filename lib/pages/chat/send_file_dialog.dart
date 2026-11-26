@@ -9,7 +9,6 @@ import 'dart:ui' as ui;
 import 'package:async/async.dart' show Result;
 import 'package:crop_image/crop_image.dart';
 import 'package:cross_file/cross_file.dart';
-import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/image_edit_geometry.dart';
