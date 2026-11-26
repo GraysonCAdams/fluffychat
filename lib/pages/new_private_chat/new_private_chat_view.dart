@@ -66,8 +66,16 @@ class NewPrivateChatView extends StatelessWidget {
             : spacesByChild(
                 client,
               )[conversation.sendRoom.id]?.getLocalizedDisplayname(locals)) ??
+        controller.selectedNetwork?.name ??
         controller.group.bridge?.displayName ??
         l10n.writeAMessage;
+    final switcher = controller.showNetworkSwitcher
+        ? ComposeNetworkSwitcher(
+            controller,
+            compact:
+                composeSwitcherPlacement == ComposeSwitcherPlacement.composer,
+          )
+        : null;
     return Scaffold(
       appBar: AppBar(
         scrolledUnderElevation: 0,
@@ -79,6 +87,14 @@ class NewPrivateChatView extends StatelessWidget {
             ? GroupTitleButton(controller)
             : Text(controller.group.isGroup ? l10n.newGroupChat : l10n.newChat),
         backgroundColor: theme.scaffoldBackgroundColor,
+        actions: [
+          if (switcher != null &&
+              composeSwitcherPlacement == ComposeSwitcherPlacement.appBar)
+            Padding(
+              padding: const EdgeInsets.only(left: 8, right: 12),
+              child: switcher,
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -105,7 +121,14 @@ class NewPrivateChatView extends StatelessWidget {
               ],
             ),
           ),
-          ComposeBar(controller, hintText: hintText),
+          ComposeBar(
+            controller,
+            hintText: hintText,
+            leading:
+                composeSwitcherPlacement == ComposeSwitcherPlacement.composer
+                ? switcher
+                : null,
+          ),
         ],
       ),
     );

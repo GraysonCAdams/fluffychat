@@ -8,6 +8,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/add_merged_chat.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/chat/merged_network_menu.dart';
+import 'package:fluffychat/pages/chat/network_toggle_group.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
@@ -348,11 +349,9 @@ class _MergedRoomSwitcher extends StatelessWidget {
   }
 }
 
-/// The chat's networks in the app bar, before the menu, as a Material
-/// connected button group of toggle icon buttons: extra-small buttons (32
-/// high, 20 icon) 2 apart, the group's outer corners fully round and its
-/// inner corners 8. The selected button is the network the next message goes
-/// out on and takes the brighter fill; tapping another one switches
+/// The chat's networks in the app bar, before the menu, as a
+/// [NetworkToggleGroup] closed by the add-chat plus. The selected button is
+/// the network the next message goes out on; tapping another one switches
 /// to it. While replying, editing or in a thread the network is fixed by the
 /// message being answered, so the buttons do not respond.
 class ChatNetworkIcons extends StatelessWidget {
@@ -360,15 +359,8 @@ class ChatNetworkIcons extends StatelessWidget {
 
   const ChatNetworkIcons(this.controller, {super.key});
 
-  static const _height = 32.0;
-  static const _width = 40.0;
-  static const _iconSize = 20.0;
-  static const _outer = Radius.circular(_height / 2);
-  static const _inner = Radius.circular(8);
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final room = controller.room;
     final locals = MatrixLocals(L10n.of(context));
     final merged = controller.mergedContact != null && controller.isMerged;
@@ -387,77 +379,26 @@ class ChatNetworkIcons extends StatelessWidget {
     if (entries.isEmpty) return const SizedBox.shrink();
     final selectedRoomId = merged ? controller.composerTarget.roomId : room.id;
     final locked = merged && controller.composerTarget.locked;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      spacing: 2,
-      children: [
-        for (final (index, (space, roomId)) in entries.indexed)
-          _button(
-            context,
-            theme,
-            space: space,
+    return NetworkToggleGroup(
+      networks: [
+        for (final (space, roomId) in entries)
+          NetworkToggle(
+            id: roomId,
             name: space.getLocalizedDisplayname(locals),
-            selected: roomId == selectedRoomId,
-            first: index == 0,
-            // The add-chat plus after the networks is the group's last
-            // segment.
-            last: false,
-            onTap: merged && roomId != selectedRoomId && !locked
-                ? () {
-                    controller.setMergedSendVia(roomId);
-                    controller.pickSendViaRoom(roomId);
-                  }
-                : null,
+            avatar: space.avatar,
           ),
-        AddMergedChatButton(controller, width: _width, height: _height),
       ],
-    );
-  }
-
-  Widget _button(
-    BuildContext context,
-    ThemeData theme, {
-    required Room space,
-    required String name,
-    required bool selected,
-    required bool first,
-    required bool last,
-    required void Function()? onTap,
-  }) {
-    final radius = BorderRadius.horizontal(
-      left: first ? _outer : _inner,
-      right: last ? _outer : _inner,
-    );
-    return Tooltip(
-      message: name,
-      child: AnimatedContainer(
-        duration: FluffyThemes.animationDuration,
-        curve: FluffyThemes.animationCurve,
-        height: _height,
-        width: _width,
-        decoration: BoxDecoration(
-          // Quieter than the spec's selected tonal color, which outshines
-          // a network's own logo.
-          color: selected
-              ? theme.colorScheme.secondaryContainer
-              : theme.colorScheme.surfaceContainerHigh,
-          borderRadius: radius,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: onTap,
-            child: Center(
-              child: Avatar(
-                mxContent: space.avatar,
-                name: name,
-                size: _iconSize,
-                borderRadius: BorderRadius.circular(5),
-              ),
-            ),
-          ),
-        ),
+      selectedId: selectedRoomId,
+      onSelect: merged && !locked
+          ? (roomId) {
+              controller.setMergedSendVia(roomId);
+              controller.pickSendViaRoom(roomId);
+            }
+          : null,
+      trailing: AddMergedChatButton(
+        controller,
+        width: NetworkToggleGroup.defaultWidth,
+        height: NetworkToggleGroup.defaultHeight,
       ),
     );
   }

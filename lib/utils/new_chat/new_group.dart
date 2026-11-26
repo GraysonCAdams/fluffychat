@@ -252,6 +252,15 @@ class NewChatDelivery {
     );
   }
 
+  /// The group [bridge] creates, for a group whose network the compose
+  /// screen's switcher picked. Null when it creates none.
+  Future<GroupNetwork?> groupNetworkOn(Client client, BridgeInfo bridge) async {
+    final directory = BridgeDirectory.forClient(client);
+    if (directory == null) return null;
+    final type = preferredGroupType(await directory.groupTypes(bridge));
+    return type == null ? null : GroupNetwork(bridge, type);
+  }
+
   /// Whether [bridge] reaches [identifier]; null when it does not.
   Future<BridgeUser?> resolveOnNetwork(
     Client client,

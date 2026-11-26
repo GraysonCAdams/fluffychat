@@ -11,10 +11,14 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat_view.dart';
 import 'package:fluffychat/pages/new_private_chat/qr_scanner_modal.dart';
+import 'package:fluffychat/pages/new_private_chat/start_chat_sheet.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/bridge_provisioning.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
+import 'package:fluffychat/utils/merged_contacts/networks.dart';
+import 'package:fluffychat/utils/new_chat/add_people.dart' as add_people;
 import 'package:fluffychat/utils/new_chat/compose.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
@@ -27,6 +31,31 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
+
+/// One network the first person in the To field is on, as the compose
+/// screen's network switcher offers it: a chat the user has with them
+/// there ([room]), or a network a bridge reaches them on with no chat yet.
+class ComposeNetworkOption {
+  final BridgeInfo? bridge;
+  final Room? room;
+  final String name;
+  final Uri? avatar;
+
+  const ComposeNetworkOption({
+    required this.bridge,
+    required this.room,
+    required this.name,
+    required this.avatar,
+  });
+
+  String get id => room?.id ?? 'bridge:${bridge?.name}';
+
+  /// The bubble colour of the network, as a merged chat's send button
+  /// takes it.
+  Color? get color => NetworkColors.colorFor(
+    room == null ? bridge?.networkId : NetworkColors.bridgeIdOf(room!),
+  );
+}
 
 /// The compose screen behind New chat and Create group, as in iMessage: a
 /// To field of people as chips, the chat the user already has with exactly
@@ -99,6 +128,36 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// above the composer and where the first message goes. Null when there
   /// is none.
   ExistingChat? conversation;
+
+  /// The networks of the first person in the To field, for the network
+  /// switcher; it shows when there are two or more. Empty otherwise.
+  List<ComposeNetworkOption> networkOptions = const [];
+
+  /// The [ComposeNetworkOption.id] picked in the switcher: at first the
+  /// network of the most recent chat with the person.
+  String? selectedNetworkId;
+
+  /// The merged contact chat of the first person, which a send to one of
+  /// its rooms opens.
+  ExistingChat? _personChat;
+
+  ComposeNetworkOption? get selectedNetwork => networkOptions
+      .where((option) => option.id == selectedNetworkId)
+      .firstOrNull;
+
+  /// Whether the network switcher shows.
+  bool get showNetworkSwitcher => networkOptions.length >= 2;
+
+  /// Whether [option] can take everyone in the To field: in a group, every
+  /// person after the first must be known on its network.
+  bool networkEnabled(ComposeNetworkOption option) {
+    if (recipients.length < 2) return true;
+    final bridge = option.bridge;
+    if (bridge == null) return false;
+    return recipients
+        .skip(1)
+        .every((person) => person.bridgeUsers.containsKey(bridge.name));
+  }
 
   /// Whether the first message is on its way, which keeps a second tap on
   /// send from starting a second chat.
@@ -330,6 +389,17 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     if (sending) return;
     if (recipients.isNotEmpty) {
       final client = Matrix.of(context).client;
+      final option = selectedNetwork;
+      final optionBridge = option?.bridge;
+      if (group.isEmpty && showNetworkSwitcher && optionBridge != null) {
+        // The switcher picked the network: the group starts there.
+        final network = await widget.delivery.groupNetworkOn(
+          client,
+          optionBridge,
+        );
+        if (network == null || !mounted) return;
+        group.start(network, _firstMemberOn(recipients.first, option!));
+      }
       if (group.isEmpty) {
         final started = await toggleGroupMember(
           context,
@@ -387,8 +457,32 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   void _findConversation() {
     final client = Matrix.of(context).client;
     final network = group.network;
+    if (recipients.isEmpty) {
+      networkOptions = const [];
+      selectedNetworkId = null;
+      _personChat = null;
+    }
     if (recipients.length == 1) {
-      conversation = existingDirectChatOf(client, recipients.single);
+      final chat = existingDirectChatOf(client, recipients.single);
+      _personChat = chat;
+      networkOptions = _optionsOf(client, recipients.single, chat);
+      final options = networkOptions;
+      if (options.length < 2) {
+        selectedNetworkId = null;
+        conversation = chat;
+        return;
+      }
+      if (!options.any((option) => option.id == selectedNetworkId)) {
+        selectedNetworkId = _mostRecent(options).id;
+      }
+      final room = selectedNetwork?.room;
+      conversation = room == null
+          ? null
+          : ExistingChat(
+              room: room,
+              contact: null,
+              networks: [?spacesByChild(client)[room.id]],
+            );
     } else if (group.isGroup && network != null) {
       final room = existingGroupOf(
         client,
@@ -402,6 +496,122 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     } else {
       conversation = null;
     }
+  }
+
+  /// The networks [person] is on: each room of their chat (every room of
+  /// a merged contact), then each bridge that knows them with no room
+  /// there yet.
+  List<ComposeNetworkOption> _optionsOf(
+    Client client,
+    NewChatPerson person,
+    ExistingChat? chat,
+  ) {
+    final locals = MatrixLocals(L10n.of(context));
+    final spaces = spacesByChild(client);
+    final options = <ComposeNetworkOption>[];
+    final covered = <String>{};
+    for (final room in chat?.contact?.rooms ?? [?chat?.room]) {
+      final space = spaces[room.id];
+      final bridge = add_people.bridgeOfRoom(bridges, room);
+      if (bridge != null) covered.add(bridge.name);
+      options.add(
+        ComposeNetworkOption(
+          bridge: bridge,
+          room: room,
+          name: networkName(room, space, locals),
+          avatar: space?.avatar ?? bridge?.icon,
+        ),
+      );
+    }
+    for (final bridge in bridges) {
+      if (covered.contains(bridge.name)) continue;
+      if (!person.bridgeUsers.containsKey(bridge.name)) continue;
+      final spaceId = bridge.spaceRoomId;
+      final space = spaceId == null ? null : client.getRoomById(spaceId);
+      options.add(
+        ComposeNetworkOption(
+          bridge: bridge,
+          room: null,
+          name: bridge.displayName,
+          avatar: space?.avatar ?? bridge.icon,
+        ),
+      );
+    }
+    return options;
+  }
+
+  /// The option whose chat had the last message, else the first.
+  ComposeNetworkOption _mostRecent(List<ComposeNetworkOption> options) {
+    final withRooms = options.where((option) => option.room != null).toList()
+      ..sort(
+        (a, b) => b.room!.latestEventReceivedTime.compareTo(
+          a.room!.latestEventReceivedTime,
+        ),
+      );
+    return withRooms.firstOrNull ?? options.first;
+  }
+
+  /// The switcher's [id] was tapped: one person's conversation moves to
+  /// that network, and a group starts again on it.
+  Future<void> selectNetwork(String id) async {
+    if (recipients.length < 2) {
+      setState(() {
+        selectedNetworkId = id;
+        _findConversation();
+      });
+      return;
+    }
+    final option = networkOptions.where((o) => o.id == id).firstOrNull;
+    final bridge = option?.bridge;
+    if (option == null || bridge == null || !networkEnabled(option)) return;
+    final network = await widget.delivery.groupNetworkOn(
+      Matrix.of(context).client,
+      bridge,
+    );
+    if (network == null || !mounted) return;
+    final first = _firstMemberOn(recipients.first, option);
+    setState(() {
+      selectedNetworkId = id;
+      group.start(network, first);
+      for (final person in recipients.skip(1)) {
+        group.add(GroupMember(person, person.bridgeUsers[bridge.name]!));
+      }
+      _findConversation();
+    });
+  }
+
+  /// The first person as [option]'s network knows them: the bridge's
+  /// contact, else the ghost of their chat there.
+  GroupMember _firstMemberOn(
+    NewChatPerson<ExistingChat> person,
+    ComposeNetworkOption option,
+  ) {
+    final known = person.bridgeUsers[option.bridge?.name];
+    if (known != null) return GroupMember(person, known);
+    final ghost = option.room?.directChatMatrixID;
+    return GroupMember(
+      person,
+      BridgeUser(id: ghost ?? person.phone ?? person.name, mxid: ghost),
+    );
+  }
+
+  /// The + at the end of the switcher: starts the person on a network
+  /// they have no chat on, from the network sheet.
+  Future<void> addNetwork() async {
+    final person = recipients.firstOrNull;
+    if (person == null) return;
+    final client = Matrix.of(context).client;
+    final choice = await widget.delivery.pickNetwork(context, client, person);
+    if (choice == null || !mounted) return;
+    person.bridgeUsers[choice.bridge.name] ??= choice.resolved;
+    setState(() {
+      _findConversation();
+      selectedNetworkId = networkOptions
+          .where((option) => option.bridge?.name == choice.bridge.name)
+          .firstOrNull
+          ?.id;
+      _findConversation();
+    });
   }
 
   /// Enter in the To field: the top suggestion for the typed text becomes
@@ -503,7 +713,12 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     final existing = conversation;
     if (existing != null) {
       _sendText(existing.sendRoom, text);
-      context.go(_routeOf(existing));
+      final personChat = _personChat;
+      context.go(
+        recipients.length == 1 && personChat != null
+            ? _routeOf(personChat)
+            : _routeOf(existing),
+      );
       return;
     }
     setState(() => sending = true);
@@ -538,7 +753,15 @@ class NewPrivateChatController extends State<NewPrivateChat> {
       );
       route = result.asValue?.value;
     } else {
-      final choice = await widget.delivery.pickNetwork(context, client, person);
+      final option = selectedNetwork;
+      final optionBridge = option?.bridge;
+      final known = optionBridge == null
+          ? null
+          : person.bridgeUsers[optionBridge.name];
+      // The switcher picked the network; the sheet asks only without one.
+      final choice = optionBridge != null && known != null
+          ? StartChatChoice(optionBridge, known.id, known)
+          : await widget.delivery.pickNetwork(context, client, person);
       if (choice == null || !mounted) return;
       final result = await showFutureLoadingDialog<String>(
         context: context,

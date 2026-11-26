@@ -4,6 +4,7 @@
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
+import 'package:fluffychat/pages/chat/network_toggle_group.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merge_rules.dart';
@@ -116,68 +117,12 @@ class _AddMergedChatButtonState extends State<AddMergedChatButton> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    // The closing segment of the switcher's button group: a small corner
-    // towards the networks, fully round on the outside.
-    final radius = BorderRadius.horizontal(
-      left: const Radius.circular(8),
-      right: Radius.circular(widget.height / 2),
-    );
-    return Tooltip(
-      message: L10n.of(context).chooseChatsToMerge,
-      child: InkWell(
-        borderRadius: radius,
-        onTap: _open,
-        child: CustomPaint(
-          painter: _DashedBorderPainter(
-            color: theme.colorScheme.outline,
-            radius: radius,
-          ),
-          child: SizedBox(
-            width: widget.width,
-            height: widget.height,
-            child: Icon(
-              Icons.add,
-              size: 20,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A dashed rounded outline, to set an action apart from the filled network
-/// buttons beside it.
-class _DashedBorderPainter extends CustomPainter {
-  final Color color;
-  final BorderRadius radius;
-
-  const _DashedBorderPainter({required this.color, required this.radius});
-
-  static const double _dash = 4;
-  static const double _gap = 3;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    final outline = Path()
-      ..addRRect(radius.toRRect((Offset.zero & size).deflate(0.6)));
-    for (final metric in outline.computeMetrics()) {
-      for (var at = 0.0; at < metric.length; at += _dash + _gap) {
-        canvas.drawPath(metric.extractPath(at, at + _dash), paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedBorderPainter old) =>
-      old.color != color || old.radius != radius;
+  Widget build(BuildContext context) => DashedAddSegment(
+    tooltip: L10n.of(context).chooseChatsToMerge,
+    onTap: _open,
+    width: widget.width,
+    height: widget.height,
+  );
 }
 
 class _AddChatSheet extends StatelessWidget {

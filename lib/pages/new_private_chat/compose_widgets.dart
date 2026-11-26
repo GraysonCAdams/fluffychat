@@ -2,14 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat_input_row.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
+import 'package:fluffychat/pages/chat/network_toggle_group.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/new_chat/compose.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
@@ -125,6 +128,66 @@ class RecipientField extends StatelessWidget {
   }
 }
 
+/// Where the compose screen's network switcher sits. PROTOTYPE: a flag to
+/// render both placements from the same code for review.
+enum ComposeSwitcherPlacement {
+  /// In the app bar's actions, as the chat page shows a merged contact's
+  /// networks.
+  appBar,
+
+  /// Inside the composer, before the message field.
+  composer,
+}
+
+ComposeSwitcherPlacement composeSwitcherPlacement =
+    ComposeSwitcherPlacement.appBar;
+
+/// The networks of the first person in the To field, when they are on two
+/// or more: the chat page's [NetworkToggleGroup], the selected one the
+/// network the message goes out on. For one person it ends with the
+/// dashed plus that starts them on another network; in a group the
+/// networks the later people are not on are faded and do not respond.
+/// [compact] draws it narrower, for the composer.
+class ComposeNetworkSwitcher extends StatelessWidget {
+  final NewPrivateChatController controller;
+  final bool compact;
+
+  const ComposeNetworkSwitcher(
+    this.controller, {
+    this.compact = false,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final width = compact ? 34.0 : NetworkToggleGroup.defaultWidth;
+    const height = NetworkToggleGroup.defaultHeight;
+    return NetworkToggleGroup(
+      key: const ValueKey('compose-network-switcher'),
+      networks: [
+        for (final option in controller.networkOptions)
+          NetworkToggle(
+            id: option.id,
+            name: option.name,
+            avatar: option.avatar,
+            enabled: controller.networkEnabled(option),
+          ),
+      ],
+      selectedId: controller.selectedNetworkId,
+      onSelect: controller.sending ? null : controller.selectNetwork,
+      width: width,
+      trailing: controller.recipients.length == 1
+          ? DashedAddSegment(
+              tooltip: L10n.of(context).startChatOn,
+              onTap: controller.addNetwork,
+              width: width,
+              height: height,
+            )
+          : null,
+    );
+  }
+}
+
 /// The network the first message goes out on, under the To field: the
 /// existing direct chat's bridge space, or for one person with no chat yet
 /// a note that the network is picked on send. A group shows none, as the
@@ -139,6 +202,8 @@ class ComposeNetworkLine extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
     if (controller.group.isGroup) return const SizedBox.shrink();
+    // The switcher names the network.
+    if (controller.showNetworkSwitcher) return const SizedBox.shrink();
     final conversation = controller.conversation;
     final Widget leading;
     final String label;
@@ -501,12 +566,30 @@ class ComposeBar extends StatelessWidget {
   /// goes out on.
   final String hintText;
 
-  const ComposeBar(this.controller, {required this.hintText, super.key});
+  /// Before the message field, such as the network switcher.
+  final Widget? leading;
+
+  const ComposeBar(
+    this.controller, {
+    required this.hintText,
+    this.leading,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
+    final leading = this.leading;
+    // The send button takes the colour of the network the message goes
+    // out on, as in a merged chat.
+    final networkColor = AppSettings.networkBubbleColors.value
+        ? controller.selectedNetwork?.color
+        : null;
+    final sendBackground = networkColor ?? theme.bubbleColor;
+    final sendForeground = networkColor == null
+        ? theme.onBubbleColor
+        : NetworkColors.foregroundOn(networkColor);
     return SafeArea(
       top: false,
       child: Padding(
@@ -518,7 +601,15 @@ class ComposeBar extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const SizedBox(width: 18),
+              if (leading != null)
+                Container(
+                  height: ChatInputRow.height,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsetsDirectional.only(start: 12, end: 8),
+                  child: leading,
+                )
+              else
+                const SizedBox(width: 18),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2),
@@ -576,8 +667,8 @@ class ComposeBar extends StatelessWidget {
                               fixedSize: const Size.square(40),
                               minimumSize: const Size.square(40),
                               padding: EdgeInsets.zero,
-                              backgroundColor: theme.bubbleColor,
-                              foregroundColor: theme.onBubbleColor,
+                              backgroundColor: sendBackground,
+                              foregroundColor: sendForeground,
                               disabledBackgroundColor: theme
                                   .colorScheme
                                   .onSurface
