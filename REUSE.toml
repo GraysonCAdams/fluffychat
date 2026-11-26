@@ -121,11 +121,13 @@ SPDX-FileCopyrightText = "2015 The Roboto Mono Project Authors"
 SPDX-License-Identifier = "OFL-1.1"
 
 # Parity fixtures (invented content, exported by the Seam website) and the
-# goldens rendered from them.
+# goldens and animation recordings rendered from them.
 [[annotations]]
 path = [
     "test/parity/fixtures/*.json",
     "test/parity/goldens/*.png",
+    "test/parity/anim/*.json",
+    "test/parity/anim/*.png",
 ]
 SPDX-FileCopyrightText = "2026 Grayson Adams"
 SPDX-License-Identifier = "AGPL-3.0-or-later"

@@ -1,0 +1,648 @@
+{
+  "name": "unread-arrive",
+  "source": "lib/pages/chat_list/unread_bubble.dart UnreadBubble",
+  "notes": {
+    "times": "ms after the trigger; t=0 is the frame the trigger lands in",
+    "strip": "anim/unread-arrive.png shows the frames at the stripTimes, left to right, at 2.625x, cropped to the crop regions (logical px) stacked top to bottom"
+  },
+  "stripTimes": [
+    0,
+    50,
+    100,
+    150,
+    200,
+    250,
+    300,
+    350,
+    400,
+    450,
+    500,
+    550,
+    600
+  ],
+  "crop": [
+    [
+      -4.0,
+      318.71,
+      419.43,
+      84.0
+    ]
+  ],
+  "frames": [
+    {
+      "t": 0,
+      "rects": {
+        "unreadBubble": null,
+        "title": [
+          80.0,
+          338.71,
+          281.54,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": null
+      }
+    },
+    {
+      "t": 16,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 32,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 48,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 50,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 64,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 80,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 96,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 100,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 112,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 128,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 144,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 150,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 160,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 176,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 192,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 200,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 208,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 224,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 240,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 250,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 256,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 272,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 288,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 300,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 350,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 400,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 450,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 500,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 550,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    },
+    {
+      "t": 600,
+      "rects": {
+        "unreadBubble": [
+          375.43,
+          362.71,
+          20.0,
+          20.0
+        ],
+        "title": [
+          80.0,
+          338.71,
+          280.59,
+          24.0
+        ]
+      },
+      "colors": {
+        "unreadBubble": "#B0C6FF"
+      }
+    }
+  ]
+}

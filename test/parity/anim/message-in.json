@@ -1,0 +1,965 @@
+{
+  "name": "message-in",
+  "source": "lib/pages/chat/events/message.dart _AnimateIn; lib/pages/chat/typing_indicators.dart TypingIndicators",
+  "notes": {
+    "times": "ms after the trigger; t=0 is the frame the trigger lands in",
+    "strip": "anim/message-in.png shows the frames at the stripTimes, left to right, at 2.625x, cropped to the crop regions (logical px) stacked top to bottom"
+  },
+  "stripTimes": [
+    0,
+    50,
+    100,
+    150,
+    200,
+    250,
+    300,
+    350,
+    400,
+    450,
+    500,
+    550,
+    600
+  ],
+  "crop": [
+    [
+      0.0,
+      459.05,
+      411.43,
+      459.05
+    ]
+  ],
+  "frames": [
+    {
+      "t": 0,
+      "rects": {
+        "newBubble": [
+          8.0,
+          768.9,
+          0.0,
+          0.0
+        ],
+        "newBubbleChild": null,
+        "lastBubble": [
+          177.39,
+          643.9,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          769.9,
+          411.43,
+          32.0
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 16,
+      "rects": {
+        "newBubble": [
+          8.0,
+          769.16,
+          0.0,
+          0.0
+        ],
+        "newBubbleChild": [
+          -91.99,
+          749.16,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          644.16,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          770.16,
+          411.43,
+          31.74
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 32,
+      "rects": {
+        "newBubble": [
+          8.0,
+          769.63,
+          1.61,
+          0.32
+        ],
+        "newBubbleChild": [
+          -91.18,
+          749.79,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          644.63,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          770.95,
+          411.43,
+          30.95
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 48,
+      "rects": {
+        "newBubble": [
+          8.0,
+          770.0,
+          6.54,
+          1.31
+        ],
+        "newBubbleChild": [
+          -88.72,
+          750.66,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          645.0,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          772.31,
+          411.43,
+          29.59
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 50,
+      "rects": {
+        "newBubble": [
+          8.0,
+          770.05,
+          7.35,
+          1.47
+        ],
+        "newBubbleChild": [
+          -88.31,
+          750.79,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          645.05,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          772.52,
+          411.43,
+          29.38
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 64,
+      "rects": {
+        "newBubble": [
+          8.0,
+          770.21,
+          15.03,
+          3.01
+        ],
+        "newBubbleChild": [
+          -84.47,
+          751.72,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          645.21,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          774.22,
+          411.43,
+          27.68
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 80,
+      "rects": {
+        "newBubble": [
+          8.0,
+          770.37,
+          26.97,
+          5.39
+        ],
+        "newBubbleChild": [
+          -78.5,
+          753.07,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          645.37,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          776.77,
+          411.43,
+          25.14
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 96,
+      "rects": {
+        "newBubble": [
+          8.0,
+          770.1,
+          42.9,
+          8.58
+        ],
+        "newBubbleChild": [
+          -70.54,
+          754.39,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          645.1,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          779.68,
+          411.43,
+          22.23
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 100,
+      "rects": {
+        "newBubble": [
+          8.0,
+          770.18,
+          46.89,
+          9.38
+        ],
+        "newBubbleChild": [
+          -68.55,
+          754.87,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          645.18,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          780.56,
+          411.43,
+          21.34
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 112,
+      "rects": {
+        "newBubble": [
+          8.0,
+          769.89,
+          61.09,
+          12.22
+        ],
+        "newBubbleChild": [
+          -61.45,
+          756.0,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          644.89,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          783.11,
+          411.43,
+          18.8
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 128,
+      "rects": {
+        "newBubble": [
+          8.0,
+          769.06,
+          82.49,
+          16.5
+        ],
+        "newBubbleChild": [
+          -50.74,
+          757.31,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          644.06,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          786.56,
+          411.43,
+          15.34
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 144,
+      "rects": {
+        "newBubble": [
+          8.0,
+          768.17,
+          104.09,
+          20.82
+        ],
+        "newBubbleChild": [
+          -39.94,
+          758.58,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          643.17,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          789.99,
+          411.43,
+          11.92
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 150,
+      "rects": {
+        "newBubble": [
+          8.0,
+          767.79,
+          112.26,
+          22.46
+        ],
+        "newBubbleChild": [
+          -35.86,
+          759.02,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          642.79,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          791.25,
+          411.43,
+          10.66
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 160,
+      "rects": {
+        "newBubble": [
+          8.0,
+          767.14,
+          125.51,
+          25.11
+        ],
+        "newBubbleChild": [
+          -29.23,
+          759.69,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          642.14,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          793.25,
+          411.43,
+          8.66
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 176,
+      "rects": {
+        "newBubble": [
+          8.0,
+          765.86,
+          145.86,
+          29.18
+        ],
+        "newBubbleChild": [
+          -19.06,
+          760.45,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          640.86,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          796.04,
+          411.43,
+          5.87
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 192,
+      "rects": {
+        "newBubble": [
+          8.0,
+          764.69,
+          163.3,
+          32.66
+        ],
+        "newBubbleChild": [
+          -10.34,
+          761.03,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          639.69,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          798.36,
+          411.43,
+          3.55
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 200,
+      "rects": {
+        "newBubble": [
+          8.0,
+          764.1,
+          170.9,
+          34.18
+        ],
+        "newBubbleChild": [
+          -6.54,
+          761.19,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          639.1,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          799.29,
+          411.43,
+          2.62
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 208,
+      "rects": {
+        "newBubble": [
+          8.0,
+          763.53,
+          177.81,
+          35.57
+        ],
+        "newBubbleChild": [
+          -3.08,
+          761.31,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          638.53,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          800.09,
+          411.43,
+          1.81
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 224,
+      "rects": {
+        "newBubble": [
+          8.0,
+          762.49,
+          188.65,
+          37.73
+        ],
+        "newBubbleChild": [
+          2.34,
+          761.35,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          637.49,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          801.22,
+          411.43,
+          0.68
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 240,
+      "rects": {
+        "newBubble": [
+          8.0,
+          761.66,
+          195.71,
+          39.15
+        ],
+        "newBubbleChild": [
+          5.87,
+          761.23,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          636.66,
+          226.04,
+          40.0
+        ],
+        "row": [
+          0.0,
+          801.8,
+          411.43,
+          0.1
+        ]
+      },
+      "texts": {
+        "animateInEventId": "$parity-sync-5"
+      }
+    },
+    {
+      "t": 250,
+      "rects": {
+        "newBubble": [
+          8.0,
+          761.23,
+          198.37,
+          39.68
+        ],
+        "newBubbleChild": [
+          7.2,
+          761.07,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          636.23,
+          226.04,
+          40.0
+        ],
+        "row": null
+      },
+      "texts": {
+        "animateInEventId": null
+      }
+    },
+    {
+      "t": 256,
+      "rects": {
+        "newBubble": [
+          8.0,
+          761.03,
+          199.33,
+          39.87
+        ],
+        "newBubbleChild": [
+          7.68,
+          760.97,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          636.03,
+          226.04,
+          40.0
+        ],
+        "row": null
+      },
+      "texts": {
+        "animateInEventId": null
+      }
+    },
+    {
+      "t": 272,
+      "rects": {
+        "newBubble": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "newBubbleChild": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          635.9,
+          226.04,
+          40.0
+        ],
+        "row": null
+      },
+      "texts": {
+        "animateInEventId": null
+      }
+    },
+    {
+      "t": 288,
+      "rects": {
+        "newBubble": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "newBubbleChild": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          635.9,
+          226.04,
+          40.0
+        ],
+        "row": null
+      },
+      "texts": {
+        "animateInEventId": null
+      }
+    },
+    {
+      "t": 300,
+      "rects": {
+        "newBubble": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "newBubbleChild": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          635.9,
+          226.04,
+          40.0
+        ],
+        "row": null
+      },
+      "texts": {
+        "animateInEventId": null
+      }
+    },
+    {
+      "t": 350,
+      "rects": {
+        "newBubble": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "newBubbleChild": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          635.9,
+          226.04,
+          40.0
+        ],
+        "row": null
+      },
+      "texts": {
+        "animateInEventId": null
+      }
+    },
+    {
+      "t": 400,
+      "rects": {
+        "newBubble": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "newBubbleChild": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          635.9,
+          226.04,
+          40.0
+        ],
+        "row": null
+      },
+      "texts": {
+        "animateInEventId": null
+      }
+    },
+    {
+      "t": 450,
+      "rects": {
+        "newBubble": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "newBubbleChild": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          635.9,
+          226.04,
+          40.0
+        ],
+        "row": null
+      },
+      "texts": {
+        "animateInEventId": null
+      }
+    },
+    {
+      "t": 500,
+      "rects": {
+        "newBubble": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "newBubbleChild": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          635.9,
+          226.04,
+          40.0
+        ],
+        "row": null
+      },
+      "texts": {
+        "animateInEventId": null
+      }
+    },
+    {
+      "t": 550,
+      "rects": {
+        "newBubble": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "newBubbleChild": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          635.9,
+          226.04,
+          40.0
+        ],
+        "row": null
+      },
+      "texts": {
+        "animateInEventId": null
+      }
+    },
+    {
+      "t": 600,
+      "rects": {
+        "newBubble": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "newBubbleChild": [
+          8.0,
+          760.9,
+          199.98,
+          40.0
+        ],
+        "lastBubble": [
+          177.39,
+          635.9,
+          226.04,
+          40.0
+        ],
+        "row": null
+      },
+      "texts": {
+        "animateInEventId": null
+      }
+    }
+  ]
+}

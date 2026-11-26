@@ -147,7 +147,7 @@ Map<String, Object?> _searchResult(
   };
 }
 
-Future<void> _build(
+Future<ParityClient> _build(
   WidgetTester tester,
   ParityFixture fixture,
   int fillers,
@@ -328,6 +328,7 @@ Future<void> _build(
     controller.jumpTo(-scroll);
     await settleParity(tester);
   }
+  return client;
 }
 
 /// The number the "N unread" chip at the bottom shows, or 0.
@@ -338,7 +339,9 @@ int _unreadChipCount() {
   return int.parse(text.split(' ').first);
 }
 
-Future<void> pumpChatListScreen(
+/// Shows the chat list fixture [fixture] on the app's ChatList page and
+/// returns its client, for tests that go on to change it.
+Future<ParityClient> pumpChatList(
   WidgetTester tester,
   ParityFixture fixture,
 ) async {
@@ -346,15 +349,23 @@ Future<void> pumpChatListScreen(
   final want = fixture.screenData['unreadJump'] as int? ?? 0;
   // Fixture rows past the bottom edge count toward the chip too, so the
   // first pass measures how many of them do and the second adds the rest.
-  await _build(tester, fixture, want);
+  var client = await _build(tester, fixture, want);
   parityStep('first pass');
   final fromRows = _unreadChipCount() - want;
   if (fromRows != 0) {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 5));
-    await _build(tester, fixture, want - fromRows);
+    client = await _build(tester, fixture, want - fromRows);
   }
   expect(_unreadChipCount(), want);
+  return client;
+}
+
+Future<void> pumpChatListScreen(
+  WidgetTester tester,
+  ParityFixture fixture,
+) async {
+  await pumpChatList(tester, fixture);
   await expectParityGolden(tester, fixture);
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pump(const Duration(seconds: 5));

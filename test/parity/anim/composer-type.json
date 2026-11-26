@@ -1,0 +1,840 @@
+{
+  "name": "composer-type",
+  "source": "lib/pages/chat/chat_input_row.dart ChatInputRow",
+  "notes": {
+    "times": "ms after the trigger; t=0 is the frame the trigger lands in",
+    "strip": "anim/composer-type.png shows the frames at the stripTimes, left to right, at 2.625x, cropped to the crop regions (logical px) stacked top to bottom",
+    "sendIcon": "the reference phone has voice messages off (fixture composer.mic is false), so the button shows send_outlined before any text too"
+  },
+  "stripTimes": [
+    0,
+    50,
+    100,
+    150,
+    200,
+    250,
+    300,
+    350,
+    400,
+    450,
+    500,
+    550,
+    600
+  ],
+  "crop": [
+    [
+      0.0,
+      807.92,
+      411.43,
+      110.17
+    ]
+  ],
+  "frames": [
+    {
+      "t": 0,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          44.0,
+          56.0
+        ],
+        "input": [
+          54.0,
+          823.9,
+          297.43,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 16,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          43.77,
+          56.0
+        ],
+        "input": [
+          53.77,
+          823.9,
+          297.65,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 32,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          43.08,
+          56.0
+        ],
+        "input": [
+          53.08,
+          823.9,
+          298.34,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 48,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          41.9,
+          56.0
+        ],
+        "input": [
+          51.9,
+          823.9,
+          299.53,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 50,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          41.71,
+          56.0
+        ],
+        "input": [
+          51.71,
+          823.9,
+          299.72,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 64,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          40.22,
+          56.0
+        ],
+        "input": [
+          50.22,
+          823.9,
+          301.2,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 80,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          37.99,
+          56.0
+        ],
+        "input": [
+          47.99,
+          823.9,
+          303.44,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 96,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          35.45,
+          56.0
+        ],
+        "input": [
+          45.45,
+          823.9,
+          305.98,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 100,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          34.68,
+          56.0
+        ],
+        "input": [
+          44.68,
+          823.9,
+          306.75,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 112,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          32.45,
+          56.0
+        ],
+        "input": [
+          42.45,
+          823.9,
+          308.98,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 128,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          29.43,
+          56.0
+        ],
+        "input": [
+          39.43,
+          823.9,
+          312.0,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 144,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          26.43,
+          56.0
+        ],
+        "input": [
+          36.43,
+          823.9,
+          315.0,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 150,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          25.32,
+          56.0
+        ],
+        "input": [
+          35.32,
+          823.9,
+          316.1,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 160,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          23.58,
+          56.0
+        ],
+        "input": [
+          33.58,
+          823.9,
+          317.85,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 176,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          21.14,
+          56.0
+        ],
+        "input": [
+          31.14,
+          823.9,
+          320.29,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 192,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          19.1,
+          56.0
+        ],
+        "input": [
+          29.1,
+          823.9,
+          322.33,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 200,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          18.29,
+          56.0
+        ],
+        "input": [
+          28.29,
+          823.9,
+          323.14,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 208,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          17.59,
+          56.0
+        ],
+        "input": [
+          27.59,
+          823.9,
+          323.84,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 224,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          16.6,
+          56.0
+        ],
+        "input": [
+          26.6,
+          823.9,
+          324.83,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 240,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          16.09,
+          56.0
+        ],
+        "input": [
+          26.09,
+          823.9,
+          325.34,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 250,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          16.0,
+          56.0
+        ],
+        "input": [
+          26.0,
+          823.9,
+          325.43,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 256,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          16.0,
+          56.0
+        ],
+        "input": [
+          26.0,
+          823.9,
+          325.43,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 272,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          16.0,
+          56.0
+        ],
+        "input": [
+          26.0,
+          823.9,
+          325.43,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 288,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          16.0,
+          56.0
+        ],
+        "input": [
+          26.0,
+          823.9,
+          325.43,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 300,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          16.0,
+          56.0
+        ],
+        "input": [
+          26.0,
+          823.9,
+          325.43,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 350,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          16.0,
+          56.0
+        ],
+        "input": [
+          26.0,
+          823.9,
+          325.43,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 400,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          16.0,
+          56.0
+        ],
+        "input": [
+          26.0,
+          823.9,
+          325.43,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 450,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          16.0,
+          56.0
+        ],
+        "input": [
+          26.0,
+          823.9,
+          325.43,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 500,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          16.0,
+          56.0
+        ],
+        "input": [
+          26.0,
+          823.9,
+          325.43,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 550,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          16.0,
+          56.0
+        ],
+        "input": [
+          26.0,
+          823.9,
+          325.43,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    },
+    {
+      "t": 600,
+      "rects": {
+        "attachSlot": [
+          10.0,
+          817.9,
+          16.0,
+          56.0
+        ],
+        "input": [
+          26.0,
+          823.9,
+          325.43,
+          48.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "texts": {
+        "sendIcon": "send_outlined"
+      }
+    }
+  ]
+}

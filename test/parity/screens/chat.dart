@@ -21,7 +21,23 @@ import 'package:matrix/matrix.dart';
 
 import '../harness.dart';
 
+/// A conversation fixture on screen: its client and, by bridge ID, its
+/// rooms and the other person's user ID in each.
+typedef ParityChat = ({
+  ParityClient client,
+  Map<String, ParityRoom> rooms,
+  Map<String, String> partners,
+});
+
 Future<void> pumpChatScreen(WidgetTester tester, ParityFixture fixture) async {
+  await pumpChat(tester, fixture);
+  await expectParityGolden(tester, fixture);
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pump(const Duration(seconds: 5));
+}
+
+/// Shows the conversation fixture [fixture] on the app's ChatPage.
+Future<ParityChat> pumpChat(WidgetTester tester, ParityFixture fixture) async {
   setUpParityView(tester, fixture);
   final screen = fixture.screenData;
   final prefs = await setUpParitySettings(fixture);
@@ -222,9 +238,7 @@ Future<void> pumpChatScreen(WidgetTester tester, ParityFixture fixture) async {
     ],
   );
   await settleParity(tester);
-  await expectParityGolden(tester, fixture);
-  await tester.pumpWidget(const SizedBox.shrink());
-  await tester.pump(const Duration(seconds: 5));
+  return (client: client, rooms: rooms, partners: partners);
 }
 
 /// Stores [contacts] as the account's merged contacts event.

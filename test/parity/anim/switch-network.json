@@ -1,0 +1,1000 @@
+{
+  "name": "switch-network",
+  "source": "lib/pages/chat/chat_app_bar_title.dart ChatNetworkIcons; lib/pages/chat/chat_input_row.dart ChatSendButton",
+  "notes": {
+    "times": "ms after the trigger; t=0 is the frame the trigger lands in",
+    "strip": "anim/switch-network.png shows the frames at the stripTimes, left to right, at 2.625x, cropped to the crop regions (logical px) stacked top to bottom"
+  },
+  "stripTimes": [
+    0,
+    50,
+    100,
+    150,
+    200,
+    250,
+    300,
+    350,
+    400,
+    450,
+    500,
+    550,
+    600
+  ],
+  "crop": [
+    [
+      0.0,
+      0.0,
+      411.43,
+      121.71
+    ],
+    [
+      0.0,
+      807.92,
+      411.43,
+      110.17
+    ]
+  ],
+  "frames": [
+    {
+      "t": 0,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#404659",
+        "btn2": "#2A2A2A",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 16,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#404659",
+        "btn2": "#2A2A2A",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 32,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#3F4557",
+        "btn2": "#2B2B2C",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 48,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#3E4455",
+        "btn2": "#2C2C2E",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 50,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#3E4455",
+        "btn2": "#2C2C2E",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 64,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#3D4253",
+        "btn2": "#2D2E30",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 80,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#3B404F",
+        "btn2": "#2F3034",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 96,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#393D4B",
+        "btn2": "#313338",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 100,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#393D49",
+        "btn2": "#31333A",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 112,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#373A46",
+        "btn2": "#33363D",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 128,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#353741",
+        "btn2": "#353942",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 144,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#32343C",
+        "btn2": "#383C47",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 150,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#31333A",
+        "btn2": "#393D49",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 160,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#303237",
+        "btn2": "#3A3E4C",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 176,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2E2F33",
+        "btn2": "#3C4150",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 192,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2C2D2F",
+        "btn2": "#3E4354",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 200,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2C2C2E",
+        "btn2": "#3E4455",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 208,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2B2C2D",
+        "btn2": "#3F4456",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 224,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2A2B2B",
+        "btn2": "#404558",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 240,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2A2A2A",
+        "btn2": "#404659",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 250,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2A2A2A",
+        "btn2": "#404659",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 256,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2A2A2A",
+        "btn2": "#404659",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 272,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2A2A2A",
+        "btn2": "#404659",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 288,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2A2A2A",
+        "btn2": "#404659",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 300,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2A2A2A",
+        "btn2": "#404659",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 350,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2A2A2A",
+        "btn2": "#404659",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 400,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2A2A2A",
+        "btn2": "#404659",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 450,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2A2A2A",
+        "btn2": "#404659",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 500,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2A2A2A",
+        "btn2": "#404659",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 550,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2A2A2A",
+        "btn2": "#404659",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    },
+    {
+      "t": 600,
+      "rects": {
+        "btn1": [
+          239.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "btn2": [
+          281.43,
+          77.71,
+          40.0,
+          32.0
+        ],
+        "sendButton": [
+          351.43,
+          821.9,
+          48.0,
+          48.0
+        ]
+      },
+      "colors": {
+        "btn1": "#2A2A2A",
+        "btn2": "#404659",
+        "sendButton": "#1A73E8"
+      },
+      "texts": {
+        "hint": "Google Messages"
+      }
+    }
+  ]
+}

@@ -79,6 +79,36 @@ to `android` so the app takes its Android code paths (for example, it reads
 the 24-hour clock setting from the system) while the test runs on a desktop.
 It is null in the app.
 
+## Animations
+
+`animations_test.dart` (helpers in `anim_recorder.dart`) drives the app's
+real widgets through the animations the site reproduces and records each
+one into `anim/<name>.json` and `anim/<name>.png`, in the same device theme,
+fonts and screen as the goldens. `--update-goldens` rewrites both; without
+it the test checks the measurements against the JSON.
+
+Each JSON lists frames at `t` milliseconds after the trigger (t=0 is the
+frame the trigger lands in): every 50 ms to the end, plus every 16 ms through
+the first 300 ms. A frame holds `rects` (`[x, y, w, h]` in logical pixels
+from the screen's top left, null while that part is not built), `colors`
+(`#RRGGBB`, `#RRGGBBAA` while not opaque) and `texts`. The PNG shows the
+frames at `stripTimes` left to right, at the phone's density, cropped to the
+`crop` regions stacked top to bottom.
+
+| Name | Trigger |
+|---|---|
+| `typing-dots-8`, `typing-dots-4` | `TypingAnimation` mounts, 2400 ms |
+| `typing-row-in`, `typing-row-out` | in `chat-dm`, a sync starts or ends the partner's typing |
+| `message-in` | in `chat-dm` while the partner types, one sync brings a reply and ends the typing |
+| `message-out` | in `chat-dm-linked`, a tap on send with "On it" typed |
+| `switch-network` | in `chat-dm-linked`, a tap on the second network button |
+| `composer-type` | in `chat-dm-linked`, "On it" is typed |
+| `list-typing-preview` | in `chat-list`, a sync starts typing in a read chat |
+| `unread-arrive` | in `chat-list`, a sync brings a message and an unread count of 1 to a read chat |
+
+Syncs go through `Client.handleSync`, the path a real sync takes, so the
+timeline, the typing row and the chat list react as they do on the phone.
+
 ## Known gaps
 
 - Text whose style names no font family at all falls back to the test
