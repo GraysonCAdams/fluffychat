@@ -1,4 +1,4 @@
-﻿; Inno Setup script for the FluffyChat Windows installer.
+﻿; Inno Setup script for the Seam Windows installer.
 ; Build with: scripts/package-windows.ps1
 
 #ifndef AppVersion
@@ -13,18 +13,20 @@
 ; Never change the AppId! Inno Setup uses it to detect an existing
 ; installation, so that a new installer updates it in place.
 AppId={{4914EA58-B990-4CA5-BFAA-8EAC9A24F6A5}
-AppName=FluffyChat
+AppName=Seam
 AppVersion={#AppVersion}
-AppVerName=FluffyChat {#AppVersion}
-AppPublisher=Christian Kußowski
-AppPublisherURL=https://fluffychat.im
-AppSupportURL=https://github.com/krille-chan/fluffychat/issues
-AppUpdatesURL=https://github.com/krille-chan/fluffychat/releases
+AppVerName=Seam {#AppVersion}
+AppPublisher=Grayson Adams
+AppPublisherURL=https://seam.312.dev
+AppSupportURL=https://github.com/GraysonCAdams/fluffychat/issues
+AppUpdatesURL=https://github.com/GraysonCAdams/fluffychat/releases
 VersionInfoVersion={#AppVersion}
 ; Per-user installation into %LOCALAPPDATA%\Programs, so that neither the
 ; installation nor updates require admin rights.
 PrivilegesRequired=lowest
-DefaultDirName={autopf}\FluffyChat
+; An existing installation keeps its folder (Inno reuses the previous
+; directory for the same AppId); only fresh installs use this name.
+DefaultDirName={autopf}\Seam
 DisableProgramGroupPage=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -61,13 +63,16 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [InstallDelete]
 ; Remove assets of the previous version, which might not exist anymore.
 Type: filesandordirs; Name: "{app}\data"
+; Shortcuts from before the app was called Seam.
+Type: files; Name: "{autoprograms}\FluffyChat.lnk"
+Type: files; Name: "{autodesktop}\FluffyChat.lnk"
 
 [Files]
 Source: "{#BuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\FluffyChat"; Filename: "{app}\fluffychat.exe"
-Name: "{autodesktop}\FluffyChat"; Filename: "{app}\fluffychat.exe"; Tasks: desktopicon
+Name: "{autoprograms}\Seam"; Filename: "{app}\fluffychat.exe"
+Name: "{autodesktop}\Seam"; Filename: "{app}\fluffychat.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\fluffychat.exe"; Description: "{cm:LaunchProgram,FluffyChat}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\fluffychat.exe"; Description: "{cm:LaunchProgram,Seam}"; Flags: nowait postinstall skipifsilent
