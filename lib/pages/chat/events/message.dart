@@ -12,6 +12,7 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/effects/message_effect_bubble.dart';
+import 'package:fluffychat/pages/chat/effects/message_effect_replay_link.dart';
 import 'package:fluffychat/pages/chat/typing_run.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
@@ -20,6 +21,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/routed_event.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
+import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -696,6 +698,23 @@ class Message extends StatelessWidget {
                                 ),
                               ],
                             ),
+                            // Replay hugs the bubble it belongs to, as in
+                            // iMessage, above the status line and seen-by
+                            // faces, which are about delivery; its label
+                            // is inset 8dp like the status line's text.
+                            if (effectOf(event) != null)
+                              Padding(
+                                padding: EdgeInsets.only(left: bubbleIndent),
+                                child: Align(
+                                  alignment: ownMessage
+                                      ? Alignment.centerRight
+                                      : Alignment.centerLeft,
+                                  child: MessageEffectReplayLink(
+                                    event: event,
+                                    shadows: wallpaperTextShadow,
+                                  ),
+                                ),
+                              ),
                             if (hasStatusLine)
                               Padding(
                                 padding: EdgeInsets.only(

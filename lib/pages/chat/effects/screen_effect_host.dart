@@ -109,6 +109,15 @@ class ScreenEffectHostState extends State<ScreenEffectHost>
     return true;
   }
 
+  /// Takes the scene on screen now, if any, off at once.
+  void stop() {
+    final scene = _scene;
+    if (scene == null) return;
+    _controller.stop();
+    scene.dispose();
+    setState(() => _scene = null);
+  }
+
   @override
   void dispose() {
     _scene?.dispose();

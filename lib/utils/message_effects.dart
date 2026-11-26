@@ -196,7 +196,7 @@ String effectBodyHtml(Event event, String html) =>
 final _spoilerAttribute = RegExp(r'''\sdata-mx-spoiler(=("[^"]*"|'[^']*'))?''');
 
 /// Tells message bubbles to play their effect again, as the message menu
-/// asks. The value is the event id and a counter, so asking twice for the
+/// and the Replay link under an effect message ask. The value is the event id and a counter, so asking twice for the
 /// same message notifies twice.
 final messageEffectReplays = ValueNotifier<(String eventId, int count)?>(null);
 

@@ -158,6 +158,10 @@ class EffectBubbleState extends State<EffectBubble>
   bool _landed = false;
   int _plays = 0;
 
+  /// The host's count of plays when it started this bubble's scene, so a
+  /// replay can tell whether that scene is still the one on screen.
+  int? _hostPlay;
+
   /// How many times the effect has played here.
   int get plays => _plays;
 
@@ -191,16 +195,28 @@ class EffectBubbleState extends State<EffectBubble>
     return box.localToGlobal(Offset.zero) & box.size;
   }
 
-  void _playOnHost(MessageEffect effect) =>
-      ScreenEffectHost.maybeOf(context)?.play(
-        effect,
-        globalRect: _globalRect,
-        globalRectOf: () => mounted ? _globalRect : null,
-        text: widget.text,
-        borderRadius: widget.borderRadius,
-        bubbleColor: widget.bubbleColor,
-        onBubbleColor: widget.onBubbleColor,
-      );
+  void _playOnHost(MessageEffect effect) {
+    final host = ScreenEffectHost.maybeOf(context);
+    if (host == null) return;
+    final started = host.play(
+      effect,
+      globalRect: _globalRect,
+      globalRectOf: () => mounted ? _globalRect : null,
+      text: widget.text,
+      borderRadius: widget.borderRadius,
+      bubbleColor: widget.bubbleColor,
+      onBubbleColor: widget.onBubbleColor,
+    );
+    if (started) _hostPlay = host.plays;
+  }
+
+  /// Takes this bubble's scene off the host if it is still running, so a
+  /// play that starts over does not leave the last one's scene behind.
+  void _stopOwnScene() {
+    final host = ScreenEffectHost.maybeOf(context);
+    if (host == null || host.playing == null) return;
+    if (_hostPlay == host.plays) host.stop();
+  }
 
   void _onTick() {
     // The slam's ring and shake start the moment the bubble lands.
@@ -212,12 +228,14 @@ class EffectBubbleState extends State<EffectBubble>
     }
   }
 
-  /// Plays the effect from the start. Does nothing under reduced motion.
+  /// Plays the effect from the start, in place of a play of it still
+  /// running. Does nothing under reduced motion.
   void play() {
     if (MediaQuery.disableAnimationsOf(context)) {
       if (_moving) setState(() => _moving = false);
       return;
     }
+    _stopOwnScene();
     _plays++;
     final effect = widget.effect;
     if (effect == MessageEffect.invisibleInk) {
@@ -235,6 +253,38 @@ class EffectBubbleState extends State<EffectBubble>
       ..duration = duration
       ..forward(from: 0);
     EffectHaptics.instance.playFor(context, EffectBubble.hapticsOf(effect));
+  }
+
+  /// How long a replay takes to scroll its bubble into view.
+  static const _revealDuration = Duration(milliseconds: 300);
+
+  /// Plays the effect again, as the message menu or the Replay link under
+  /// the bubble asks. A bubble that is partly off screen is first scrolled
+  /// to the middle of the conversation, so the whole effect is seen.
+  Future<void> replay() async {
+    if (!MediaQuery.disableAnimationsOf(context) && !_fullyVisible) {
+      await Scrollable.ensureVisible(
+        context,
+        alignment: 0.5,
+        duration: _revealDuration,
+        curve: Easing.standard,
+      );
+      if (!mounted) return;
+    }
+    play();
+  }
+
+  /// Whether the whole bubble is inside the conversation it scrolls in.
+  /// True when it is not in a scrolling list at all.
+  bool get _fullyVisible {
+    final bubble = _globalRect;
+    final viewport = Scrollable.maybeOf(context)?.context.findRenderObject();
+    if (bubble == null || viewport is! RenderBox || !viewport.hasSize) {
+      return true;
+    }
+    final visible = viewport.localToGlobal(Offset.zero) & viewport.size;
+    return visible.inflate(0.5).contains(bubble.topLeft) &&
+        visible.inflate(0.5).contains(bubble.bottomRight);
   }
 
   /// [child] where the effect has it at this moment; in place when
@@ -364,8 +414,9 @@ class EffectBubbleState extends State<EffectBubble>
 
 /// The hook between a message in the timeline and its effect: wraps the
 /// bubble of [event] so its effect plays once when the message first comes
-/// on screen, and again when the message menu asks for a replay. A message
-/// without an effect is passed through untouched.
+/// on screen, and again when the message menu or the Replay link under the
+/// bubble asks for a replay (see [replayMessageEffect]). A message without
+/// an effect is passed through untouched.
 class MessageEffectBubble extends StatefulWidget {
   final Event event;
   final Widget child;
@@ -436,7 +487,7 @@ class _MessageEffectBubbleState extends State<MessageEffectBubble>
 
   void _onReplay() {
     if (messageEffectReplays.value?.$1 != widget.event.eventId) return;
-    _bubbleKey.currentState?.play();
+    _bubbleKey.currentState?.replay();
   }
 
   @override

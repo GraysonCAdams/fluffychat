@@ -105,11 +105,12 @@ void main() {
     MessageEffect effect, {
     String id = '\$effect',
     String body = 'Happy new year',
+    String sender = '@alice:example.org',
   }) => Event(
     content: withEffect({'msgtype': 'm.text', 'body': body}, effect),
     type: EventTypes.Message,
     eventId: id,
-    senderId: '@alice:example.org',
+    senderId: sender,
     originServerTs: DateTime.now(),
     status: EventStatus.synced,
     room: room,
@@ -117,12 +118,13 @@ void main() {
 
   /// Shows [event] as the chat does: a message in a list under the area
   /// screen effects play over. [rebuild] gets a function that rebuilds
-  /// the message.
+  /// the message. [above] is the height of the list above the message.
   Future<void> pumpMessage(
     WidgetTester tester,
     Event event, {
     bool reducedMotion = false,
     void Function(VoidCallback rebuild)? rebuild,
+    double above = 0,
   }) async {
     final timeline = Timeline(
       room: room,
@@ -150,6 +152,7 @@ void main() {
                   return ListView(
                     controller: scrollController,
                     children: [
+                      if (above > 0) SizedBox(height: above),
                       Message(
                         event,
                         bigEmojis: const {},
@@ -261,6 +264,194 @@ void main() {
       await tester.pump();
       expect(host(tester).plays, 0);
       expect(find.byType(EffectBubble), findsNothing);
+    });
+  });
+
+  group('the Replay link', () {
+    final replayLink = find.byKey(const ValueKey('message_effect_replay'));
+
+    testWidgets('shows under a received effect once it has played', (
+      tester,
+    ) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.confetti));
+      await tester.pump();
+      expect(replayLink, findsOneWidget);
+      expect(find.text('Replay'), findsOneWidget);
+      final bubble = tester.getRect(find.byType(EffectBubble));
+      final link = tester.getRect(replayLink);
+      // Under the bubble, on the sender's side, a full touch target.
+      expect(link.top, greaterThanOrEqualTo(bubble.bottom - 0.5));
+      expect(link.left, lessThan(400));
+      expect(link.height, greaterThanOrEqualTo(48));
+      expect(link.width, greaterThanOrEqualTo(48));
+      await tester.pump(const Duration(seconds: 6));
+    });
+
+    testWidgets('shows under the user\'s own effect message, at its end', (
+      tester,
+    ) async {
+      await pumpMessage(
+        tester,
+        effectEvent(MessageEffect.spotlight, sender: client.userID!),
+      );
+      await tester.pump();
+      expect(replayLink, findsOneWidget);
+      final bubble = tester.getRect(find.byType(EffectBubble));
+      final link = tester.getRect(replayLink);
+      expect(link.top, greaterThanOrEqualTo(bubble.bottom - 0.5));
+      expect(link.right, greaterThan(400));
+      expect((link.right - bubble.right).abs(), lessThan(24));
+      await tester.pump(const Duration(seconds: 6));
+    });
+
+    testWidgets('is not under a message without an effect', (tester) async {
+      await pumpMessage(
+        tester,
+        Event(
+          content: {'msgtype': 'm.text', 'body': 'Plain'},
+          type: EventTypes.Message,
+          eventId: '\$plain',
+          senderId: '@alice:example.org',
+          originServerTs: DateTime.now(),
+          status: EventStatus.synced,
+          room: room,
+        ),
+      );
+      await tester.pump();
+      expect(replayLink, findsNothing);
+      expect(find.text('Replay'), findsNothing);
+    });
+
+    testWidgets('is not under invisible ink or under reduced motion', (
+      tester,
+    ) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.invisibleInk));
+      await tester.pump();
+      expect(replayLink, findsNothing);
+      await pumpMessage(
+        tester,
+        effectEvent(MessageEffect.fireworks, id: '\$still'),
+        reducedMotion: true,
+      );
+      await tester.pump();
+      expect(replayLink, findsNothing);
+    });
+
+    testWidgets('waits for an effect kept for when the app comes back', (
+      tester,
+    ) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await pumpMessage(tester, effectEvent(MessageEffect.confetti));
+      await tester.pump();
+      expect(replayLink, findsNothing);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump();
+      expect(host(tester).plays, 1);
+      expect(replayLink, findsOneWidget);
+      await tester.pump(const Duration(seconds: 6));
+    });
+
+    testWidgets('is a button named for the effect', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpMessage(tester, effectEvent(MessageEffect.confetti));
+      await tester.pump();
+      expect(
+        tester.getSemantics(replayLink),
+        matchesSemantics(
+          label: 'Replay Confetti',
+          isButton: true,
+          hasTapAction: true,
+        ),
+      );
+      await tester.pump(const Duration(seconds: 6));
+      semantics.dispose();
+    });
+
+    testWidgets('a tap plays a screen effect again', (tester) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.confetti));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 6));
+      expect(host(tester).plays, 1);
+      expect(host(tester).playing, isNull);
+      await tester.tap(replayLink);
+      await tester.pump();
+      expect(host(tester).plays, 2);
+      expect(host(tester).playing, MessageEffect.confetti);
+      await tester.pump(const Duration(seconds: 6));
+    });
+
+    testWidgets('a tap moves a bubble effect again', (tester) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.loud, body: 'Hey'));
+      await tester.pump(const Duration(seconds: 3));
+      final bubble = tester.state<EffectBubbleState>(find.byType(EffectBubble));
+      expect(bubble.plays, 1);
+      final text = find.text('Hey', findRichText: true);
+      final resting = tester.getRect(text);
+      await tester.tap(replayLink);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(bubble.plays, 2);
+      expect(tester.getRect(text), isNot(resting));
+      await tester.pump(const Duration(seconds: 3));
+      expect(tester.getRect(text), resting);
+    });
+
+    testWidgets('a replay mid-slam starts over without the last ring', (
+      tester,
+    ) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.slam));
+      // Landed: the first slam's ring is on screen.
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(host(tester).playing, MessageEffect.slam);
+      expect(host(tester).plays, 1);
+      await tester.tap(replayLink);
+      await tester.pump();
+      // The bubble is back up in the air and the old ring is gone.
+      expect(host(tester).playing, isNull);
+      expect(find.byKey(const ValueKey('screen_effect_scene')), findsNothing);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(host(tester).playing, MessageEffect.slam);
+      expect(host(tester).plays, 2);
+      expect(find.byKey(const ValueKey('screen_effect_scene')), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+    });
+
+    testWidgets('a replay mid-effect leaves one scene on screen', (
+      tester,
+    ) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.fireworks));
+      await tester.pump(const Duration(seconds: 1));
+      final first = host(tester).scene;
+      await tester.tap(replayLink);
+      await tester.pump();
+      expect(host(tester).plays, 2);
+      expect(host(tester).scene, isNot(first));
+      expect(find.byKey(const ValueKey('screen_effect_scene')), findsOneWidget);
+      await tester.pump(const Duration(seconds: 7));
+    });
+
+    testWidgets('a bubble partly off screen is scrolled into view first', (
+      tester,
+    ) async {
+      final event = effectEvent(MessageEffect.confetti);
+      await pumpMessage(tester, event, above: 570);
+      await tester.pump(const Duration(seconds: 6));
+      final viewport = tester.getRect(find.byType(ListView));
+      expect(
+        tester.getRect(find.byType(EffectBubble)).bottom,
+        greaterThan(viewport.bottom),
+      );
+      replayMessageEffect(event);
+      await tester.pump();
+      // Nothing plays until the bubble is in view.
+      expect(host(tester).plays, 1);
+      await tester.pumpAndSettle(const Duration(milliseconds: 50));
+      final bubble = tester.getRect(find.byType(EffectBubble));
+      expect(bubble.bottom, lessThanOrEqualTo(viewport.bottom));
+      expect(bubble.top, greaterThanOrEqualTo(viewport.top));
+      expect(host(tester).plays, 2);
+      await tester.pump(const Duration(seconds: 6));
     });
   });
 
@@ -919,6 +1110,20 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
       expect(played, hasLength(1));
       replayMessageEffect(event);
+      await tester.pump();
+      expect(played.map(composed), [
+        expected[MessageEffect.love],
+        expected[MessageEffect.love],
+      ]);
+      await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('a tap on Replay is felt again', (tester) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.love));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 5));
+      expect(played, hasLength(1));
+      await tester.tap(find.byKey(const ValueKey('message_effect_replay')));
       await tester.pump();
       expect(played.map(composed), [
         expected[MessageEffect.love],

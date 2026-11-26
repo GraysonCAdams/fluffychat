@@ -3716,6 +3716,19 @@
     "@replayEffect": {
         "description": "Entry of a message's menu that plays the message's effect again."
     },
+    "replay": "Replay",
+    "@replay": {
+        "description": "Small link under a message sent with an effect that plays the effect again, as iMessage shows it."
+    },
+    "replayNamedEffect": "Replay {effect}",
+    "@replayNamedEffect": {
+        "description": "Screen reader label of the Replay link under a message sent with an effect.",
+        "placeholders": {
+            "effect": {
+                "type": "String"
+            }
+        }
+    },
     "invisibleInkHidden": "Hidden with Invisible Ink. Touch to reveal.",
     "@invisibleInkHidden": {
         "description": "Screen reader label of a message sent with Invisible Ink while its content is hidden."
