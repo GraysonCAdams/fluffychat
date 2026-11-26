@@ -21,6 +21,7 @@ import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
 import 'package:fluffychat/utils/new_chat/new_group.dart';
 import 'package:fluffychat/utils/share_items.dart';
 import 'package:fluffychat/widgets/avatar.dart';
+import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1343,6 +1344,23 @@ void main() {
         },
       });
     }
+
+    testWidgets('a recent group without a photo shows its members as the '
+        'chat list does', (tester) async {
+      addTripGroup();
+      await pump(tester, share: SharedDraft([FileShareItem(photo)]));
+      final row = find.ancestor(
+        of: find.descendant(of: recent, matching: find.text('Trip crew')),
+        matching: find.byType(ListTile),
+      );
+      expect(
+        find.descendant(of: row, matching: find.byType(GroupAvatar)),
+        findsOneWidget,
+      );
+      // A group bubble looks its sender up in the database, whose
+      // transaction holds a ten-second timer in the test's fake time.
+      await tester.pump(const Duration(seconds: 11));
+    });
 
     testWidgets('opens with the To field empty, recent chats offered and '
         'the share staged', (tester) async {
