@@ -237,6 +237,14 @@ class ParityClient extends Client {
       });
     }
     if (path.contains('/media/')) {
+      final demo = RegExp(r'demo-([a-z0-9-]+)').firstMatch(path);
+      if (demo != null) {
+        return http.Response.bytes(
+          File('$parityDir/images/${demo.group(1)}.png').readAsBytesSync(),
+          200,
+          headers: {'content-type': 'image/png'},
+        );
+      }
       final size = RegExp(r'flat-(\d+)x(\d+)').firstMatch(path);
       return http.Response.bytes(
         size == null

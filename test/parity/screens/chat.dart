@@ -138,13 +138,17 @@ Future<ParityChat> pumpChat(WidgetTester tester, ParityFixture fixture) async {
           'body': item['text'],
         }, sender: sender);
       case 'image':
-        // The photo is a flat picture of the size the fixture gives.
+        // The fixture's demo photo (images/<name>.png, w x h pixels), or a
+        // flat picture of that size when it names none.
         final w = (item['w'] as num).round();
         final h = (item['h'] as num).round();
+        final picture = item['image'] as String?;
         final content = {
           'msgtype': MessageTypes.Image,
           'body': 'photo.jpg',
-          'url': 'mxc://$homeserver/flat-${w}x$h',
+          'url': picture == null
+              ? 'mxc://$homeserver/flat-${w}x$h'
+              : 'mxc://$homeserver/demo-$picture',
           'info': {'w': w, 'h': h, 'mimetype': 'image/png'},
         };
         final image = add(network, EventTypes.Message, content, sender: sender);

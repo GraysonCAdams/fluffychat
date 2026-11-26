@@ -65,17 +65,17 @@
         {
           "kind": "image",
           "dir": "out",
-          "w": 132,
-          "h": 136.4,
-          "tint": true,
+          "image": "tent",
+          "w": 600,
+          "h": 620,
           "via": "imessage"
         },
         {
           "kind": "image",
           "dir": "out",
-          "w": 256,
-          "h": 108.2,
-          "outlined": true,
+          "image": "stakes",
+          "w": 1024,
+          "h": 432,
           "edited": true,
           "via": "imessage"
         },

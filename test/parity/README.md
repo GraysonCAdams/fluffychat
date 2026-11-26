@@ -62,8 +62,10 @@ What stands in for the rest of the app:
 
 - `ParityClient` (`harness.dart`) is a matrix `Client` with an in-memory
   database that looks logged in and synced. Its HTTP client is a fake server:
-  media requests get a flat grey picture (`#353535`, in the shape a message
-  photo asks for), the own profile is "Robin" with a picture, the directory
+  a message photo that names a demo picture gets `images/<name>.png` (drawn
+  by the site's `scripts/make-demo-images.py`, copied here by
+  `pnpm parity:sync`); any other media request gets a flat grey picture
+  (`#353535`, in the shape a message photo asks for), the own profile is "Robin" with a picture, the directory
   and message searches answer from the fixture, anything else is not found.
   A fixture's `picture: true` therefore shows as a plain disc, never a photo.
 - `ParityRoom` opens a timeline of the events the fixture lists instead of
