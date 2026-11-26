@@ -1551,7 +1551,7 @@ class SpotlightScene extends EffectScene {
   late final List<double> _phases;
 
   /// [dust] is how many specks drift in the beam.
-  SpotlightScene(super.palette, super.origin, super.seed, {int dust = 120}) {
+  SpotlightScene(super.palette, super.origin, super.seed, {int dust = 220}) {
     _phases = [for (var i = 0; i < 12; i++) random.nextDouble() * math.pi * 2];
     _motes = [
       for (var i = 0; i < dust; i++)
@@ -1560,7 +1560,7 @@ class SpotlightScene extends EffectScene {
           (random.nextDouble() * 2 - 1) * _spread,
           random.nextDouble(),
           random.nextDouble() * math.pi * 2,
-          1.3 + random.nextDouble() * 2.6,
+          1 + random.nextDouble() * 2,
           (random.nextDouble() - 0.35) * 0.035,
         ),
     ];
@@ -1593,42 +1593,81 @@ class SpotlightScene extends EffectScene {
 
   /// How far the haze of the beam reaches to either side of its middle,
   /// the pool's edge being 1.
-  static const _spread = 1.3;
+  static const _spread = 2.2;
 
   /// How bright the beam is across its width, edge to edge.
-  static const _across = <double>[0, 0.1, 0.42, 0.82, 1, 0.82, 0.42, 0.1, 0];
+  static const _across = <double>[0, 0.16, 0.55, 0.9, 1, 0.9, 0.55, 0.16, 0];
   static const _acrossStops = <double>[
     0,
-    0.1,
-    0.22,
-    0.36,
+    0.12,
+    0.26,
+    0.4,
     0.5,
-    0.64,
-    0.78,
-    0.9,
+    0.6,
+    0.74,
+    0.88,
     1,
   ];
 
-  /// How bright the pool is from its middle outwards, and where, its
-  /// edge being 1: close to even across the disc, a short soft edge and
-  /// a faint halo round it.
-  static const _pool = <double>[1, 0.97, 0.92, 0.8, 0.5, 0.2, 0.06, 0.015, 0];
-  static const _poolAt = <double>[
+  /// How much of the pool's light there is from its middle outwards, and
+  /// where, the radius at which it is half gone being 1: even across the
+  /// disc and gone over a tenth of the radius, as measured on the pool of
+  /// the effect this one follows.
+  static const _edge = <double>[
+    1,
+    1,
+    0.91,
+    0.78,
+    0.61,
+    0.42,
+    0.26,
+    0.15,
+    0.08,
+    0.03,
     0,
-    0.4,
-    0.7,
-    0.86,
-    0.95,
-    1.04,
-    1.12,
-    1.28,
-    1.5,
+  ];
+  static const _edgeAt = <double>[
+    0,
+    0.93,
+    0.955,
+    0.975,
+    0.99,
+    1.008,
+    1.026,
+    1.043,
+    1.06,
+    1.08,
+    1.1,
   ];
 
-  /// How much of the dark the pool lifts from its middle outwards, and
-  /// where, its edge being 1.
-  static const _lift = <double>[1, 1, 0.8, 0.5, 0.2, 0.05, 0];
-  static const _liftAt = <double>[0, 0.74, 0.86, 0.95, 1.04, 1.12, 1.2];
+  /// How light the dark is by its distance from the middle of the pool,
+  /// in pool radii, of 255: a blue grey that is lightest round the pool
+  /// and deepens to the far corners, measured likewise.
+  static const _gloom = <double>[64, 64, 59, 55, 51, 47, 40, 32, 27, 24, 23];
+  static const _gloomAt = <double>[
+    0,
+    1.1,
+    1.35,
+    1.5,
+    1.65,
+    1.76,
+    2.13,
+    2.4,
+    2.56,
+    2.8,
+    3,
+  ];
+
+  /// How much of the conversation the dark hides.
+  static const _cover = 0.92;
+
+  /// The colour of the pool, a cool white, and of the haze in the beam
+  /// at its brightest, a blue.
+  static const _poolColor = Color(0xFFC8D6EE);
+  static const _hazeColor = Color(0xFF9ED4FF);
+
+  /// The colour of a speck of dust in the light.
+  static const _dustColor = Color(0xFFE6EEFF);
 
   /// How much of the pool's radius the bubble is kept within, and how
   /// much of it is kept on the screen where the bubble allows.
@@ -1784,11 +1823,14 @@ class SpotlightScene extends EffectScene {
   final Paint _sharp = Paint()..blendMode = BlendMode.plus;
   final Paint _soft = Paint()
     ..blendMode = BlendMode.plus
-    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.4);
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.8);
   final Path _around = Path();
-  final List<Color> _dimColors = List.filled(2, const Color(0x00000000));
+  final List<Color> _gloomColors = List.filled(
+    _gloom.length,
+    const Color(0x00000000),
+  );
   final List<Color> _liftColors = List.filled(
-    _lift.length,
+    _edge.length,
     const Color(0x00000000),
   );
   final List<Color> _acrossColors = List.filled(
@@ -1798,14 +1840,14 @@ class SpotlightScene extends EffectScene {
   final List<Color> _alongColors = List.filled(7, const Color(0x00000000));
   final List<double> _alongStops = List.filled(7, 0);
   final List<Color> _poolColors = List.filled(
-    _pool.length,
+    _edge.length,
     const Color(0x00000000),
   );
-  static final List<double> _poolStops = [
-    for (final at in _poolAt) at / _poolAt.last,
+  static final List<double> _edgeStops = [
+    for (final at in _edgeAt) at / _edgeAt.last,
   ];
-  static final List<double> _liftStops = [
-    for (final at in _liftAt) at / _liftAt.last,
+  static final List<double> _gloomStops = [
+    for (final at in _gloomAt) at / _gloomAt.last,
   ];
 
   @override
@@ -1828,20 +1870,28 @@ class SpotlightScene extends EffectScene {
     final angle = axis.direction;
     final bubble = origin.rrectNow;
 
-    // The dark: deepest at the edges of the screen, and lifted where the
-    // pool falls, so a light conversation shows lit there. The bubble is
-    // left out of it and keeps its own colours from the first moment.
+    // The dark: a blue grey that the pool's spill lightens round it and
+    // that deepens towards the far corners, lifted where the pool falls
+    // so a light conversation shows lit there. The bubble is left out of
+    // it and keeps its own colours from the first moment.
     canvas.saveLayer(bounds, _layer);
-    _dimColors[0] = palette.scrim.withValues(alpha: 0.87 * dark);
-    _dimColors[1] = palette.scrim.withValues(alpha: 0.96 * dark);
+    for (var i = 0; i < _gloom.length; i++) {
+      final level = _gloom[i].round();
+      _gloomColors[i] = Color.fromRGBO(
+        level - 2,
+        level - 1,
+        level + 4,
+        _cover * dark,
+      );
+    }
     canvas.drawRect(
       bounds,
       _dim
         ..shader = ui.Gradient.radial(
-          bounds.center,
-          size.longestSide * 0.62,
-          _dimColors,
-          const [0.3, 1],
+          at,
+          restRadius(size) * _gloomAt.last,
+          _gloomColors,
+          _gloomStops,
         ),
     );
     if (bubble != null) {
@@ -1853,10 +1903,10 @@ class SpotlightScene extends EffectScene {
       );
     }
     if (lit > 0) {
-      for (var i = 0; i < _lift.length; i++) {
-        _liftColors[i] = Color.fromRGBO(0, 0, 0, _lift[i] * lit);
+      for (var i = 0; i < _edge.length; i++) {
+        _liftColors[i] = Color.fromRGBO(0, 0, 0, _edge[i] * lit);
       }
-      final reach = radius * _liftAt.last;
+      final reach = radius * _edgeAt.last;
       canvas
         ..save()
         ..translate(at.dx, at.dy)
@@ -1870,7 +1920,7 @@ class SpotlightScene extends EffectScene {
               Offset.zero,
               reach,
               _liftColors,
-              _liftStops,
+              _edgeStops,
             ),
         )
         ..restore();
@@ -1892,29 +1942,28 @@ class SpotlightScene extends EffectScene {
       );
     }
 
-    // The beam: haze lit along the lamp's throw, cool against the dark.
-    // Across its width it is brightest down the middle and gone by its
-    // edges; along its length it gathers towards the pool and dies away
-    // across it, so the pool sits in the beam with no line where the two
-    // meet.
+    // The beam: blue haze lit along the lamp's throw. Across its width
+    // it is brightest down the middle and gone by its edges; along its
+    // length it is brightest by the lamp, thins towards
+    // the pool and dies away across it, so the pool sits in the beam
+    // with no line where the two meet.
     final half = beamHalfAngle(radius, distance);
-    final hazeColor = Color.lerp(palette.glow, const Color(0xFFBCD2FF), 0.45)!;
-    final hazeAlpha = (palette.dark ? 0.26 : 0.18) * glow;
+    final hazeAlpha = (palette.dark ? 0.375 : 0.28) * glow;
     for (var i = 0; i < _across.length; i++) {
-      _acrossColors[i] = hazeColor.withValues(alpha: _across[i] * hazeAlpha);
+      _acrossColors[i] = _hazeColor.withValues(alpha: _across[i] * hazeAlpha);
     }
     final reach = distance + radius;
     final near = math.max(0.06, (distance - radius) / reach);
     for (var i = 0; i < 7; i++) {
-      // Up to the pool's near edge in two steps, then an eased fall
+      // Down to the pool's near edge in two steps, then an eased fall
       // across the pool in four.
       final (double stop, double level) = switch (i) {
-        0 => (0, 0.14),
-        1 => (near * 0.5, 0.6),
-        2 => (near, 1),
-        3 => (near + (1 - near) * 0.25, 0.84),
-        4 => (near + (1 - near) * 0.5, 0.5),
-        5 => (near + (1 - near) * 0.75, 0.16),
+        0 => (0, 1),
+        1 => (near * 0.5, 0.85),
+        2 => (near, 0.3),
+        3 => (near + (1 - near) * 0.25, 0.25),
+        4 => (near + (1 - near) * 0.5, 0.15),
+        5 => (near + (1 - near) * 0.75, 0.05),
         _ => (1, 0),
       };
       _alongStops[i] = stop;
@@ -1941,17 +1990,16 @@ class SpotlightScene extends EffectScene {
       )
       ..restore();
 
-    // The pool: light a little warmer than white on the conversation, an
-    // ellipse lying along the beam. A dark conversation shows no light by
-    // being uncovered, so there the pool is painted on close to white,
-    // the brightest thing on the screen, screened over what it falls on
-    // so that a coloured bubble in it keeps a trace of its colour.
-    final poolColor = Color.lerp(palette.glow, const Color(0xFFFFF6E6), 0.8)!;
-    final poolAlpha = (palette.dark ? 0.88 : 0.14) * glow;
-    for (var i = 0; i < _pool.length; i++) {
-      _poolColors[i] = poolColor.withValues(alpha: _pool[i] * poolAlpha);
+    // The pool: cool white light on the conversation, an ellipse lying
+    // along the beam. A dark conversation shows no light by being
+    // uncovered, so there the pool is painted on in full, screened over
+    // what it falls on so that a coloured bubble in it keeps a trace of
+    // its colour.
+    final poolAlpha = (palette.dark ? 1 : 0.14) * glow;
+    for (var i = 0; i < _edge.length; i++) {
+      _poolColors[i] = _poolColor.withValues(alpha: _edge[i] * poolAlpha);
     }
-    final halo = radius * _poolAt.last;
+    final halo = radius * _edgeAt.last;
     canvas
       ..save()
       ..translate(at.dx, at.dy)
@@ -1965,7 +2013,7 @@ class SpotlightScene extends EffectScene {
             Offset.zero,
             halo,
             _poolColors,
-            _poolStops,
+            _edgeStops,
           ),
       )
       ..restore();
@@ -1995,17 +2043,17 @@ class SpotlightScene extends EffectScene {
       final a = angle + across * half / _spread;
       final d = distance * (0.06 + 1.02 * along);
       final center = lamp + Offset(math.cos(a), math.sin(a)) * d;
-      if (mote.depth > 0.72) {
+      if (mote.depth > 0.85) {
         canvas.drawCircle(
           center,
-          1.3 + 3.2 * (mote.depth - 0.72),
-          _soft..color = hazeColor.withValues(alpha: alpha * 0.55),
+          0.9 + 3 * (mote.depth - 0.85),
+          _soft..color = _dustColor.withValues(alpha: alpha * 0.3),
         );
       } else {
         canvas.drawCircle(
           center,
-          0.45 + 1.0 * mote.depth,
-          _sharp..color = palette.glow.withValues(alpha: alpha),
+          0.5 + 0.6 * mote.depth,
+          _sharp..color = _dustColor.withValues(alpha: alpha * 0.6),
         );
       }
     }
