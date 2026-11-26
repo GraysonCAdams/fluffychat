@@ -1524,6 +1524,34 @@ void main() {
         )
         .color!;
 
+    testWidgets('sits above the gesture bar', (tester) async {
+      // A phone whose gesture bar takes 24 logical pixels at the foot.
+      const inset = 24.0;
+      final bar = FakeViewPadding(bottom: inset * tester.view.devicePixelRatio);
+      tester.view.padding = bar;
+      tester.view.viewPadding = bar;
+      addTearDown(tester.view.reset);
+      await pumpPicker(tester);
+      final height =
+          tester.view.physicalSize.height / tester.view.devicePixelRatio;
+      // The row keeps its own 10 pixels under the button, above the bar.
+      expect(
+        tester.getRect(button).bottom,
+        lessThanOrEqualTo(height - inset - 10),
+      );
+      expect(
+        tester.getRect(find.text('Or send it later, without an effect')).bottom,
+        lessThanOrEqualTo(height - inset),
+      );
+      // The stage and the list above it still fit.
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const ValueKey('effect_slam')), findsOneWidget);
+      expect(
+        tester.getRect(find.byKey(const ValueKey('effect_slam'))).bottom,
+        lessThan(tester.getRect(button).top),
+      );
+    });
+
     testWidgets('is a labelled button of its own, apart from the effects', (
       tester,
     ) async {

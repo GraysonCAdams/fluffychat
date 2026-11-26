@@ -168,6 +168,17 @@ class _MessageEffectPickerState extends State<MessageEffectPicker> {
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
     final radius = BorderRadius.circular(20);
+    // The sheet runs to the foot of the screen, under the system's
+    // gesture bar: its content stops above that.
+    return SafeArea(top: false, child: _content(context, theme, l10n, radius));
+  }
+
+  Widget _content(
+    BuildContext context,
+    ThemeData theme,
+    L10n l10n,
+    BorderRadius radius,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
