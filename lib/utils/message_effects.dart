@@ -118,9 +118,12 @@ Map<String, Object?> withEffect(
 ) => {...content, messageEffectKey: effect.id};
 
 /// Whether [room] is a chat on the iMessage bridge, the only place effects
-/// can be sent. The bridge carries an effect on a text message only, and
-/// drops it from one that goes out as SMS. A direct chat tells by its ghost's user id; a group by the
-/// network its bridge state names.
+/// can be sent. A message sent with one carries the key on every event it
+/// goes out as, its files and its text, as the bridge marks every part of
+/// a message that arrives with one. On the way out the bridge reads the
+/// key from text events only, and drops it from one that goes out as SMS.
+/// A direct chat tells by its ghost's user id; a group by the network its
+/// bridge state names.
 bool canSendMessageEffects(Room room) {
   if (NetworkColors.bridgeIdOf(room) == 'imessage') return true;
   final network = MatrixFeatures.forClient(room.client).bridgeOf(room)?.network;

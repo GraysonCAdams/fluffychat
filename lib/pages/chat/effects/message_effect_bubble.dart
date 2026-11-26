@@ -370,10 +370,16 @@ class EffectBubbleState extends State<EffectBubble>
     final reduced = MediaQuery.disableAnimationsOf(context);
     var bubble = widget.child;
     if (widget.effect == MessageEffect.invisibleInk) {
+      // A photo or video sent without a bubble is covered in the theme's
+      // own grey, so the ink keeps the picture's shape.
+      final bare = widget.bubbleColor.a == 0;
+      final colorScheme = Theme.of(context).colorScheme;
       bubble = InvisibleInk(
         key: _inkKey,
-        bubbleColor: widget.bubbleColor,
-        dustColor: widget.onBubbleColor,
+        bubbleColor: bare
+            ? colorScheme.surfaceContainerHighest
+            : widget.bubbleColor,
+        dustColor: bare ? colorScheme.onSurface : widget.onBubbleColor,
         borderRadius: widget.borderRadius,
         animate: !reduced,
         child: bubble,

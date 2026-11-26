@@ -182,7 +182,8 @@ class _FakeDelivery extends NewChatDelivery {
   }
 
   /// One entry per share sent: room, the files' names, the number of
-  /// forwarded messages and the text.
+  /// forwarded messages and the text, then the effect id when one was
+  /// picked.
   final List<String> shared = [];
 
   @override
@@ -194,7 +195,8 @@ class _FakeDelivery extends NewChatDelivery {
   }) async {
     shared.add(
       '${room.id}: ${payload.files.map((file) => file.path.split('/').last).join(',')} '
-      '${payload.contents.length} "${payload.text}"',
+      '${payload.contents.length} "${payload.text}"'
+      '${effect == null ? '' : ' [${effect.id}]'}',
     );
   }
 
@@ -1268,18 +1270,35 @@ void main() {
       expect(delivery.sent, isEmpty);
     });
 
-    testWidgets('not offered with a shared photo staged', (tester) async {
-      await pump(
-        tester,
-        share: SharedDraft([FileShareItem(XFile('/tmp/photo.jpg'))]),
-      );
-      await pick(tester, 'quinn', 'Quinn Imsg');
-      await pick(tester, 'quinby', 'Quinby Imsg');
-      await longPressSend(tester, 'yo');
-      expect(find.byType(MessageEffectPicker), findsNothing);
-      expect(delivery.created, isEmpty);
-      expect(delivery.shared, isEmpty);
-    });
+    for (final caption in ['yo', '']) {
+      testWidgets('offered with a shared photo staged, '
+          '${caption.isEmpty ? 'alone' : 'with a caption'}, and the effect '
+          'goes with the share', (tester) async {
+        await pump(
+          tester,
+          share: SharedDraft([FileShareItem(XFile('/tmp/photo.jpg'))]),
+        );
+        await pick(tester, 'quinn', 'Quinn Imsg');
+        await pick(tester, 'quinby', 'Quinby Imsg');
+        await longPressSend(tester, caption);
+        expect(find.byType(MessageEffectPicker), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(MessageEffectPicker),
+            matching: find.byKey(const ValueKey('effect_preview_media')),
+          ),
+          findsOneWidget,
+        );
+        await tester.pump(const Duration(seconds: 3));
+        await tester.tap(find.byKey(const ValueKey('send_effect_slam')));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pump(const Duration(seconds: 1));
+        expect(delivery.shared, [
+          '!group:x: photo.jpg 0 "$caption" [${MessageEffect.slam.id}]',
+        ]);
+      });
+    }
   });
 
   group('share', () {

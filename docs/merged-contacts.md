@@ -540,7 +540,9 @@ with a `SharedDraft` (`lib/utils/share_items.dart`) as the route's `extra`.
   instead drops the share and returns the same way, without a toast.
 - A long press on send offers iMessage's effects as in the chat when the
   message goes out on iMessage (the chat's network, else the new group's
-  or the new direct chat's) and nothing is staged.
+  or the new direct chat's) and no forwarded messages are staged. Staged
+  photos and videos are previewed with the text and go out with the
+  effect too.
 
 ### Merged chat screen
 

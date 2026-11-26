@@ -7,6 +7,7 @@ import 'package:cross_file/cross_file.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_file_extension.dart';
 import 'package:fluffychat/utils/media_adaptation.dart';
+import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/resize_video.dart';
@@ -46,9 +47,13 @@ const int _fallbackMaxUploadSize = 100 * 1000 * 1000;
 /// function has no [BuildContext] of its own. On platforms with a foreground
 /// service (mobile, and the web's leave-page guard) that service keeps the
 /// upload alive instead of the "do not exit" snackbar, as in the dialog.
+///
+/// With [effect], every file event carries it (see [withEffect]), as the
+/// iMessage bridge marks every part of a message that arrives with one.
 Future<void> sendAttachments({
   required Room room,
   required List<XFile> files,
+  MessageEffect? effect,
   String? threadRootEventId,
   String? threadLastEventId,
   ScaffoldMessengerState? scaffoldMessenger,
@@ -101,6 +106,7 @@ Future<void> sendAttachments({
           room: room,
           features: features,
           xfile: xfile,
+          effect: effect,
           maxUploadSize: maxUploadSize,
           threadRootEventId: threadRootEventId,
           threadLastEventId: threadLastEventId,
@@ -139,6 +145,7 @@ Future<void> _sendOne({
   required Room room,
   required RoomFeatures features,
   required XFile xfile,
+  required MessageEffect? effect,
   required int maxUploadSize,
   required String? threadRootEventId,
   required String? threadLastEventId,
@@ -184,10 +191,13 @@ Future<void> _sendOne({
     throw FileTooBigMatrixException(adapted.file.bytes.length, maxUploadSize);
   }
 
+  final extraContent = adapted.extraContent;
   Future<void> send() => room.sendFileEvent(
     adapted.file,
     thumbnail: adapted.thumbnail,
-    extraContent: adapted.extraContent,
+    extraContent: effect == null
+        ? extraContent
+        : withEffect(extraContent ?? const {}, effect),
     threadRootEventId: threadRootEventId,
     threadLastEventId: threadLastEventId,
   );

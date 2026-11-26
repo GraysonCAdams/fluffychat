@@ -1355,19 +1355,19 @@ class ChatController extends State<ChatPageWithRoom>
   }
 
   /// What a long press on the send button does: the effect picker in a
-  /// chat on the iMessage bridge, the scheduling options elsewhere, while
-  /// a message is being edited and while attachments are staged (the
-  /// bridge carries an effect on text only). The picker's own schedule
-  /// button is switched off on a homeserver without delayed events. [bubbleColor] and [onBubbleColor]
-  /// are the send button's, the colours the message's bubble will have.
+  /// chat on the iMessage bridge, which previews the staged attachments
+  /// and the text together, and the scheduling options elsewhere and while
+  /// a message is being edited. The picker's own schedule button is
+  /// switched off on a homeserver without delayed events. [bubbleColor]
+  /// and [onBubbleColor] are the send button's, the colours the message's
+  /// bubble will have.
   Future<void> onSendLongPress(Color bubbleColor, Color onBubbleColor) =>
       effects.onSendLongPress(
         context,
         effectsAvailable:
-            editEvent == null &&
-            pendingAttachments.isEmpty &&
-            canSendMessageEffects(composerRoom),
+            editEvent == null && canSendMessageEffects(composerRoom),
         text: sendController.text,
+        media: List.of(pendingAttachments),
         bubbleColor: bubbleColor,
         onBubbleColor: onBubbleColor,
         send: (effect) => send(effect: effect),
@@ -1375,8 +1375,8 @@ class ChatController extends State<ChatPageWithRoom>
         canSchedule: () => room.client.canScheduleMessages,
       );
 
-  /// Sends what is in the composer; the typed text goes out with [effect]
-  /// when one is given.
+  /// Sends what is in the composer; the staged attachments and the typed
+  /// text go out with [effect] when one is given.
   Future<void> send({MessageEffect? effect}) async {
     // Taken once: the reply, edit or picked network can change while the
     // dialogs below are open, and the message must go where the composer
@@ -1393,6 +1393,7 @@ class ChatController extends State<ChatPageWithRoom>
       await sendAttachments(
         room: target,
         files: files,
+        effect: effect,
         threadRootEventId: activeThreadId,
         threadLastEventId: threadLastEventId,
         scaffoldMessenger: ScaffoldMessenger.of(context),

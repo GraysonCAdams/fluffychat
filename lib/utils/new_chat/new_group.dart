@@ -274,7 +274,8 @@ class NewChatDelivery {
 
   /// Sends what the compose screen staged to [room] as the chat's composer
   /// does: the files through [sendAttachments], then the forwarded
-  /// messages, then the text, with [effect] when one was picked. Throws
+  /// messages, then the text, the files and the text with [effect] when
+  /// one was picked. Throws
   /// when anything was not sent, or when the user turned down sending to
   /// the room's unverified devices.
   Future<void> sendShare(
@@ -291,6 +292,7 @@ class NewChatDelivery {
     await sendAttachments(
       room: room,
       files: payload.files,
+      effect: effect,
       scaffoldMessenger: ScaffoldMessenger.of(context),
       l10n: L10n.of(context),
       onError: (error, _) => failure ??= error,

@@ -5,9 +5,11 @@
 // ignore_for_file: implementation_imports, depend_on_referenced_packages
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:cross_file/cross_file.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/effects/invisible_ink.dart';
@@ -58,6 +60,11 @@ class _RecordingCanvas implements Canvas {
     return null;
   }
 }
+
+/// A 1x1 PNG.
+final _png = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+);
 
 /// Pumps until the app's localizations have loaded and its first page is
 /// built, a millisecond at a time.
@@ -264,6 +271,60 @@ void main() {
       await tester.pump();
       expect(host(tester).plays, 0);
       expect(find.byType(EffectBubble), findsNothing);
+    });
+  });
+
+  /// A photo sent with [effect], as the bridge brings one in.
+  Event photoEvent(MessageEffect effect) => Event(
+    content: withEffect({
+      'msgtype': MessageTypes.Image,
+      'body': 'photo.jpg',
+      'url': 'mxc://example.org/photo',
+      'info': {'w': 400, 'h': 300, 'mimetype': 'image/jpeg'},
+    }, effect),
+    type: EventTypes.Message,
+    eventId: '\$photo',
+    senderId: '@alice:example.org',
+    originServerTs: DateTime.now(),
+    status: EventStatus.synced,
+    room: room,
+  );
+
+  group('a photo sent with an effect', () {
+    /// Lets the photo's lookups in the database, which run outside the
+    /// test's clock, finish before the test ends.
+    Future<void> settlePhoto(WidgetTester tester) async {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 200)),
+      );
+      await tester.pump(const Duration(seconds: 11));
+    }
+
+    testWidgets('slams in and can be replayed', (tester) async {
+      await pumpMessage(tester, photoEvent(MessageEffect.slam));
+      await tester.pump(const Duration(milliseconds: 100));
+      final bubble = tester.state<EffectBubbleState>(find.byType(EffectBubble));
+      expect(bubble.plays, 1);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.tap(find.byKey(const ValueKey('message_effect_replay')));
+      await tester.pump();
+      expect(bubble.plays, 2);
+      await tester.pump(const Duration(seconds: 3));
+      await settlePhoto(tester);
+    });
+
+    testWidgets('is covered by invisible ink in the theme\'s grey', (
+      tester,
+    ) async {
+      await pumpMessage(tester, photoEvent(MessageEffect.invisibleInk));
+      await tester.pump();
+      final ink = tester.widget<InvisibleInk>(find.byType(InvisibleInk));
+      final colorScheme = Theme.of(
+        tester.element(find.byType(InvisibleInk)),
+      ).colorScheme;
+      expect(ink.bubbleColor, colorScheme.surfaceContainerHighest);
+      expect(ink.dustColor, colorScheme.onSurface);
+      await settlePhoto(tester);
     });
   });
 
@@ -1851,7 +1912,12 @@ void main() {
   });
 
   group('the send button', () {
-    Future<List<Object>> pumpSendButton(WidgetTester tester, Room room) async {
+    Future<List<Object>> pumpSendButton(
+      WidgetTester tester,
+      Room room, {
+      String text = 'Happy birthday',
+      List<XFile> media = const [],
+    }) async {
       final log = <Object>[];
       // A phone's screen, so the sheet has a phone's room.
       tester.view.physicalSize = const Size(412, 900);
@@ -1869,7 +1935,8 @@ void main() {
                 onLongPress: () => onSendLongPress(
                   context,
                   effectsAvailable: canSendMessageEffects(room),
-                  text: 'Happy birthday',
+                  text: text,
+                  media: media,
                   bubbleColor: Colors.green,
                   onBubbleColor: Colors.white,
                   send: log.add,
@@ -1899,6 +1966,118 @@ void main() {
       expect(log, isEmpty);
       // Let the preview's effect run out.
       await tester.pump(const Duration(seconds: 3));
+    });
+
+    XFile staged(String name, String mimeType) => XFile.fromData(
+      Uint8List.fromList(_png),
+      name: name,
+      path: '/staged/$name',
+      mimeType: mimeType,
+    );
+
+    final previewMedia = find.byKey(const ValueKey('effect_preview_media'));
+
+    testWidgets('a long press with only a photo staged opens the picker', (
+      tester,
+    ) async {
+      final log = await pumpSendButton(
+        tester,
+        iMessage,
+        text: '',
+        media: [staged('photo.png', 'image/png')],
+      );
+      expect(find.byType(MessageEffectPicker), findsOneWidget);
+      expect(log, isEmpty);
+      expect(
+        find.descendant(of: previewMedia, matching: find.byType(Image)),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('a photo and its caption are previewed and moved together', (
+      tester,
+    ) async {
+      await pumpSendButton(
+        tester,
+        iMessage,
+        text: 'Look at this',
+        media: [staged('photo.png', 'image/png')],
+      );
+      final bubble = find.byType(EffectBubble);
+      expect(bubble, findsOneWidget);
+      expect(
+        find.descendant(of: bubble, matching: previewMedia),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: bubble, matching: find.text('Look at this')),
+        findsOneWidget,
+      );
+      // The photo sits above its caption.
+      expect(
+        tester.getRect(previewMedia).bottom,
+        lessThanOrEqualTo(tester.getRect(find.text('Look at this')).top),
+      );
+      await tester.pump(const Duration(seconds: 3));
+      // A replay shows the photo from its first frame, not an empty tile.
+      await tester.tap(previewMedia);
+      await tester.pump();
+      expect(
+        find.descendant(of: previewMedia, matching: find.byType(Image)),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('a video shows with a play badge, several items stacked', (
+      tester,
+    ) async {
+      await pumpSendButton(
+        tester,
+        iMessage,
+        text: '',
+        media: [
+          staged('clip.mp4', 'video/mp4'),
+          staged('a.png', 'image/png'),
+          staged('b.png', 'image/png'),
+          staged('c.png', 'image/png'),
+        ],
+      );
+      expect(previewMedia, findsOneWidget);
+      expect(find.byKey(const ValueKey('effect_preview_play')), findsOneWidget);
+      // Three lie in the stack.
+      expect(
+        find.descendant(of: previewMedia, matching: find.byType(ClipRRect)),
+        findsNWidgets(3),
+      );
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('invisible ink covers the photo and the caption apart', (
+      tester,
+    ) async {
+      await pumpSendButton(
+        tester,
+        iMessage,
+        text: 'Secret',
+        media: [staged('photo.png', 'image/png')],
+      );
+      await tester.pump(const Duration(seconds: 3));
+      await tester.tap(find.byKey(const ValueKey('effect_invisibleInk')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final inks = find.byType(InvisibleInk);
+      expect(inks, findsNWidgets(2));
+      expect(
+        find.descendant(of: inks.first, matching: previewMedia),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: inks.last, matching: find.text('Secret')),
+        findsOneWidget,
+      );
+      await tester.pumpWidget(const SizedBox());
     });
 
     testWidgets('a long press elsewhere does what it did before', (
