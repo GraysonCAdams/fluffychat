@@ -295,6 +295,9 @@ class ParityClient extends Client {
     if (path.endsWith('/publicRooms')) {
       return _json({'chunk': <Object>[], 'total_room_count_estimate': 0});
     }
+    if (request.method == 'PUT' && path.contains('/send/')) {
+      return _json({'event_id': '\$sent-${path.split('/').last}'});
+    }
     if (path.contains('/profile/')) {
       return _json({'displayname': 'Robin', 'avatar_url': '$flatPicture'});
     }
@@ -339,7 +342,9 @@ class ParityClient extends Client {
       name,
       database: await MatrixSdkDatabase.init(
         name,
-        database: await databaseFactoryFfi.openDatabase(':memory:'),
+        // In the test's own isolate, so database calls finish inside the
+        // test's fake time, as a sync from the fake server needs.
+        database: await databaseFactoryFfiNoIsolate.openDatabase(':memory:'),
         sqfliteFactory: databaseFactoryFfi,
       ),
     );
@@ -603,6 +608,99 @@ Future<void> expectParityGolden(
   final (size, matches) = result!;
   expect(size, (fixture.widthPx, fixture.heightPx));
   expect(matches, isTrue, reason: '${fixture.screen} differs from $golden');
+}
+
+/// A crop of the view as straight RGBA bytes, row by row: [regions] in
+/// logical pixels, drawn at [pixelRatio] and stacked top to bottom (each
+/// as wide as the widest).
+typedef RgbaImage = ({int width, int height, Uint8List bytes});
+
+Future<RgbaImage> captureParityRegions(
+  WidgetTester tester,
+  List<Rect> regions,
+  double pixelRatio,
+) async {
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(_captureKey),
+  );
+  final layer = boundary.debugLayer! as OffsetLayer;
+  final parts = <RgbaImage>[];
+  for (final region in regions) {
+    final part = await tester.runAsync(() async {
+      final image = await layer.toImage(region, pixelRatio: pixelRatio);
+      final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      final result = (
+        width: image.width,
+        height: image.height,
+        bytes: data!.buffer.asUint8List(),
+      );
+      image.dispose();
+      return result;
+    });
+    parts.add(part!);
+  }
+  return stackRgba(parts, vertical: true);
+}
+
+/// [images] side by side, or one under the other when [vertical], on a
+/// transparent background where they differ in size.
+RgbaImage stackRgba(List<RgbaImage> images, {required bool vertical}) {
+  var width = 0;
+  var height = 0;
+  for (final image in images) {
+    if (vertical) {
+      width = image.width > width ? image.width : width;
+      height += image.height;
+    } else {
+      width += image.width;
+      height = image.height > height ? image.height : height;
+    }
+  }
+  final bytes = Uint8List(width * height * 4);
+  var x0 = 0;
+  var y0 = 0;
+  for (final image in images) {
+    for (var y = 0; y < image.height; y++) {
+      bytes.setRange(
+        ((y0 + y) * width + x0) * 4,
+        ((y0 + y) * width + x0 + image.width) * 4,
+        image.bytes,
+        y * image.width * 4,
+      );
+    }
+    if (vertical) {
+      y0 += image.height;
+    } else {
+      x0 += image.width;
+    }
+  }
+  return (width: width, height: height, bytes: bytes);
+}
+
+/// [image] as a PNG file.
+Uint8List encodeRgbaPng(RgbaImage image) {
+  final rows = BytesBuilder();
+  for (var y = 0; y < image.height; y++) {
+    rows.addByte(0); // no filter
+    rows.add(
+      Uint8List.sublistView(
+        image.bytes,
+        y * image.width * 4,
+        (y + 1) * image.width * 4,
+      ),
+    );
+  }
+  final header = ByteData(13)
+    ..setUint32(0, image.width)
+    ..setUint32(4, image.height)
+    ..setUint8(8, 8) // bit depth
+    ..setUint8(9, 6); // truecolour with alpha
+  final png = BytesBuilder()
+    ..add(const [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+    ..add(_pngChunk('IHDR', header.buffer.asUint8List()))
+    ..add(_pngChunk('IDAT', ZLibCodec().encode(rows.takeBytes())))
+    ..add(_pngChunk('IEND', const []));
+  return png.takeBytes();
 }
 
 /// Adds the bridge's space for [bridgeId], named after the network, the
