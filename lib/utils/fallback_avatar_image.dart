@@ -46,7 +46,8 @@ Future<Uint8List?> renderFallbackAvatar(String name, {int size = 216}) async {
         : TextSpan(
             text: letters,
             style: TextStyle(
-              fontFamily: 'RobotoMono',
+              // Painted outside the widget tree, so the app font is named.
+              fontFamily: 'GoogleSansFlex',
               fontWeight: FontWeight.bold,
               fontSize: dimension / 3.75,
               color: colors.onPrimaryContainer,

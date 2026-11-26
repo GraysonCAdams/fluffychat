@@ -136,8 +136,8 @@ class Avatar extends StatelessWidget {
                           : Text(
                               fallbackLetters,
                               textAlign: TextAlign.center,
+                              // The theme's font, as everywhere else.
                               style: TextStyle(
-                                fontFamily: 'RobotoMono',
                                 color:
                                     textColor ??
                                     fallbackLetters

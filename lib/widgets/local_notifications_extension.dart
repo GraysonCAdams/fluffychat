@@ -261,7 +261,8 @@ extension LocalNotificationsExtension on MatrixState {
             : TextSpan(
                 text: letters,
                 style: TextStyle(
-                  fontFamily: 'RobotoMono',
+                  // Painted outside the widget tree, so the app font is named.
+                  fontFamily: 'GoogleSansFlex',
                   fontWeight: FontWeight.bold,
                   fontSize: size / 2.5,
                   color: colors.onPrimaryContainer,
