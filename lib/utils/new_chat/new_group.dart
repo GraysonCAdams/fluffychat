@@ -8,6 +8,9 @@
 /// the bridge calls behind it.
 library;
 
+import 'dart:typed_data';
+
+import 'package:cross_file/cross_file.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
 import 'package:fluffychat/utils/bridge_provisioning.dart';
@@ -20,6 +23,7 @@ import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/send_attachments.dart';
 import 'package:fluffychat/utils/share_items.dart';
+import 'package:fluffychat/utils/video_poster.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:material_ui/material_ui.dart';
@@ -197,7 +201,8 @@ BridgeGroupType? preferredGroupType(List<BridgeGroupType> types) =>
 
 /// How New Chat and Add people reach the bridges and the chats: reading
 /// the people sources, asking the networks whether they reach a person and
-/// which groups they create, starting chats and groups, sending the first message or a share, reading an
+/// which groups they create, starting chats and groups, sending the first
+/// message or a share, reading a staged video's first frame and an
 /// existing chat's timeline, and finding and inviting people for a bridged
 /// group. Widget tests replace it with a fake.
 class NewChatDelivery {
@@ -248,6 +253,9 @@ class NewChatDelivery {
     if (directory == null) return null;
     return add_people.bridgeOfRoom(await directory.bridges(), room);
   }
+
+  /// The first frame of a staged video, for its tile in the composer.
+  Future<Uint8List?> videoPoster(XFile file) => VideoPoster.forFile(file.path);
 
   /// Invites [userId], a bridge ghost, to [room].
   Future<void> invite(Room room, String userId) => room.invite(userId);

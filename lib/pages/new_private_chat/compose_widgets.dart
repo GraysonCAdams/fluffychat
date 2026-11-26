@@ -601,6 +601,7 @@ class ComposeBar extends StatelessWidget {
               ComposerAttachmentStrip(
                 files: controller.stagedFiles,
                 onRemove: controller.removeStagedFile,
+                videoPoster: controller.widget.delivery.videoPoster,
               ),
               if (controller.stagedContents.isNotEmpty)
                 _ForwardedRow(controller),
