@@ -7,8 +7,23 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/room_unread.dart';
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
+
+const double _fontSize = 13;
+
+/// How far to lift the count's digits so they sit in the middle of the badge.
+///
+/// Segoe UI, the Windows system font, keeps much more room above its digits
+/// than below, so evenly split leading leaves them 0.067 of the font size
+/// low in all three Segoe UI faces Windows uses (measured in
+/// test/pages/chat_list/unread_bubble_font_test.dart). Elsewhere the digits
+/// already sit centred.
+double unreadDigitNudge(double fontSize, [TargetPlatform? platform]) =>
+    (platform ?? defaultTargetPlatform) == TargetPlatform.windows
+    ? fontSize * 0.067
+    : 0;
 
 class UnreadBubble extends StatelessWidget {
   final Room room;
@@ -60,27 +75,29 @@ class UnreadBubble extends StatelessWidget {
         borderRadius: BorderRadius.circular(unreadBubbleSize),
       ),
       child: showsCount
-          ? Text(
-              notificationCount.toString(),
-              style: TextStyle(
-                color: highlightCount > 0
-                    ? theme.colorScheme.onError
-                    : hasNotifications
-                    ? theme.colorScheme.onPrimary
-                    : theme.colorScheme.onPrimaryContainer,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                // The line box is the glyph height with its spare leading
-                // split evenly above and below, so the digits sit in the
-                // middle of the badge whatever the platform font's ascent
-                // and descent (Segoe UI on Windows leaves them low).
-                height: 1,
-                leadingDistribution: TextLeadingDistribution.even,
+          ? Transform.translate(
+              offset: Offset(0, -unreadDigitNudge(_fontSize)),
+              child: Text(
+                notificationCount.toString(),
+                style: TextStyle(
+                  color: highlightCount > 0
+                      ? theme.colorScheme.onError
+                      : hasNotifications
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.onPrimaryContainer,
+                  fontSize: _fontSize,
+                  fontWeight: FontWeight.w500,
+                  // The line box is the font size with its spare leading split
+                  // evenly above and below. That centres Roboto's digits on
+                  // Android; unreadDigitNudge corrects Segoe UI on Windows.
+                  height: 1,
+                  leadingDistribution: TextLeadingDistribution.even,
+                ),
+                textHeightBehavior: const TextHeightBehavior(
+                  leadingDistribution: TextLeadingDistribution.even,
+                ),
+                textAlign: .center,
               ),
-              textHeightBehavior: const TextHeightBehavior(
-                leadingDistribution: TextLeadingDistribution.even,
-              ),
-              textAlign: .center,
             )
           : const SizedBox.shrink(),
     );

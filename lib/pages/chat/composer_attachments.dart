@@ -198,11 +198,18 @@ class _RemoveBadge extends StatelessWidget {
   }
 }
 
+/// Whether [file] can be read from its path. A file held only in memory can
+/// still carry a path: a keyboard-inserted GIF sets its file name there so
+/// the name survives, and nothing exists on disk at that path.
+bool _isOnDisk(XFile file) =>
+    !kIsWeb && file.path.isNotEmpty && File(file.path).existsSync();
+
 /// Image thumbnail, decoded at tile size to keep memory low.
 ///
 /// Native platforms read straight from the picked file's path. On the web,
-/// and for files that only exist in memory (an edited image, for example),
-/// the bytes are read once and kept for the life of the tile.
+/// and for files that only exist in memory (an edited image, or a GIF from
+/// the keyboard, for example), the bytes are read once and kept for the life
+/// of the tile.
 class _ImagePreview extends StatefulWidget {
   final XFile file;
 
@@ -215,7 +222,7 @@ class _ImagePreview extends StatefulWidget {
 class _ImagePreviewState extends State<_ImagePreview> {
   Future<Uint8List>? _bytes;
 
-  bool get _hasNativePath => !kIsWeb && widget.file.path.isNotEmpty;
+  late final bool _hasNativePath = _isOnDisk(widget.file);
 
   @override
   void initState() {
@@ -273,7 +280,7 @@ class _FullScreenImage extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget errorBuilder(BuildContext context, Object error, StackTrace? _) =>
         const Icon(Icons.broken_image_outlined, color: Colors.white, size: 48);
-    final hasNativePath = !kIsWeb && file.path.isNotEmpty;
+    final hasNativePath = _isOnDisk(file);
     return Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
