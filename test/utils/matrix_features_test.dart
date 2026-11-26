@@ -337,4 +337,13 @@ void main() {
       expect(RoomFeatures.unrestricted.allowsState('m.room.name'), isFalse);
     });
   });
+
+  test('the stored state scan reads the bridge types', () {
+    final exclusions = MatrixFeatures.scanExclusions({
+      'm.room.name',
+      'm.bridge',
+      'uk.half-shot.bridge',
+    });
+    expect(exclusions, ['m.room.name']);
+  });
 }

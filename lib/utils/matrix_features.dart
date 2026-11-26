@@ -180,9 +180,19 @@ class MatrixFeatures extends ChangeNotifier {
 
   static Future<List<StrippedStateEvent>> _databaseState(Room room) =>
       room.client.database.getUnimportantRoomEventStatesForRoom(
-        room.client.importantStateEvents.toList(),
+        scanExclusions(room.client.importantStateEvents),
         room,
       );
+
+  /// The state types the stored state scan skips: those preloaded into
+  /// memory, less the bridge types. A room synced before the bridge types
+  /// were preloaded keeps its bridge event among the rest of its stored
+  /// state, which is what the scan reads.
+  @visibleForTesting
+  static List<String> scanExclusions(Set<String> important) => [
+    for (final type in important)
+      if (!RoomBridge.stateTypes.contains(type)) type,
+  ];
 
   StreamSubscription? _syncSub;
   Timer? _debounce;
@@ -332,10 +342,19 @@ class MatrixFeatures extends ChangeNotifier {
   /// results.
   @visibleForTesting
   static String scanCacheKeyFor(String clientName) =>
+      'chat.fluffy.matrix_features.scan.v2.$clientName';
+
+  /// Where an earlier scan kept results that marked every bridged room it
+  /// read as plain, because it skipped the bridge types. It is cleared so
+  /// those rooms are scanned again.
+  static String _staleScanCacheKeyFor(String clientName) =>
       'chat.fluffy.matrix_features.scan.$clientName';
 
   void _loadScanCache() {
     try {
+      unawaited(
+        AppSettings.store.remove(_staleScanCacheKeyFor(client.clientName)),
+      );
       final raw = AppSettings.store.getString(_scanCacheKey);
       if (raw == null) return;
       final json = jsonDecode(raw);
