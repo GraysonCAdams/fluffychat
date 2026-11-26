@@ -3838,5 +3838,26 @@
     "effectShootingStar": "Shooting Star",
     "@effectShootingStar": {
         "description": "Name of a message effect."
+    },
+    "sentToOnNetwork": "Sent to {name} on {network}",
+    "@sentToOnNetwork": {
+        "description": "Toast after something shared from another app was sent, as Seam goes back to that app; name is the chat, network the network it went out on.",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            },
+            "network": {
+                "type": "String"
+            }
+        }
+    },
+    "sentToName": "Sent to {name}",
+    "@sentToName": {
+        "description": "Toast after something shared from another app was sent to a chat on no bridged network, as Seam goes back to that app.",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            }
+        }
     }
 }

@@ -26,6 +26,7 @@ import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
 import 'package:fluffychat/pages/chat/utils/web_file_to_x_file.dart';
 import 'package:fluffychat/pages/chat_details/chat_details.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
+import 'package:fluffychat/utils/android_direct_share.dart';
 import 'package:fluffychat/utils/chat_windows/chat_windows.dart';
 import 'package:fluffychat/utils/clipboard_gif.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
@@ -48,7 +49,7 @@ import 'package:fluffychat/utils/room_features.dart';
 import 'package:fluffychat/utils/room_unread.dart';
 import 'package:fluffychat/utils/scheduled_messages.dart';
 import 'package:fluffychat/utils/send_attachments.dart';
-import 'package:fluffychat/utils/show_scaffold_dialog.dart';
+import 'package:fluffychat/utils/share_items.dart';
 import 'package:fluffychat/utils/windows_clipboard.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_modal_action_popup.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
@@ -57,7 +58,6 @@ import 'package:fluffychat/widgets/chat_windows_host.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
-import 'package:fluffychat/widgets/share_scaffold_dialog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -77,7 +77,9 @@ import 'send_location_dialog.dart';
 
 class ChatPage extends StatelessWidget {
   final String roomId;
-  final List<ShareItem>? shareItems;
+
+  /// Shared files and text staged in the composer when the page opens.
+  final SharedDraft? share;
   final String? eventId;
   final Timeline? timeline;
   final String? action;
@@ -94,7 +96,7 @@ class ChatPage extends StatelessWidget {
     super.key,
     required this.roomId,
     this.eventId,
-    this.shareItems,
+    this.share,
     this.timeline,
     this.action,
     this.contactId,
@@ -122,7 +124,7 @@ class ChatPage extends StatelessWidget {
     return ChatPageWithRoom(
       key: Key('chat_page_${roomId}_${eventId}_$action'),
       room: room,
-      shareItems: shareItems,
+      share: share,
       eventId: eventId,
       timeline: timeline,
       action: action,
@@ -156,7 +158,7 @@ class ChatPage extends StatelessWidget {
           key: Key('chat_page_contact_${contactId}_${eventId}_$action'),
           room: contact.sendViaRoom,
           contactId: contactId,
-          shareItems: shareItems,
+          share: share,
           eventId: eventId,
           eventRoomId: eventRoomId,
           action: action,
@@ -169,7 +171,7 @@ class ChatPage extends StatelessWidget {
 class ChatPageWithRoom extends StatefulWidget {
   /// The room shown, or for a merged contact its default room.
   final Room room;
-  final List<ShareItem>? shareItems;
+  final SharedDraft? share;
   final String? eventId;
   final Timeline? timeline;
   final String? action;
@@ -181,7 +183,7 @@ class ChatPageWithRoom extends StatefulWidget {
   const ChatPageWithRoom({
     super.key,
     required this.room,
-    this.shareItems,
+    this.share,
     this.eventId,
     this.timeline,
     this.action,
@@ -631,9 +633,17 @@ class ChatController extends State<ChatPageWithRoom>
     }
   }
 
-  Future<void> _shareItems() async {
-    final shareItems = widget.shareItems;
-    if (shareItems == null || shareItems.isEmpty) return;
+  /// Whether the composer holds a share from [ChatPageWithRoom.share] that
+  /// was not sent yet. Drafts are not stored meanwhile, so the shared text
+  /// never replaces the chat's own draft.
+  bool _holdsShare = false;
+
+  /// Stages [ChatPageWithRoom.share] in the composer: files as attachments,
+  /// text in the text field. Nothing is sent until the user presses send.
+  /// Forwarded messages go through the compose screen, not here.
+  void _stageShare() {
+    final share = widget.share;
+    if (share == null || share.items.isEmpty) return;
     if (!room.otherPartyCanReceiveMessages) {
       final theme = Theme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -647,22 +657,37 @@ class ChatController extends State<ChatPageWithRoom>
           showCloseIcon: true,
         ),
       );
+    }
+    final text = share.text;
+    setState(() {
+      _holdsShare = true;
+      pendingAttachments.addAll(share.files);
+      if (text.isNotEmpty) {
+        sendController.text = text;
+        inputTextIsEmpty.value = false;
+      }
+    });
+  }
+
+  /// After the staged share went out: a share from the share sheet puts
+  /// Seam behind the app that shared, with a toast naming the chat and
+  /// network.
+  Future<void> _afterShareSent(Room target, Future<void>? textSent) async {
+    if (!_holdsShare) return;
+    _holdsShare = false;
+    if (widget.share?.fromShareIntent != true) return;
+    final l10n = L10n.of(context);
+    final name =
+        mergedContact?.displayName(MatrixLocals(l10n)) ??
+        target.getLocalizedDisplayname(MatrixLocals(l10n));
+    final toast = shareSentToast(l10n, target, name);
+    try {
+      await textSent;
+    } catch (e, s) {
+      Logs().w('Unable to send the shared text', e, s);
       return;
     }
-    final target = composerRoom;
-    final proceed = await showTrustUserInRoomDialog(context, target);
-    if (!mounted || !proceed) return;
-    for (final item in shareItems) {
-      if (item is FileShareItem) continue;
-      if (item is TextShareItem) target.sendTextEvent(item.value);
-      if (item is ContentShareItem) target.sendEvent(item.value.copy());
-    }
-    final files = shareItems
-        .whereType<FileShareItem>()
-        .map((item) => item.value)
-        .toList();
-    if (files.isEmpty) return;
-    addPendingAttachments(files);
+    await AndroidDirectShare.returnToSourceApp(toast: toast);
   }
 
   void _toggleEmojiPickerTab(int tab) {
@@ -801,7 +826,7 @@ class ChatController extends State<ChatPageWithRoom>
 
     _loadDraft();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _shareItems();
+      _stageShare();
       _checkMatrixRtcCallSupport();
       if (widget.action == 'call') {
         Matrix.of(context).activeCallRoomId.value = room.id;
@@ -1374,10 +1399,13 @@ class ChatController extends State<ChatPageWithRoom>
       );
       if (!mounted) return;
     }
-    if (sendController.text.trim().isEmpty) return;
+    if (sendController.text.trim().isEmpty) {
+      await _afterShareSent(target, null);
+      return;
+    }
     _storeInputTimeoutTimer?.cancel();
-    final prefs = Matrix.of(context).store;
-    prefs.remove(_draftKey);
+    // The chat's own draft stays for later while the text is a share.
+    if (!_holdsShare) Matrix.of(context).store.remove(_draftKey);
     var parseCommands = true;
 
     final commandMatch = RegExp(r'^\/(\w+)').firstMatch(sendController.text);
@@ -1401,17 +1429,16 @@ class ChatController extends State<ChatPageWithRoom>
       _typingRoom?.setTyping(false);
     }
 
+    final Future<void> textSent;
     if (effect != null && editEvent == null) {
-      // ignore: unawaited_futures
-      target.sendTextEventWithEffect(
+      textSent = target.sendTextEventWithEffect(
         sendController.text,
         effect,
         inReplyTo: replyEvent,
         threadRootEventId: activeThreadId,
       );
     } else {
-      // ignore: unawaited_futures
-      target.sendTextEvent(
+      textSent = target.sendTextEvent(
         sendController.text,
         inReplyTo: replyEvent,
         editEventId: editEvent?.eventId,
@@ -1419,6 +1446,9 @@ class ChatController extends State<ChatPageWithRoom>
         threadRootEventId: activeThreadId,
       );
     }
+    // The chat shows the message as sending, and as failed with a retry,
+    // so only a share waits for it.
+    textSent.ignore();
     sendController.value = TextEditingValue(
       text: pendingText,
       selection: const TextSelection.collapsed(offset: 0),
@@ -1432,6 +1462,7 @@ class ChatController extends State<ChatPageWithRoom>
       pendingText = '';
     });
     _afterNewMessage();
+    await _afterShareSent(target, textSent);
   }
 
   Future<void> sendFileAction({FileType type = FileType.any}) async {
@@ -1865,16 +1896,15 @@ class ChatController extends State<ChatPageWithRoom>
       selectedEvents,
     ).map((event) => event.getDisplayEvent(timeline)).toList();
 
-    await showScaffoldDialog(
-      context: context,
-      builder: (context) => ShareScaffoldDialog(
-        items: forwardEvents
-            .map((event) => ContentShareItem(event.content.copy()))
-            .toList(),
-      ),
-    );
-    if (!mounted) return;
     setState(() => selectedEvents.clear());
+    // The compose screen asks who to forward to, with the messages staged
+    // in its composer.
+    context.push(
+      '/rooms/newprivatechat',
+      extra: SharedDraft([
+        for (final event in forwardEvents) ContentShareItem(event.content.copy()),
+      ]),
+    );
   }
 
   /// The room a failed [event] can be sent through instead: in a merged
@@ -2366,10 +2396,12 @@ class ChatController extends State<ChatPageWithRoom>
     inputTextIsEmpty.value = text.isEmpty;
 
     _storeInputTimeoutTimer?.cancel();
-    _storeInputTimeoutTimer = Timer(_storeInputTimeout, () async {
-      final prefs = Matrix.of(context).store;
-      await prefs.setString(_draftKey, text);
-    });
+    if (!_holdsShare) {
+      _storeInputTimeoutTimer = Timer(_storeInputTimeout, () async {
+        final prefs = Matrix.of(context).store;
+        await prefs.setString(_draftKey, text);
+      });
+    }
     if (text.endsWith(' ') && Matrix.of(context).hasComplexBundles) {
       final clients = currentRoomBundle;
       for (final client in clients) {
@@ -2482,6 +2514,19 @@ class ChatController extends State<ChatPageWithRoom>
 
   @override
   Widget build(BuildContext context) {
+    final page = _buildPage(context);
+    if (widget.share?.fromShareIntent != true) return page;
+    // Leaving a share from the share sheet unsent drops it with the page
+    // and goes back to the app that shared.
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop && _holdsShare) AndroidDirectShare.returnToSourceApp();
+      },
+      child: page,
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
     final theme = Theme.of(context);
     return Actions(
       actions: kIsWeb

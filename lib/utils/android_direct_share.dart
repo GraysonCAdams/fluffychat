@@ -24,4 +24,19 @@ abstract final class AndroidDirectShare {
       return null;
     }
   }
+
+  /// Puts Seam behind the app that shared into it, after a share from the
+  /// share sheet was sent or abandoned, and shows [toast] when given as a
+  /// system toast, which stays visible once Seam is gone. Seam's activity
+  /// is single-task, so moving its task back reveals the sharing app.
+  static Future<void> returnToSourceApp({String? toast}) async {
+    if (!PlatformInfos.isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>('returnToSourceApp', {
+        'toast': toast,
+      });
+    } catch (e, s) {
+      Logs().w('Unable to return to the sharing app', e, s);
+    }
+  }
 }

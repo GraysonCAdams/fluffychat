@@ -2,13 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// Starting a group on one of the user's networks from New Chat or the
-/// share page, and adding people to a bridged group: the people picked so
+/// Starting a group on one of the user's networks from New Chat, and
+/// adding people to a bridged group: the people picked so
 /// far, the network the first of them fixed (or the group's own), and the
 /// bridge calls behind it.
 library;
 
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
 import 'package:fluffychat/pages/new_private_chat/start_chat_sheet.dart';
 import 'package:fluffychat/utils/bridge_provisioning.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_timeline.dart';
@@ -16,6 +17,9 @@ import 'package:fluffychat/utils/new_chat/add_people.dart' as add_people;
 import 'package:fluffychat/utils/new_chat/bridge_directory.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
+import 'package:fluffychat/utils/other_party_can_receive.dart';
+import 'package:fluffychat/utils/send_attachments.dart';
+import 'package:fluffychat/utils/share_items.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:material_ui/material_ui.dart';
@@ -187,9 +191,9 @@ class GroupDraft extends ChangeNotifier {
 BridgeGroupType? preferredGroupType(List<BridgeGroupType> types) =>
     types.where((type) => type.id == 'group').firstOrNull ?? types.firstOrNull;
 
-/// How New Chat, the share page and Add people reach the bridges and the
-/// chats: reading the people sources, picking a network for a person,
-/// starting chats and groups, sending the first message, reading an
+/// How New Chat and Add people reach the bridges and the chats: reading
+/// the people sources, picking a network for a person, starting chats and
+/// groups, sending the first message or a share, reading an
 /// existing chat's timeline, and finding and inviting people for a bridged
 /// group. Widget tests replace it with a fake.
 class NewChatDelivery {
@@ -289,6 +293,39 @@ class NewChatDelivery {
 
   /// Sends [text] to [room] as the chat's composer does.
   Future<void> sendText(Room room, String text) => room.sendTextEvent(text);
+
+  /// Sends what the compose screen staged to [room] as the chat's composer
+  /// does: the files through [sendAttachments], then the forwarded
+  /// messages, then the text. Throws when anything was not sent, or when
+  /// the user turned down sending to the room's unverified devices.
+  Future<void> sendShare(
+    BuildContext context,
+    Room room,
+    SharePayload payload,
+  ) async {
+    final proceed = await showTrustUserInRoomDialog(context, room);
+    if (!proceed || !context.mounted) {
+      throw StateError('Sending to ${room.id} was cancelled');
+    }
+    Object? failure;
+    await sendAttachments(
+      room: room,
+      files: payload.files,
+      scaffoldMessenger: ScaffoldMessenger.of(context),
+      l10n: L10n.of(context),
+      onError: (error, _) => failure ??= error,
+    );
+    if (payload.contents.isNotEmpty || payload.text.trim().isNotEmpty) {
+      if (!room.otherPartyCanReceiveMessages) {
+        throw OtherPartyCanNotReceiveMessages();
+      }
+    }
+    for (final content in payload.contents) {
+      await room.sendEvent(content.copy());
+    }
+    if (payload.text.trim().isNotEmpty) await room.sendTextEvent(payload.text);
+    if (failure case final error?) throw error;
+  }
 
   /// The timeline of [chat], read-only on the compose screen: every room of
   /// a merged contact as one, else the chat's room. [onUpdate] fires when

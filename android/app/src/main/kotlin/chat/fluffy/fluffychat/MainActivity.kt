@@ -9,6 +9,7 @@ import io.flutter.plugin.common.MethodChannel
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 
 class MainActivity : FlutterFragmentActivity() {
 
@@ -101,6 +102,15 @@ class MainActivity : FlutterFragmentActivity() {
                         "takeShareTarget" -> {
                             result.success(pendingShareShortcutId)
                             pendingShareShortcutId = null
+                        }
+                        // A share from the share sheet was sent or left:
+                        // Seam's task goes behind the app that shared.
+                        "returnToSourceApp" -> {
+                            call.argument<String>("toast")?.let {
+                                Toast.makeText(context.applicationContext, it, Toast.LENGTH_SHORT).show()
+                            }
+                            (EngineHandoff.holder as? MainActivity)?.moveTaskToBack(true)
+                            result.success(null)
                         }
                         else -> result.notImplemented()
                     }

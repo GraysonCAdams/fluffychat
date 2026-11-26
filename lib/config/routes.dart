@@ -38,13 +38,13 @@ import 'package:fluffychat/pages/settings_style/settings_style.dart';
 import 'package:fluffychat/pages/sign_in/sign_in_page.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
+import 'package:fluffychat/utils/share_items.dart';
 import 'package:fluffychat/widgets/chat_windows_host.dart';
 import 'package:fluffychat/widgets/config_viewer.dart';
 import 'package:fluffychat/widgets/layouts/empty_page.dart';
 import 'package:fluffychat/widgets/layouts/two_column_layout.dart';
 import 'package:fluffychat/widgets/log_view.dart';
 import 'package:fluffychat/widgets/matrix.dart';
-import 'package:fluffychat/widgets/share_scaffold_dialog.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -198,6 +198,11 @@ abstract class AppRoutes {
                   ),
                   deeplink: state.uri.fragment,
                   startGroup: state.uri.queryParameters['group'] == '1',
+                  // What is shared from another app or forwarded, staged
+                  // in the composer.
+                  share: state.extra is SharedDraft
+                      ? state.extra as SharedDraft
+                      : null,
                 ),
               ),
               redirect: loggedOutRedirect,
@@ -419,9 +424,10 @@ abstract class AppRoutes {
                   key: ValueKey(state.uri),
                   roomId: '',
                   contactId: state.pathParameters['contactid'],
-                  // Items picked for this contact in the Android share sheet.
-                  shareItems: state.extra is List<ShareItem>
-                      ? state.extra as List<ShareItem>
+                  // A share picked for this contact in the Android share
+                  // sheet, staged in the composer.
+                  share: state.extra is SharedDraft
+                      ? state.extra as SharedDraft
                       : null,
                   eventId: state.uri.queryParameters['event'],
                   eventRoomId: state.uri.queryParameters['room'],
@@ -434,12 +440,14 @@ abstract class AppRoutes {
               path: ':roomid',
               pageBuilder: (context, state) {
                 final body = state.uri.queryParameters['body'];
-                var shareItems = state.extra is List<ShareItem>
-                    ? state.extra as List<ShareItem>
+                var share = state.extra is SharedDraft
+                    ? state.extra as SharedDraft
                     : null;
                 if (body != null && body.isNotEmpty) {
-                  shareItems ??= [];
-                  shareItems.add(TextShareItem(body));
+                  share = SharedDraft([
+                    ...?share?.items,
+                    TextShareItem(body),
+                  ], fromShareIntent: share?.fromShareIntent ?? false);
                 }
                 return defaultPageBuilder(
                   context,
@@ -447,7 +455,7 @@ abstract class AppRoutes {
                   ChatPage(
                     key: ValueKey(state.uri),
                     roomId: state.pathParameters['roomid']!,
-                    shareItems: shareItems,
+                    share: share,
                     eventId: state.uri.queryParameters['event'],
                     action: state.uri.queryParameters['action'],
                   ),
