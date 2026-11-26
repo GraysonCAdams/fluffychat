@@ -313,6 +313,9 @@ void main() {
             sender: room.directChatMatrixID!,
             body: 'Are you still up for tomorrow?',
           ),
+          // A fixed time keeps the row's time label, and so the title's
+          // width, the same on every run; later than the chat's 21:16.
+          sentAt: _todayAt(21, 30),
           notificationCount: 1,
         ),
       ),
@@ -329,6 +332,7 @@ SyncUpdate _syncUpdate(
   String roomId, {
   List<String>? typing,
   ({String sender, String body})? message,
+  DateTime? sentAt,
   int? notificationCount,
 }) {
   final n = ++_syncCount;
@@ -349,7 +353,7 @@ SyncUpdate _syncUpdate(
                   content: {'msgtype': MessageTypes.Text, 'body': message.body},
                   senderId: message.sender,
                   eventId: '\$parity-sync-$n',
-                  originServerTs: DateTime.now(),
+                  originServerTs: sentAt ?? DateTime.now(),
                 ),
             ],
           ),
@@ -363,6 +367,11 @@ SyncUpdate _syncUpdate(
       },
     ),
   );
+}
+
+DateTime _todayAt(int hour, int minute) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day, hour, minute);
 }
 
 /// The chat's partner starts or stops typing.

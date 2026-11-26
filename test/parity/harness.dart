@@ -162,37 +162,23 @@ class ParityFixture {
       Color(0xFF000000 | int.parse(hex.substring(1), radix: 16));
 }
 
-/// Loads Roboto (the Android system font, which the app does not override),
-/// Roboto Mono Bold (avatar initials) and the Material icons. Without this
-/// every glyph renders as a box of the test font.
+/// Loads the app's own font, Google Sans Flex (the theme names it for all
+/// text; four weights from the app's assets), Roboto Mono Bold (avatar
+/// initials) and the Material icons. Without this every glyph renders as a
+/// box of the test font.
 Future<void> loadParityFonts() async {
-  final roboto = FontLoader('Roboto');
-  for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold']) {
-    roboto.addFont(_fontFile('Roboto-$weight.ttf'));
-  }
-  await roboto.load();
-  // Text with no family at all (a few widgets set a style of their own
-  // without one) falls back to the host's system font, which the test
-  // engine draws as a box per glyph. On the phone that fallback is Roboto,
-  // so Roboto takes the system font names of each host.
-  for (final systemFont in _systemFontNames) {
-    final fallback = FontLoader(systemFont);
-    for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold']) {
-      fallback.addFont(_fontFile('Roboto-$weight.ttf'));
-    }
-    await fallback.load();
-  }
   await (FontLoader(
     'RobotoMono',
   )..addFont(_fontFile('RobotoMono-Bold.ttf'))).load();
 
-  // The icon font ships with the Flutter SDK and is in the test asset
-  // bundle because the app sets uses-material-design.
+  // Google Sans Flex is declared in the app's pubspec and the icon font
+  // ships with the Flutter SDK; both are in the test asset bundle.
   final manifest =
       jsonDecode(await rootBundle.loadString('FontManifest.json')) as List;
   for (final family in manifest.cast<Map<String, Object?>>()) {
-    if (family['family'] != 'MaterialIcons') continue;
-    final loader = FontLoader('MaterialIcons');
+    final name = family['family'];
+    if (name != appFontFamily && name != 'MaterialIcons') continue;
+    final loader = FontLoader(name as String);
     for (final font in (family['fonts'] as List).cast<Map>()) {
       loader.addFont(rootBundle.load(font['asset'] as String));
     }
@@ -200,20 +186,8 @@ Future<void> loadParityFonts() async {
   }
 }
 
-/// The default font families of the hosts tests run on.
-const _systemFontNames = [
-  'Segoe UI', // Windows
-  'Arial',
-  'sans-serif',
-  'system-ui',
-  'Noto Sans', // Linux
-  'Ubuntu',
-  'Cantarell',
-  'Adwaita Sans',
-  '.AppleSystemUIFont', // macOS
-  '.SF Pro Text',
-  'FlutterTest',
-];
+/// The font family the app's theme sets for all of its text.
+const appFontFamily = 'GoogleSansFlex';
 
 Future<ByteData> _fontFile(String name) async =>
     ByteData.sublistView(File('$parityDir/fonts/$name').readAsBytesSync());

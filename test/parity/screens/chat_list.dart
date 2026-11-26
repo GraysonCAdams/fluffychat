@@ -226,8 +226,23 @@ Future<ParityClient> _build(
     );
   }
 
+  // Unread chats further down, which only the "N unread" chip shows.
+  final oldest = DateTime.now().subtract(const Duration(days: 40));
+  for (var i = 0; i < fillers; i++) {
+    _addChat(
+      client,
+      id: '!more$i:$homeserver',
+      name: 'Older chat $i',
+      body: 'An older message',
+      time: oldest.subtract(Duration(hours: i)),
+      unread: 1,
+    );
+  }
+
   // The bridges' spaces, which the "All" chip's menu lists: the menu's
-  // rows when the fixture shows it open, else one per network.
+  // rows when the fixture shows it open, else one per network. Added last,
+  // so the list, which keeps the client's order until a sync sorts it,
+  // shows them below every chat.
   final overlay = fixture.overlay;
   final filters = (screen['filters'] as List? ?? []).cast<Map>();
   if (overlay?['kind'] == 'sourceMenu') {
@@ -248,19 +263,6 @@ Future<ParityClient> _build(
       final space = addNetworkSpace(client, key, value, const []);
       setRoomState(space, EventTypes.RoomAvatar, {'url': '$flatPicture'});
     }
-  }
-
-  // Unread chats further down, which only the "N unread" chip shows.
-  final oldest = DateTime.now().subtract(const Duration(days: 40));
-  for (var i = 0; i < fillers; i++) {
-    _addChat(
-      client,
-      id: '!more$i:$homeserver',
-      name: 'Older chat $i',
-      body: 'An older message',
-      time: oldest.subtract(Duration(hours: i)),
-      unread: 1,
-    );
   }
 
   addTearDown(() {
@@ -298,7 +300,14 @@ Future<ParityClient> _build(
       for (final (i, hit) in hits.indexed)
         _searchResult(client, hit, hitRooms[hit['room']]!, i),
     ];
-    await tester.tap(find.byType(TextField).first);
+    // On a phone the header shows a search button until search starts;
+    // where it shows the field itself, the field is tapped instead.
+    final field = find.byType(TextField);
+    await tester.tap(
+      field.evaluate().isEmpty
+          ? find.byIcon(Icons.search_outlined).first
+          : field.first,
+    );
     await tester.pump();
     await tester.enterText(
       find.byType(TextField).first,

@@ -40,8 +40,10 @@ reference phone's screen at 411.43 x 918.1 logical pixels and a density of
 padding. The theme is the app's own (`FluffyThemes.buildTheme`), dark, with a
 seed of HCT hue 268.4, which gives the phone's accents (primary `#B0C6FF`,
 primaryContainer `#18438F`, secondaryContainer `#404659`; a test checks
-them). Text uses Roboto, Roboto Mono Bold for initials and the Material
-icons, so glyphs are real, not test boxes.
+them). Text uses the app's own font, Google Sans Flex (the theme sets it for
+all text), with Roboto Mono Bold for initials and the Material icons, so
+glyphs are real, not test boxes; a test checks that text set in the theme
+really draws in Google Sans Flex.
 
 Every screen is the app's real page, not a copy of its layout:
 
@@ -122,7 +124,9 @@ timeline, the typing row and the chat list react as they do on the phone.
 
 ## Fonts
 
-`fonts/` holds TTFs made from the site's `@fontsource` packages (OFL 1.1,
-licences beside them) by `tool/make_fonts.py`, since Flutter cannot load
-woff2. The icon font comes from the Flutter SDK through the test asset
-bundle.
+Google Sans Flex is loaded from the app's own assets
+(`assets/fonts/google_sans_flex`, declared in `pubspec.yaml`) and the icon
+font from the Flutter SDK, both through the test asset bundle. `fonts/`
+holds Roboto Mono Bold, made from the site's `@fontsource/roboto-mono`
+package (OFL 1.1, licence beside it) by `tool/make_fonts.py`, since Flutter
+cannot load woff2.

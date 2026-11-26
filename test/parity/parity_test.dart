@@ -9,6 +9,8 @@
 /// them. See README.md in this folder.
 library;
 
+import 'package:fluffychat/config/themes.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -35,6 +37,33 @@ void main() {
     expect(scheme.primary, const Color(0xFFB0C6FF));
     expect(scheme.primaryContainer, const Color(0xFF18438F));
     expect(scheme.secondaryContainer, const Color(0xFF404659));
+  });
+
+  testWidgets('text renders in the app font, not a fallback', (tester) async {
+    const sample = 'Hamburgefonstiv';
+    await tester.pumpWidget(
+      Builder(
+        builder: (context) => MaterialApp(
+          theme: FluffyThemes.buildTheme(context, Brightness.dark, deviceSeed),
+          home: const Material(
+            child: Column(
+              children: [
+                Text(sample),
+                // A family nobody loaded falls back to the test font.
+                Text(sample, style: TextStyle(fontFamily: 'NotLoaded')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    final texts = find.text(sample);
+    final paragraph = tester.renderObject<RenderParagraph>(texts.first);
+    expect(paragraph.text.style?.fontFamily, appFontFamily);
+    expect(
+      tester.getSize(texts.first).width,
+      isNot(closeTo(tester.getSize(texts.last).width, 1)),
+    );
   });
 
   for (final screen in [
