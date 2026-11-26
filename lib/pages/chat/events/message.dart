@@ -15,6 +15,7 @@ import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/file_description.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/routed_event.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -163,12 +164,9 @@ class Message extends StatelessWidget {
         previousEvent!.originServerTs.sameEnvironment(event.originServerTs);
 
     final networkColor = ownMessage ? this.networkColor : null;
-    // Black or white, whichever reads on the network's colour.
     final onNetworkColor = networkColor == null
         ? null
-        : ThemeData.estimateBrightnessForColor(networkColor) == Brightness.dark
-        ? Colors.white
-        : Colors.black;
+        : NetworkColors.foregroundOn(networkColor);
     final textColor = ownMessage
         ? onNetworkColor ?? theme.onBubbleColor
         : theme.colorScheme.onSurface;

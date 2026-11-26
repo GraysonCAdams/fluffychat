@@ -57,7 +57,7 @@ The app already carries these assets; after changing the mark, rebuild the kit a
 | `android/app/src/main/res/mipmap-*/ic_launcher.png` | `android/res/mipmap-*/ic_launcher.png` (pre-Android 8 launchers) |
 | `android/app/src/main/res/drawable-*/notifications_icon.png` | `android/res/drawable-*/ic_stat_seam.png` (the file keeps its old name because the code loads it by that name) |
 | `android/app/src/main/res/drawable-*/splash.png` | `png/seam-mark-on-light-1024.png`, scaled to 177 dp |
-| `assets/seam/seam_app_icon.png`, `seam_glyph.png`, `tray_icon.ico` | in-app logo, tinted logo and the Windows tray icon |
+| `assets/seam/seam_app_icon.png`, `seam_glyph.png`, `tray_icon.ico` | in-app logo (also the icon in the Windows title bar the app draws), tinted logo and the Windows tray icon |
 | `windows/runner/resources/app_icon.ico` | `windows/app_icon.ico` (the exe, taskbar and Alt+Tab) |
 | `web/icons/`, `web/favicon.png` | the app icon at the matching sizes |
 

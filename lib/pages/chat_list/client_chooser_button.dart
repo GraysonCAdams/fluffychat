@@ -18,17 +18,92 @@ import 'package:matrix/matrix.dart' hide Result;
 import '../../utils/fluffy_share.dart';
 import 'chat_list.dart';
 
+/// The own avatar, opening the account menu: accounts, new group, status,
+/// settings and the like. Shown beside the chat list's search field, or in
+/// the Windows title bar (TitleBarAccountButton), which sits outside the
+/// app's pages; so the menu opens over the pages of [controller]'s
+/// navigator and the choices act through the chat list.
 class ClientChooserButton extends StatefulWidget {
-  final ChatListController controller;
+  /// The chat list the menu acts on. Null only in the title bar while no
+  /// chat list is up.
+  final ChatListController? controller;
 
-  const ClientChooserButton(this.controller, {super.key});
+  /// Diameter of the avatar.
+  final double size;
+
+  /// Called for a click while there is no [controller]. The menu opens once
+  /// a chat list arrives.
+  final VoidCallback? onPressedWithoutList;
+
+  const ClientChooserButton(
+    this.controller, {
+    this.size = 42,
+    this.onPressedWithoutList,
+    super.key,
+  });
 
   @override
   State<ClientChooserButton> createState() => _ClientChooserButtonState();
 }
 
 class _ClientChooserButtonState extends State<ClientChooserButton> {
-  ChatListController get controller => widget.controller;
+  ChatListController get controller => widget.controller!;
+
+  /// Set by a click that arrived before the chat list did.
+  bool _openWhenListArrives = false;
+
+  @override
+  void didUpdateWidget(covariant ClientChooserButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_openWhenListArrives && widget.controller != null) {
+      _openWhenListArrives = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openMenu();
+      });
+    }
+  }
+
+  void _onPressed() {
+    if (widget.controller == null) {
+      _openWhenListArrives = true;
+      widget.onPressedWithoutList?.call();
+      return;
+    }
+    _openMenu();
+  }
+
+  /// Opens the menu below the button, as a PopupMenuButton places it, on
+  /// the overlay of the chat list's navigator, which need not hold the
+  /// button.
+  Future<void> _openMenu() async {
+    final controller = widget.controller;
+    if (controller == null || !controller.mounted) return;
+    final listContext = controller.context;
+    final button = context.findRenderObject()! as RenderBox;
+    final overlay =
+        Navigator.of(listContext).overlay!.context.findRenderObject()!
+            as RenderBox;
+    final under =
+        (PopupMenuTheme.of(context).position ?? PopupMenuPosition.over) ==
+        PopupMenuPosition.under;
+    final offset = under ? Offset(0, button.size.height) : Offset.zero;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        overlay.globalToLocal(button.localToGlobal(offset)),
+        overlay.globalToLocal(
+          button.localToGlobal(button.size.bottomRight(Offset.zero) + offset),
+        ),
+      ),
+      Offset.zero & overlay.size,
+    );
+    final picked = await showMenu<Object>(
+      context: listContext,
+      position: position,
+      items: _bundleMenuItems(context),
+    );
+    if (picked == null || !mounted || !controller.mounted) return;
+    _clientSelected(picked, controller.context);
+  }
 
   // The own profile is read once per active client and again whenever the
   // client reports that this user's profile changed. Reading it in build
@@ -241,17 +316,16 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
         clipBehavior: Clip.hardEdge,
         borderRadius: BorderRadius.circular(99),
         color: Colors.transparent,
-        child: PopupMenuButton<Object>(
+        child: IconButton(
           key: Key('accounts_and_settings_buttons'),
           tooltip: L10n.of(context).accountsAndSettings,
-          onSelected: (o) => _clientSelected(o, context),
-          itemBuilder: _bundleMenuItems,
+          onPressed: _onPressed,
           // As tall as the search field it sits beside.
           padding: EdgeInsets.zero,
           icon: Avatar(
             mxContent: snapshot.data?.avatarUrl,
             name: snapshot.data?.displayName ?? client?.userID?.localpart,
-            size: 42,
+            size: widget.size,
           ),
         ),
       ),

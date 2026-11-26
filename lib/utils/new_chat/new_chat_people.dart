@@ -4,7 +4,7 @@
 
 /// The people New Chat lists for a search: the user's chats, the contacts
 /// their bridges know and the phone's address book, merged so each person
-/// is one row, plus a typed phone number nobody matched.
+/// is one row, plus a typed phone number (or email) nobody matched.
 ///
 /// Free of Flutter and Matrix SDK types (a chat is the type parameter), so
 /// the merge is tested on plain values.
@@ -103,7 +103,8 @@ class NewChatPerson<C> {
   /// Whether the person is in the phone's address book.
   bool inPhoneBook = false;
 
-  /// Whether this row is only the number typed into the search.
+  /// Whether this row is only the number (or email) typed into the
+  /// search.
   bool typed = false;
 
   /// Whether [chat] is a group chat, which is not one person to add to a
@@ -169,6 +170,10 @@ bool matchesPersonQuery(
   return false;
 }
 
+/// The lower-cased email [query] is, when it is written as one. Null for
+/// anything else.
+String? typedEmailAddress(String query) => _normalizeEmail(query);
+
 String? _normalizeEmail(String raw) {
   final email = raw.trim().toLowerCase();
   return _email.hasMatch(email) ? email : null;
@@ -184,13 +189,15 @@ String? _normalizeEmail(String raw) {
 /// never merged, since each opens its own room.
 ///
 /// Rows with a chat come first in [chats] order, then the rest by name. A
-/// number typed as [query] that no row has gets a row of its own on top.
+/// number typed as [query] that no row has gets a row of its own on top,
+/// and so does a typed email when [typedEmail] is set.
 List<NewChatPerson<C>> mergeNewChatPeople<C>({
   required String query,
   List<ChatPersonInput<C>> chats = const [],
   List<BridgeContactInput> bridgeContacts = const [],
   List<PhoneBookEntry> phoneBook = const [],
   String defaultRegion = 'US',
+  bool typedEmail = false,
 }) {
   final withChat = <NewChatPerson<C>>[];
   final others = <NewChatPerson<C>>[];
@@ -313,11 +320,16 @@ List<NewChatPerson<C>> mergeNewChatPeople<C>({
 
   others.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   final typed = typedPhoneNumber(query, defaultRegion: defaultRegion);
+  final email = typedEmail ? typedEmailAddress(query) : null;
   return [
     if (typed != null && !byPhone.containsKey(typed))
       NewChatPerson<C>(formatPhoneForDisplay(typed))
         ..typed = true
         .._addPhone(typed),
+    if (email != null && !byEmail.containsKey(email))
+      NewChatPerson<C>(email)
+        ..typed = true
+        .._addEmail(email),
     ...withChat,
     ...others,
   ];

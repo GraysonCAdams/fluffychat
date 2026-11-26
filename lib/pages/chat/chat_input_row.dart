@@ -9,6 +9,7 @@ import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/pages/chat/recording_input_row.dart';
 import 'package:fluffychat/pages/chat/recording_view_model.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -431,9 +432,7 @@ class ChatSendButton extends StatelessWidget {
     final background = networkColor ?? theme.bubbleColor;
     final foreground = networkColor == null
         ? theme.onBubbleColor
-        : ThemeData.estimateBrightnessForColor(networkColor) == Brightness.dark
-        ? Colors.white
-        : Colors.black;
+        : NetworkColors.foregroundOn(networkColor);
     final size = compact ? 40.0 : ChatInputRow.height;
     return Container(
       height: ChatInputRow.height,

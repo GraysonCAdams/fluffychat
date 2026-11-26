@@ -43,6 +43,16 @@ abstract final class CapabilityMsgType {
   static const String voice = 'org.matrix.msc3245.voice';
 }
 
+/// Keys of the `member_actions` map: membership changes the user may ask
+/// the bridge to make on the remote network, mautrix-go's `MemberAction`.
+abstract final class MemberAction {
+  static const String ban = 'ban';
+  static const String kick = 'kick';
+  static const String leave = 'leave';
+  static const String revokeInvite = 'revoke_invite';
+  static const String invite = 'invite';
+}
+
 /// What a room accepts for one message type: one entry of the `file` map,
 /// mautrix-go's `FileFeatures`.
 class FileFeatures {
@@ -115,12 +125,16 @@ class FileFeatures {
   ];
 }
 
-/// The media part of a room's `com.beeper.room_features` state event, which
-/// mautrix bridges publish to say what the remote network accepts.
+/// The parts of a room's `com.beeper.room_features` state event this app
+/// reads, which mautrix bridges publish to say what the remote network
+/// accepts: media (`file`), state changes (`state`) and membership changes
+/// (`member_actions`).
 ///
-/// A room without the event, or with one whose `file` member is missing or
-/// not an object, has no restrictions: everything is accepted, so plain
-/// Matrix rooms behave as if this class did not exist.
+/// For media, a room without the event, or with one whose `file` member is
+/// missing or not an object, has no restrictions: everything is accepted,
+/// so plain Matrix rooms behave as if this class did not exist. State and
+/// membership changes the event does not list count as refused; callers
+/// ask about those only for bridged rooms.
 class RoomFeatures {
   static const String eventType = 'com.beeper.room_features';
 
@@ -132,7 +146,12 @@ class RoomFeatures {
   /// `StateFeatureMap`). Null when the room states none.
   final Map<String, int>? state;
 
-  const RoomFeatures({this.file, this.state});
+  /// Support level per membership change, such as [MemberAction.invite],
+  /// from the event's `member_actions` member (mautrix-go's
+  /// `MemberFeatureMap`). Null when the room states none.
+  final Map<String, int>? memberActions;
+
+  const RoomFeatures({this.file, this.state, this.memberActions});
 
   static const RoomFeatures unrestricted = RoomFeatures();
 
@@ -150,15 +169,30 @@ class RoomFeatures {
             if (entry.value case {'level': final int level}) type: level,
       };
     }
+    final rawMembers = content['member_actions'];
+    Map<String, int>? memberActions;
+    if (rawMembers is Map) {
+      memberActions = {
+        for (final entry in rawMembers.entries)
+          if (entry.key case final String action)
+            if (entry.value case final int level) action: level,
+      };
+    }
     final rawFile = content['file'];
-    if (rawFile is! Map) return RoomFeatures(state: state);
+    if (rawFile is! Map) {
+      return RoomFeatures(state: state, memberActions: memberActions);
+    }
     final file = <String, FileFeatures>{};
     for (final entry in rawFile.entries) {
       final key = entry.key;
       final features = FileFeatures.fromJson(entry.value);
       if (key is String && features != null) file[key] = features;
     }
-    return RoomFeatures(file: file, state: state);
+    return RoomFeatures(
+      file: file,
+      state: state,
+      memberActions: memberActions,
+    );
   }
 
   /// The features of [room], from its newest `com.beeper.room_features`
@@ -231,6 +265,13 @@ class RoomFeatures {
   /// Matrix.
   bool allowsState(String type) =>
       (state?[type] ?? CapabilityLevel.rejected) > CapabilityLevel.unsupported;
+
+  /// Whether the remote network takes the membership change [action], such
+  /// as [MemberAction.invite]. False when the room does not say: a bridge
+  /// that lists no member actions makes none on the network.
+  bool allowsMemberAction(String action) =>
+      (memberActions?[action] ?? CapabilityLevel.rejected) >
+      CapabilityLevel.unsupported;
 
   /// Largest accepted [msgType] file in bytes, or null for no limit.
   int? maxSize(String msgType) => featuresFor(msgType)?.maxSize;

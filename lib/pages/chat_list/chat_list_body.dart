@@ -124,7 +124,7 @@ class ChatListViewBody extends StatelessWidget {
       controller: controller.scrollController,
       slivers: [
         if (activeSpaceRoom == null || controller.selectionMode)
-          controller.header
+          ?controller.header
         else
           RoomUpdatesBuilder(
             client: client,
@@ -183,18 +183,18 @@ class ChatListViewBody extends StatelessWidget {
                       ),
               ),
             ],
-            if (!controller.isSearchMode)
+            // Under a title bar the selection bar takes the chip row's place
+            // while chats are selected.
+            if (!controller.isSearchMode &&
+                !(controller.selectionMode &&
+                    controller.titleBarSearch != null))
               // Shown once the account has any chat, which only a sync changes.
               RoomUpdatesBuilder(
                 client: client,
                 builder: (context) => client.rooms.isEmpty
                     ? const SizedBox.shrink()
-                    : Container(
-                        // 1 above and 2 below leaves the same 16 between
-                        // the search field, the chips and the first chat,
-                        // given the padding those two already carry.
-                        height: 36 + 1 + 2,
-                        padding: const EdgeInsets.only(top: 1, bottom: 2),
+                    : _ChipRow(
+                        titleBar: controller.titleBarSearch != null,
                         child: ListView(
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
                           shrinkWrap: true,
@@ -429,6 +429,13 @@ class ChatListViewBody extends StatelessWidget {
                         );
                       },
                     ),
+                  ),
+                // Room past the last chat for the New chat button, which
+                // floats over the bottom of the list: its 56 plus 16 on
+                // either side, so the last row scrolls clear of it.
+                if (client.prevBatch != null)
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: 16 + 56 + 16),
                   ),
               ],
             );
@@ -1058,6 +1065,47 @@ class _PinnedChat extends StatelessWidget {
 /// list of sources: spaces, which for bridged networks are the networks
 /// themselves. With a source chosen it shows that source's icon and name and
 /// a clear button.
+/// The row of filter chips above the chats. Under a title bar that holds
+/// the search field it is the list's first row: 48 high, with 32 high chips
+/// 16 in from the edge, 8 apart and 8 from the corner of each.
+class _ChipRow extends StatelessWidget {
+  final bool titleBar;
+  final Widget child;
+
+  const _ChipRow({required this.titleBar, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!titleBar) {
+      return Container(
+        // 1 above and 2 below leaves the same 16 between the search field,
+        // the chips and the first chat, given the padding those two already
+        // carry.
+        height: 36 + 1 + 2,
+        padding: const EdgeInsets.only(top: 1, bottom: 2),
+        child: child,
+      );
+    }
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        chipTheme: theme.chipTheme.copyWith(
+          // 6 above and below a 20 high label makes the chip 32 high; 8
+          // more to the side than the label's own 8 puts the label 16 in.
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: child,
+      ),
+    );
+  }
+}
+
 class _SourceFilterChip extends StatelessWidget {
   final ChatListController controller;
 

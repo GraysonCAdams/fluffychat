@@ -6,6 +6,7 @@
 import 'dart:async';
 
 import 'package:fluffychat/config/themes.dart';
+import 'package:fluffychat/pages/add_people/add_people.dart';
 import 'package:fluffychat/pages/archive/archive.dart';
 import 'package:fluffychat/pages/bootstrap/bootstrap_page.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
@@ -482,6 +483,15 @@ abstract class AppRoutes {
                     InvitationSelection(
                       roomId: state.pathParameters['roomid']!,
                     ),
+                  ),
+                  redirect: loggedOutRedirect,
+                ),
+                GoRoute(
+                  path: 'add-people',
+                  pageBuilder: (context, state) => defaultPageBuilder(
+                    context,
+                    state,
+                    AddPeople(roomId: state.pathParameters['roomid']!),
                   ),
                   redirect: loggedOutRedirect,
                 ),

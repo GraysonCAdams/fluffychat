@@ -351,9 +351,9 @@ class NewPrivateChatView extends StatelessWidget {
   }
 }
 
-/// One person in New Chat's results: their chat, or someone the user's
-/// networks or phone contacts know, with the networks that reach them as
-/// grey icons at the end.
+/// One person in New Chat's or Add people's results: their chat, or
+/// someone the user's networks or phone contacts know, with the networks
+/// that reach them as grey icons at the end.
 ///
 /// While a group is being picked, a person in it shows a tick, and one who
 /// cannot join it is greyed out with [blockedReason] as the second line.
@@ -377,8 +377,11 @@ class NewChatPersonTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final phone = person.phone;
+    final typedEmail = person.typed && phone == null;
     final detail = person.typed
-        ? L10n.of(context).phoneNumber
+        ? typedEmail
+              ? L10n.of(context).emailAddress
+              : L10n.of(context).phoneNumber
         : person.chat != null
         ? null
         : phone != null
@@ -392,7 +395,11 @@ class NewChatPersonTile extends StatelessWidget {
           ? CircleAvatar(
               backgroundColor: theme.colorScheme.secondaryContainer,
               foregroundColor: theme.colorScheme.onSecondaryContainer,
-              child: const Icon(Icons.dialpad_outlined),
+              child: Icon(
+                typedEmail
+                    ? Icons.alternate_email_outlined
+                    : Icons.dialpad_outlined,
+              ),
             )
           : Avatar(name: person.name, mxContent: person.avatar),
       title: Text(person.name, maxLines: 1, overflow: TextOverflow.ellipsis),

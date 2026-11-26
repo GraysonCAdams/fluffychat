@@ -347,7 +347,8 @@ directory:
 A bridge contact or address book entry joins a row with the same phone
 number (`normalizePhone`), then email, then bridge ghost; two chats are
 never merged here. Each row ends with grey icons of the networks that reach
-the person. A typed phone number nobody has gets a row of its own.
+the person. A typed phone number nobody has gets a row of its own (Add
+people also gives a typed email one).
 
 Tapping a row with a chat opens it. Any other row opens a sheet of the
 user's networks, iMessage first, then Google Messages, then the rest; each
@@ -400,6 +401,37 @@ The picking rules (`GroupDraft`), the bridge calls (`NewChatDelivery`) and
 the add flow (`toggleGroupMember`) are in
 `lib/utils/new_chat/new_group.dart`; the chips and the confirm sheet are
 in `lib/pages/new_private_chat/new_group_widgets.dart`.
+
+#### Add people to a bridged group
+
+A bridged group's details (beside the member count) and its member list
+offer "Add people" instead of "Invite" (`addMembersEntryOf` in
+`lib/utils/new_chat/add_people.dart`). It shows only when the user's power
+level allows invites (`room.canInvite`) and the room's
+`com.beeper.room_features` list `invite` in `member_actions` above 0; a
+bridged room that lists no member actions (the iMessage bridge's DM rooms)
+offers neither entry. A plain Matrix room keeps "Invite" and the user
+directory page.
+
+The page (`lib/pages/add_people/`, route `/rooms/:roomid/add-people`)
+picks people the way a new group does, on the group's own bridge: the one
+whose `bridge_bot` in `whoami` is the room's `m.bridge` `bridgebot`, else
+the one whose login space holds the room (`bridgeOfRoom`). Its icon leads
+the chips. Search covers the user's chats, bridge and phone contacts, and a
+typed phone number or email; Enter adds a typed one. A person is resolved
+on the pick, as in a new group, and greyed out with "Not on iMessage" when
+the bridge does not know them. Members of the group (joined or invited)
+are greyed out with "Already in this group", by their ghost ID; someone
+known only by a number is found to be a member when the bridge answers
+with a member's ghost.
+
+"Add N people" invites each person's ghost (`mxid` from
+`resolve_identifier` or the contact list) with a normal Matrix invite.
+When everyone went through, the chat opens with "N people added";
+otherwise a "Not added" dialog lists each person who failed with the
+reason, the ones added leave the chips, and the page stays. A refusal the
+bridge makes after the invite (a carrier group on the iMessage bridge) is
+a notice in the chat, not seen by the page.
 
 ### Share page
 

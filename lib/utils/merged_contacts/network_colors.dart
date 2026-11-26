@@ -32,6 +32,14 @@ abstract class NetworkColors {
     'xbox': Color(0xFF107C10),
   };
 
+  /// Text and icon colour on a bubble or button in [color]: white, as
+  /// messaging apps put it on their own colours, including bright ones such
+  /// as iMessage's green (luminance 0.42). Black only on a colour lighter
+  /// than any network's, such as a pale custom pick.
+  static Color foregroundOn(Color color) => color.computeLuminance() > 0.6
+      ? const Color(0xFF000000)
+      : const Color(0xFFFFFFFF);
+
   /// The bridge a direct chat goes through, or null for a chat with a plain
   /// Matrix user.
   static String? bridgeIdOf(Room room) {

@@ -19,6 +19,7 @@ import 'package:fluffychat/pages/chat_list/chat_list_view.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_list.dart';
 import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
+import 'package:fluffychat/pages/chat_list/title_bar_search.dart';
 import 'package:fluffychat/utils/android_direct_share.dart';
 import 'package:fluffychat/utils/android_share_targets.dart';
 import 'package:fluffychat/utils/chat_windows/chat_windows.dart';
@@ -444,8 +445,17 @@ class ChatListController extends State<ChatList>
     _coolDown = Timer(const Duration(milliseconds: 500), _search);
   }
 
-  final TextEditingController searchController = TextEditingController();
-  final FocusNode searchFocusNode = FocusNode();
+  /// The window title bar that holds this list's search field and account
+  /// button (see [TitleBarSearch]), if there is one. The list then shows
+  /// neither itself.
+  TitleBarSearch? titleBarSearch;
+
+  /// The search field's text and focus: the title bar's while there is one,
+  /// which outlive this list.
+  late final TextEditingController searchController =
+      titleBarSearch?.textController ?? TextEditingController();
+  late final FocusNode searchFocusNode =
+      titleBarSearch?.focusNode ?? FocusNode();
 
   Future<void> _search() async {
     final client = Matrix.of(context).client;
@@ -605,24 +615,31 @@ class ChatListController extends State<ChatList>
   void setState(VoidCallback fn) {
     _viewGeneration++;
     super.setState(fn);
+    titleBarSearch?.listChanged();
   }
 
   /// Called before the chat list rebuilds for a sync that touched the rooms,
   /// so the tiles are built again with the new room data.
   void markRoomsUpdated() => _viewGeneration++;
 
-  (int, Widget)? _header;
+  (int, Widget?)? _header;
 
   /// The list's app bar: the search header, or the selection bar while
-  /// chats are selected.
-  Widget get header {
+  /// chats are selected. Null while the title bar holds the search field
+  /// and nothing is selected.
+  Widget? get header {
     final cached = _header;
     if (cached != null && cached.$1 == _viewGeneration) return cached.$2;
     final header = selectionMode
         ? RoomUpdatesBuilder(
             client: Matrix.of(context).client,
-            builder: (context) => ChatListSelectionBar(controller: this),
+            builder: (context) => ChatListSelectionBar(
+              controller: this,
+              height: titleBarSearch == null ? 72 : 48,
+            ),
           )
+        : titleBarSearch != null
+        ? null
         : ChatListHeader(controller: this);
     _header = (_viewGeneration, header);
     return header;
@@ -791,6 +808,7 @@ class ChatListController extends State<ChatList>
 
   @override
   void initState() {
+    titleBarSearch = TitleBarSearch.maybeOf(context)?..register(this);
     _initReceiveSharingIntent();
 
     scrollController.addListener(_onScroll);
@@ -871,8 +889,13 @@ class ChatListController extends State<ChatList>
     HardwareKeyboard.instance.removeHandler(_onKey);
     _firstClickTimer?.cancel();
     scrollController.removeListener(_onScroll);
-    searchController.dispose();
-    searchFocusNode.dispose();
+    final titleBarSearch = this.titleBarSearch;
+    if (titleBarSearch == null) {
+      searchController.dispose();
+      searchFocusNode.dispose();
+    } else {
+      titleBarSearch.unregister(this);
+    }
     scrollController.dispose();
     scrolledToTop.dispose();
     _clientStream.close();
