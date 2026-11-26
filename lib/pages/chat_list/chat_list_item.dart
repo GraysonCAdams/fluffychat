@@ -211,6 +211,11 @@ class _ChatListItemState extends State<ChatListItem> {
               // lines would swallow part of it, and part of the one-time
               // code button.
               minTileHeight: 0,
+              // A row up to 72dp tall centres its avatar. A taller one (a
+              // two-line preview or the copy code button) holds it 16dp from
+              // its top, beside the name, as Material places leading
+              // elements in three-line items.
+              titleAlignment: ListTileTitleAlignment.titleHeight,
               // With the tile's own 8dp margin the avatar starts 16dp from the
               // edge, as in Google Messages.
               contentPadding: const EdgeInsets.only(left: 8, right: 8),

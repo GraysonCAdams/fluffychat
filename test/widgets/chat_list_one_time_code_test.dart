@@ -7,6 +7,7 @@
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
+import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -121,6 +122,45 @@ void main() {
     // The row itself still opens the chat.
     await tester.tap(find.text('Bank'));
     expect(opened, 1);
+  });
+
+  testWidgets('the avatar stays level with the name in a taller row', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        client,
+        Column(
+          children: [
+            ChatListItem(
+              chat(message: _otp),
+              key: const ValueKey('code'),
+              onTap: () {},
+            ),
+            ChatListItem(
+              chat(message: 'Your statement is ready', id: '!b:x'),
+              key: const ValueKey('plain'),
+              onTap: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Rect avatarIn(String key) => tester.getRect(
+      find
+          .descendant(
+            of: find.byKey(ValueKey(key)),
+            matching: find.byType(Avatar),
+          )
+          .first,
+    );
+    final codeRow = tester.getRect(find.byKey(const ValueKey('code')));
+    final plainRow = tester.getRect(find.byKey(const ValueKey('plain')));
+    // 3dp outside the highlight, then 16dp to the avatar in the tall row.
+    expect(avatarIn('code').top - codeRow.top, 3 + 16);
+    // A two-line row centres its avatar.
+    expect(avatarIn('plain').center.dy, plainRow.center.dy);
   });
 
   testWidgets('the pill adds oneTimeCodeHeight to the row', (tester) async {
