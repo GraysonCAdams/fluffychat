@@ -125,8 +125,11 @@ class FakeMatrix extends MatrixState {
 }
 
 /// Settings as the chat list tests expect them, and a fresh fake client
-/// named [name] that looks synced.
-Future<FakeChatListClient> setUpFakeChatList(String name) async {
+/// named [name] that looks synced, made by [create] when given.
+Future<T> setUpFakeChatList<T extends FakeChatListClient>(
+  String name, {
+  T Function(String name, DatabaseApi database)? create,
+}) async {
   SharedPreferences.setMockInitialValues({});
   await AppSettings.init(loadWebConfigFile: false);
   await AppSettings.checkForUpdates.setItem(false);
@@ -138,14 +141,14 @@ Future<FakeChatListClient> setUpFakeChatList(String name) async {
   MatrixFeatures.scanStoredState = false;
 
   sqfliteFfiInit();
-  final client = FakeChatListClient(
+  final database = await MatrixSdkDatabase.init(
     name,
-    database: await MatrixSdkDatabase.init(
-      name,
-      database: await databaseFactoryFfi.openDatabase(':memory:'),
-      sqfliteFactory: databaseFactoryFfi,
-    ),
+    database: await databaseFactoryFfi.openDatabase(':memory:'),
+    sqfliteFactory: databaseFactoryFfi,
   );
+  final client =
+      create?.call(name, database) ??
+      FakeChatListClient(name, database: database) as T;
   // Looks synced to the header, which otherwise shows a spinner.
   client.onSync.add(SyncUpdate(nextBatch: 'synced'));
   return client;

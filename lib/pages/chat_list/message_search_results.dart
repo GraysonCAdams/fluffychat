@@ -126,10 +126,9 @@ class _MessageSearchResultsState extends State<MessageSearchResults> {
             SliverToBoxAdapter(
               child: SearchTitle(
                 title: l10n.messages,
-                icon: const Icon(Icons.manage_search_outlined),
                 trailing: _search.isLoading
                     ? const SizedBox.square(
-                        dimension: 12,
+                        dimension: 16,
                         child: CircularProgressIndicator.adaptive(
                           strokeWidth: 2,
                         ),
@@ -149,11 +148,15 @@ class _MessageSearchResultsState extends State<MessageSearchResults> {
             if (status != null)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Text(
                     status,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),
@@ -246,7 +249,11 @@ class _MessageSearchTile extends StatelessWidget {
     }
     final snippet = buildSnippet(hit.body, highlights);
 
+    // A Material three line list item: the chat in body large, the
+    // message in body medium, and its time as trailing supporting text in
+    // label small, all on the list's 16 insets.
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       leading: Avatar(mxContent: room.avatar, name: roomName, client: client),
       title: Row(
         children: [
@@ -256,12 +263,14 @@ class _MessageSearchTile extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             hit.timestamp.localizedTimeShort(context),
-            style: TextStyle(
-              fontSize: 12,
+            style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
+      ),
+      titleTextStyle: theme.textTheme.bodyLarge?.copyWith(
+        color: theme.colorScheme.onSurface,
       ),
       subtitle: Text.rich(
         TextSpan(
@@ -278,7 +287,9 @@ class _MessageSearchTile extends StatelessWidget {
         ),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+      ),
+      subtitleTextStyle: theme.textTheme.bodyMedium?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
       ),
       onTap: () => context.go(
         '/${Uri(pathSegments: ['rooms', hit.roomId], queryParameters: {'event': hit.eventId})}',

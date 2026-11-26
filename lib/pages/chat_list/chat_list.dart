@@ -64,8 +64,10 @@ extension LocalizedActiveFilter on ActiveFilter {
     switch (this) {
       case ActiveFilter.allChats:
         return L10n.of(context).all;
+      // One-to-one chats. Named for the people in them, which keeps it
+      // apart from the Messages section of the search.
       case ActiveFilter.messages:
-        return L10n.of(context).messages;
+        return L10n.of(context).chatListPeople;
       case ActiveFilter.unread:
         return L10n.of(context).unread;
       case ActiveFilter.groups:
@@ -468,11 +470,14 @@ class ChatListController extends State<ChatList>
     SearchUserDirectoryResponse? userSearchResult;
     QueryPublicRoomsResponse? roomSearchResult;
     final searchQuery = searchController.text.trim();
+    // Without Matrix contacts to find, the search stays with the user's own
+    // chats and messages: no public rooms, no user directory, and only a
+    // typed room address is looked up.
+    final explore = MatrixFeatures.forClient(
+      client,
+    ).isRelevant(MatrixFeature.explore);
     try {
-      // Without public rooms to explore, only a typed room address is
-      // looked up.
-      roomSearchResult =
-          MatrixFeatures.forClient(client).isRelevant(MatrixFeature.explore)
+      roomSearchResult = explore
           ? await client.queryPublicRooms(
               server: searchServer,
               filter: PublicRoomQueryFilter(genericSearchTerm: searchQuery),
@@ -501,10 +506,12 @@ class ChatListController extends State<ChatList>
           );
         }
       }
-      userSearchResult = await client.searchUserDirectory(
-        searchController.text,
-        limit: 20,
-      );
+      if (explore) {
+        userSearchResult = await client.searchUserDirectory(
+          searchController.text,
+          limit: 20,
+        );
+      }
     } catch (e, s) {
       Logs().w('Searching has crashed', e, s);
       if (!mounted) return;

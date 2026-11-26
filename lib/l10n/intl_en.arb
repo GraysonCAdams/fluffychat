@@ -3496,7 +3496,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "matrixFeatureExplore": "Explore public rooms",
+    "matrixFeatureExplore": "Public rooms and user directory in search",
     "@matrixFeatureExplore": {
         "type": "String",
         "placeholders": {}
@@ -3678,5 +3678,13 @@
                 "type": "String"
             }
         }
+    },
+    "chatListPeople": "People",
+    "@chatListPeople": {
+        "description": "The chat list filter chip for one-to-one chats, and the heading of the people found in a search."
+    },
+    "backToTop": "Back to top",
+    "@backToTop": {
+        "description": "Tooltip of the button that scrolls the chat list back to its top."
     }
 }

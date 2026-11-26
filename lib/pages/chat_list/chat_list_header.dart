@@ -9,11 +9,23 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/client_chooser_button.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/sync_status_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
 import '../../widgets/matrix.dart';
+
+/// The colour of a bar that floats over the chat list: the surface while
+/// it sits at the top, and the surface container once the list scrolls
+/// under it, as Material's top app bar does. Never see-through, so a bar
+/// that floats back in over the middle of the list hides the rows below.
+WidgetStateColor chatListBarColor(ColorScheme colors) =>
+    WidgetStateColor.resolveWith(
+      (states) => states.contains(WidgetState.scrolledUnder)
+          ? colors.surfaceContainer
+          : colors.surface,
+    );
 
 class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
   final ChatListController controller;
@@ -35,32 +47,16 @@ class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
       toolbarHeight: 72,
       pinned: isColumnMode,
       scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
       backgroundColor: isColumnMode
           ? theme.colorScheme.surface.withAlpha(240)
-          : Colors.transparent,
+          : chatListBarColor(theme.colorScheme),
       automaticallyImplyLeading: false,
       // The account button sits beside the search field, not inside it. On a
       // phone the field stays folded into a search button until it is used,
       // leaving the screen to the chats.
-      title: !isColumnMode && !controller.isSearchMode
+      title: isColumnMode
           ? Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    L10n.of(context).chats,
-                    style: theme.textTheme.titleLarge,
-                  ),
-                ),
-                IconButton(
-                  tooltip: L10n.of(context).search,
-                  onPressed: controller.startSearch,
-                  icon: const Icon(Icons.search_outlined),
-                ),
-                const SizedBox(width: 4),
-                ClientChooserButton(controller),
-              ],
-            )
-          : Row(
               children: [
                 Expanded(child: _SearchField(controller, globalSearch)),
                 if (!controller.isSearchMode) ...[
@@ -68,12 +64,140 @@ class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
                   ClientChooserButton(controller),
                 ],
               ],
+            )
+          : _PhoneTitle(
+              controller: controller,
+              searching: controller.isSearchMode,
+              globalSearch: globalSearch,
             ),
     );
   }
 
   @override
   Size get preferredSize => const Size.fromHeight(56);
+}
+
+/// The phone header's content: "Chats" with a search button and the account
+/// button, or the search field while searching. The field opens out of the
+/// search button: its pill grows leftwards from the end of the bar in
+/// Material's emphasized decelerate easing over 400 ms (medium 4), and
+/// folds back in emphasized accelerate over 200 ms (short 4). The title is
+/// all but gone before the field fades in, and the two overlap only in the
+/// fast first part of the motion, so they do not show through each other.
+class _PhoneTitle extends StatefulWidget {
+  final ChatListController controller;
+  final bool searching;
+  final bool globalSearch;
+
+  const _PhoneTitle({
+    required this.controller,
+    required this.searching,
+    required this.globalSearch,
+  });
+
+  /// The part of the field that is revealed while it opens.
+  static const revealKey = ValueKey('chat_list_search_reveal');
+
+  @override
+  State<_PhoneTitle> createState() => _PhoneTitleState();
+}
+
+class _PhoneTitleState extends State<_PhoneTitle>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _open = AnimationController(
+    vsync: this,
+    duration: Durations.medium4,
+    reverseDuration: Durations.short4,
+    value: widget.searching ? 1 : 0,
+  );
+
+  late final Animation<double> _width = CurvedAnimation(
+    parent: _open,
+    curve: Easing.emphasizedDecelerate,
+    reverseCurve: Easing.emphasizedAccelerate,
+  );
+
+  static const _titleFade = Interval(0, 0.2);
+  static const _fieldFade = Interval(0.1, 0.45);
+
+  @override
+  void didUpdateWidget(_PhoneTitle oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.searching == oldWidget.searching) return;
+    if (widget.searching) {
+      _open.forward();
+    } else {
+      _open.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _open.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final title = Row(
+      children: [
+        Expanded(
+          child: Text(
+            L10n.of(context).chats,
+            style: theme.textTheme.titleLarge,
+          ),
+        ),
+        IconButton(
+          tooltip: L10n.of(context).search,
+          onPressed: widget.controller.startSearch,
+          icon: const Icon(Icons.search_outlined),
+        ),
+        const SizedBox(width: 4),
+        ClientChooserButton(widget.controller),
+      ],
+    );
+    final field = _SearchField(widget.controller, widget.globalSearch);
+    return AnimatedBuilder(
+      animation: _open,
+      builder: (context, _) {
+        final value = _open.value;
+        return SizedBox(
+          width: double.infinity,
+          child: Stack(
+            alignment: AlignmentDirectional.centerEnd,
+            children: [
+              if (value < 1)
+                IgnorePointer(
+                  ignoring: widget.searching,
+                  child: Opacity(
+                    opacity: 1 - _titleFade.transform(value),
+                    child: title,
+                  ),
+                ),
+              // One field for the whole animation, so its focus and text
+              // carry through it.
+              if (value > 0 || widget.searching)
+                IgnorePointer(
+                  ignoring: !widget.searching,
+                  child: ClipRect(
+                    child: Align(
+                      key: _PhoneTitle.revealKey,
+                      alignment: AlignmentDirectional.centerEnd,
+                      widthFactor: _width.value,
+                      child: Opacity(
+                        opacity: _fieldFade.transform(value),
+                        child: field,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _SearchField extends StatelessWidget {
@@ -86,6 +210,11 @@ class _SearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final onField = theme.colorScheme.onSurfaceVariant;
+    // The server switch picks whose public rooms the search lists, which
+    // only matters while public rooms are searched at all.
+    final explore = MatrixFeatures.forClient(
+      Matrix.of(context).client,
+    ).isRelevant(MatrixFeature.explore);
     return TextField(
       // Centres the text in the shortened field.
       textAlignVertical: TextAlignVertical.center,
@@ -136,6 +265,8 @@ class _SearchField extends StatelessWidget {
                         ),
                       ),
                     )
+                  : !explore
+                  ? null
                   : TextButton.icon(
                       onPressed: controller.setServer,
                       style: TextButton.styleFrom(

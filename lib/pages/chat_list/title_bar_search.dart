@@ -8,6 +8,7 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/client_chooser_button.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -311,9 +312,13 @@ class _TitleBarSearchFieldState extends State<TitleBarSearchField> {
           )
         else if (searching &&
             controller.isSearchMode &&
-            widget.showShortcutHint)
-          // The server whose directory the search reads, as the chat
-          // list's own field offers it. Only a wide field has room.
+            widget.showShortcutHint &&
+            MatrixFeatures.forClient(
+              Matrix.of(controller.context).client,
+            ).isRelevant(MatrixFeature.explore))
+          // The server whose public rooms the search lists, as the chat
+          // list's own field offers it, while public rooms are searched.
+          // Only a wide field has room.
           TextButton.icon(
             onPressed: controller.setServer,
             style: TextButton.styleFrom(

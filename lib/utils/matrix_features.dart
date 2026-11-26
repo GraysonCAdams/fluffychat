@@ -29,7 +29,8 @@ enum MatrixFeature {
   /// Creating and browsing spaces.
   spaces,
 
-  /// Public rooms in search, and the space directory.
+  /// Public rooms, the user directory and the server switch in search, and
+  /// the space directory.
   explore,
 
   /// Matrix calls, encryption, permissions and room addresses inside a
