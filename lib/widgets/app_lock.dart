@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:fluffychat/utils/chat_windows/chat_windows.dart';
 import 'package:fluffychat/widgets/lock_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
@@ -119,9 +120,14 @@ class AppLock extends State<AppLockWidget> with WidgetsBindingObserver {
     return isCorrect;
   }
 
-  void showLockScreen() => setState(() {
-    _isLocked = true;
-  });
+  /// Locks the app. Chat windows close, as the lock screen covers only the
+  /// main window.
+  void showLockScreen() {
+    ChatWindows.instance.closeAll();
+    setState(() {
+      _isLocked = true;
+    });
+  }
 
   Future<T> pauseWhile<T>(Future<T> future) async {
     _paused = true;

@@ -185,3 +185,7 @@ dependency_overrides:
   # third_party/flutter_local_notifications/FLUFFYCHAT.md).
   flutter_local_notifications:
     path: third_party/flutter_local_notifications
+  # Local fork: leaves the chat windows' messages alone on Windows (see
+  # third_party/window_manager/FLUFFYCHAT.md).
+  window_manager:
+    path: third_party/window_manager

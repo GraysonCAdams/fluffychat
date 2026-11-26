@@ -24,6 +24,7 @@ import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
 import 'package:fluffychat/pages/chat/utils/web_file_to_x_file.dart';
 import 'package:fluffychat/pages/chat_details/chat_details.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
+import 'package:fluffychat/utils/chat_windows/chat_windows.dart';
 import 'package:fluffychat/utils/clipboard_gif.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/file_selector.dart';
@@ -49,6 +50,7 @@ import 'package:fluffychat/utils/windows_clipboard.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_modal_action_popup.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_text_input_dialog.dart';
+import 'package:fluffychat/widgets/chat_windows_host.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
@@ -541,6 +543,34 @@ class ChatController extends State<ChatPageWithRoom>
     );
     if (!mounted) return;
     if (success.error != null) return;
+    context.go('/rooms');
+  }
+
+  /// The chat window this chat moves to, or null inside one and where
+  /// there are no chat windows.
+  ChatWindowTarget? get chatWindowTarget {
+    if (!ChatWindows.instance.isSupported ||
+        ChatWindowScope.isChatWindow(context)) {
+      return null;
+    }
+    final contactId = widget.contactId;
+    if (contactId != null) return ChatWindowTarget.contact(contactId);
+    return ChatWindowTarget.room(widget.room.id);
+  }
+
+  /// Moves this chat to a chat window, or brings its window to the front,
+  /// and returns the main window to the chat list.
+  void openInNewWindow() {
+    final target = chatWindowTarget;
+    if (target == null) return;
+    final i18n = MatrixLocals(L10n.of(context));
+    ChatWindows.instance.open(
+      target,
+      title: isMerged
+          ? mergedContact?.displayName(i18n) ??
+                widget.room.getLocalizedDisplayname(i18n)
+          : widget.room.getLocalizedDisplayname(i18n),
+    );
     context.go('/rooms');
   }
 

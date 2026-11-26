@@ -59,6 +59,9 @@ enum AppSettings<T> {
   launchAtStartup<bool>('chat.fluffy.launch_at_startup', false),
   windowBounds<String>('chat.fluffy.window_bounds', ''),
 
+  /// `width,height` of the last chat window, the size new ones open at.
+  chatWindowSize<String>('chat.fluffy.chat_window_size', ''),
+
   /// Milliseconds since epoch until which no notifications are shown; 0 = off.
   snoozeNotificationsUntil<int>('chat.fluffy.snooze_notifications_until', 0),
   displayNavigationRail<bool>('chat.fluffy.display_navigation_rail', false),

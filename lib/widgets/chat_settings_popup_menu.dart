@@ -15,7 +15,13 @@ import 'package:matrix/matrix.dart';
 
 import 'matrix.dart';
 
-enum ChatPopupMenuActions { details, encryption, leave, search }
+enum ChatPopupMenuActions {
+  openInNewWindow,
+  details,
+  encryption,
+  leave,
+  search,
+}
 
 class ChatSettingsPopupMenu extends StatefulWidget {
   final Room room;
@@ -25,10 +31,15 @@ class ChatSettingsPopupMenu extends StatefulWidget {
   /// a chat that shows more than [room] (a merged contact).
   final VoidCallback? onChatDetails;
 
+  /// Moves the chat to a window of its own. The menu offers it only when
+  /// set.
+  final VoidCallback? onOpenInNewWindow;
+
   const ChatSettingsPopupMenu(
     this.room,
     this.displayChatDetails, {
     this.onChatDetails,
+    this.onOpenInNewWindow,
     super.key,
   });
 
@@ -69,6 +80,9 @@ class ChatSettingsPopupMenuState extends State<ChatSettingsPopupMenu> {
           useRootNavigator: true,
           onSelected: (choice) async {
             switch (choice) {
+              case ChatPopupMenuActions.openInNewWindow:
+                widget.onOpenInNewWindow?.call();
+                break;
               case ChatPopupMenuActions.leave:
                 final l10n = L10n.of(context);
                 final router = GoRouter.of(context);
@@ -110,6 +124,17 @@ class ChatSettingsPopupMenuState extends State<ChatSettingsPopupMenu> {
             }
           },
           itemBuilder: (BuildContext context) => [
+            if (widget.onOpenInNewWindow != null)
+              PopupMenuItem<ChatPopupMenuActions>(
+                value: ChatPopupMenuActions.openInNewWindow,
+                child: Row(
+                  children: [
+                    const Icon(Icons.open_in_new_outlined),
+                    const SizedBox(width: 12),
+                    Flexible(child: Text(L10n.of(context).openInNewWindow)),
+                  ],
+                ),
+              ),
             if (widget.displayChatDetails && widget.room.membership == .join)
               PopupMenuItem<ChatPopupMenuActions>(
                 value: ChatPopupMenuActions.details,

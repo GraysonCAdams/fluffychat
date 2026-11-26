@@ -21,6 +21,7 @@ import 'package:fluffychat/pages/chat_list/merged_contact_list.dart';
 import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
 import 'package:fluffychat/utils/android_direct_share.dart';
 import 'package:fluffychat/utils/android_share_targets.dart';
+import 'package:fluffychat/utils/chat_windows/chat_windows.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
@@ -37,6 +38,7 @@ import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.
 import 'package:fluffychat/widgets/adaptive_dialogs/show_text_input_dialog.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/share_scaffold_dialog.dart';
+import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/services.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
@@ -172,7 +174,11 @@ class ChatListController extends State<ChatList>
     }
   }
 
+  /// Opens [room]'s row: in the main window, or in its chat window when it
+  /// has one, which comes to the front.
   Future<void> onChatTap(Room room) async {
+    final target = chatWindowTarget(room);
+    if (target != null && ChatWindows.instance.focus(target)) return;
     final contact = mergedContactFor(room);
     if (contact != null) {
       openMergedContact(context, contact);
@@ -319,7 +325,8 @@ class ChatListController extends State<ChatList>
   ];
 
   /// Escape on a keyboard clears the selection, as back does, unless a
-  /// dialog or menu is open over the list.
+  /// dialog or menu is open over the list or the key went to another
+  /// window.
   bool _onKey(KeyEvent event) {
     if (event is! KeyDownEvent ||
         event.logicalKey != LogicalKeyboardKey.escape ||
@@ -328,14 +335,77 @@ class ChatListController extends State<ChatList>
         ModalRoute.of(context)?.isCurrent == false) {
       return false;
     }
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    if (focusContext != null &&
+        View.maybeOf(focusContext) != View.maybeOf(context)) {
+      return false;
+    }
     clearSelection();
     return true;
   }
 
+  /// The chat window [room]'s row opens in: its merged contact's, else the
+  /// room's own. Null for rows that open only in the main window (spaces
+  /// and chats that were left) and where there are no chat windows.
+  ChatWindowTarget? chatWindowTarget(Room room) {
+    if (!ChatWindows.instance.isSupported) return null;
+    final contact = mergedContactFor(room);
+    if (contact != null) return ChatWindowTarget.contact(contact.id);
+    if (room.isSpace || room.membership == Membership.leave) return null;
+    return ChatWindowTarget.room(room.id);
+  }
+
+  /// Opens [room]'s row in a chat window, or brings its window to the
+  /// front.
+  void openInNewWindow(Room room) {
+    final target = chatWindowTarget(room);
+    if (target == null) return;
+    final i18n = MatrixLocals(L10n.of(context));
+    ChatWindows.instance.open(
+      target,
+      title:
+          mergedContactFor(room)?.displayName(i18n) ??
+          room.getLocalizedDisplayname(i18n),
+    );
+  }
+
+  /// The row clicked last and where the main window was before, kept for
+  /// [kDoubleTapTimeout] in case a second click makes it a double click.
+  ({String roomId, String location})? _firstClick;
+  Timer? _firstClickTimer;
+
+  void _forgetFirstClick() {
+    _firstClickTimer?.cancel();
+    _firstClickTimer = null;
+    _firstClick = null;
+  }
+
   /// A tap on a listed chat: opens it, or while chats are selected, picks
-  /// or drops it.
-  void onListedChatTap(Room room) =>
-      selectionMode ? toggleSelection(room) : onChatTap(room);
+  /// or drops it. Where there are chat windows, a second click on the same
+  /// row within [kDoubleTapTimeout] opens it in its window instead. The
+  /// first click still opens it at once, so a single click is not held
+  /// back; the second one returns the main window to where it was.
+  void onListedChatTap(Room room) {
+    if (selectionMode) {
+      toggleSelection(room);
+      return;
+    }
+    final first = _firstClick;
+    _forgetFirstClick();
+    if (chatWindowTarget(room) != null) {
+      final router = GoRouter.of(context);
+      final location = router.routerDelegate.currentConfiguration.uri
+          .toString();
+      if (first != null && first.roomId == room.id) {
+        openInNewWindow(room);
+        if (location != first.location) router.go(first.location);
+        return;
+      }
+      _firstClick = (roomId: room.id, location: location);
+      _firstClickTimer = Timer(kDoubleTapTimeout, _forgetFirstClick);
+    }
+    onChatTap(room);
+  }
 
   bool isSearchMode = false;
   Future<QueryPublicRoomsResponse>? publicRoomsResponse;
@@ -795,6 +865,7 @@ class ChatListController extends State<ChatList>
     _onRoomTagUpdate?.cancel();
     _unwatchMergedContacts();
     HardwareKeyboard.instance.removeHandler(_onKey);
+    _firstClickTimer?.cancel();
     scrollController.removeListener(_onScroll);
     searchController.dispose();
     searchFocusNode.dispose();

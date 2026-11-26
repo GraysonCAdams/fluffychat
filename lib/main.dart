@@ -10,6 +10,8 @@ import 'dart:ui';
 import 'package:collection/collection.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/chat_windows/backend.dart';
+import 'package:fluffychat/utils/chat_windows/chat_windows.dart';
 import 'package:fluffychat/utils/client_manager.dart';
 import 'package:fluffychat/utils/dynamic_primary_color.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
@@ -174,6 +176,7 @@ Future<void> startGui(
       PlatformDispatcher.instance.locale,
     ).catchError((_) => lookupL10n(const Locale('en')));
     await WindowsDesktop.init(args, l10n);
+    ChatWindows.instance.backend = createChatWindowBackend();
   }
 
   // Preload first client
