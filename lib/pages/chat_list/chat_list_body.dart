@@ -427,8 +427,12 @@ class ChatListViewBody extends StatelessWidget {
                       ),
                     // Room past the last chat for the New chat button, which
                     // floats over the bottom of the list: its 56 plus 16 on
-                    // either side, so the last row scrolls clear of it.
-                    if (client.prevBatch != null)
+                    // either side, so the last row scrolls clear of it. The
+                    // button shows only outside search and spaces (see
+                    // ChatListView), so the room does too.
+                    if (client.prevBatch != null &&
+                        !controller.isSearchMode &&
+                        controller.activeSpaceId == null)
                       const SliverToBoxAdapter(
                         child: SizedBox(height: 16 + 56 + 16),
                       ),

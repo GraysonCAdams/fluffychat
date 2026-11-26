@@ -332,6 +332,8 @@ void main() {
   final toField = find.byKey(const ValueKey('compose-to'));
   final messageField = find.byKey(const ValueKey('compose-message'));
   final nameField = find.byKey(const ValueKey('group-name'));
+  final groupTitle = find.byKey(const ValueKey('group-title'));
+  final nameSave = find.byKey(const ValueKey('group-name-save'));
   Finder chip(String key) => find.byKey(ValueKey('recipient-chip-$key'));
 
   Future<void> search(WidgetTester tester, String text) async {
@@ -352,6 +354,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('compose-send')));
     await tester.pumpAndSettle();
   }
+
+  String? composerHint(WidgetTester tester) =>
+      tester.widget<TextField>(messageField).decoration?.hintText;
 
   ListTile tileOf(WidgetTester tester, String name) => tester.widget<ListTile>(
     find.ancestor(of: find.text(name), matching: find.byType(ListTile)).first,
@@ -404,7 +409,7 @@ void main() {
     await pick(tester, 'quade', 'Quade Matrix');
     expect(chip('@quade:x'), findsOneWidget);
     expect(find.text('see you soon'), findsOneWidget);
-    expect(nameField, findsNothing);
+    expect(groupTitle, findsNothing);
 
     await sendMessage(tester, 'hi');
     expect(delivery.sent, ['!quade:x: hi']);
@@ -420,7 +425,7 @@ void main() {
     await pick(tester, 'quinn', 'Quinn Imsg');
     expect(find.text('Your first message starts the chat'), findsOneWidget);
     expect(find.text('You pick the network when you send'), findsOneWidget);
-    expect(nameField, findsNothing);
+    expect(groupTitle, findsNothing);
 
     await sendMessage(tester, 'hey');
     expect(delivery.networkPicks, ['Quinn Imsg']);
@@ -437,10 +442,13 @@ void main() {
     expect(delivery.groupPicks, ['Quinn Imsg']);
     expect(chip('+14045550101'), findsOneWidget);
     expect(chip('+14045550102'), findsOneWidget);
-    expect(find.text('On iMessage'), findsOneWidget);
+    // The composer names the group's network; no line under the To field
+    // repeats it.
+    expect(composerHint(tester), 'iMessage');
+    expect(find.byKey(const ValueKey('compose-network')), findsNothing);
     expect(find.text('trip plans'), findsOneWidget);
     // The group has its name already.
-    expect(nameField, findsNothing);
+    expect(groupTitle, findsNothing);
 
     await sendMessage(tester, 'yo');
     expect(delivery.created, isEmpty);
@@ -466,13 +474,34 @@ void main() {
   ) async {
     await pump(tester);
     await pick(tester, 'quinn', 'Quinn Imsg');
-    expect(nameField, findsNothing);
+    expect(groupTitle, findsNothing);
     await pick(tester, 'quinby', 'Quinby Imsg');
-    expect(find.text('New group chat'), findsOneWidget);
     expect(find.text('Your first message creates the group'), findsOneWidget);
-    expect(find.text('New group on iMessage'), findsOneWidget);
+    expect(composerHint(tester), 'iMessage');
+    expect(find.byKey(const ValueKey('compose-network')), findsNothing);
+    // The name is set from the title, not a field on the screen.
+    expect(nameField, findsNothing);
+    expect(
+      find.descendant(of: groupTitle, matching: find.text('New group chat')),
+      findsOneWidget,
+    );
+
+    await tester.tap(groupTitle);
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
     expect(find.text('Group name (optional)'), findsOneWidget);
+    expect(
+      find.descendant(of: nameField, matching: find.text('Name')),
+      findsOneWidget,
+    );
     await tester.enterText(nameField, 'Trip');
+    await tester.tap(nameSave);
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(
+      find.descendant(of: groupTitle, matching: find.text('Trip')),
+      findsOneWidget,
+    );
 
     await sendMessage(tester, 'yo');
     expect(delivery.created, [
@@ -494,12 +523,154 @@ void main() {
     await pick(tester, 'quinn', 'Quinn Imsg');
     await pick(tester, 'quinby', 'Quinby Imsg');
     expect(chip('+14045550102'), findsOneWidget);
-    expect(nameField, findsNothing);
+    // The title stays plain: there is no name to set.
+    expect(groupTitle, findsNothing);
+    expect(find.text('New group chat'), findsOneWidget);
 
     await sendMessage(tester, 'yo');
     expect(delivery.created, [
       'gmessages/group id-Quinn Imsg,tel:+14045550102 "null"',
     ]);
+  });
+
+  testWidgets('a cleared name puts "New group chat" back in the title', (
+    tester,
+  ) async {
+    await pump(tester);
+    await pick(tester, 'quinn', 'Quinn Imsg');
+    await pick(tester, 'quinby', 'Quinby Imsg');
+    await tester.tap(groupTitle);
+    await tester.pumpAndSettle();
+    await tester.enterText(nameField, 'Trip');
+    await tester.tap(nameSave);
+    await tester.pumpAndSettle();
+
+    await tester.tap(groupTitle);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(nameField).controller!.text, 'Trip');
+    await tester.enterText(nameField, '');
+    await tester.tap(nameSave);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: groupTitle, matching: find.text('New group chat')),
+      findsOneWidget,
+    );
+
+    // Cancel leaves the name as it was.
+    await tester.tap(groupTitle);
+    await tester.pumpAndSettle();
+    await tester.enterText(nameField, 'Other');
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: groupTitle, matching: find.text('New group chat')),
+      findsOneWidget,
+    );
+
+    await sendMessage(tester, 'yo');
+    expect(delivery.created, [
+      'imessage/group id-Quinn Imsg,tel:+14045550102 "null"',
+    ]);
+  });
+
+  testWidgets('a network that needs a name holds Save and Send until set', (
+    tester,
+  ) async {
+    delivery.groupNetwork = const GroupNetwork(
+      _imessage,
+      BridgeGroupType(id: 'group', nameAllowed: true, nameRequired: true),
+    );
+    await pump(tester);
+    await pick(tester, 'quinn', 'Quinn Imsg');
+    await pick(tester, 'quinby', 'Quinby Imsg');
+    await tester.enterText(messageField, 'yo');
+    await tester.pump();
+    IconButton send() =>
+        tester.widget<IconButton>(find.byKey(const ValueKey('compose-send')));
+    expect(send().onPressed, isNull);
+
+    await tester.tap(groupTitle);
+    await tester.pumpAndSettle();
+    expect(find.text('Group name'), findsOneWidget);
+    TextButton save() => tester.widget<TextButton>(nameSave);
+    expect(save().onPressed, isNull);
+    await tester.enterText(nameField, '   ');
+    await tester.pump();
+    expect(save().onPressed, isNull);
+    await tester.enterText(nameField, 'Trip');
+    await tester.pump();
+    expect(save().onPressed, isNotNull);
+    await tester.tap(nameSave);
+    await tester.pumpAndSettle();
+    expect(send().onPressed, isNotNull);
+
+    await tester.tap(find.byKey(const ValueKey('compose-send')));
+    await tester.pumpAndSettle();
+    expect(delivery.created, [
+      'imessage/group id-Quinn Imsg,tel:+14045550102 "Trip"',
+    ]);
+  });
+
+  group('To field at 412dp', () {
+    /// Two people with short names, so that in the test font, whose
+    /// letters are all a square, their chips are as wide as real names'.
+    Future<void> pumpPhone(WidgetTester tester) async {
+      delivery.bridgeContacts = [
+        BridgeContactInput(
+          _imessage,
+          const BridgeUser(
+            id: 'tel:+14045550101',
+            name: 'Quinn',
+            identifiers: ['tel:+14045550101'],
+          ),
+        ),
+        BridgeContactInput(
+          _imessage,
+          const BridgeUser(
+            id: 'tel:+14045550102',
+            name: 'Romy',
+            identifiers: ['tel:+14045550102'],
+            mxid: _quinbyGhost,
+          ),
+        ),
+      ];
+      delivery.ghosts['Quinn'] = _quinnGhost;
+      await pump(tester);
+      tester.view.physicalSize = const Size(412 * 3, 915 * 3);
+      await tester.pumpAndSettle();
+    }
+
+    final label = find.byKey(const ValueKey('compose-to-label'));
+
+    testWidgets('"To:" sits on the centre line of the chips and the field', (
+      tester,
+    ) async {
+      await pumpPhone(tester);
+      expect(
+        tester.getCenter(label).dy,
+        moreOrLessEquals(tester.getCenter(toField).dy, epsilon: 1),
+      );
+      await pick(tester, 'quinn', 'Quinn');
+      await pick(tester, 'romy', 'Romy');
+      for (final key in ['+14045550101', '+14045550102']) {
+        expect(
+          tester.getCenter(label).dy,
+          moreOrLessEquals(tester.getCenter(chip(key)).dy, epsilon: 1),
+        );
+      }
+    });
+
+    testWidgets('the field stays on the chips\' line with two chips', (
+      tester,
+    ) async {
+      await pumpPhone(tester);
+      await pick(tester, 'quinn', 'Quinn');
+      await pick(tester, 'romy', 'Romy');
+      final lastChip = tester.getRect(chip('+14045550102'));
+      final field = tester.getRect(toField);
+      expect(field.left, greaterThan(lastChip.right));
+      expect(field.center.dy, moreOrLessEquals(lastChip.center.dy, epsilon: 1));
+    });
   });
 
   testWidgets('the group\'s network blocks people it cannot reach', (
@@ -570,7 +741,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(chip('+14045550102'), findsOneWidget);
-    expect(find.text('New group on iMessage'), findsOneWidget);
+    expect(composerHint(tester), 'iMessage');
     expect(delivery.created, isEmpty);
   });
 

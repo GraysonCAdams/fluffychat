@@ -3365,11 +3365,11 @@
     },
     "groupNameOptional": "Group name (optional)",
     "@groupNameOptional": {
-        "description": "Label of a new group's name field (compose screen, share page) on a network where the name may be left empty."
+        "description": "Title of the compose screen's group name dialog, and label of the share page's group name field, on a network where the name may be left empty."
     },
     "groupNameRcsOnly": "Only RCS groups keep a name",
     "@groupNameRcsOnly": {
-        "description": "Helper under the group name field for Google Messages, whose MMS groups have no name."
+        "description": "Helper under the group name field (compose screen's name dialog, share page) for Google Messages, whose MMS groups have no name."
     },
     "composeTo": "To:",
     "@composeTo": {
@@ -3403,15 +3403,6 @@
                 "type": "String"
             },
             "error": {
-                "type": "String"
-            }
-        }
-    },
-    "composeGroupOn": "New group on {network}",
-    "@composeGroupOn": {
-        "description": "Label under the To field of the compose screen naming the network a new group will be created on.",
-        "placeholders": {
-            "network": {
                 "type": "String"
             }
         }

@@ -203,57 +203,24 @@ class ChatInputRow extends StatelessWidget {
                 ]
               : <Widget>[
                   const SizedBox(width: 2),
-                  // Hides once there is text, which the chat does not
-                  // rebuild for (see ChatController.inputTextIsEmpty).
+                  // The attach button hides once there is text, which the
+                  // chat does not rebuild for (see
+                  // ChatController.inputTextIsEmpty).
                   ValueListenableBuilder(
                     valueListenable: controller.inputTextIsEmpty,
-                    builder: (context, _, child) {
-                      final textMessageOnly =
+                    builder: (context, _, _) => ComposerLeadingButtons(
+                      textMessageOnly:
                           controller.sendController.text.isNotEmpty ||
                           controller.replyEvent != null ||
-                          controller.editEvent != null;
-                      return AnimatedContainer(
-                        duration: FluffyThemes.animationDuration,
-                        curve: FluffyThemes.animationCurve,
-                        // Collapsed, the slot stays as the text's inset
-                        // from the rounded edge of the composer.
-                        width: textMessageOnly ? 16 : 44,
-                        height: height,
-                        alignment: Alignment.center,
-                        decoration: const BoxDecoration(),
-                        clipBehavior: Clip.hardEdge,
-                        child: textMessageOnly ? null : child,
-                      );
-                    },
-                    child: IconButton(
-                      tooltip: L10n.of(context).addAttachment,
-                      icon: Icon(
-                        controller.showAttachmentPanel
-                            ? Icons.close
-                            : Icons.add_circle_outline,
-                      ),
-                      color: theme.colorScheme.onPrimaryContainer,
-                      onPressed: controller.toggleAttachmentPanel,
+                          controller.editEvent != null,
+                      attachmentPanelOpen: controller.showAttachmentPanel,
+                      onAttach: controller.toggleAttachmentPanel,
+                      // Android keyboards carry their own emoji picker.
+                      showEmojiButton: !PlatformInfos.isAndroid,
+                      emojiPickerOpen: controller.showEmojiPicker,
+                      onEmoji: controller.emojiPickerAction,
                     ),
                   ),
-                  // Android keyboards carry their own emoji picker.
-                  if (!PlatformInfos.isAndroid)
-                    Container(
-                      height: height,
-                      width: 48,
-                      alignment: Alignment.center,
-                      child: IconButton(
-                        tooltip: L10n.of(context).emojis,
-                        color: theme.colorScheme.onPrimaryContainer,
-                        icon: Icon(
-                          controller.showEmojiPicker
-                              ? Icons.keyboard
-                              : Icons.add_reaction_outlined,
-                          key: ValueKey(controller.showEmojiPicker),
-                        ),
-                        onPressed: controller.emojiPickerAction,
-                      ),
-                    ),
                   if (Matrix.of(context).isMultiAccount &&
                       Matrix.of(context).hasComplexBundles &&
                       Matrix.of(context).currentBundle!.length > 1)
@@ -545,6 +512,90 @@ class ChatComposer extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// The attach and emoji buttons at the start of the composer, 40dp wide
+/// each and side by side, so their icons sit 16dp apart. Once the message
+/// has text ([textMessageOnly]) the attach button folds away, leaving its
+/// slot as the text's inset from the composer's rounded edge.
+class ComposerLeadingButtons extends StatelessWidget {
+  final bool textMessageOnly;
+  final bool attachmentPanelOpen;
+  final void Function() onAttach;
+  final bool showEmojiButton;
+  final bool emojiPickerOpen;
+  final void Function() onEmoji;
+
+  /// Each button's width and touch target.
+  static const double buttonSize = 40;
+
+  const ComposerLeadingButtons({
+    required this.textMessageOnly,
+    required this.attachmentPanelOpen,
+    required this.onAttach,
+    required this.showEmojiButton,
+    required this.emojiPickerOpen,
+    required this.onEmoji,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = L10n.of(context);
+    final style = IconButton.styleFrom(
+      fixedSize: const Size.square(buttonSize),
+      minimumSize: const Size.square(buttonSize),
+      padding: EdgeInsets.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedContainer(
+          duration: FluffyThemes.animationDuration,
+          curve: FluffyThemes.animationCurve,
+          width: textMessageOnly ? 16 : buttonSize,
+          height: ChatInputRow.height,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(),
+          clipBehavior: Clip.hardEdge,
+          child: textMessageOnly
+              ? null
+              : IconButton(
+                  key: const ValueKey('composer-attach'),
+                  tooltip: l10n.addAttachment,
+                  style: style,
+                  icon: Icon(
+                    attachmentPanelOpen
+                        ? Icons.close
+                        : Icons.add_circle_outline,
+                  ),
+                  color: theme.colorScheme.onPrimaryContainer,
+                  onPressed: onAttach,
+                ),
+        ),
+        if (showEmojiButton)
+          SizedBox(
+            height: ChatInputRow.height,
+            width: buttonSize,
+            child: Center(
+              child: IconButton(
+                key: const ValueKey('composer-emoji'),
+                tooltip: l10n.emojis,
+                style: style,
+                color: theme.colorScheme.onPrimaryContainer,
+                icon: Icon(
+                  emojiPickerOpen ? Icons.keyboard : Icons.add_reaction_outlined,
+                  key: ValueKey(emojiPickerOpen),
+                ),
+                onPressed: onEmoji,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

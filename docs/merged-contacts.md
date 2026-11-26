@@ -410,10 +410,11 @@ share page uses the same code.
   and the sheet waits for the user to retry or pick another network.
   Going back to one chip makes it a direct chat again and clears the
   network.
-- A line under the To field always names the network: "On iMessage" for
-  an existing chat (its bridge space), "New group on iMessage" for a new
-  group, and "You pick the network when you send" for one person with no
-  chat yet, whose network comes from the sheet on send.
+- For one person, a line under the To field names the network: "On
+  iMessage" for an existing chat in a bridge space, and "You pick the
+  network when you send" for someone with no chat yet, whose network comes
+  from the sheet on send. A group has no such line; the composer's hint
+  names its network ("iMessage").
 - After that, a person the network cannot reach is greyed out with "Not on
   iMessage" (or the network's name): someone with no phone number, email
   or ghost on that network, a Matrix user, or someone `resolve_identifier`
@@ -427,11 +428,13 @@ share page uses the same code.
   the bridge bot are the people's ghosts. Sending goes there. A room whose
   summary counts more members than are loaded does not match.
 - Otherwise the conversation is empty ("Your first message creates the
-  group") and, when the group type allows a name (`name.allowed`), a name
-  field shows under the To field ("Group name (optional)" unless
-  `name.required`, which keeps send off until there is a name). Google
-  Messages allows a name, but only RCS groups keep it, which the field
-  says. Sending calls `POST /v3/create_group/{type}?login_id=...` with
+  group") and, when the group type allows a name (`name.allowed`), the
+  title "New group chat" carries a pencil and opens a "Group name
+  (optional)" dialog; the title then shows the name. Under
+  `name.required` the dialog is "Group name", its Save stays off while the
+  field is empty, and send stays off until there is a name. Google
+  Messages allows a name, but only RCS groups keep it, which the dialog
+  says. A type with no name keeps the plain title. Sending calls `POST /v3/create_group/{type}?login_id=...` with
   `{"participants": [...], "name": {"name": ...}}` (each participant is the
   `id` `resolve_identifier` returned, or the bridge contact's `id`), waits
   for the room (`awaitBridgedRoom`), sends the message and opens the room.
@@ -441,7 +444,7 @@ share page uses the same code.
 
 The picking rules (`GroupDraft`), the bridge and room calls
 (`NewChatDelivery`) and the add flow (`toggleGroupMember`) are in
-`lib/utils/new_chat/new_group.dart`; the To field, name field, history and
+`lib/utils/new_chat/new_group.dart`; the To field, group title and name dialog, history and
 composer are in `lib/pages/new_private_chat/compose_widgets.dart`. The
 share page's group chips and confirm sheet stay in
 `lib/pages/new_private_chat/new_group_widgets.dart`.

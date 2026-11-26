@@ -6,6 +6,7 @@
 
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/scroll_to_top_button.dart';
 import 'package:fluffychat/pages/chat_list/search_title.dart';
 import 'package:fluffychat/pages/chat_list/start_chat_fab.dart';
@@ -351,5 +352,61 @@ void main() {
 
       await finishFakeChatList(tester, client);
     });
+
+    testWidgets('People sits right under the chats found', (tester) async {
+      phone(tester);
+      addFakeChat(client, '!zola:x', 'Zola', partner: '@zola:matrix.org');
+      await pumpFakeChatList(tester, client);
+      await tester.tap(find.byTooltip('Search'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'zo');
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pumpAndSettle();
+
+      final lastChat = tester.getRect(find.byType(ChatListItem).last);
+      final people = tester.getRect(
+        find.ancestor(
+          of: find.text('People'),
+          matching: find.byType(SearchTitle),
+        ),
+      );
+      // No room is kept for the New chat button, which search hides.
+      expect(find.byType(StartChatFab), findsNothing);
+      expect(people.top - lastChat.bottom, lessThan(1));
+
+      await finishFakeChatList(tester, client);
+    });
+  });
+
+  testWidgets('the last chat scrolls clear of the New chat button', (
+    tester,
+  ) async {
+    phone(tester);
+    addChats();
+    await pumpFakeChatList(tester, client);
+    final position = tester
+        .state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byType(CustomScrollView),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        )
+        .position;
+    // The list measures rows as they are built, so its end moves while
+    // it is scrolled there.
+    for (var i = 0; i < 5; i++) {
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+    }
+
+    final lastChat = tester.getRect(
+      find.ancestor(of: find.text('Chat 39'), matching: find.byType(ChatListItem)),
+    );
+    final fab = tester.getRect(find.byType(StartChatFab));
+    expect(lastChat.bottom, lessThanOrEqualTo(fab.top));
+
+    await finishFakeChatList(tester, client);
   });
 }

@@ -25,10 +25,10 @@ import 'package:pretty_qr_code/pretty_qr_code.dart';
 
 import '../../widgets/qr_code_viewer.dart';
 
-/// The compose screen: the To field (and a group's name) on top, the
-/// conversation with those people in the middle, the composer at the
-/// bottom. While a name is typed into the To field, the suggestions cover
-/// the conversation.
+/// The compose screen: the To field on top, the conversation with those
+/// people in the middle, the composer at the bottom. While a name is typed
+/// into the To field, the suggestions cover the conversation. A new group
+/// on a network that takes a name is named from the title.
 class NewPrivateChatView extends StatelessWidget {
   final NewPrivateChatController controller;
 
@@ -58,7 +58,7 @@ class NewPrivateChatView extends StatelessWidget {
       );
     }
     // The composer names the network the message goes out on: the chat's
-    // bridge space, else the new group's network.
+    // bridge space, else the group's network.
     final locals = MatrixLocals(l10n);
     final hintText =
         (conversation == null
@@ -66,22 +66,24 @@ class NewPrivateChatView extends StatelessWidget {
             : spacesByChild(
                 client,
               )[conversation.sendRoom.id]?.getLocalizedDisplayname(locals)) ??
-        (conversation == null ? controller.group.bridge?.displayName : null) ??
+        controller.group.bridge?.displayName ??
         l10n.writeAMessage;
     return Scaffold(
       appBar: AppBar(
         scrolledUnderElevation: 0,
         leading: const Center(child: BackButton()),
-        title: Text(
-          controller.group.isGroup ? l10n.newGroupChat : l10n.newChat,
-        ),
+        // The title button's own padding lines its text up with a plain
+        // title's.
+        titleSpacing: controller.showGroupName ? 8 : null,
+        title: controller.showGroupName
+            ? GroupTitleButton(controller)
+            : Text(controller.group.isGroup ? l10n.newGroupChat : l10n.newChat),
         backgroundColor: theme.scaffoldBackgroundColor,
       ),
       body: Column(
         children: [
           RecipientField(controller),
           ComposeNetworkLine(controller),
-          if (controller.showGroupName) GroupNameField(controller),
           Divider(height: 1, color: theme.colorScheme.outlineVariant),
           Expanded(
             child: Stack(
