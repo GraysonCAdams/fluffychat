@@ -18,6 +18,7 @@ import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/start_push_foreground_service.dart';
 import 'package:fluffychat/utils/windows_shell.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_vodozemac/flutter_vodozemac.dart' as vod;
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
@@ -55,6 +56,12 @@ void main(List<String> args) => runZonedGuarded(() async {
 
   isIntegrationTest = args.singleOrNull == 'integration_test';
   Logs().onLog = _capLogHistory;
+  // The bundled font's licence, shown on the licences page as OFL requires.
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(const [
+      'Google Sans Flex',
+    ], await rootBundle.loadString('assets/fonts/google_sans_flex/OFL.txt'));
+  });
   if (PlatformInfos.isAndroid) {
     final port = mainIsolateReceivePort = ReceivePort();
     IsolateNameServer.removePortNameMapping(AppConfig.mainIsolatePortName);

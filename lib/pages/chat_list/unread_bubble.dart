@@ -7,7 +7,6 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/room_unread.dart';
-import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -15,15 +14,11 @@ const double _fontSize = 13;
 
 /// How far to lift the count's digits so they sit in the middle of the badge.
 ///
-/// Segoe UI, the Windows system font, keeps much more room above its digits
-/// than below, so evenly split leading leaves them 0.067 of the font size
-/// low in all three Segoe UI faces Windows uses (measured in
-/// test/pages/chat_list/unread_bubble_font_test.dart). Elsewhere the digits
-/// already sit centred.
-double unreadDigitNudge(double fontSize, [TargetPlatform? platform]) =>
-    (platform ?? defaultTargetPlatform) == TargetPlatform.windows
-    ? fontSize * 0.067
-    : 0;
+/// With evenly split leading, the bundled Google Sans Flex leaves the digits
+/// 0.015 of the font size high, so this lowers them by that much (a negative
+/// lift). Measured in test/pages/chat_list/unread_bubble_font_test.dart; the
+/// font is bundled, so the same value holds on every platform.
+double unreadDigitNudge(double fontSize) => fontSize * -0.015;
 
 class UnreadBubble extends StatelessWidget {
   final Room room;
@@ -88,8 +83,8 @@ class UnreadBubble extends StatelessWidget {
                   fontSize: _fontSize,
                   fontWeight: FontWeight.w500,
                   // The line box is the font size with its spare leading split
-                  // evenly above and below. That centres Roboto's digits on
-                  // Android; unreadDigitNudge corrects Segoe UI on Windows.
+                  // evenly above and below; unreadDigitNudge trims what is
+                  // left.
                   height: 1,
                   leadingDistribution: TextLeadingDistribution.even,
                 ),

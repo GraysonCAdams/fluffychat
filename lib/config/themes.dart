@@ -74,6 +74,8 @@ abstract class FluffyThemes {
         ? colorScheme.surfaceContainerHighest
         : colorScheme.surfaceContainer;
     return ThemeData(
+      // Bundled, so text looks and measures the same on every platform.
+      fontFamily: 'GoogleSansFlex',
       visualDensity: VisualDensity.standard,
       useMaterial3: true,
       brightness: brightness,
@@ -88,9 +90,7 @@ abstract class FluffyThemes {
       // Pages slide sideways and stay opaque, so the page underneath never
       // shows through the one leaving.
       pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {
-          TargetPlatform.android: _SolidSlidePageTransitionsBuilder(),
-        },
+        builders: {TargetPlatform.android: _SolidSlidePageTransitionsBuilder()},
       ),
       // Menus hang below the button that opened them rather than covering
       // it. Without room underneath, a menu shifts up to stay on screen.
