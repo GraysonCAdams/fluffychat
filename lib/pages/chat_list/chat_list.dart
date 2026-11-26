@@ -667,7 +667,11 @@ class ChatListController extends State<ChatList>
       networks: contact == null ? const [] : contact.networks(spaces),
       key: ValueKey(room.id),
       onTap: () => onListedChatTap(room),
-      onLongPress: (context, [position]) => toggleSelection(room),
+      // A right-click (which brings a position) opens the chat's menu, unless
+      // chats are being selected, when it picks this one too.
+      onLongPress: (context, [position]) => position != null && !selectionMode
+          ? showChatContextMenu(this, room, position)
+          : toggleSelection(room),
       activeChat: active,
       selected: isSelected(room),
     );

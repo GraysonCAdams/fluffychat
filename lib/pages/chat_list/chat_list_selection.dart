@@ -167,6 +167,69 @@ class ChatListSelectionBar extends StatelessWidget {
   }
 }
 
+/// The menu a right-click on [room]'s row opens at [position]: the
+/// selection bar's actions for that one chat, without selecting it. Opening
+/// it in a new window comes first, as in the bar's overflow menu.
+Future<void> showChatContextMenu(
+  ChatListController controller,
+  Room room,
+  Offset position,
+) async {
+  final context = controller.context;
+  final l10n = L10n.of(context);
+  final chats = [SelectedChat(room, controller.mergedContactFor(room))];
+  final chat = chats.single;
+  final more = _moreActions(controller, chats);
+  final overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
+  final leavesInvite = room.membership == .invite;
+
+  PopupMenuItem<Future<void> Function()> item(
+    String label,
+    Future<void> Function() action, {
+    Color? color,
+  }) => PopupMenuItem(
+    value: action,
+    child: Text(label, style: TextStyle(color: color)),
+  );
+
+  final choice = await showMenu<Future<void> Function()>(
+    context: context,
+    position: RelativeRect.fromRect(
+      position & Size.zero,
+      Offset.zero & overlay.size,
+    ),
+    items: [
+      for (final (action, label) in more)
+        if (action == _MoreAction.openInNewWindow)
+          item(label, () => _onMore(controller, chats, action)),
+      if (chat.isJoined && !chat.isLowPriority)
+        item(
+          chat.isPinned ? l10n.unpin : l10n.pin,
+          () => setSelectedPinned(controller, chats, !chat.isPinned),
+        ),
+      if (chat.isJoined)
+        item(
+          chat.isMuted ? l10n.unmuteChat : l10n.muteChat,
+          () => setSelectedMuted(controller, chats, !chat.isMuted),
+        ),
+      if (chat.isJoined)
+        item(
+          chat.isUnread ? l10n.markAsRead : l10n.markAsUnread,
+          () => setSelectedRead(controller, chats, chat.isUnread),
+        ),
+      for (final (action, label) in more)
+        if (action != _MoreAction.openInNewWindow)
+          item(label, () => _onMore(controller, chats, action)),
+      item(
+        leavesInvite ? l10n.delete : l10n.leave,
+        () => leaveSelected(controller, chats),
+        color: Theme.of(context).colorScheme.error,
+      ),
+    ],
+  );
+  await choice?.call();
+}
+
 /// The spaces the user may add a chat to that do not hold all of [rooms].
 List<Room> _spacesToAddTo(Client client, List<Room> rooms) => [
   for (final space in client.rooms)

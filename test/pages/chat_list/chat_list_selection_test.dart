@@ -172,12 +172,31 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('a right-click selects too', (tester) async {
+  testWidgets('a right-click opens the chat menu without selecting', (
+    tester,
+  ) async {
     await pumpChatList(tester);
     await tester.tap(find.text('Squad Goals'), buttons: kSecondaryButton);
     await tester.pumpAndSettle();
-    expect(find.byType(ChatListSelectionBar), findsOneWidget);
+    expect(find.byType(ChatListSelectionBar), findsNothing);
+    expect(find.text('Pin'), findsOneWidget);
     expect(router.state.uri.path, '/rooms');
+
+    await tester.tap(find.text('Pin'));
+    await tester.pumpAndSettle();
+    expect(rooms['!grp-imsg:x']!.calls, ['favourite:true']);
+    await finish(tester);
+  });
+
+  testWidgets('a right-click while selecting picks the chat too', (
+    tester,
+  ) async {
+    await pumpChatList(tester);
+    await select(tester, ['Harrison Young']);
+    await tester.tap(find.text('Squad Goals'), buttons: kSecondaryButton);
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatListSelectionBar), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
     await finish(tester);
   });
 
