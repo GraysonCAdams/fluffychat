@@ -103,18 +103,18 @@ Room? existingGroupOf(
   for (final member in members) {
     final ghost =
         member.user.mxid ?? member.person.bridgeUsers[bridge.name]?.mxid;
-    Logs().d(
+    Logs().i(
       'Group lookup on ${bridge.name}: member user ${redactDigits(member.user.id)}, '
       'resolved ghost ${redactDigits(member.user.mxid)}, '
       'contact ghost ${redactDigits(member.person.bridgeUsers[bridge.name]?.mxid)}',
     );
     if (ghost == null) {
-      Logs().d('Group lookup on ${bridge.name}: a member has no ghost');
+      Logs().i('Group lookup on ${bridge.name}: a member has no ghost');
       return null;
     }
     wanted.add(ghost);
   }
-  Logs().d(
+  Logs().i(
     'Group lookup on ${bridge.name}: wanted ${wanted.map(redactDigits).toList()}',
   );
   final matches = client.rooms.where((room) {
@@ -147,7 +147,7 @@ Room? existingGroupOf(
       }
     }
     if (relevant) {
-      Logs().d(
+      Logs().i(
         'Group lookup on ${bridge.name}: ${room.id} '
         '${reason == null ? 'matches' : 'rejected, $reason'}; '
         'joined ${room.summary.mJoinedMemberCount}, '
@@ -209,7 +209,7 @@ class PersonReach {
       try {
         final user = await resolve();
         users[bridge] = user;
-        Logs().d(
+        Logs().i(
           '$bridge resolved a person in the To field: '
           'id ${redactDigits(user?.id)}, ghost ${redactDigits(user?.mxid)}, '
           'chat ${user?.dmRoomId}',
