@@ -169,16 +169,21 @@ class _PhoneTitleState extends State<_PhoneTitle>
             children: [
               if (value < 1)
                 IgnorePointer(
+                  key: const ValueKey('title'),
                   ignoring: widget.searching,
                   child: Opacity(
                     opacity: 1 - _titleFade.transform(value),
                     child: title,
                   ),
                 ),
-              // One field for the whole animation, so its focus and text
-              // carry through it.
+              // One field for the whole animation, so its focus, text and
+              // keyboard carry through it. The keys keep the field's element
+              // when the title before it leaves the stack as the animation
+              // ends: unkeyed, the field would be matched to the title's
+              // slot and rebuilt, and the rebuilt field drops the keyboard.
               if (value > 0 || widget.searching)
                 IgnorePointer(
+                  key: const ValueKey('field'),
                   ignoring: !widget.searching,
                   child: ClipRect(
                     child: Align(

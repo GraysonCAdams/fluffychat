@@ -52,6 +52,45 @@ void main() {
     return list;
   }
 
+  testWidgets('the field keeps its focus and keyboard while it opens', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 800);
+    addTearDown(tester.view.reset);
+    await pumpFakeChatList(tester, client);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(ChatListHeader),
+        matching: find.byTooltip('Search'),
+      ),
+    );
+    // Partway through the opening animation, the title and the field are
+    // both on screen.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final list = tester.state<ChatListController>(find.byType(ChatList));
+    final opening = tester.state<EditableTextState>(find.byType(EditableText));
+    expect(list.searchFocusNode.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    await tester.pumpAndSettle();
+    // The same field, still focused, with the keyboard still up.
+    expect(list.searchFocusNode.hasFocus, isTrue);
+    expect(FocusManager.instance.primaryFocus, same(list.searchFocusNode));
+    expect(
+      tester.testTextInput.log.map((call) => call.method),
+      isNot(contains('TextInput.hide')),
+    );
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(
+      tester.state<EditableTextState>(find.byType(EditableText)),
+      same(opening),
+    );
+
+    await finishFakeChatList(tester, client);
+  });
+
   testWidgets('clearing the text keeps the field open and focused', (
     tester,
   ) async {
