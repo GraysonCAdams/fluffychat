@@ -23,6 +23,7 @@ import 'package:fluffychat/pages/chat_list/space_view.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
+import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/utils/room_unread.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/public_room_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -927,17 +928,20 @@ class _PinnedChat extends StatelessWidget {
     final unread = contact?.isUnread ?? room.countsAsUnread;
     final space = this.space;
     final selected = controller.isSelected(room);
-    final preview = unread
-        ? (contact?.lastEvent ?? room.lastEvent)
-              ?.calcLocalizedBody(
-                locals,
-                hideReply: true,
-                hideEdit: true,
-                plaintextBody: true,
-                removeMarkdown: true,
-              )
-              .trim()
-              .replaceAll('\n', ' ')
+    final lastEvent = contact?.lastEvent ?? room.lastEvent;
+    // An effect that hides the message hides it here too.
+    final preview = unread && lastEvent != null
+        ? effectPreviewOf(lastEvent, L10n.of(context)) ??
+              lastEvent
+                  .calcLocalizedBody(
+                    locals,
+                    hideReply: true,
+                    hideEdit: true,
+                    plaintextBody: true,
+                    removeMarkdown: true,
+                  )
+                  .trim()
+                  .replaceAll('\n', ' ')
         : null;
     return Center(
       child: Semantics(

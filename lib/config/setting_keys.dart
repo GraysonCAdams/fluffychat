@@ -55,6 +55,9 @@ enum AppSettings<T> {
     'chat.fluffy.network_bubble_color_overrides',
     '{}',
   ),
+  // A JSON list of the messages whose effect has played, newest last (see
+  // PlayedMessageEffects).
+  playedMessageEffects<String>('chat.fluffy.played_message_effects', '[]'),
   closeToTray<bool>('chat.fluffy.close_to_tray', true),
   launchAtStartup<bool>('chat.fluffy.launch_at_startup', false),
   windowBounds<String>('chat.fluffy.window_bounds', ''),

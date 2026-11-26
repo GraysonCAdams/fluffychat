@@ -10,6 +10,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/events/poll.dart';
 import 'package:fluffychat/pages/chat/events/video_player.dart';
 import 'package:fluffychat/pages/image_viewer/image_viewer.dart';
+import 'package:fluffychat/utils/message_effects.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -160,7 +161,7 @@ class MessageContent extends StatelessWidget {
               );
             }
             var html = AppSettings.renderHtml.value && event.isRichMessage
-                ? event.formattedText
+                ? effectBodyHtml(event, event.formattedText)
                 : event
                       .calcUnlocalizedBody(
                         hideReply: event.inReplyToEventId() != null,

@@ -16,6 +16,8 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat_details_network_sheet.dart';
 import 'package:fluffychat/pages/chat/chat_view.dart';
+import 'package:fluffychat/pages/chat/effects/message_effect_picker.dart'
+    as effects;
 import 'package:fluffychat/pages/chat/event_info_dialog.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/gallery_picker_page.dart';
 import 'package:fluffychat/pages/chat/merged_network_menu.dart';
@@ -37,6 +39,7 @@ import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_timeline.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
+import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/utils/ogg_opus_remuxer.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/pasted_file_type.dart';
@@ -1326,7 +1329,28 @@ class ChatController extends State<ChatPageWithRoom>
     );
   }
 
-  Future<void> send() async {
+  /// What a long press on the send button does: the effect picker in a
+  /// chat on the iMessage bridge, the scheduling options elsewhere, while
+  /// a message is being edited and while attachments are staged (the
+  /// bridge carries an effect on text only). [bubbleColor] and [onBubbleColor]
+  /// are the send button's, the colours the message's bubble will have.
+  Future<void> onSendLongPress(Color bubbleColor, Color onBubbleColor) =>
+      effects.onSendLongPress(
+        context,
+        effectsAvailable:
+            editEvent == null &&
+            pendingAttachments.isEmpty &&
+            canSendMessageEffects(composerRoom),
+        text: sendController.text,
+        bubbleColor: bubbleColor,
+        onBubbleColor: onBubbleColor,
+        send: (effect) => send(effect: effect),
+        fallback: openSendOptions,
+      );
+
+  /// Sends what is in the composer; the typed text goes out with [effect]
+  /// when one is given.
+  Future<void> send({MessageEffect? effect}) async {
     // Taken once: the reply, edit or picked network can change while the
     // dialogs below are open, and the message must go where the composer
     // showed when the user pressed send.
@@ -1377,14 +1401,24 @@ class ChatController extends State<ChatPageWithRoom>
       _typingRoom?.setTyping(false);
     }
 
-    // ignore: unawaited_futures
-    target.sendTextEvent(
-      sendController.text,
-      inReplyTo: replyEvent,
-      editEventId: editEvent?.eventId,
-      parseCommands: parseCommands,
-      threadRootEventId: activeThreadId,
-    );
+    if (effect != null && editEvent == null) {
+      // ignore: unawaited_futures
+      target.sendTextEventWithEffect(
+        sendController.text,
+        effect,
+        inReplyTo: replyEvent,
+        threadRootEventId: activeThreadId,
+      );
+    } else {
+      // ignore: unawaited_futures
+      target.sendTextEvent(
+        sendController.text,
+        inReplyTo: replyEvent,
+        editEventId: editEvent?.eventId,
+        parseCommands: parseCommands,
+        threadRootEventId: activeThreadId,
+      );
+    }
     sendController.value = TextEditingValue(
       text: pendingText,
       selection: const TextSelection.collapsed(offset: 0),

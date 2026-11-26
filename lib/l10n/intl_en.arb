@@ -3748,5 +3748,95 @@
     "backToTop": "Back to top",
     "@backToTop": {
         "description": "Tooltip of the button that scrolls the chat list back to its top."
+    },
+    "sendWithEffect": "Send with effect",
+    "@sendWithEffect": {
+        "description": "Title of the sheet that opens on a long press of the send button in an iMessage chat, where the message can be sent with an effect."
+    },
+    "sendWithNamedEffect": "Send with {effect}",
+    "@sendWithNamedEffect": {
+        "description": "Tooltip of the send button beside one effect in the effect sheet.",
+        "placeholders": {
+            "effect": {
+                "type": "String"
+            }
+        }
+    },
+    "sentWithEffect": "Sent with {effect}",
+    "@sentWithEffect": {
+        "description": "Stands in for a message's text where an effect hides it (Invisible Ink in the chat list, notifications and reply quotes) and labels an effect message when animations are turned off.",
+        "placeholders": {
+            "effect": {
+                "type": "String"
+            }
+        }
+    },
+    "replayEffect": "Replay effect",
+    "@replayEffect": {
+        "description": "Entry of a message's menu that plays the message's effect again."
+    },
+    "invisibleInkHidden": "Hidden with Invisible Ink. Touch to reveal.",
+    "@invisibleInkHidden": {
+        "description": "Screen reader label of a message sent with Invisible Ink while its content is hidden."
+    },
+    "effectKindBubble": "Bubble",
+    "@effectKindBubble": {
+        "description": "Tab of the effect sheet for effects that change how the message bubble arrives."
+    },
+    "effectKindScreen": "Screen",
+    "@effectKindScreen": {
+        "description": "Tab of the effect sheet for effects that play over the whole conversation."
+    },
+    "effectSlam": "Slam",
+    "@effectSlam": {
+        "description": "Name of a message effect."
+    },
+    "effectLoud": "Loud",
+    "@effectLoud": {
+        "description": "Name of a message effect."
+    },
+    "effectGentle": "Gentle",
+    "@effectGentle": {
+        "description": "Name of a message effect."
+    },
+    "effectInvisibleInk": "Invisible Ink",
+    "@effectInvisibleInk": {
+        "description": "Name of a message effect."
+    },
+    "effectEcho": "Echo",
+    "@effectEcho": {
+        "description": "Name of a message effect."
+    },
+    "effectSpotlight": "Spotlight",
+    "@effectSpotlight": {
+        "description": "Name of a message effect."
+    },
+    "effectBalloons": "Balloons",
+    "@effectBalloons": {
+        "description": "Name of a message effect."
+    },
+    "effectConfetti": "Confetti",
+    "@effectConfetti": {
+        "description": "Name of a message effect."
+    },
+    "effectLove": "Love",
+    "@effectLove": {
+        "description": "Name of a message effect."
+    },
+    "effectLasers": "Lasers",
+    "@effectLasers": {
+        "description": "Name of a message effect."
+    },
+    "effectFireworks": "Fireworks",
+    "@effectFireworks": {
+        "description": "Name of a message effect."
+    },
+    "effectCelebration": "Celebration",
+    "@effectCelebration": {
+        "description": "Name of a message effect."
+    },
+    "effectShootingStar": "Shooting Star",
+    "@effectShootingStar": {
+        "description": "Name of a message effect."
     }
 }

@@ -7,6 +7,7 @@ import 'dart:collection';
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/message_effects.dart';
 import 'package:matrix/matrix.dart';
 
 /// Remembers the localized preview body of the last event of a chat.
@@ -38,13 +39,16 @@ abstract final class MessagePreviewCache {
     L10n l10n,
     MatrixLocals previewLocals,
   ) {
-    String compute() => event.calcLocalizedBody(
-      previewLocals,
-      hideReply: true,
-      hideEdit: true,
-      plaintextBody: true,
-      removeMarkdown: true,
-    );
+    // An effect that hides the message hides it here too.
+    String compute() =>
+        effectPreviewOf(event, l10n) ??
+        event.calcLocalizedBody(
+          previewLocals,
+          hideReply: true,
+          hideEdit: true,
+          plaintextBody: true,
+          removeMarkdown: true,
+        );
 
     // A message that could not be decrypted keeps its event id and type
     // while its content can change between decryption attempts, so the key
