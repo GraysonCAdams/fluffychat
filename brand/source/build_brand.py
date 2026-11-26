@@ -69,10 +69,18 @@ shutil.copy(f'{SVG}/seam-app-icon.svg',f'{WEB}/favicon.svg')
 size('seam-app-icon',32).save(f'{WEB}/favicon-32.png')
 size('seam-app-icon',180).convert('RGB').save(f'{WEB}/apple-touch-icon.png')
 for px in (192,512): size('seam-app-icon',px).save(f'{WEB}/icon-{px}.png')
-# Windows: the exe and taskbar use the full app icon; the title bar uses the bare mark, one per caption
+# Windows: the exe and taskbar use a rounded tile with the white mark (windows_tile); the title bar uses the bare mark, one per caption
 # colour, so it sits on the caption instead of as a cobalt tile
 ico=[(s,s) for s in (16,20,24,32,40,48,64,128,256)]
-big['seam-app-icon'].save(f'{WIN}/app_icon.ico',sizes=ico)
+def windows_tile():
+    # Windows 11 style tile for the exe, taskbar and Alt+Tab: a cobalt rounded square with a small
+    # transparent margin and the mark in solid white, instead of the full-bleed square app icon
+    S=1024; m=int(S*0.06); r=int(S*0.22); t=Image.new('RGBA',(S,S),(0,0,0,0))
+    ImageDraw.Draw(t).rounded_rectangle((m,m,S-1-m,S-1-m),radius=r,fill=(0x1A,0x5A,0xD7,255))
+    g=big['seam-glyph-white']; x0,y0,x1,y1=g.getbbox(); g=g.crop((x0,y0,x1,y1))
+    k=int(S*0.60)/max(g.size); g=g.resize((max(1,int(g.size[0]*k)),max(1,int(g.size[1]*k))),Image.LANCZOS)
+    t.alpha_composite(g,((S-g.size[0])//2,(S-g.size[1])//2)); return t
+windows_tile().save(f'{WIN}/app_icon.ico',sizes=ico)
 big['seam-app-icon'].save(f'{WIN}/tray_icon.ico',sizes=ico)
 def tight(im,margin=0.04):
     # crop to the mark itself (the 1024 masters keep the app icon's safe-zone padding) so it fills a
