@@ -815,7 +815,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} vous a invité·e sur FluffyChat.\n1. Visiter fluffychat.im et installer l'application\n2. Inscrivez-vous ou connectez-vous\n3. Ouvrez le lien d'invitation :\n{link}",
+    "inviteText": "{username} vous a invité·e sur Seam.\n1. Visiter seam.312.dev et installer l'application\n2. Inscrivez-vous ou connectez-vous\n3. Ouvrez le lien d'invitation :\n{link}",
     "@inviteText": {
         "type": "String",
         "placeholders": {
@@ -972,7 +972,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "💬 Nouveau message dans FluffyChat",
+    "newMessageInFluffyChat": "💬 Nouveau message dans Seam",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}
@@ -2311,7 +2311,7 @@
     "notificationRuleIsUserMentionDescription": "Notifie l'utilisateur/trice lorsqu'il est mentionné directement dans un message.",
     "notificationRuleServerAcl": "Retire les Évènements ACL du Serveur",
     "advancedConfigurations": "Configurations avancées",
-    "signUpGreeting": "FluffyChat est décentralisé ! Sélectionnez un hôte sur lequel vous voulez créer un compte et c'est parti !",
+    "signUpGreeting": "Seam est décentralisé ! Sélectionnez un hôte sur lequel vous voulez créer un compte et c'est parti !",
     "notificationRuleCall": "Appeler",
     "baseUrl": "URL racine",
     "pause": "Pause",
@@ -2584,7 +2584,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newPassphraseDescription": "FluffyChat utilise le chiffrement de bout en bout. Pour ne pas perdre vos messages, veuillez choisir une phrase de passe forte pour sécuriser votre profile crypto et votre sauvegarde chiffrée des messages.",
+    "newPassphraseDescription": "Seam utilise le chiffrement de bout en bout. Pour ne pas perdre vos messages, veuillez choisir une phrase de passe forte pour sécuriser votre profile crypto et votre sauvegarde chiffrée des messages.",
     "@newPassphraseDescription": {
         "type": "String",
         "placeholders": {}

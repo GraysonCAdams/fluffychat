@@ -726,7 +726,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} zaprosił/-a Cię do FluffyChat.\n1. Odwiedź fluffychat.im i zainstaluj aplikację\n2. Zarejestuj się lub zaloguj\n3. Otwórz link zaproszenia:\n{link}",
+    "inviteText": "{username} zaprosił/-a Cię do Seam.\n1. Odwiedź seam.312.dev i zainstaluj aplikację\n2. Zarejestuj się lub zaloguj\n3. Otwórz link zaproszenia:\n{link}",
     "@inviteText": {
         "type": "String",
         "placeholders": {
@@ -868,7 +868,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "💬 Nowa wiadomość we FluffyChat",
+    "newMessageInFluffyChat": "💬 Nowa wiadomość we Seam",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}
@@ -2435,7 +2435,7 @@
     "advancedConfigurations": "Zaawansowane konfiguracje",
     "signIn": "Zaloguj się",
     "createNewAccount": "Utwórz nowe konto",
-    "signUpGreeting": "FluffyChat jest zdecentralizowany! Wybierz serwer, na którym chcesz utworzyć konto i zaczynamy!",
+    "signUpGreeting": "Seam jest zdecentralizowany! Wybierz serwer, na którym chcesz utworzyć konto i zaczynamy!",
     "signInGreeting": "Masz już konto w sieci Matrix? Witaj z powrotem! Wybierz swój serwer macierzysty i zaloguj się.",
     "theProcessWasCanceled": "Proces został anulowany.",
     "join": "Dołącz",
@@ -2592,7 +2592,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newPassphraseDescription": "FluffyChat korzysta z szyfrowania od końca do końca. Aby nie utracić swoich wiadomości, wybierz silne hasło, które zabezpieczy Twoją tożsamość kryptograficzną oraz zaszyfrowaną kopię zapasową wiadomości.",
+    "newPassphraseDescription": "Seam korzysta z szyfrowania od końca do końca. Aby nie utracić swoich wiadomości, wybierz silne hasło, które zabezpieczy Twoją tożsamość kryptograficzną oraz zaszyfrowaną kopię zapasową wiadomości.",
     "@newPassphraseDescription": {
         "type": "String",
         "placeholders": {}

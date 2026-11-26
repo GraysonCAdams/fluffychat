@@ -534,7 +534,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username}(e)k FluffyChatera gonbidatu zaitu.\n1. Bisitatu https://fluffychat.im eta instalatu aplikazioa\n2. Eman izena edo hasi saioa\n3. Ireki gonbidapen-esteka:\n{link}",
+    "inviteText": "{username}(e)k Seamera gonbidatu zaitu.\n1. Bisitatu https://seam.312.dev eta instalatu aplikazioa\n2. Eman izena edo hasi saioa\n3. Ireki gonbidapen-esteka:\n{link}",
     "@inviteText": {
         "type": "String",
         "placeholders": {
@@ -666,7 +666,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "💬 Mezu berria FluffyChaten",
+    "newMessageInFluffyChat": "💬 Mezu berria Seamen",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}
@@ -2471,7 +2471,7 @@
     "identityServer": "Identitate-zerbitzaria:",
     "signIn": "Hasi saioa",
     "createNewAccount": "Sortu kontu berria",
-    "signUpGreeting": "FluffyChat deszentralizatua da! Hautatu zure kontua zein zerbitzaritan sortu nahi duzun, eta hasi erabiltzen!",
+    "signUpGreeting": "Seam deszentralizatua da! Hautatu zure kontua zein zerbitzaritan sortu nahi duzun, eta hasi erabiltzen!",
     "signInGreeting": "Baduzu dagoeneko Matrix kontu bat? Ongi etorri berriro ere! Hautatu zure zerbitzaria eta hasi saioa.",
     "theProcessWasCanceled": "Eragiketa bertan behera utzi da.",
     "join": "Batu",

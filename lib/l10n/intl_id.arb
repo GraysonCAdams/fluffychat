@@ -88,7 +88,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} mengundang kamu ke FluffyChat. \n1. Kunjungi fluffychat.im dan instal aplikasi\n2. Daftar atau masuk \n3. Buka tautan undangan: \n {link}",
+    "inviteText": "{username} mengundang kamu ke Seam. \n1. Kunjungi seam.312.dev dan instal aplikasi\n2. Daftar atau masuk \n3. Buka tautan undangan: \n {link}",
     "@inviteText": {
         "type": "String",
         "placeholders": {
@@ -805,7 +805,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "💬 Pesan baru di FluffyChat",
+    "newMessageInFluffyChat": "💬 Pesan baru di Seam",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}
@@ -2470,7 +2470,7 @@
     "advancedConfigurations": "Konfigurasi lanjutan",
     "signIn": "Masuk",
     "createNewAccount": "Buat akun baru",
-    "signUpGreeting": "FluffyChat terdesentralisasi! Pilih server tempat Anda ingin membuat akun dan mari kita mulai!",
+    "signUpGreeting": "Seam terdesentralisasi! Pilih server tempat Anda ingin membuat akun dan mari kita mulai!",
     "signInGreeting": "Anda sudah memiliki akun di Matrix? Selamat datang kembali! Pilih homeserver Anda dan masuk.",
     "theProcessWasCanceled": "Proses dibatalkan.",
     "join": "Bergabung",
@@ -2591,7 +2591,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newPassphraseDescription": "FluffyChat menggunakan enkripsi end-to-end. Agar tidak kehilangan pesan Anda, silakan pilih passphrase yang kuat untuk mengamankan identitas kripto Anda dan cadangan pesan terenkripsi Anda.",
+    "newPassphraseDescription": "Seam menggunakan enkripsi end-to-end. Agar tidak kehilangan pesan Anda, silakan pilih passphrase yang kuat untuk mengamankan identitas kripto Anda dan cadangan pesan terenkripsi Anda.",
     "@newPassphraseDescription": {
         "type": "String",
         "placeholders": {}

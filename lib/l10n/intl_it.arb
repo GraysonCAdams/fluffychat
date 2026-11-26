@@ -690,7 +690,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} ti ha invitato/a a FluffyChat.\n1. Visita fluffychat.im e installa l'applicazione\n2. Iscriviti o accedi\n3. Apri il collegamento di invito: \n {link}",
+    "inviteText": "{username} ti ha invitato/a a Seam.\n1. Visita seam.312.dev e installa l'applicazione\n2. Iscriviti o accedi\n3. Apri il collegamento di invito: \n {link}",
     "@inviteText": {
         "type": "String",
         "placeholders": {
@@ -837,7 +837,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "💬 Nuovo messaggio in FluffyChat",
+    "newMessageInFluffyChat": "💬 Nuovo messaggio in Seam",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}
