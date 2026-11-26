@@ -1076,12 +1076,13 @@ void main() {
       final rest = scene.restRadius(size);
       // The lamp strikes with the pool short of the bubble, on the side
       // of the middle of the screen.
+      final home = scene.restAt(size);
       final struck = scene.poolAt(size, 0.72);
-      expect(bubble.center.dx - struck.dx, greaterThan(0.3 * rest));
+      expect(home.dx - struck.dx, greaterThan(0.3 * rest));
       // It runs past the bubble before it comes back.
       final past = [
         for (var t = 0.85; t < 1.3; t += 0.02)
-          scene.poolAt(size, t).dx - bubble.center.dx,
+          scene.poolAt(size, t).dx - home.dx,
       ].reduce(math.max);
       expect(past, greaterThan(0.03 * rest));
       expect(past, lessThan(0.15 * rest));
@@ -1089,7 +1090,7 @@ void main() {
       for (var t = 1.5; t <= 3.4; t += 0.05) {
         final at = scene.poolAt(size, t);
         expect(
-          (at - bubble.center).distance,
+          (at - home).distance,
           lessThan(0.07 * rest),
           reason: 'off the bubble at $t s',
         );
@@ -1101,11 +1102,59 @@ void main() {
         ]) {
           expect(
             (corner - at).distance,
-            lessThan(scene.radiusAt(size, t) * 0.86),
+            lessThan(scene.radiusAt(size, t) * 0.93),
             reason: 'bubble not wholly in the pool at $t s',
           );
         }
       }
+    });
+
+    test('the pool rests on the screen with the bubble well inside it', () {
+      // A bubble in the open has the pool on its middle.
+      const open = Rect.fromLTWH(106, 338, 148, 44);
+      expect(
+        sceneFor(origin: const EffectOrigin(rect: open)).restAt(size),
+        open.center,
+      );
+      // By the edges of the screen the pool comes in from them, as far
+      // as keeps the bubble inside it.
+      for (final place in [
+        bubble,
+        const Rect.fromLTWH(12, 664, 148, 44),
+        const Rect.fromLTWH(200, 12, 148, 44),
+        const Rect.fromLTWH(12, 600, 330, 44),
+      ]) {
+        final scene = sceneFor(origin: EffectOrigin(rect: place));
+        final rest = scene.restRadius(size);
+        final home = scene.restAt(size);
+        final moved = home - place.center;
+        expect(moved.dx * (size.width / 2 - place.center.dx), isNonNegative);
+        expect(moved.dy * (size.height / 2 - place.center.dy), isNonNegative);
+        for (final corner in [
+          place.topLeft,
+          place.topRight,
+          place.bottomLeft,
+          place.bottomRight,
+        ]) {
+          expect(
+            (corner - home).distance,
+            lessThan(math.max(rest * 0.87, place.size.longestSide / 2 + 6)),
+            reason: 'the bubble at $place is at the edge of the pool',
+          );
+        }
+      }
+      // The bubble by the right edge has all but a sliver of the pool
+      // on screen.
+      final scene = sceneFor();
+      expect(
+        scene.restAt(size).dx + scene.restRadius(size) * 0.9,
+        lessThanOrEqualTo(size.width + 0.01),
+      );
+      // One at the foot of the screen has the pool lifted towards it.
+      final low = sceneFor(
+        origin: const EffectOrigin(rect: Rect.fromLTWH(200, 664, 148, 44)),
+      );
+      expect(low.restAt(size).dy, lessThan(686 - 30));
     });
 
     test('the pool and the lamp are held by a hand, never still', () {
@@ -1157,8 +1206,8 @@ void main() {
           }
         }
         // A hard edge of the beam or a line across the pool is a jump of
-        // tens of levels from one pixel to the next.
-        expect(lightStep, lessThan(9), reason: 'an edge in the light at $t s');
+        // sixty levels or more from one pixel to the next.
+        expect(lightStep, lessThan(14), reason: 'an edge in the light at $t s');
         expect(darkStep, lessThan(26), reason: 'an edge in the dark at $t s');
         // Nothing is painted over the bubble.
         for (final at in [

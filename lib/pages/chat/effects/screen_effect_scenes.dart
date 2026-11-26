@@ -1610,15 +1610,29 @@ class SpotlightScene extends EffectScene {
   ];
 
   /// How bright the pool is from its middle outwards, and where, its
-  /// edge being 1: hot in the middle, falling away to a soft edge and a
-  /// faint halo round it.
-  static const _pool = <double>[1, 0.9, 0.72, 0.52, 0.3, 0.12, 0.04, 0];
-  static const _poolAt = <double>[0, 0.3, 0.58, 0.8, 0.94, 1.06, 1.3, 1.6];
+  /// edge being 1: close to even across the disc, a short soft edge and
+  /// a faint halo round it.
+  static const _pool = <double>[1, 0.97, 0.92, 0.8, 0.5, 0.2, 0.06, 0.015, 0];
+  static const _poolAt = <double>[
+    0,
+    0.4,
+    0.7,
+    0.86,
+    0.95,
+    1.04,
+    1.12,
+    1.28,
+    1.5,
+  ];
 
   /// How much of the dark the pool lifts from its middle outwards, and
   /// where, its edge being 1.
-  static const _lift = <double>[1, 1, 0.82, 0.5, 0.2, 0.05, 0];
-  static const _liftAt = <double>[0, 0.5, 0.68, 0.84, 0.97, 1.07, 1.14];
+  static const _lift = <double>[1, 1, 0.8, 0.5, 0.2, 0.05, 0];
+  static const _liftAt = <double>[0, 0.74, 0.86, 0.95, 1.04, 1.12, 1.2];
+
+  /// How much of the pool's radius the bubble is kept within, and how
+  /// much of it is kept on the screen where the bubble allows.
+  static const _hold = 0.86, _onScreen = 0.9;
 
   /// A slow rise through the dark that peaks with a click as the lamp
   /// strikes, and a quick rise into a second click as the pool opens
@@ -1690,11 +1704,47 @@ class SpotlightScene extends EffectScene {
     );
   }
 
+  /// Where the pool comes to rest: on the bubble's middle, or as far
+  /// from it towards the middle of the screen as brings the pool onto the
+  /// screen while the whole bubble stays well inside it.
+  Offset restAt(Size size) {
+    final target = _target(size);
+    final keep = restRadius(size) * _onScreen;
+    double within(double at, double extent) =>
+        extent > 2 * keep ? at.clamp(keep, extent - keep) : extent / 2;
+    final wanted =
+        Offset(
+          within(target.center.dx, size.width),
+          within(target.center.dy, size.height),
+        ) -
+        target.center;
+    // The furthest of that move which leaves the bubble's far corner
+    // inside the pool.
+    final reach = restRadius(size) * _hold;
+    bool holds(double part) =>
+        Offset(
+          wanted.dx.abs() * part + target.width / 2,
+          wanted.dy.abs() * part + target.height / 2,
+        ).distance <=
+        reach;
+    if (holds(1)) return target.center + wanted;
+    var least = 0.0, most = 1.0;
+    for (var i = 0; i < 10; i++) {
+      final part = (least + most) / 2;
+      if (holds(part)) {
+        least = part;
+      } else {
+        most = part;
+      }
+    }
+    return target.center + wanted * least;
+  }
+
   /// The middle of the pool [t] seconds in. The lamp strikes with the
-  /// pool short of the bubble, towards the middle of the screen, swings
-  /// it on, runs an eighth of that distance past and comes back; from
-  /// then on the pool wanders about the bubble's middle by a twentieth of
-  /// its radius.
+  /// pool short of where it rests, towards the middle of the screen,
+  /// swings it on, runs an eighth of that distance past and comes back;
+  /// from then on the pool wanders about its resting place by a twentieth
+  /// of its radius.
   Offset poolAt(Size size, double t) {
     final target = _target(size);
     final rest = restRadius(size);
@@ -1702,7 +1752,7 @@ class SpotlightScene extends EffectScene {
     final swing = math.exp(-5.5 * since) * math.cos(7.5 * since);
     final side = target.center.dx > size.width / 2 ? 1.0 : -1.0;
     final hand = _wander(t, 0) * _span(since, 0, 0.6);
-    return target.center +
+    return restAt(size) +
         Offset(-side * 0.45 * rest, 0.1 * rest) * swing +
         Offset(hand.dx * 0.05 * rest, hand.dy * 0.03 * rest);
   }
@@ -1730,7 +1780,7 @@ class SpotlightScene extends EffectScene {
   final Paint _hazeLayer = Paint()..blendMode = BlendMode.plus;
   final Paint _haze = Paint();
   final Paint _fade = Paint()..blendMode = BlendMode.dstIn;
-  final Paint _light = Paint()..blendMode = BlendMode.plus;
+  final Paint _pooled = Paint()..blendMode = BlendMode.screen;
   final Paint _sharp = Paint()..blendMode = BlendMode.plus;
   final Paint _soft = Paint()
     ..blendMode = BlendMode.plus
@@ -1891,11 +1941,13 @@ class SpotlightScene extends EffectScene {
       )
       ..restore();
 
-    // The pool: warm light on the conversation, an ellipse lying along
-    // the beam. A dark conversation shows no light by being uncovered,
-    // so there the pool is painted on strongly.
-    final poolColor = Color.lerp(palette.glow, const Color(0xFFFFF1D8), 0.7)!;
-    final poolAlpha = (palette.dark ? 0.5 : 0.12) * glow;
+    // The pool: light a little warmer than white on the conversation, an
+    // ellipse lying along the beam. A dark conversation shows no light by
+    // being uncovered, so there the pool is painted on close to white,
+    // the brightest thing on the screen, screened over what it falls on
+    // so that a coloured bubble in it keeps a trace of its colour.
+    final poolColor = Color.lerp(palette.glow, const Color(0xFFFFF6E6), 0.8)!;
+    final poolAlpha = (palette.dark ? 0.88 : 0.14) * glow;
     for (var i = 0; i < _pool.length; i++) {
       _poolColors[i] = poolColor.withValues(alpha: _pool[i] * poolAlpha);
     }
@@ -1908,7 +1960,7 @@ class SpotlightScene extends EffectScene {
       ..drawCircle(
         Offset.zero,
         halo,
-        _light
+        _pooled
           ..shader = ui.Gradient.radial(
             Offset.zero,
             halo,
