@@ -10,6 +10,7 @@ import 'dart:ui' as ui;
 
 import 'package:async/async.dart';
 import 'package:ffi/ffi.dart';
+import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/title_bar_search.dart';
@@ -756,11 +757,18 @@ class _TitleBar extends StatelessWidget {
                   child: IgnorePointer(
                     child: Row(
                       children: [
-                        Image.asset(
-                          'assets/seam/seam_app_icon.png',
-                          width: 16,
-                          height: 16,
-                          filterQuality: FilterQuality.medium,
+                        // The app tile at half the rail's size, with its
+                        // corners rounded in the same proportion.
+                        ClipRSuperellipse(
+                          borderRadius: BorderRadius.circular(
+                            AppConfig.spaceBorderRadius / 2,
+                          ),
+                          child: Image.asset(
+                            'assets/seam/seam_app_icon.png',
+                            width: 24,
+                            height: 24,
+                            filterQuality: FilterQuality.medium,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Text(
