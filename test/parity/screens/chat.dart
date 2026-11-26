@@ -39,13 +39,67 @@ Future<void> pumpChatScreen(WidgetTester tester, ParityFixture fixture) async {
 /// Shows the conversation fixture [fixture] on the app's ChatPage.
 Future<ParityChat> pumpChat(WidgetTester tester, ParityFixture fixture) async {
   setUpParityView(tester, fixture);
-  final screen = fixture.screenData;
   final prefs = await setUpParitySettings(fixture);
-  final composer = screen['composer'] as Map? ?? {};
-  await AppSettings.voiceMessages.setItem(composer['mic'] as bool? ?? true);
   final client = (await tester.runAsync(
     () => ParityClient.create('parity ${fixture.screen}'),
   ))!;
+  final chat = await addChat(client, fixture);
+
+  addTearDown(() {
+    MergeSuggestionService.disposeFor(client);
+    MergedContactsStore.disposeFor(client);
+  });
+
+  await pumpParityApp(
+    tester,
+    client: client,
+    prefs: prefs,
+    initialLocation: chat.location,
+    routes: [
+      GoRoute(
+        path: '/rooms',
+        builder: (context, state) => const SizedBox.shrink(),
+        routes: [
+          GoRoute(
+            path: 'contact/:contactid',
+            builder: (context, state) => ChatPage(
+              roomId: '',
+              contactId: state.pathParameters['contactid'],
+            ),
+          ),
+          GoRoute(
+            path: ':roomid',
+            builder: (context, state) =>
+                ChatPage(roomId: state.pathParameters['roomid']!),
+          ),
+        ],
+      ),
+    ],
+  );
+  await settleParity(tester);
+  return (client: client, rooms: chat.rooms, partners: chat.partners);
+}
+
+/// The merged contact a linked conversation fixture shows.
+const parityContactId = 'parity';
+
+/// Adds the conversation fixture [fixture] to [client]: a direct chat per
+/// network in its bridge's space, the timeline and, for a linked fixture,
+/// the merged contact. Sets the composer's microphone setting. The
+/// timeline's last message comes about [end], five minutes ago unless
+/// given; a screen that prints the time passes a fixed one. Returns the
+/// rooms and partners by bridge ID and the location of the chat's page.
+Future<
+  ({
+    Map<String, ParityRoom> rooms,
+    Map<String, String> partners,
+    String location,
+  })
+>
+addChat(ParityClient client, ParityFixture fixture, {DateTime? end}) async {
+  final screen = fixture.screenData;
+  final composer = screen['composer'] as Map? ?? {};
+  await AppSettings.voiceMessages.setItem(composer['mic'] as bool? ?? true);
 
   final partnerData = screen['with'] as Map;
   final name = partnerData['name'] as String;
@@ -99,7 +153,8 @@ Future<ParityChat> pumpChat(WidgetTester tester, ParityFixture fixture) async {
 
   // The timeline, a minute apart so no date separator splits it.
   final items = (screen['items'] as List).cast<Map>();
-  var time = DateTime.now().subtract(Duration(minutes: items.length + 5));
+  var time = (end ?? DateTime.now().subtract(const Duration(minutes: 5)))
+      .subtract(Duration(minutes: items.length));
   var n = 0;
   Event add(
     String network,
@@ -199,50 +254,18 @@ Future<ParityChat> pumpChat(WidgetTester tester, ParityFixture fixture) async {
   String location;
   if (linked) {
     setMergedContacts(client, {
-      'parity': {
+      parityContactId: {
         'rooms': [for (final room in rooms.values) room.id],
         'send_via': rooms[sendVia]!.id,
         'updated': 1,
       },
     });
-    location = '/rooms/contact/parity';
+    location = '/rooms/contact/$parityContactId';
   } else {
     location = '/rooms/${rooms[sendVia]!.id}';
   }
 
-  addTearDown(() {
-    MergeSuggestionService.disposeFor(client);
-    MergedContactsStore.disposeFor(client);
-  });
-
-  await pumpParityApp(
-    tester,
-    client: client,
-    prefs: prefs,
-    initialLocation: location,
-    routes: [
-      GoRoute(
-        path: '/rooms',
-        builder: (context, state) => const SizedBox.shrink(),
-        routes: [
-          GoRoute(
-            path: 'contact/:contactid',
-            builder: (context, state) => ChatPage(
-              roomId: '',
-              contactId: state.pathParameters['contactid'],
-            ),
-          ),
-          GoRoute(
-            path: ':roomid',
-            builder: (context, state) =>
-                ChatPage(roomId: state.pathParameters['roomid']!),
-          ),
-        ],
-      ),
-    ],
-  );
-  await settleParity(tester);
-  return (client: client, rooms: rooms, partners: partners);
+  return (rooms: rooms, partners: partners, location: location);
 }
 
 /// Stores [contacts] as the account's merged contacts event.

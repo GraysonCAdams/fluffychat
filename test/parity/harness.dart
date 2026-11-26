@@ -158,6 +158,27 @@ class ParityFixture {
     );
   }
 
+  /// This fixture's scene on another screen: [screen] names the golden,
+  /// and the view is [widthPx] x [heightPx] pixels at [devicePixelRatio]
+  /// with no system bars.
+  ParityFixture onScreen(
+    String screen, {
+    required int widthPx,
+    required int heightPx,
+    required double devicePixelRatio,
+  }) => ParityFixture._(
+    screen,
+    widthPx,
+    heightPx,
+    devicePixelRatio,
+    0,
+    0,
+    networkColors,
+    networkNames,
+    screenData,
+    overlay,
+  );
+
   static Color _hexColor(String hex) =>
       Color(0xFF000000 | int.parse(hex.substring(1), radix: 16));
 }
@@ -493,13 +514,15 @@ void setUpParityView(WidgetTester tester, ParityFixture fixture) {
 }
 
 /// Pumps the app shell (theme, localizations, the Matrix provider) with
-/// [routes] and [initialLocation] into the view.
+/// [routes] and [initialLocation] into the view. [chrome], if given, wraps
+/// the router's pages, where the app puts its window chrome.
 Future<GoRouter> pumpParityApp(
   WidgetTester tester, {
   required Client client,
   required SharedPreferences prefs,
   required List<RouteBase> routes,
   required String initialLocation,
+  Widget Function(GoRouter router, Widget child)? chrome,
 }) async {
   final router = GoRouter(initialLocation: initialLocation, routes: routes);
   await tester.pumpWidget(
@@ -531,7 +554,7 @@ Future<GoRouter> pumpParityApp(
               data: MediaQuery.of(
                 context,
               ).copyWith(alwaysUse24HourFormat: true),
-              child: child!,
+              child: chrome?.call(router, child!) ?? child!,
             ),
           ),
         ),
@@ -686,14 +709,17 @@ Uint8List encodeRgbaPng(RgbaImage image) {
 }
 
 /// Adds the bridge's space for [bridgeId], named after the network, the
-/// way a bridge sets one up.
+/// way a bridge sets one up. A space for [bridgeId] already in [client]
+/// gets [children] added to it instead.
 Room addNetworkSpace(
   Client client,
   String bridgeId,
   String name,
   List<String> children,
 ) {
-  final space = Room(id: '!space-$bridgeId:$homeserver', client: client);
+  final id = '!space-$bridgeId:$homeserver';
+  final existing = client.getRoomById(id);
+  final space = existing ?? Room(id: id, client: client);
   void state(String type, Map<String, Object?> content, [String key = '']) =>
       space.setState(
         StrippedStateEvent(
@@ -710,7 +736,7 @@ Room addNetworkSpace(
       'via': [homeserver],
     }, child);
   }
-  client.rooms.add(space);
+  if (existing == null) client.rooms.add(space);
   return space;
 }
 

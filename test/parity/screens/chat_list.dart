@@ -15,8 +15,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness.dart';
+
+/// A screen that shows the chat list inside more of the app: [addRooms]
+/// adds that screen's own rooms to the client, so they come first after
+/// the pinned chats, and [pump] pumps the app around the list.
+typedef ChatListHost = ({
+  Future<void> Function(ParityClient client) addRooms,
+  Future<void> Function(ParityClient client, SharedPreferences prefs) pump,
+});
 
 /// When a fixture time like "21:16" or "Tue" happened, relative to now, so
 /// the list prints that same text. [index] keeps rows with the same label
@@ -151,6 +160,7 @@ Future<ParityClient> _build(
   WidgetTester tester,
   ParityFixture fixture,
   int fillers,
+  ChatListHost? host,
 ) async {
   final screen = fixture.screenData;
   parityStep('build');
@@ -167,6 +177,7 @@ Future<ParityClient> _build(
     () => ParityClient.create('parity ${fixture.screen}'),
   ))!;
   parityStep('client');
+  await host?.addRooms(client);
 
   final pinned = (screen['pinned'] as List? ?? []).cast<Map>();
   for (final (i, pin) in pinned.indexed) {
@@ -265,30 +276,42 @@ Future<ParityClient> _build(
     }
   }
 
+  // The host's rooms brought their own spaces; those go to the end too.
+  if (host != null) {
+    final spaces = client.rooms.where((room) => room.isSpace).toList();
+    client.rooms
+      ..removeWhere((room) => room.isSpace)
+      ..addAll(spaces);
+  }
+
   addTearDown(() {
     MergeSuggestionService.disposeFor(client);
     MergedContactsStore.disposeFor(client);
   });
 
   parityStep('rooms');
-  await pumpParityApp(
-    tester,
-    client: client,
-    prefs: prefs,
-    initialLocation: '/rooms',
-    routes: [
-      GoRoute(
-        path: '/rooms',
-        builder: (context, state) => const ChatList(activeChat: null),
-        routes: [
-          GoRoute(
-            path: ':roomid',
-            builder: (context, state) => const SizedBox.shrink(),
-          ),
-        ],
-      ),
-    ],
-  );
+  if (host != null) {
+    await host.pump(client, prefs);
+  } else {
+    await pumpParityApp(
+      tester,
+      client: client,
+      prefs: prefs,
+      initialLocation: '/rooms',
+      routes: [
+        GoRoute(
+          path: '/rooms',
+          builder: (context, state) => const ChatList(activeChat: null),
+          routes: [
+            GoRoute(
+              path: ':roomid',
+              builder: (context, state) => const SizedBox.shrink(),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
   await settleParity(tester);
 
   if (header is Map && header['query'] != null) {
@@ -349,22 +372,26 @@ int _unreadChipCount() {
 }
 
 /// Shows the chat list fixture [fixture] on the app's ChatList page and
-/// returns its client, for tests that go on to change it.
+/// returns its client, for tests that go on to change it. [view] sizes the
+/// view instead of [fixture], and [host] shows the list inside more of the
+/// app.
 Future<ParityClient> pumpChatList(
   WidgetTester tester,
-  ParityFixture fixture,
-) async {
-  setUpParityView(tester, fixture);
+  ParityFixture fixture, {
+  ParityFixture? view,
+  ChatListHost? host,
+}) async {
+  setUpParityView(tester, view ?? fixture);
   final want = fixture.screenData['unreadJump'] as int? ?? 0;
   // Fixture rows past the bottom edge count toward the chip too, so the
   // first pass measures how many of them do and the second adds the rest.
-  var client = await _build(tester, fixture, want);
+  var client = await _build(tester, fixture, want, host);
   parityStep('first pass');
   final fromRows = _unreadChipCount() - want;
   if (fromRows != 0) {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 5));
-    client = await _build(tester, fixture, want - fromRows);
+    client = await _build(tester, fixture, want - fromRows, host);
   }
   expect(_unreadChipCount(), want);
   return client;

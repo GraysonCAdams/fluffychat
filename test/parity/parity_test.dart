@@ -17,6 +17,7 @@ import 'package:material_ui/material_ui.dart';
 import 'harness.dart';
 import 'screens/chat.dart';
 import 'screens/chat_list.dart';
+import 'screens/desktop.dart';
 import 'screens/new_chat.dart';
 
 /// A screen that waits on something that never comes fails instead of
@@ -94,6 +95,17 @@ void main() {
       );
     }, timeout: _timeout);
   }
+
+  // The Windows app's window, so Flutter's own widgets behave as on
+  // Windows too (scroll bars, text selection, tooltips).
+  testWidgets(
+    'desktop',
+    (tester) async {
+      await _withShadows(() => pumpDesktopScreen(tester));
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    timeout: _timeout,
+  );
 }
 
 /// Runs [body] with elevation shadows drawn as on a device, not as the

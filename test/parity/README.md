@@ -34,7 +34,8 @@ server answers and how far each screen got.
 
 Each `fixtures/<screen>.json` comes from the site (its `pnpm parity:sync`
 refreshes them; the `Scene` type in seam-site `src/ui/types.ts` describes the
-fields) and becomes `goldens/<screen>.png`, exactly 1080 x 2410 pixels: the
+fields) and becomes `goldens/<screen>.png`. The phone screens are exactly
+1080 x 2410 pixels: the
 reference phone's screen at 411.43 x 918.1 logical pixels and a density of
 2.625, with its status bar (65.7) and navigation bar (36.2) as system
 padding. The theme is the app's own (`FluffyThemes.buildTheme`), dark, with a
@@ -57,6 +58,27 @@ Every screen is the app's real page, not a copy of its layout:
 | `chat-dm-linked` | `ChatPage` (merged contact) | a room per network merged into one contact, so the network switcher shows |
 | `new-chat` | `NewPrivateChat` | the contacts offer (through `NewChatDelivery`) |
 | `new-chat-results` | `NewPrivateChat` | the results as existing chats (merged where they span networks), then types the query |
+| `desktop` | `WindowsChrome` over `TwoColumnLayout`: `ChatList` (with its spaces rail) and `ChatPage` (merged contact) | the rooms of `chat-list` and `chat-dm-linked` in one client, the linked contact open |
+
+`desktop` has no fixture of its own: it is the Windows app's window, built
+from the `chat-list` and `chat-dm-linked` fixtures. It is 2560 x 1600
+pixels, a window of 1280 x 800 logical pixels at a density of 2, with no
+system padding, in the same theme and fonts as the phone screens. The
+window is composed as the app builds it on Windows: the title bar
+(`WindowsChrome`, `lib/utils/windows_shell_ffi.dart`: app tile and name,
+the search field in the middle, the account button and the window
+buttons) over the two columns the app's router shows at this width, the
+chat list (whose own header hides while the title bar holds the search)
+and the linked contact's conversation. The linked contact's rooms come
+first after the pinned chats, so its row shows as the active chat. The
+test runs as Windows (`PlatformInfos.debugOperatingSystem` and Flutter's
+target platform), so times print on the 12-hour clock: off Android the app
+picks the clock from the language (`use24HourFormat` in
+`lib/utils/date_time_extension.dart`), and English gets 12 hours, where the
+phone screens follow the phone's 24-hour setting.
+The window buttons ask `window_manager` whether the window is maximized;
+with no plugin behind it the app logs the failure and draws the maximize
+button.
 
 What stands in for the rest of the app:
 
@@ -80,8 +102,8 @@ What stands in for the rest of the app:
 One change in `lib/` serves this: `PlatformInfos.debugOperatingSystem`
 (`lib/utils/platform_infos.dart`, `@visibleForTesting`). The harness sets it
 to `android` so the app takes its Android code paths (for example, it reads
-the 24-hour clock setting from the system) while the test runs on a desktop.
-It is null in the app.
+the 24-hour clock setting from the system) while the test runs on a desktop,
+and to `windows` for `desktop`. It is null in the app.
 
 ## Animations
 
