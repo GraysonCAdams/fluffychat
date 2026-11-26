@@ -74,6 +74,12 @@ for px in (192,512): size('seam-app-icon',px).save(f'{WEB}/icon-{px}.png')
 ico=[(s,s) for s in (16,20,24,32,40,48,64,128,256)]
 big['seam-app-icon'].save(f'{WIN}/app_icon.ico',sizes=ico)
 big['seam-app-icon'].save(f'{WIN}/tray_icon.ico',sizes=ico)
-big['seam-mark-on-light'].save(f'{WIN}/titlebar_light.ico',sizes=ico)
-big['seam-mark'].save(f'{WIN}/titlebar_dark.ico',sizes=ico)
+def tight(im,margin=0.04):
+    # crop to the mark itself (the 1024 masters keep the app icon's safe-zone padding) so it fills a
+    # 16 to 24 px title-bar icon, then re-square it with a thin margin
+    x0,y0,x1,y1=im.getbbox(); side=max(x1-x0,y1-y0); pad=int(side*margin); side+=2*pad
+    sq=Image.new('RGBA',(side,side),(0,0,0,0)); sq.paste(im.crop((x0,y0,x1,y1)),(pad+(side-2*pad-(x1-x0))//2,pad+(side-2*pad-(y1-y0))//2))
+    return sq.resize((1024,1024),Image.LANCZOS)
+tight(big['seam-mark-on-light']).save(f'{WIN}/titlebar_light.ico',sizes=ico)
+tight(big['seam-mark']).save(f'{WIN}/titlebar_dark.ico',sizes=ico)
 print('brand assets rebuilt in',BRAND)

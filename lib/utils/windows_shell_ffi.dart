@@ -111,9 +111,13 @@ abstract final class WindowsShell {
         IntPtr Function(Pointer, Uint32, IntPtr, IntPtr),
         int Function(Pointer, int, int, int)
       >('SendMessageW');
-  static final _getSystemMetrics = _user32
-      .lookupFunction<Int32 Function(Int32), int Function(int)>(
-        'GetSystemMetrics',
+  static final _getSystemMetricsForDpi = _user32
+      .lookupFunction<Int32 Function(Int32, Uint32), int Function(int, int)>(
+        'GetSystemMetricsForDpi',
+      );
+  static final _getDpiForWindow = _user32
+      .lookupFunction<Uint32 Function(Pointer), int Function(Pointer)>(
+        'GetDpiForWindow',
       );
 
   static const _imageIcon = 1;
@@ -204,7 +208,9 @@ abstract final class WindowsShell {
     ].join(Platform.pathSeparator);
     final nativePath = path.toNativeUtf16();
     try {
-      final size = _getSystemMetrics(_smCxSmIcon);
+      // The small-icon size at this window's scaling, so the mark is drawn
+      // from a matching frame of the .ico rather than scaled up from 16 px.
+      final size = _getSystemMetricsForDpi(_smCxSmIcon, _getDpiForWindow(hwnd));
       final icon = _loadImage(
         nullptr,
         nativePath,
