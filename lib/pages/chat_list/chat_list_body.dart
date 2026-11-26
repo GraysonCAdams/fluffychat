@@ -183,7 +183,11 @@ class ChatListViewBody extends StatelessWidget {
                       ),
               ),
             ],
-            if (!controller.isSearchMode)
+            // Under a title bar the selection bar takes the chip row's place
+            // while chats are selected.
+            if (!controller.isSearchMode &&
+                !(controller.selectionMode &&
+                    controller.titleBarSearch != null))
               // Shown once the account has any chat, which only a sync changes.
               RoomUpdatesBuilder(
                 client: client,
@@ -425,6 +429,13 @@ class ChatListViewBody extends StatelessWidget {
                         );
                       },
                     ),
+                  ),
+                // Room past the last chat for the New chat button, which
+                // floats over the bottom of the list: its 56 plus 16 on
+                // either side, so the last row scrolls clear of it.
+                if (client.prevBatch != null)
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: 16 + 56 + 16),
                   ),
               ],
             );

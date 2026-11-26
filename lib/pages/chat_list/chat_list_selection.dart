@@ -83,7 +83,16 @@ enum _MoreAction {
 class ChatListSelectionBar extends StatelessWidget {
   final ChatListController controller;
 
-  const ChatListSelectionBar({required this.controller, super.key});
+  /// Under a title bar the bar stands in for the 48 high chip row while
+  /// chats are selected, so the chats below stay where they were; otherwise
+  /// it takes the place of the 72 high search header.
+  final double height;
+
+  const ChatListSelectionBar({
+    required this.controller,
+    this.height = 72,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -100,7 +109,7 @@ class ChatListSelectionBar extends StatelessWidget {
     final more = _moreActions(controller, chats);
 
     return SliverAppBar(
-      toolbarHeight: 72,
+      toolbarHeight: height,
       pinned: true,
       scrolledUnderElevation: 0,
       backgroundColor: theme.colorScheme.surfaceContainer,

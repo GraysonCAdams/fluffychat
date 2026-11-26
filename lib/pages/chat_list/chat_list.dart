@@ -633,7 +633,10 @@ class ChatListController extends State<ChatList>
     final header = selectionMode
         ? RoomUpdatesBuilder(
             client: Matrix.of(context).client,
-            builder: (context) => ChatListSelectionBar(controller: this),
+            builder: (context) => ChatListSelectionBar(
+              controller: this,
+              height: titleBarSearch == null ? 72 : 48,
+            ),
           )
         : titleBarSearch != null
         ? null

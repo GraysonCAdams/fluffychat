@@ -7,6 +7,7 @@
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/title_bar_search.dart';
 import 'package:fluffychat/utils/windows_shell_ffi.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -139,20 +140,27 @@ void main() {
         );
         expect(tester.getTopLeft(find.byType(ChatList)), const Offset(0, 48));
 
-        // Icon 16 in, the name 12 after it.
+        // A 24 icon 16 in, the name 12 after it.
         final icon = tester.getRect(
           find.byWidgetPredicate(
             (widget) =>
                 widget is Image &&
-                widget.width == 16 &&
+                widget.width == 24 &&
                 widget.image is AssetImage &&
                 (widget.image as AssetImage).assetName ==
                     'assets/seam/seam_app_icon.png',
           ),
         );
-        expect(icon, const Rect.fromLTWH(16, 16, 16, 16));
+        expect(icon, const Rect.fromLTWH(16, 12, 24, 24));
+        expect(
+          find.ancestor(
+            of: find.byWidgetPredicate((w) => w is Image && w.width == 24),
+            matching: find.byType(ClipRSuperellipse),
+          ),
+          findsOneWidget,
+        );
         final title = tester.getRect(find.text('Seam'));
-        expect(title.left, 16 + 16 + 12);
+        expect(title.left, 16 + 24 + 12);
 
         // Window buttons: three 46 wide, full height, at the right edge.
         final glyphs = find.byWidgetPredicate(
@@ -242,6 +250,19 @@ void main() {
       tester.getTopLeft(find.text('Squad Goals')).dy,
       greaterThan(48 + 48),
     );
+    await finish(tester);
+  });
+
+  testWidgets('selecting a chat keeps the chats where they are', (
+    tester,
+  ) async {
+    await pumpWindow(tester, 1280);
+    final before = tester.getTopLeft(find.text('Squad Goals')).dy;
+    await tester.longPress(find.text('Squad Goals'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatListSelectionBar), findsOneWidget);
+    expect(find.byType(FilterChip), findsNothing);
+    expect(tester.getTopLeft(find.text('Squad Goals')).dy, before);
     await finish(tester);
   });
 
