@@ -82,6 +82,31 @@ void main() {
     expect(_rank(client, _other), lessThan(_rank(client, _bridged)));
   });
 
+  test(
+    'a room with only bridge state gets no preview and keeps its place',
+    () async {
+      const empty = '!empty:fakeServer.notExisting';
+      client.onSyncStatus.add(SyncStatusUpdate(SyncStatus.waitingForResponse));
+      await pumpEventQueue();
+      await client.handleSync(
+        _sync(empty, [
+          MatrixEvent(
+            type: 'com.beeper.room_features',
+            content: {'max_text_length': 4096},
+            senderId: '@imessagebot:fakeServer.notExisting',
+            eventId: '\$features2',
+            originServerTs: DateTime(2026, 1, 5),
+            stateKey: '',
+          ),
+        ], limited: true),
+      );
+      await pumpEventQueue();
+      final room = client.getRoomById(empty)!;
+      expect(room.lastEvent, isNull);
+      expect(_rank(client, _other), lessThan(_rank(client, empty)));
+    },
+  );
+
   test('a limited sync with a message previews that message', () async {
     client.onSyncStatus.add(SyncStatusUpdate(SyncStatus.waitingForResponse));
     await pumpEventQueue();

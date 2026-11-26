@@ -22,7 +22,7 @@ import 'package:matrix/matrix.dart';
 ///
 /// This puts back the room's last real event, remembered before each sync,
 /// and stores it, so the placeholder is never shown and the room keeps its
-/// place. A reaction that was the last event and is then taken back is
+/// place. A room with no real event to put back gets no preview at all. A reaction that was the last event and is then taken back is
 /// replaced the same way, by the last event before it that is not a
 /// reaction. The SDK's own refresh still replaces it when the server knows a
 /// newer event. After the first sync, previews of either kind stored
@@ -65,7 +65,15 @@ class LastEventKeeper {
           filter: jsonEncode(StateFilter(types: types).toJson()),
         );
         final found = result.chunk.firstOrNull;
-        if (found == null) continue;
+        if (found == null) {
+          // Nothing to preview: an empty preview, sorted by the room's
+          // creation, rather than the placeholder.
+          if (_isPlaceholder(last)) {
+            room.lastEvent = null;
+            repaired.add(room.id);
+          }
+          continue;
+        }
         var event = Event.fromMatrixEvent(
           found,
           room,
@@ -134,7 +142,10 @@ class LastEventKeeper {
         continue;
       }
       final kept = removedReaction ? _keptMessage[roomId] : _kept[roomId];
-      if (kept == null) continue;
+      if (kept == null && !_isPlaceholder(room.lastEvent)) continue;
+      // A room with no real event yet, such as a bridged chat whose only
+      // events are bridge state, gets no preview: it stays where its
+      // creation puts it, with nothing attributed to the user.
       room.lastEvent = kept;
       restored.add(roomId);
     }
