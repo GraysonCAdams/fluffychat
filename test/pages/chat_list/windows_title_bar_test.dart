@@ -321,6 +321,37 @@ void main() {
     await finish(tester);
   });
 
+  testWidgets('clearing the text keeps the search open and focused', (
+    tester,
+  ) async {
+    await pumpWindow(tester, 1280);
+    await tester.enterText(searchField(), 'squad');
+    await tester.pumpAndSettle();
+    expect(find.text('Harrison Young'), findsNothing);
+
+    await tester.enterText(searchField(), '');
+    await tester.pumpAndSettle();
+    expect(list(tester).isSearchMode, isTrue);
+    expect(search(tester).focusNode.hasFocus, isTrue);
+    expect(find.text('Harrison Young'), findsOneWidget);
+    // The clear button stays to end the search, in place of the hint.
+    expect(
+      find.descendant(
+        of: find.byType(TitleBarSearchField),
+        matching: find.byTooltip('Cancel'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Ctrl+K'), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(list(tester).isSearchMode, isFalse);
+    expect(search(tester).focusNode.hasFocus, isFalse);
+    expect(find.text('Ctrl+K'), findsOneWidget);
+    await finish(tester);
+  });
+
   testWidgets('searching from another page goes back to the chat list', (
     tester,
   ) async {

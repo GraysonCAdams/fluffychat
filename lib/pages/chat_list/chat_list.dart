@@ -519,7 +519,9 @@ class ChatListController extends State<ChatList>
         SnackBar(content: Text(e.toLocalizedString(context))),
       );
     }
-    if (!isSearchMode) return;
+    // Search ended, or the text changed while the server answered: a later
+    // search (or none, for cleared text) owns the results.
+    if (!isSearchMode || searchController.text.trim() != searchQuery) return;
     setState(() {
       isSearching = false;
       this.roomSearchResult = roomSearchResult;
@@ -527,16 +529,24 @@ class ChatListController extends State<ChatList>
     });
   }
 
+  /// Searches for [text] as it is typed. Clearing the text keeps search
+  /// open and focused, with every chat listed and no server results, as
+  /// Google Messages does; only [cancelSearch] (the close button, back or
+  /// Escape) ends it.
   void onSearchEnter(String text, {bool globalSearch = true}) {
+    _coolDown?.cancel();
     if (text.isEmpty) {
-      cancelSearch(unfocus: false);
+      setState(() {
+        isSearchMode = true;
+        roomSearchResult = userSearchResult = null;
+        isSearching = false;
+      });
       return;
     }
 
     setState(() {
       isSearchMode = true;
     });
-    _coolDown?.cancel();
     if (globalSearch) {
       _coolDown = Timer(const Duration(milliseconds: 500), _search);
     }
