@@ -20,6 +20,7 @@ Map<String, Object?> _whoami(String id, String name) => {
     'beeper_bridge_type': id,
   },
   'login_flows': [],
+  'bridge_bot': '@${id}bot:hs',
   'logins': [
     {'id': 'login-$id', 'state': 'CONNECTED', 'space_room': '!space-$id:hs'},
   ],
@@ -78,6 +79,7 @@ void main() {
     expect(info.icon, Uri.parse('mxc://example.com/imessage'));
     expect(info.loginId, 'login-imessage');
     expect(info.spaceRoomId, '!space-imessage:hs');
+    expect(info.bridgeBot, '@imessagebot:hs');
   });
 
   test('whoami without a login is null', () async {

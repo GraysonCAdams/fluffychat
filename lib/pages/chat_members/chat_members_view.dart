@@ -5,6 +5,7 @@
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
+import 'package:fluffychat/utils/new_chat/add_people.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -47,9 +48,16 @@ class ChatMembersView extends StatelessWidget {
         leading: const Center(child: BackButton()),
         title: Text(L10n.of(context).countParticipants(roomCount)),
         actions: [
-          if (room.canInvite)
+          if (addMembersEntryOf(room) case final entry?)
             IconButton(
-              onPressed: () => context.go('/rooms/${room.id}/invite'),
+              tooltip: entry == AddMembersEntry.addPeople
+                  ? L10n.of(context).addPeople
+                  : null,
+              onPressed: () => context.go(
+                entry == AddMembersEntry.addPeople
+                    ? '/rooms/${room.id}/add-people'
+                    : '/rooms/${room.id}/invite',
+              ),
               icon: const Icon(Icons.person_add_outlined),
             ),
         ],
