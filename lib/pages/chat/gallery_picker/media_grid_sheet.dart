@@ -30,11 +30,17 @@ class MediaGridSheet extends StatefulWidget {
   /// Fully expanded, the sheet stops just below the status bar.
   final double minChildSize;
 
+  /// Opens the system photo picker instead. Offered when the gallery
+  /// permission is refused or limited to some media, so picking never
+  /// depends on granting it.
+  final VoidCallback onPickFromSystem;
+
   const MediaGridSheet({
     required this.selection,
     required this.thumbnails,
     required this.permission,
     required this.minChildSize,
+    required this.onPickFromSystem,
     super.key,
   });
 
@@ -180,6 +186,8 @@ class _MediaGridSheetState extends State<MediaGridSheet>
                       message: l10n.allowGalleryAccess,
                       actionLabel: l10n.openSettings,
                       onAction: PhotoManager.openSetting,
+                      secondaryLabel: l10n.choosePhotosAndVideos,
+                      onSecondary: widget.onPickFromSystem,
                     ),
                   )
                 else if (_assets.isEmpty)
@@ -188,9 +196,23 @@ class _MediaGridSheetState extends State<MediaGridSheet>
                     child: _GalleryMessage(
                       icon: Icons.photo_outlined,
                       message: l10n.noRecentMedia,
+                      secondaryLabel: permission == PermissionState.limited
+                          ? l10n.choosePhotosAndVideos
+                          : null,
+                      onSecondary: widget.onPickFromSystem,
                     ),
                   )
-                else
+                else ...[
+                  if (permission == PermissionState.limited)
+                    SliverToBoxAdapter(
+                      child: Center(
+                        child: TextButton.icon(
+                          onPressed: widget.onPickFromSystem,
+                          icon: const Icon(Icons.add_photo_alternate_outlined),
+                          label: Text(l10n.choosePhotosAndVideos),
+                        ),
+                      ),
+                    ),
                   SliverGrid(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
@@ -208,6 +230,7 @@ class _MediaGridSheetState extends State<MediaGridSheet>
                       childCount: _assets.length,
                     ),
                   ),
+                ],
                 SliverToBoxAdapter(child: SizedBox(height: padding.bottom)),
               ],
             ),
@@ -258,25 +281,30 @@ class _DragHandleDelegate extends SliverPersistentHeaderDelegate {
       oldDelegate.background != background || oldDelegate.handle != handle;
 }
 
-/// Centered icon, text and optional button for the empty and no-permission
-/// states of the grid.
+/// Centered icon, text and up to two buttons for the empty and
+/// no-permission states of the grid.
 class _GalleryMessage extends StatelessWidget {
   final IconData icon;
   final String message;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final String? secondaryLabel;
+  final VoidCallback? onSecondary;
 
   const _GalleryMessage({
     required this.icon,
     required this.message,
     this.actionLabel,
     this.onAction,
+    this.secondaryLabel,
+    this.onSecondary,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final actionLabel = this.actionLabel;
+    final secondaryLabel = this.secondaryLabel;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -295,6 +323,10 @@ class _GalleryMessage extends StatelessWidget {
           if (actionLabel != null) ...[
             const SizedBox(height: 16),
             FilledButton.tonal(onPressed: onAction, child: Text(actionLabel)),
+          ],
+          if (secondaryLabel != null) ...[
+            const SizedBox(height: 8),
+            TextButton(onPressed: onSecondary, child: Text(secondaryLabel)),
           ],
         ],
       ),

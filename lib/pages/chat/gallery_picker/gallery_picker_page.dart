@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:cross_file/cross_file.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/camera_view.dart';
@@ -11,6 +10,9 @@ import 'package:fluffychat/pages/chat/gallery_picker/picked_media.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/send_preview.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/thumbnail_cache.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -74,6 +76,7 @@ class _GalleryPickerPageState extends State<GalleryPickerPage> {
     thumbnails: _thumbnails,
     permission: _galleryPermission,
     minChildSize: _sheetFraction,
+    onPickFromSystem: _pickFromSystemPicker,
   );
 
   /// True while the user has asked for the camera on top of an existing
@@ -133,8 +136,26 @@ class _GalleryPickerPageState extends State<GalleryPickerPage> {
     return _darkTheme!;
   }
 
-  Future<void> _send() async {
-    if (_sending || _selection.isEmpty) return;
+  /// Opens the system photo picker, which needs no media permission, for
+  /// when the gallery permission is refused or covers only some media. What
+  /// it returns is sent at once, together with anything already picked here.
+  Future<void> _pickFromSystemPicker() async {
+    if (_sending) return;
+    // Without this flag image_picker opens the generic document picker on
+    // Android rather than the Photo Picker.
+    final platform = ImagePickerPlatform.instance;
+    if (platform is ImagePickerAndroid) platform.useAndroidPhotoPicker = true;
+    final picked = await ImagePicker().pickMultipleMedia(
+      requestFullMetadata: false,
+    );
+    if (picked.isEmpty || !mounted) return;
+    await _send(extra: picked);
+  }
+
+  /// Resolves the selection to files and closes the picker with them, plus
+  /// [extra] files picked elsewhere.
+  Future<void> _send({List<XFile> extra = const []}) async {
+    if (_sending || (_selection.isEmpty && extra.isEmpty)) return;
     setState(() => _sending = true);
     try {
       final files = <XFile>[];
@@ -155,6 +176,7 @@ class _GalleryPickerPageState extends State<GalleryPickerPage> {
             );
         }
       }
+      files.addAll(extra);
       if (!mounted) return;
       if (files.isEmpty) {
         setState(() => _sending = false);
