@@ -289,7 +289,7 @@ extension LocalNotificationsExtension on MatrixState {
   /// Shown if neither the chat's avatar nor a drawn fallback is available.
   static Uri get _windowsAppLogo => Uri.file(
     '${File(Platform.resolvedExecutable).parent.path}'
-    r'\data\flutter_assets\assets\logo\mini\logo_mini.png',
+    r'\data\flutter_assets\assets\seam\seam_app_icon.png',
   );
 
   /// Windows toasts of unpackaged apps can only show local image files, so

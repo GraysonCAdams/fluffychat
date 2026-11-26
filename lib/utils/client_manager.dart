@@ -177,7 +177,7 @@ abstract class ClientManager {
         // AUMID, which the plugin only writes when given an absolute path.
         iconPath: PlatformInfos.isWindows
             ? '${File(Platform.resolvedExecutable).parent.path}'
-                  r'\data\flutter_assets\assets\logo\mini\logo_mini.png'
+                  r'\data\flutter_assets\assets\seam\seam_app_icon.png'
             : null,
       );
 
