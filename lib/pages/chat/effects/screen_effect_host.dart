@@ -26,7 +26,9 @@ class ScreenEffectHostState extends State<ScreenEffectHost>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(vsync: this)
     ..addStatusListener((status) {
-      if (status == AnimationStatus.completed) setState(() => _scene = null);
+      if (status != AnimationStatus.completed) return;
+      _scene?.dispose();
+      setState(() => _scene = null);
     });
 
   EffectScene? _scene;
@@ -39,6 +41,12 @@ class ScreenEffectHostState extends State<ScreenEffectHost>
   /// How many scenes have started here.
   int get plays => _plays;
 
+  @override
+  void initState() {
+    super.initState();
+    EffectHaptics.instance.prepare();
+  }
+
   /// Starts [effect]'s scene for the bubble at [globalRect] (in global
   /// coordinates), in place of any scene still running, with the scene's
   /// haptics. Returns whether the effect has a scene.
@@ -46,6 +54,7 @@ class ScreenEffectHostState extends State<ScreenEffectHost>
     MessageEffect effect, {
     Rect? globalRect,
     String text = '',
+    BorderRadius? borderRadius,
     Color? bubbleColor,
     Color? onBubbleColor,
   }) {
@@ -61,10 +70,13 @@ class ScreenEffectHostState extends State<ScreenEffectHost>
         bubble: bubbleColor,
         onBubble: onBubbleColor,
       ),
-      EffectOrigin(rect: rect, text: text),
+      borderRadius == null
+          ? EffectOrigin(rect: rect, text: text)
+          : EffectOrigin(rect: rect, text: text, borderRadius: borderRadius),
       seed: _plays + 7,
     );
     if (scene == null) return false;
+    _scene?.dispose();
     setState(() {
       _scene = scene;
       _playing = effect;
@@ -79,6 +91,7 @@ class ScreenEffectHostState extends State<ScreenEffectHost>
 
   @override
   void dispose() {
+    _scene?.dispose();
     _controller.dispose();
     super.dispose();
   }
