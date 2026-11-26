@@ -1,7 +1,7 @@
 # Rebuilds every Seam brand asset from seam_mark.py: master SVGs, PNG sizes, Android launcher and
 # notification icons, the Play Store icon and web icons.
 # Usage (from the brand/ folder):  python3 source/build_brand.py
-# Needs python3 with Pillow, and google-chrome (headless) to rasterise the SVGs.
+# Needs python3 with Pillow, skia-pathops and fonttools, and google-chrome (headless) to rasterise the SVGs.
 import os,subprocess,sys,tempfile,shutil
 from PIL import Image, ImageDraw
 HERE=os.path.dirname(os.path.abspath(__file__)); BRAND=os.path.dirname(HERE)
@@ -41,7 +41,7 @@ for px in (64,128,256,512,1024):
 for px in (16,24,32,48,64,96,128,256,512):
     size('seam-glyph-white',px).save(f'{PNG}/seam-glyph-white-{px}.png'); size('seam-glyph-dark',px).save(f'{PNG}/seam-glyph-dark-{px}.png')
 
-# Android: adaptive launcher icon (108 dp layers) + legacy icons (48 dp) + notification icon (24 dp)
+# Android: adaptive launcher icon (108 dp layers) + legacy icons (48 dp)
 dens={'mdpi':1,'hdpi':1.5,'xhdpi':2,'xxhdpi':3,'xxxhdpi':4}
 for d,k in dens.items():
     md=f'{AND}/mipmap-{d}'; os.makedirs(md,exist_ok=True)
@@ -49,8 +49,9 @@ for d,k in dens.items():
     size('android-monochrome',int(108*k)).save(f'{md}/ic_launcher_monochrome.png')
     size('seam-app-icon',int(48*k)).save(f'{md}/ic_launcher.png')
     circle(size('seam-app-icon',int(48*k))).save(f'{md}/ic_launcher_round.png')
-    dd=f'{AND}/drawable-{d}'; os.makedirs(dd,exist_ok=True)
-    size('seam-glyph-white',int(24*k)).save(f'{dd}/ic_stat_seam.png')
+# notification icon (24 dp): a vector drawable, so the status bar draws it sharp at every density
+os.makedirs(f'{AND}/drawable',exist_ok=True)
+subprocess.run([sys.executable,os.path.join(HERE,'notification_icon.py'),f'{AND}/drawable/ic_stat_seam.xml'],check=True)
 os.makedirs(f'{AND}/mipmap-anydpi-v26',exist_ok=True); os.makedirs(f'{AND}/values',exist_ok=True)
 adaptive='''<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">

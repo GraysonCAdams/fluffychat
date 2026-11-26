@@ -41,7 +41,7 @@ Seam Cobalt was chosen to sit apart from other messaging blues (Google Messages 
 | Mark on a white or light background | `svg/seam-mark-on-light.svg` |
 | One-colour glyph (status bar, notifications, UI) | `svg/seam-glyph.svg` (`currentColor`), or `-white` / `-dark` |
 | Android launcher icon | `android/res/` (adaptive icon: foreground, cobalt background, monochrome layer, plus legacy PNGs) |
-| Android notification icon | `android/res/drawable-*/ic_stat_seam.png` |
+| Android notification icon | `android/res/drawable/ic_stat_seam.xml` (a vector drawable written by `source/notification_icon.py`; the glyph fills the 24 dp icon with a 1 dp margin on its longer side) |
 | Play Store icon | `store/play-store-icon-512.png` (512 x 512, square, no rounding or shadow) |
 | Windows | `windows/app_icon.ico` (exe and taskbar), `tray_icon.ico`, `titlebar_light.ico` and `titlebar_dark.ico` (the bare mark for a light or dark caption; not used by the app, which hides the native title bar) |
 | Web | `web/favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` |
@@ -55,7 +55,7 @@ The app already carries these assets; after changing the mark, rebuild the kit a
 |---|---|
 | `android/app/src/main/res/drawable-*/ic_launcher_foreground.png`, `ic_launcher_monochrome.png` | `android/res/mipmap-*/` foreground and monochrome layers (the adaptive icon in `mipmap-anydpi-v26/ic_launcher.xml` points at these, with the background colour in `values/ic_launcher_background.xml`) |
 | `android/app/src/main/res/mipmap-*/ic_launcher.png` | `android/res/mipmap-*/ic_launcher.png` (pre-Android 8 launchers) |
-| `android/app/src/main/res/drawable-*/notifications_icon.png` | `android/res/drawable-*/ic_stat_seam.png` (the file keeps its old name because the code loads it by that name) |
+| `android/app/src/main/res/drawable/notifications_icon.xml` | `android/res/drawable/ic_stat_seam.xml` (the file keeps its old name because the code loads it by that name) |
 | `android/app/src/main/res/drawable-*/splash.png` | `png/seam-mark-on-light-1024.png`, scaled to 177 dp |
 | `assets/seam/seam_app_icon.png`, `seam_glyph.png`, `tray_icon.ico` | in-app logo (also the icon in the Windows title bar the app draws), tinted logo and the Windows tray icon |
 | `windows/runner/resources/app_icon.ico` | `windows/app_icon.ico` (the exe, taskbar and Alt+Tab) |

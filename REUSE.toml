@@ -86,7 +86,7 @@ path = [
     "android/app/src/main/res/mipmap**/**",
     "android/app/src/main/res/drawable-*/ic_launcher_foreground.png",
     "android/app/src/main/res/drawable-*/ic_launcher_monochrome.png",
-    "android/app/src/main/res/drawable-*/notifications_icon.png",
+    "android/app/src/main/res/drawable/notifications_icon.xml",
     "android/app/src/main/res/drawable-*/splash.png",
     "web/icons/**",
     "web/favicon.png",

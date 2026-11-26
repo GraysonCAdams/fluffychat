@@ -58,11 +58,7 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        // do nothing, because the engine was been configured in provideEngine
-        MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            ConversationNotifications.CHANNEL_NAME,
-        ).setMethodCallHandler(ConversationNotifications(this))
+        // Configured once in provideEngine.
     }
 
     // Prevent Flutter engine gets destroyed on back button close.
@@ -82,8 +78,13 @@ class MainActivity : FlutterFragmentActivity() {
             engine?.let { return it }
             val eng = FlutterEngine(context, emptyArray(), true, false)
             engine = eng
-            // Registered with the engine rather than an activity, so a bubble
-            // started while the app is closed can hand Dart its room too.
+            // These channels are registered with the engine rather than an
+            // activity: a push that starts the app in the background
+            // (UnifiedPushService) or a bubble opened while it is closed runs
+            // Dart with no MainActivity, and the push helper needs the
+            // conversation channel to show the message.
+            MethodChannel(eng.dartExecutor.binaryMessenger, ConversationNotifications.CHANNEL_NAME)
+                .setMethodCallHandler(ConversationNotifications(context.applicationContext))
             MethodChannel(eng.dartExecutor.binaryMessenger, BubbleActivity.CHANNEL_NAME)
                 .setMethodCallHandler { call, result ->
                     when (call.method) {

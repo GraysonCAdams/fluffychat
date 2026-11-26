@@ -9,7 +9,6 @@ import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/widgets/layouts/max_width_body.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:matrix/matrix.dart';
 
 class ArchiveView extends StatelessWidget {
   final ArchiveController controller;
@@ -18,60 +17,64 @@ class ArchiveView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<ArchivedRoom>>(
-      future: controller.getArchive(context),
-      builder: (BuildContext context, snapshot) => Scaffold(
-        appBar: AppBar(
-          leading: const Center(child: BackButton()),
-          title: Text(L10n.of(context).archive),
-          actions: [
-            if (snapshot.data?.isNotEmpty ?? false)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextButton.icon(
-                  onPressed: controller.forgetAllAction,
-                  label: Text(L10n.of(context).clearArchive),
-                  icon: const Icon(Icons.cleaning_services_outlined),
-                ),
+    return Scaffold(
+      appBar: AppBar(
+        leading: const Center(child: BackButton()),
+        title: Text(L10n.of(context).archive),
+        actions: [
+          if (controller.loaded && controller.archive.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: TextButton.icon(
+                onPressed: controller.forgetAllAction,
+                label: Text(L10n.of(context).clearArchive),
+                icon: const Icon(Icons.cleaning_services_outlined),
               ),
-          ],
-        ),
-        body: MaxWidthBody(
-          withScrolling: false,
-          child: Builder(
-            builder: (BuildContext context) {
-              if (snapshot.hasError) {
-                return Center(
-                  child: Text(
-                    L10n.of(context).oopsSomethingWentWrong,
-                    textAlign: TextAlign.center,
-                  ),
-                );
-              }
-              if (!snapshot.hasData) {
+            ),
+        ],
+        // The stored archive is on screen while the server is asked again.
+        bottom: controller.loaded && controller.refreshing
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(2),
+                child: LinearProgressIndicator(minHeight: 2),
+              )
+            : null,
+      ),
+      body: MaxWidthBody(
+        withScrolling: false,
+        child: Builder(
+          builder: (BuildContext context) {
+            if (!controller.loaded && controller.error != null) {
+              return Center(
+                child: Text(
+                  L10n.of(context).oopsSomethingWentWrong,
+                  textAlign: TextAlign.center,
+                ),
+              );
+            }
+            if (!controller.loaded) {
+              return const Center(
+                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+              );
+            } else {
+              if (controller.archive.isEmpty) {
                 return const Center(
-                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                );
-              } else {
-                if (controller.archive.isEmpty) {
-                  return const Center(
-                    child: Icon(Icons.archive_outlined, size: 80),
-                  );
-                }
-                return ListView.builder(
-                  itemCount: controller.archive.length,
-                  itemBuilder: (BuildContext context, int i) => ChatListItem(
-                    controller.archive[i].room,
-                    onForget: () => controller.forgetRoomAction(i),
-                    onTap: () => context.go(
-                      '/rooms/archive/${controller.archive[i].room.id}',
-                      extra: controller.archive[i].timeline,
-                    ),
-                  ),
+                  child: Icon(Icons.archive_outlined, size: 80),
                 );
               }
-            },
-          ),
+              return ListView.builder(
+                itemCount: controller.archive.length,
+                itemBuilder: (BuildContext context, int i) => ChatListItem(
+                  controller.archive[i].room,
+                  onForget: () => controller.forgetRoomAction(i),
+                  onTap: () => context.go(
+                    '/rooms/archive/${controller.archive[i].room.id}',
+                    extra: controller.archive[i].timeline,
+                  ),
+                ),
+              );
+            }
+          },
         ),
       ),
     );
