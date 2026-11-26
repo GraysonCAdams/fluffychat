@@ -1184,17 +1184,23 @@ void main() {
       // The strike, the swing, the hold, the drawing in and the opening.
       for (final t in [0.74, 0.8, 1.0, 2.0, 3.0, 3.6, 3.75, 3.85]) {
         final pixels = await frame(tester, scene, t);
-        var lightStep = 0, darkStep = 0;
+        final pool = scene.poolAt(size, t);
+        final radius = scene.radiusAt(size, t);
+        // The most the light (its blue) and the dark change from one
+        // pixel to the next, in the rim of the pool and everywhere else.
+        var light = 0, dark = 0, rimLight = 0, rimDark = 0;
         for (var y = 0; y < size.height - 1; y++) {
           for (var x = 0; x < size.width - 1; x++) {
-            if (around.contains(Offset(x.toDouble(), y.toDouble())) ||
-                around.contains(Offset(x + 1, y + 1))) {
+            final here = Offset(x.toDouble(), y.toDouble());
+            if (around.contains(here) ||
+                around.contains(here + const Offset(1, 1))) {
               continue;
             }
+            var lightStep = 0, darkStep = 0;
             for (final (dx, dy) in const [(1, 0), (0, 1)]) {
               lightStep = math.max(
                 lightStep,
-                (channel(pixels, x, y, 0) - channel(pixels, x + dx, y + dy, 0))
+                (channel(pixels, x, y, 2) - channel(pixels, x + dx, y + dy, 2))
                     .abs(),
               );
               darkStep = math.max(
@@ -1203,12 +1209,23 @@ void main() {
                     .abs(),
               );
             }
+            final out = (here - pool).distance / radius;
+            if (out > 0.86 && out < 1.25) {
+              rimLight = math.max(rimLight, lightStep);
+              rimDark = math.max(rimDark, darkStep);
+            } else {
+              light = math.max(light, lightStep);
+              dark = math.max(dark, darkStep);
+            }
           }
         }
-        // A hard edge of the beam or a line across the pool is a jump of
-        // sixty levels or more from one pixel to the next.
-        expect(lightStep, lessThan(14), reason: 'an edge in the light at $t s');
-        expect(darkStep, lessThan(26), reason: 'an edge in the dark at $t s');
+        // A hard edge to the beam or a line across the pool is a jump of
+        // forty levels or more from one pixel to the next. The rim of the
+        // pool falls away over a tenth of its radius, a dozen pixels here.
+        expect(light, lessThan(9), reason: 'an edge in the light at $t s');
+        expect(dark, lessThan(9), reason: 'an edge in the dark at $t s');
+        expect(rimLight, lessThan(34), reason: 'a hard rim of light at $t s');
+        expect(rimDark, lessThan(34), reason: 'a hard rim of dark at $t s');
         // Nothing is painted over the bubble.
         for (final at in [
           bubble.center,
@@ -1221,43 +1238,59 @@ void main() {
       }
     });
 
-    testWidgets('the beam gathers to the pool and fades out to its sides', (
+    testWidgets('the light has the colours and the falloff it was matched to', (
       tester,
     ) async {
+      // The scene over a dark conversation, as the screen shows it.
       final scene = sceneFor(dust: 0);
       const t = 2.5;
-      final pixels = await frame(tester, scene, t);
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder)
+        ..drawColor(const Color(0xFF121216), BlendMode.src);
+      scene.paint(canvas, size, t);
+      final image = recorder.endRecording().toImageSync(360, 720);
+      final pixels = (await tester.runAsync(
+        () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+      ))!;
+      image.dispose();
+      List<int> rgb(Offset at) => [
+        for (var c = 0; c < 3; c++)
+          channel(pixels, at.dx.round(), at.dy.round(), c),
+      ];
+      double luma(Offset at) => rgb(at).reduce((a, b) => a + b) / 3;
+      void near(Offset at, List<int> wanted, int by, String what) {
+        final got = rgb(at);
+        for (var c = 0; c < 3; c++) {
+          expect(got[c], closeTo(wanted[c], by), reason: '$what is $got');
+        }
+      }
+
       final pool = scene.poolAt(size, t);
       final lamp = scene.lampAt(size, t);
       final axis = pool - lamp;
-      final across = Offset(-axis.dy, axis.dx) / axis.distance;
       final radius = scene.radiusAt(size, t);
-      final inPool = lightAt(
-        pixels,
-        pool - axis / axis.distance * radius * 0.5,
-      );
-      final nearPool = lightAt(pixels, lamp + axis * 0.7);
-      final midBeam = lightAt(pixels, lamp + axis * 0.4);
-      final midSide = lightAt(
-        pixels,
-        lamp + axis * 0.4 + across * radius * 0.3,
-      );
-      expect(inPool, greaterThan(nearPool));
-      expect(nearPool, greaterThan(midBeam));
-      expect(midBeam, greaterThan(midSide));
-      expect(midSide, greaterThan(0));
-      // Away from the beam there is no light, and the dark is near
-      // black, deepest at the edge of the screen.
-      const corner = Offset(6, 714), inward = Offset(120, 380);
-      // The dark has a trace of the theme's colour in it: no light is
-      // that and nothing more.
-      final tint = scene.palette.scrim.r;
-      for (final at in [corner, inward]) {
-        expect(lightAt(pixels, at), closeTo(darkAt(pixels, at) * tint, 1.5));
-      }
-      expect(midSide, greaterThan(lightAt(pixels, inward) + 3));
-      expect(darkAt(pixels, inward), greaterThan(205));
-      expect(darkAt(pixels, corner), greaterThan(darkAt(pixels, inward)));
+      const left = Offset(-1, 0);
+      // The pool is a cool white, even from its middle to near its rim.
+      near(pool + left * radius * 0.5, [203, 216, 239], 12, 'the pool');
+      near(pool + left * radius * 0.88, [203, 216, 239], 12, 'the pool');
+      // It is half gone at its radius and all gone a tenth further out.
+      final core = luma(pool + left * radius * 0.5);
+      final beside = luma(pool + left * radius * 1.14);
+      final rim = (luma(pool + left * radius) - beside) / (core - beside);
+      expect(rim, inInclusiveRange(0.3, 0.7));
+      // Round the pool the dark is a blue grey, and it deepens with
+      // distance from it.
+      near(pool + left * radius * 1.3, [60, 61, 67], 8, 'the dark by the pool');
+      near(pool + left * radius * 1.7, [49, 50, 54], 8, 'the dark further out');
+      near(const Offset(20, 60), [22, 23, 27], 7, 'the far corner');
+      // The beam is a faint blue haze, brightest down its middle.
+      final mid = lamp + axis * 0.4;
+      final side =
+          mid + Offset(-axis.dy, axis.dx) / axis.distance * radius * 0.45;
+      expect(rgb(mid)[2] - rgb(mid)[0], greaterThan(20));
+      expect(luma(mid), greaterThan(luma(side) + 6));
+      expect(luma(side), greaterThan(luma(const Offset(20, 300)) + 3));
+      expect(luma(mid), lessThan(0.5 * core));
     });
 
     testWidgets('dust shows in the beam only, and glints', (tester) async {
