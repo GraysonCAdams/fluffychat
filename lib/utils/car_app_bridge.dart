@@ -75,6 +75,73 @@ String carReplyRoom(
   return best ?? sendVia ?? roomIds.first;
 }
 
+/// One message of a car conversation: [event] as stored (its sender and
+/// timestamp), the [body] to show, and whether it counts as [read].
+typedef CarMessage = ({Event event, String body, bool read});
+
+/// The newest messages of [room] for the car, oldest first.
+///
+/// A bridge sends a placeholder ("Waiting for attachment ...") and then
+/// edits it into the real message, so the newest edit by the sender
+/// replaces each message's content before its body is rendered. The
+/// message keeps its original timestamp. The room's newest messages from
+/// others, as many as it counts unread, are the unread ones.
+Future<List<CarMessage>> carRoomMessages(
+  Client client,
+  Room room,
+  MatrixLocals locals,
+) async {
+  final all = await client.database.getEventList(room, limit: 20);
+  final senders = {for (final e in all) e.eventId: e.senderId};
+  final edits = <String, Event>{};
+  for (final e in all) {
+    final target = e.relationshipEventId;
+    // Only the author can edit a message.
+    if (e.relationshipType != RelationshipTypes.edit ||
+        target == null ||
+        senders[target] != e.senderId) {
+      continue;
+    }
+    final known = edits[target];
+    if (known == null || e.originServerTs.isAfter(known.originServerTs)) {
+      edits[target] = e;
+    }
+  }
+  final events = all.where(
+    (e) =>
+        {
+          EventTypes.Message,
+          EventTypes.Encrypted,
+          EventTypes.Sticker,
+        }.contains(e.type) &&
+        e.redacted == false &&
+        e.relationshipType != RelationshipTypes.edit,
+  );
+  var unread = room.notificationCount;
+  final messages = <CarMessage>[];
+  for (final event in events) {
+    final edit = edits[event.eventId];
+    final newContent = edit?.content['m.new_content'];
+    final shown = newContent is Map<String, Object?>
+        ? Event.fromJson({...event.toJson(), 'content': newContent}, room)
+        : event;
+    final own = event.senderId == client.userID;
+    messages.add((
+      event: event,
+      body: shown.calcLocalizedBody(
+        locals,
+        plaintextBody: true,
+        hideReply: true,
+        hideEdit: true,
+        removeMarkdown: true,
+      ),
+      read: own || unread <= 0,
+    ));
+    if (!own) unread--;
+  }
+  return messages;
+}
+
 /// Serves the Android Auto conversation list (SeamCarAppService.kt) from
 /// the app's Matrix clients over the `chat.fluffy.fluffychat/car` channel.
 ///
@@ -209,30 +276,13 @@ class CarAppBridge {
         notificationConversationName(client, newest.id, locals) ??
         newest.getLocalizedDisplayname(locals);
 
-    final messages = <(Event, bool)>[];
+    final messages = <CarMessage>[];
     for (final room in rooms) {
-      final events = (await client.database.getEventList(room, limit: 20))
-          .where(
-            (e) =>
-                {
-                  EventTypes.Message,
-                  EventTypes.Encrypted,
-                  EventTypes.Sticker,
-                }.contains(e.type) &&
-                e.redacted == false &&
-                e.relationshipType != RelationshipTypes.edit,
-          )
-          .toList();
-      // The room's newest messages from others, as many as it counts unread,
-      // are the unread ones.
-      var unread = room.notificationCount;
-      for (final event in events) {
-        final own = event.senderId == client.userID;
-        messages.add((event, own || unread <= 0));
-        if (!own) unread--;
-      }
+      messages.addAll(await carRoomMessages(client, room, locals));
     }
-    messages.sort((a, b) => b.$1.originServerTs.compareTo(a.$1.originServerTs));
+    messages.sort(
+      (a, b) => b.event.originServerTs.compareTo(a.event.originServerTs),
+    );
     final shown = messages.take(carMessagesPerConversation).toList().reversed;
 
     return {
@@ -245,17 +295,11 @@ class CarAppBridge {
       'icon': (client, newest.avatar),
       'self': {'name': newest, 'key': client.userID},
       'messages': [
-        for (final (event, read) in shown)
+        for (final CarMessage(:event, :body, :read) in shown)
           {
             'key': event.senderId,
             'name': event,
-            'body': event.calcLocalizedBody(
-              locals,
-              plaintextBody: true,
-              hideReply: true,
-              hideEdit: true,
-              removeMarkdown: true,
-            ),
+            'body': body,
             'ts': event.originServerTs.millisecondsSinceEpoch,
             'read': read,
           },
