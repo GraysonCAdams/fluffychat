@@ -27,6 +27,31 @@ class FakeChatListClient extends Client {
 
   final accountDataWrites = <String>[];
 
+  /// The member lists the server returns, by room ID, and the rooms whose
+  /// members were asked for. Other rooms go to the real request.
+  final serverMembers = <String, List<MatrixEvent>>{};
+  final memberRequests = <String>[];
+
+  @override
+  Future<List<MatrixEvent>?> getMembersByRoom(
+    String roomId, {
+    String? at,
+    Membership? membership,
+    Membership? notMembership,
+  }) async {
+    final members = serverMembers[roomId];
+    if (members == null) {
+      return super.getMembersByRoom(
+        roomId,
+        at: at,
+        membership: membership,
+        notMembership: notMembership,
+      );
+    }
+    memberRequests.add(roomId);
+    return members;
+  }
+
   @override
   String? get userID => '@me:x';
 

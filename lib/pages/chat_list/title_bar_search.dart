@@ -156,9 +156,9 @@ class TitleBarSearchScope extends InheritedWidget {
 
 /// The search field of a title bar: a 32 high pill with a search icon, the
 /// hint, and at its end the Ctrl+K shortcut while [showShortcutHint] is set.
-/// Typing searches the chat list as its own field does; Escape and the
-/// clear button end the search, and Ctrl+K anywhere in the window comes
-/// here.
+/// Typing searches the chat list as its own field does, and clearing the
+/// text keeps the search open; Escape and the clear button end it, and
+/// Ctrl+K anywhere in the window comes here.
 class TitleBarSearchField extends StatefulWidget {
   final TitleBarSearch search;
   final bool showShortcutHint;
@@ -274,15 +274,15 @@ class _TitleBarSearchFieldState extends State<TitleBarSearchField> {
   }
 
   /// The end of the field: progress while the list searches the server,
-  /// the server the search goes to, and a clear button once there is text;
-  /// else the shortcut hint.
+  /// the server the search goes to, and a clear button while there is text
+  /// or the search is open; else the shortcut hint.
   Widget _trailing(BuildContext context) {
     final theme = Theme.of(context);
     final search = widget.search;
     final controller = search.list.value;
     final searching = controller != null && controller.mounted;
     final hasText = search.textController.text.isNotEmpty;
-    if (!hasText) {
+    if (!hasText && !(searching && controller.isSearchMode)) {
       if (!widget.showShortcutHint) return const SizedBox.shrink();
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
