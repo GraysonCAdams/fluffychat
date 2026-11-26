@@ -17,7 +17,8 @@ import 'package:material_ui/material_ui.dart';
 ///
 /// The image is a full square, as an Android adaptive icon expects: the
 /// system masks it to its own shape and may crop the outer sixth on each
-/// side, so the initials stay inside the middle two thirds.
+/// side, so the initials stay inside the middle two thirds. A phone number's
+/// icon is larger and fills most of the circle.
 Future<Uint8List?> renderFallbackAvatar(String name, {int size = 216}) async {
   final letters = Avatar.calcFallbackLetters(name);
   final colors = letters.colorScheme;
@@ -39,7 +40,8 @@ Future<Uint8List?> renderFallbackAvatar(String name, {int size = 216}) async {
             style: TextStyle(
               fontFamily: icon.fontFamily,
               package: icon.fontPackage,
-              fontSize: dimension / 3,
+              // Fills the circle the way Google Messages' silhouette does.
+              fontSize: dimension * 0.8,
               color: colors.onPrimaryContainer,
             ),
           )

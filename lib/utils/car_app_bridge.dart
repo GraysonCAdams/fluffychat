@@ -9,11 +9,13 @@ import 'package:collection/collection.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/fallback_avatar_image.dart';
+import 'package:fluffychat/utils/group_collage_image.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/notification_avatar_extension.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -292,7 +294,11 @@ class CarAppBridge {
       'group': !newest.isDirectChat,
       // Pictures and names are looked up in [_finish] once the
       // conversation makes the list.
-      'icon': (client, newest.avatar),
+      'icon': (
+        client,
+        newest.avatar,
+        GroupAvatar.shows(newest) ? newest : null,
+      ),
       'self': {'name': newest, 'key': client.userID},
       'messages': [
         for (final CarMessage(:event, :body, :read) in shown)
@@ -312,11 +318,13 @@ class CarAppBridge {
   /// yet, so names come from the database (or the server) instead of
   /// showing bare user IDs.
   static Future<void> _finish(Map<String, Object?> conversation) async {
-    final (client, avatar) = conversation['icon'] as (Client, Uri?);
+    final (client, avatar, collageRoom) =
+        conversation['icon'] as (Client, Uri?, Room?);
     conversation['icon'] = await _icon(
       client,
       avatar,
       conversation['title'] as String,
+      collageRoom,
     );
     final self = conversation['self'] as Map<String, Object?>;
     final room = self['name'] as Room;
@@ -338,13 +346,52 @@ class CarAppBridge {
       .requestUser(userId, ignoreErrors: true, requestProfile: false)
       .timeout(const Duration(seconds: 2), onTimeout: () => null);
 
-  static Future<Uint8List?> _icon(Client client, Uri? avatar, String title) {
+  /// The conversation's picture: its avatar, else for a group without one
+  /// (given as [collageRoom]) a collage of its members as the app shows,
+  /// else its initials.
+  static Future<Uint8List?> _icon(
+    Client client,
+    Uri? avatar,
+    String title,
+    Room? collageRoom,
+  ) async {
+    if (avatar == null && collageRoom != null) {
+      final collage = await _collage(client, collageRoom);
+      if (collage != null) return collage;
+    }
     final key = avatar?.toString() ?? 'initials:$title';
-    if (_iconCache.containsKey(key)) return Future.value(_iconCache[key]);
-    return (avatar == null
-            ? renderFallbackAvatar(title, size: notificationAvatarDimension)
-            : client.tryDownloadNotificationAvatar(avatar))
-        .then((bytes) => _iconCache[key] = bytes);
+    if (_iconCache.containsKey(key)) return _iconCache[key];
+    final bytes = await (avatar == null
+        ? renderFallbackAvatar(title, size: notificationAvatarDimension)
+        : client.tryDownloadNotificationAvatar(avatar));
+    return _iconCache[key] = bytes;
+  }
+
+  /// The member collage of [room], or null when fewer than two members can
+  /// be loaded.
+  static Future<Uint8List?> _collage(Client client, Room room) async {
+    await GroupAvatar.loadMembers(
+      room,
+    ).timeout(const Duration(seconds: 4), onTimeout: () {});
+    final users = (await Future.wait(
+      GroupAvatar.memberIds(room, max: 4).map((id) => _user(room, id)),
+    )).nonNulls.toList();
+    if (users.length < 2) return null;
+    final key =
+        'collage:${room.id}:${users.map((u) => '${u.id}${u.avatarUrl}').join()}';
+    if (_iconCache.containsKey(key)) return _iconCache[key];
+    final members = await Future.wait(
+      users.map(
+        (user) async => (
+          name: user.calcDisplayname(),
+          image: await client.tryDownloadNotificationAvatar(user.avatarUrl),
+        ),
+      ),
+    );
+    return _iconCache[key] = await renderGroupCollage(
+      members,
+      size: notificationAvatarDimension,
+    );
   }
 
   /// The rooms of [conversationId] in [client]: a merged contact's rooms, or
