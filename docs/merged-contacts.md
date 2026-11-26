@@ -135,7 +135,9 @@ change to the controller is choosing which timeline to open. Message
 widgets already take an `Event` that carries its own `room`, so per-event
 actions keep working. In a merged chat the controller's `room` is the
 composer's target room, so everything that reads it (encryption,
-permissions, typing) follows the target network.
+permissions, the typing notification sent) follows the target network. The
+typing bubble is the exception: it watches every one of the contact's rooms,
+since the person may be typing on any network (`TypingIndicators`).
 
 ### SendRouter (`lib/utils/merged_contacts/send_router.dart`)
 

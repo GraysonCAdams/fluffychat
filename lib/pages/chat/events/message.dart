@@ -240,10 +240,7 @@ class Message extends StatelessWidget {
       );
     }
 
-    final hasReactions = event.hasAggregatedEvents(
-      timeline,
-      RelationshipTypes.reaction,
-    );
+    final hasReactions = MessageReactions.any(event, timeline);
 
     final threadChildren = event.aggregatedEvents(
       timeline,
