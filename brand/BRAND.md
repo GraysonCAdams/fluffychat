@@ -10,7 +10,7 @@ each conversation a thread, sewn together.
 A round speech bubble made of two pieces of fabric, sewn together and caught mid-stitch:
 
 - **Bubble:** nearly circular, with a normal speech-bubble tail at the lower left.
-- **Seam:** a gentle S across the middle. Periwinkle above, white below.
+- **Seam:** a gentle S across the middle, sewn as four stitches. The bubble is a single colour.
 - **Stitches:** four running stitches along the seam, cut out of the bubble.
 - **Thread:** a free end hangs out and down from the first stitch at the left, where the seam started.
   The working thread runs from the last stitch at the right to the needle.
@@ -25,8 +25,7 @@ stitch, and the loose end is where the sewing began.
 | Name | Hex | Use |
 |---|---|---|
 | Seam Cobalt | `#1A5AD7` | Icon background; the mark's colour on light backgrounds |
-| Periwinkle | `#9ABAF0` | Upper half of the bubble |
-| White | `#FFFFFF` | Lower half, needle and thread; the glyph on dark backgrounds |
+| White | `#FFFFFF` | Bubble, needle and thread; the glyph on dark backgrounds |
 | Glyph dark | `#1F1F1F` | The glyph on light backgrounds |
 
 Seam Cobalt was chosen to sit apart from other messaging blues (Google Messages `#1A73E8`, Signal
