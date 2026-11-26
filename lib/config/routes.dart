@@ -28,6 +28,7 @@ import 'package:fluffychat/pages/settings_chat/settings_chat.dart';
 import 'package:fluffychat/pages/settings_emotes/settings_emotes.dart';
 import 'package:fluffychat/pages/settings_homeserver/settings_homeserver.dart';
 import 'package:fluffychat/pages/settings_ignore_list/settings_ignore_list.dart';
+import 'package:fluffychat/pages/settings_matrix_features/settings_matrix_features.dart';
 import 'package:fluffychat/pages/settings_merged_contacts/settings_merged_contacts.dart';
 import 'package:fluffychat/pages/settings_notifications/settings_notifications.dart';
 import 'package:fluffychat/pages/settings_password/settings_password.dart';
@@ -274,6 +275,15 @@ abstract class AppRoutes {
                             context,
                             state,
                             const SettingsMergedContacts(),
+                          ),
+                          redirect: loggedOutRedirect,
+                        ),
+                        GoRoute(
+                          path: 'matrix_features',
+                          pageBuilder: (context, state) => defaultPageBuilder(
+                            context,
+                            state,
+                            const SettingsMatrixFeatures(),
                           ),
                           redirect: loggedOutRedirect,
                         ),

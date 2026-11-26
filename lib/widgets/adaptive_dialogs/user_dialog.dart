@@ -7,6 +7,7 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/adaptive_dialog_action.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_text_input_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -141,7 +142,12 @@ class UserDialog extends StatelessWidget {
                                           ),
                                         ),
                                       ),
-                                      TextSpan(text: profile.userId),
+                                      // Copied in full whatever is shown.
+                                      TextSpan(
+                                        text: MatrixFeatures.forClient(
+                                          client,
+                                        ).userLabel(profile.userId),
+                                      ),
                                     ],
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       fontSize: 10,

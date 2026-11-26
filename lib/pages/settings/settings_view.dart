@@ -6,6 +6,7 @@
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -154,8 +155,11 @@ class SettingsView extends StatelessWidget {
                         foregroundColor: theme.colorScheme.secondary,
                         iconColor: theme.colorScheme.secondary,
                       ),
+                      // Shown short in messenger mode; shared in full.
                       child: Text(
-                        mxid,
+                        MatrixFeatures.forClient(
+                          Matrix.of(context).client,
+                        ).userLabel(mxid),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -208,18 +212,28 @@ class SettingsView extends StatelessWidget {
               onTap: () => context.go('/rooms/settings/notifications'),
             ),
             ListTile(
-              leading: const Icon(Icons.devices_outlined),
-              title: Text(L10n.of(context).devices),
-              onTap: () => context.go('/rooms/settings/devices'),
-              tileColor: activeRoute.startsWith('/rooms/settings/devices')
-                  ? theme.colorScheme.surfaceContainerHigh
-                  : null,
-            ),
-            ListTile(
               leading: const Icon(Icons.forum_outlined),
               title: Text(L10n.of(context).chat),
               onTap: () => context.go('/rooms/settings/chat'),
               tileColor: activeRoute.startsWith('/rooms/settings/chat')
+                  ? theme.colorScheme.surfaceContainerHigh
+                  : null,
+            ),
+            Divider(color: theme.dividerColor),
+            ListTile(
+              title: Text(
+                L10n.of(context).advanced,
+                style: TextStyle(
+                  color: theme.colorScheme.secondary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.devices_outlined),
+              title: Text(L10n.of(context).devices),
+              onTap: () => context.go('/rooms/settings/devices'),
+              tileColor: activeRoute.startsWith('/rooms/settings/devices')
                   ? theme.colorScheme.surfaceContainerHigh
                   : null,
             ),
@@ -231,7 +245,6 @@ class SettingsView extends StatelessWidget {
                   ? theme.colorScheme.surfaceContainerHigh
                   : null,
             ),
-            Divider(color: theme.dividerColor),
             ListTile(
               leading: const Icon(Icons.dns_outlined),
               title: Text(
@@ -244,6 +257,12 @@ class SettingsView extends StatelessWidget {
                   ? theme.colorScheme.surfaceContainerHigh
                   : null,
             ),
+            ListTile(
+              leading: const Icon(Icons.person_add_outlined),
+              title: Text(L10n.of(context).addAccount),
+              onTap: () => context.go('/rooms/settings/addaccount'),
+            ),
+            Divider(color: theme.dividerColor),
             ListTile(
               leading: const Icon(Icons.privacy_tip_outlined),
               title: Text(L10n.of(context).privacy),

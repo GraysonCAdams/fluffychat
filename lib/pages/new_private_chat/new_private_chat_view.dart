@@ -9,6 +9,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/new_private_chat/new_group_widgets.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/merged_contacts/phone_number.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -36,6 +37,8 @@ class NewPrivateChatView extends StatelessWidget {
     final userId = Matrix.of(context).client.userID!;
     final group = controller.group;
     final groupNetwork = group.network;
+    final features = MatrixFeatures.forClient(Matrix.of(context).client);
+    final showIdentity = features.isRelevant(MatrixFeature.identity);
     return Scaffold(
       appBar: AppBar(
         scrolledUnderElevation: 0,
@@ -70,9 +73,11 @@ class NewPrivateChatView extends StatelessWidget {
                 onChanged: controller.searchUsers,
                 onSubmitted: controller.submitSearch,
                 decoration: InputDecoration(
-                  hintText: group.isEmpty
+                  hintText: !group.isEmpty
+                      ? L10n.of(context).anyoneElse
+                      : showIdentity
                       ? L10n.of(context).searchForUsers
-                      : L10n.of(context).anyoneElse,
+                      : L10n.of(context).newChatSearchHint,
                   filled: true,
                   fillColor: theme.colorScheme.secondaryContainer,
                   border: OutlineInputBorder(
@@ -123,44 +128,47 @@ class NewPrivateChatView extends StatelessWidget {
                     : searchResponse == null
                     ? ListView(
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 18.0,
-                            ),
-                            child: SelectableText.rich(
-                              TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: L10n.of(context).yourGlobalUserIdIs,
-                                  ),
-                                  TextSpan(
-                                    text: Matrix.of(context).client.userID,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
+                          if (showIdentity) ...[
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18.0,
+                              ),
+                              child: SelectableText.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: L10n.of(context).yourGlobalUserIdIs,
                                     ),
-                                  ),
-                                ],
-                              ),
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontSize: 12,
+                                    TextSpan(
+                                      text: Matrix.of(context).client.userID,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurface,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
+                            const SizedBox(height: 8),
+                          ],
                           if (controller.offerPhoneContacts)
                             PhoneContactsOfferTile(controller),
-                          ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor:
-                                  theme.colorScheme.secondaryContainer,
-                              foregroundColor:
-                                  theme.colorScheme.onSecondaryContainer,
-                              child: Icon(Icons.adaptive.share_outlined),
+                          if (showIdentity)
+                            ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor:
+                                    theme.colorScheme.secondaryContainer,
+                                foregroundColor:
+                                    theme.colorScheme.onSecondaryContainer,
+                                child: Icon(Icons.adaptive.share_outlined),
+                              ),
+                              title: Text(L10n.of(context).shareInviteLink),
+                              onTap: controller.inviteAction,
                             ),
-                            title: Text(L10n.of(context).shareInviteLink),
-                            onTap: controller.inviteAction,
-                          ),
                           ListTile(
                             leading: CircleAvatar(
                               backgroundColor:
@@ -172,7 +180,7 @@ class NewPrivateChatView extends StatelessWidget {
                             title: Text(L10n.of(context).createGroup),
                             onTap: () => context.go('/rooms/newgroup'),
                           ),
-                          if (PlatformInfos.isMobile)
+                          if (PlatformInfos.isMobile && showIdentity)
                             ListTile(
                               leading: CircleAvatar(
                                 backgroundColor:
@@ -186,42 +194,44 @@ class NewPrivateChatView extends StatelessWidget {
                               title: Text(L10n.of(context).scanQrCode),
                               onTap: controller.openScannerAction,
                             ),
-                          Center(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 64.0,
-                                vertical: 24.0,
-                              ),
-                              child: Material(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppConfig.borderRadius,
-                                  ),
-                                  side: BorderSide(
-                                    width: 3,
-                                    color: theme.colorScheme.primary,
-                                  ),
+                          if (showIdentity)
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 64.0,
+                                  vertical: 24.0,
                                 ),
-                                color: Colors.transparent,
-                                clipBehavior: Clip.hardEdge,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(
-                                    AppConfig.borderRadius,
+                                child: Material(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      AppConfig.borderRadius,
+                                    ),
+                                    side: BorderSide(
+                                      width: 3,
+                                      color: theme.colorScheme.primary,
+                                    ),
                                   ),
-                                  onTap: () =>
-                                      showQrCodeViewer(context, userId),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16.0),
-                                    child: ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        maxWidth: 200,
-                                      ),
-                                      child: PrettyQrView.data(
-                                        data: 'https://matrix.to/#/$userId',
-                                        decoration: PrettyQrDecoration(
-                                          shape: PrettyQrSmoothSymbol(
-                                            roundFactor: 1,
-                                            color: theme.colorScheme.primary,
+                                  color: Colors.transparent,
+                                  clipBehavior: Clip.hardEdge,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(
+                                      AppConfig.borderRadius,
+                                    ),
+                                    onTap: () =>
+                                        showQrCodeViewer(context, userId),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 200,
+                                        ),
+                                        child: PrettyQrView.data(
+                                          data: 'https://matrix.to/#/$userId',
+                                          decoration: PrettyQrDecoration(
+                                            shape: PrettyQrSmoothSymbol(
+                                              roundFactor: 1,
+                                              color: theme.colorScheme.primary,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -230,7 +240,6 @@ class NewPrivateChatView extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          ),
                         ],
                       )
                     : FutureBuilder(
@@ -322,7 +331,7 @@ class NewPrivateChatView extends StatelessWidget {
                                 title: Text(displayname),
                                 subtitle: Text(
                                   groupNetwork == null
-                                      ? contact.userId
+                                      ? features.userLabel(contact.userId)
                                       : L10n.of(context).notOnNetwork(
                                           groupNetwork.bridge.displayName,
                                         ),

@@ -8,9 +8,11 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/windows_shell.dart';
 import 'package:fluffychat/widgets/layouts/max_width_body.dart';
+import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/settings_switch_list_tile.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -171,26 +173,39 @@ class SettingsChatView extends StatelessWidget {
                   child: Icon(Icons.chevron_right_outlined),
                 ),
               ),
-              const MessageSearchIndexTile(),
-              Divider(color: theme.dividerColor),
               ListTile(
-                title: Text(
-                  L10n.of(context).customEmojisAndStickers,
-                  style: TextStyle(
-                    color: theme.colorScheme.secondary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              ListTile(
-                title: Text(L10n.of(context).customEmojisAndStickers),
-                subtitle: Text(L10n.of(context).customEmojisAndStickersBody),
-                onTap: () => context.go('/rooms/settings/chat/emotes'),
+                title: Text(L10n.of(context).matrixFeatures),
+                subtitle: Text(L10n.of(context).matrixFeaturesDescription),
+                onTap: () => context.go('/rooms/settings/chat/matrix_features'),
                 trailing: const Padding(
                   padding: EdgeInsets.all(16.0),
                   child: Icon(Icons.chevron_right_outlined),
                 ),
               ),
+              const MessageSearchIndexTile(),
+              if (MatrixFeatures.forClient(
+                Matrix.of(context).client,
+              ).isRelevant(MatrixFeature.customEmotes)) ...[
+                Divider(color: theme.dividerColor),
+                ListTile(
+                  title: Text(
+                    L10n.of(context).customEmojisAndStickers,
+                    style: TextStyle(
+                      color: theme.colorScheme.secondary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                ListTile(
+                  title: Text(L10n.of(context).customEmojisAndStickers),
+                  subtitle: Text(L10n.of(context).customEmojisAndStickersBody),
+                  onTap: () => context.go('/rooms/settings/chat/emotes'),
+                  trailing: const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Icon(Icons.chevron_right_outlined),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

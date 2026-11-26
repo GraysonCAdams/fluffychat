@@ -8,8 +8,11 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_details/chat_details.dart';
 import 'package:fluffychat/pages/chat_details/participant_list_item.dart';
 import 'package:fluffychat/pages/settings/settings.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/network_identity.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/room_features.dart';
 import 'package:fluffychat/utils/verified_room_extension.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/chat_settings_popup_menu.dart';
@@ -46,6 +49,18 @@ class ChatDetailsView extends StatelessWidget {
 
     final directChatMatrixID = room.directChatMatrixID;
     final roomAvatar = room.avatar;
+    final features = MatrixFeatures.forClient(room.client);
+    // A chat bridged to another network shows the person, not the Matrix
+    // plumbing: no room address, permissions or member list for a direct
+    // chat, and name and photo only where the network takes them.
+    final plumbing = features.isRelevant(
+      MatrixFeature.roomPlumbing,
+      room: room,
+    );
+    final bridgedDirectChat = !plumbing && room.isDirectChat;
+    bool canChange(String type) =>
+        room.canChangeStateEvent(type) &&
+        (plumbing || RoomFeatures.of(room).allowsState(type));
 
     return StreamBuilder(
       stream: controller.roomStateUpdates(room),
@@ -53,6 +68,7 @@ class ChatDetailsView extends StatelessWidget {
         var members = room.getParticipants().toList()
           ..sort((b, a) => a.powerLevel.level.compareTo(b.powerLevel.level));
         members = members.take(10).toList();
+        if (bridgedDirectChat) members = [];
         final avatarActions = [
           if (PlatformInfos.isMobile) AvatarAction.camera,
           AvatarAction.file,
@@ -81,14 +97,14 @@ class ChatDetailsView extends StatelessWidget {
                 const Center(child: BackButton()),
             elevation: theme.appBarTheme.elevation,
             actions: <Widget>[
-              if (room.canonicalAlias.isNotEmpty)
+              if (plumbing && room.canonicalAlias.isNotEmpty)
                 IconButton(
                   tooltip: L10n.of(context).share,
                   icon: const Icon(Icons.qr_code_rounded),
                   onPressed: () =>
                       showQrCodeViewer(context, room.canonicalAlias),
                 )
-              else if (directChatMatrixID != null)
+              else if (plumbing && directChatMatrixID != null)
                 IconButton(
                   tooltip: L10n.of(context).share,
                   icon: const Icon(Icons.qr_code_rounded),
@@ -105,7 +121,10 @@ class ChatDetailsView extends StatelessWidget {
             child: ListView.builder(
               physics: const NeverScrollableScrollPhysics(),
               shrinkWrap: true,
-              itemCount: members.length + 1 + (canRequestMoreMembers ? 1 : 0),
+              itemCount:
+                  members.length +
+                  1 +
+                  (canRequestMoreMembers && !bridgedDirectChat ? 1 : 0),
               itemBuilder: (BuildContext context, int i) => i == 0
                   ? Column(
                       crossAxisAlignment: .stretch,
@@ -134,9 +153,7 @@ class ChatDetailsView extends StatelessWidget {
                                 ),
                               ),
                               if (!room.isDirectChat &&
-                                  room.canChangeStateEvent(
-                                    EventTypes.RoomAvatar,
-                                  ))
+                                  canChange(EventTypes.RoomAvatar))
                                 Positioned(
                                   bottom: 0,
                                   right: 0,
@@ -208,16 +225,12 @@ class ChatDetailsView extends StatelessWidget {
                             child: TextButton.icon(
                               onPressed:
                                   room.isDirectChat ||
-                                      !room.canChangeStateEvent(
-                                        EventTypes.RoomName,
-                                      )
+                                      !canChange(EventTypes.RoomName)
                                   ? null
                                   : controller.setDisplaynameAction,
                               icon:
                                   room.isDirectChat ||
-                                      !room.canChangeStateEvent(
-                                        EventTypes.RoomName,
-                                      )
+                                      !canChange(EventTypes.RoomName)
                                   ? null
                                   : Icon(Icons.edit_outlined, size: 16),
 
@@ -266,13 +279,17 @@ class ChatDetailsView extends StatelessWidget {
                                 label: L10n.of(context).search,
                                 icon: Icons.search,
                               ),
-                              _MainChatDetailsButton(
-                                onPressed: () => context.push(
-                                  '/rooms/${room.id}/details/emotes',
+                              if (features.isRelevant(
+                                MatrixFeature.customEmotes,
+                                room: room,
+                              ))
+                                _MainChatDetailsButton(
+                                  onPressed: () => context.push(
+                                    '/rooms/${room.id}/details/emotes',
+                                  ),
+                                  label: L10n.of(context).stickers,
+                                  icon: Icons.emoji_emotions_outlined,
                                 ),
-                                label: L10n.of(context).stickers,
-                                icon: Icons.emoji_emotions_outlined,
-                              ),
                               if (room.pushRuleState == PushRuleState.notify)
                                 _MainChatDetailsButton(
                                   onPressed: () => showFutureLoadingDialog(
@@ -299,6 +316,24 @@ class ChatDetailsView extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 16),
+                        if (bridgedDirectChat)
+                          for (final identity in NetworkIdentity.ofChat(
+                            room,
+                            MatrixLocals(L10n.of(context)),
+                          ))
+                            ListTile(
+                              title: Text(
+                                identity.network,
+                                style: TextStyle(
+                                  color: theme.colorScheme.secondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              subtitle: SelectableText(
+                                identity.identifier,
+                                style: theme.textTheme.bodyLarge,
+                              ),
+                            ),
                         if (room.canChangeStateEvent(EventTypes.RoomTopic) ||
                             room.topic.isNotEmpty) ...[
                           ListTile(
@@ -351,7 +386,7 @@ class ChatDetailsView extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
                         ],
-                        if (!room.isDirectChat) ...[
+                        if (!room.isDirectChat && plumbing) ...[
                           Divider(color: theme.dividerColor),
                           ListTile(
                             leading: CircleAvatar(
@@ -388,26 +423,28 @@ class ChatDetailsView extends StatelessWidget {
                             ),
                           ),
                         ],
-                        Divider(color: theme.dividerColor),
-                        ListTile(
-                          title: Text(
-                            L10n.of(
-                              context,
-                            ).countParticipants(actualMembersCount),
-                            style: TextStyle(
-                              color: theme.colorScheme.secondary,
-                              fontWeight: FontWeight.bold,
+                        if (!bridgedDirectChat) ...[
+                          Divider(color: theme.dividerColor),
+                          ListTile(
+                            title: Text(
+                              L10n.of(
+                                context,
+                              ).countParticipants(actualMembersCount),
+                              style: TextStyle(
+                                color: theme.colorScheme.secondary,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
+                            trailing: !room.isDirectChat && room.canInvite
+                                ? TextButton.icon(
+                                    icon: Icon(Icons.add),
+                                    label: Text(L10n.of(context).invite),
+                                    onPressed: () =>
+                                        context.go('/rooms/${room.id}/invite'),
+                                  )
+                                : null,
                           ),
-                          trailing: !room.isDirectChat && room.canInvite
-                              ? TextButton.icon(
-                                  icon: Icon(Icons.add),
-                                  label: Text(L10n.of(context).invite),
-                                  onPressed: () =>
-                                      context.go('/rooms/${room.id}/invite'),
-                                )
-                              : null,
-                        ),
+                        ],
                       ],
                     )
                   : i < members.length + 1

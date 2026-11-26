@@ -8,6 +8,7 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/sticker_picker_dialog.dart';
 import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -20,6 +21,9 @@ class ChatEmojiPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final stickers = MatrixFeatures.forClient(
+      controller.room.client,
+    ).isRelevant(MatrixFeature.customEmotes, room: controller.room);
     return AnimatedContainer(
       duration: FluffyThemes.animationDuration,
       curve: FluffyThemes.animationCurve,
@@ -30,16 +34,17 @@ class ChatEmojiPicker extends StatelessWidget {
           : 0,
       child: controller.showEmojiPicker
           ? DefaultTabController(
-              initialIndex: controller.emojiPickerInitialTab,
-              length: 2,
+              initialIndex: stickers ? controller.emojiPickerInitialTab : 0,
+              length: stickers ? 2 : 1,
               child: Column(
                 children: [
-                  TabBar(
-                    tabs: [
-                      Tab(text: L10n.of(context).emojis),
-                      Tab(text: L10n.of(context).stickers),
-                    ],
-                  ),
+                  if (stickers)
+                    TabBar(
+                      tabs: [
+                        Tab(text: L10n.of(context).emojis),
+                        Tab(text: L10n.of(context).stickers),
+                      ],
+                    ),
                   Expanded(
                     child: TabBarView(
                       children: [
@@ -75,28 +80,29 @@ class ChatEmojiPicker extends StatelessWidget {
                             ),
                           ),
                         ),
-                        StickerPickerDialog(
-                          room: controller.room,
-                          onSelected: (sticker) async {
-                            final target = controller.composerRoom;
-                            final proceed = await showTrustUserInRoomDialog(
-                              context,
-                              target,
-                            );
-                            if (!proceed) return;
-                            target.sendEvent(
-                              {
-                                'body': sticker.body,
-                                'info': sticker.info ?? {},
-                                'url': sticker.url.toString(),
-                              },
-                              type: EventTypes.Sticker,
-                              threadRootEventId: controller.activeThreadId,
-                              threadLastEventId: controller.threadLastEventId,
-                            );
-                            controller.hideEmojiPicker();
-                          },
-                        ),
+                        if (stickers)
+                          StickerPickerDialog(
+                            room: controller.room,
+                            onSelected: (sticker) async {
+                              final target = controller.composerRoom;
+                              final proceed = await showTrustUserInRoomDialog(
+                                context,
+                                target,
+                              );
+                              if (!proceed) return;
+                              target.sendEvent(
+                                {
+                                  'body': sticker.body,
+                                  'info': sticker.info ?? {},
+                                  'url': sticker.url.toString(),
+                                },
+                                type: EventTypes.Sticker,
+                                threadRootEventId: controller.activeThreadId,
+                                threadLastEventId: controller.threadLastEventId,
+                              );
+                              controller.hideEmojiPicker();
+                            },
+                          ),
                       ],
                     ),
                   ),

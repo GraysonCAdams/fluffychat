@@ -15,6 +15,7 @@ import 'package:fluffychat/pages/chat/chat_event_list.dart';
 import 'package:fluffychat/pages/chat/pinned_events.dart';
 import 'package:fluffychat/utils/account_config.dart';
 import 'package:fluffychat/utils/android_bubble.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
 import 'package:fluffychat/widgets/chat_settings_popup_menu.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -38,6 +39,10 @@ class ChatView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasActiveGroupCall = controller.room.hasActiveMatrixRtcCall;
+    // Matrix calls do not reach a chat bridged to another network.
+    final showCalls = MatrixFeatures.forClient(
+      controller.room.client,
+    ).isRelevant(MatrixFeature.roomPlumbing, room: controller.room);
 
     final bottomSheetPadding = FluffyThemes.isColumnMode(context) ? 16.0 : 8.0;
     final scrollUpBannerEventId = controller.scrollUpBannerEventId;
@@ -247,7 +252,8 @@ class ChatView extends StatelessWidget {
                           ),
                         ),
                       )
-                    else if (controller.room.hasPermissionForMatrixRtcCall &&
+                    else if (showCalls &&
+                        controller.room.hasPermissionForMatrixRtcCall &&
                         controller.supportLiveKitCalls)
                       IconButton(
                         icon: Icon(Icons.call_outlined),

@@ -5,6 +5,7 @@
 
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/widgets/member_actions_popup_menu_button.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -100,7 +101,13 @@ class ParticipantListItem extends StatelessWidget {
                 ),
         ],
       ),
-      subtitle: Text(user.id, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        MatrixFeatures.forClient(
+          user.room.client,
+        ).userLabel(user.id, room: user.room),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       leading: Opacity(
         opacity: user.membership == Membership.join ? 1 : 0.5,
         child: Avatar(

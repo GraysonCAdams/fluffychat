@@ -23,6 +23,7 @@ import 'package:fluffychat/utils/android_direct_share.dart';
 import 'package:fluffychat/utils/android_share_targets.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
@@ -388,11 +389,16 @@ class ChatListController extends State<ChatList>
     QueryPublicRoomsResponse? roomSearchResult;
     final searchQuery = searchController.text.trim();
     try {
-      roomSearchResult = await client.queryPublicRooms(
-        server: searchServer,
-        filter: PublicRoomQueryFilter(genericSearchTerm: searchQuery),
-        limit: 20,
-      );
+      // Without public rooms to explore, only a typed room address is
+      // looked up.
+      roomSearchResult =
+          MatrixFeatures.forClient(client).isRelevant(MatrixFeature.explore)
+          ? await client.queryPublicRooms(
+              server: searchServer,
+              filter: PublicRoomQueryFilter(genericSearchTerm: searchQuery),
+              limit: 20,
+            )
+          : QueryPublicRoomsResponse(chunk: []);
 
       if (searchQuery.isValidMatrixIdStrict() &&
           searchQuery.sigil == '#' &&

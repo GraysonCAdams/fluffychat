@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:async/async.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -72,6 +73,7 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
 
   List<PopupMenuEntry<Object>> _bundleMenuItems(BuildContext context) {
     final matrix = Matrix.of(context);
+    final features = MatrixFeatures.forClient(matrix.client);
     final bundles = matrix.accountBundles.keys.toList()
       ..sort(
         (a, b) => a!.isValidMatrixIdStrict() == b!.isValidMatrixIdStrict()
@@ -91,16 +93,17 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
           ],
         ),
       ),
-      PopupMenuItem(
-        value: SettingsAction.setStatus,
-        child: Row(
-          children: [
-            const Icon(Icons.edit_outlined),
-            const SizedBox(width: 18),
-            Text(L10n.of(context).setStatus),
-          ],
+      if (features.isRelevant(MatrixFeature.status))
+        PopupMenuItem(
+          value: SettingsAction.setStatus,
+          child: Row(
+            children: [
+              const Icon(Icons.edit_outlined),
+              const SizedBox(width: 18),
+              Text(L10n.of(context).setStatus),
+            ],
+          ),
         ),
-      ),
       PopupMenuItem(
         value: SettingsAction.markAllAsRead,
         child: Row(
@@ -129,16 +132,17 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
           ],
         ),
       ),
-      PopupMenuItem(
-        value: SettingsAction.invite,
-        child: Row(
-          children: [
-            Icon(Icons.adaptive.share_outlined),
-            const SizedBox(width: 18),
-            Text(L10n.of(context).inviteContact),
-          ],
+      if (features.isRelevant(MatrixFeature.identity))
+        PopupMenuItem(
+          value: SettingsAction.invite,
+          child: Row(
+            children: [
+              Icon(Icons.adaptive.share_outlined),
+              const SizedBox(width: 18),
+              Text(L10n.of(context).inviteContact),
+            ],
+          ),
         ),
-      ),
       PopupMenuItem(
         value: SettingsAction.archive,
         child: Row(
@@ -221,16 +225,6 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
               ),
             ),
       ],
-      PopupMenuItem(
-        value: SettingsAction.addAccount,
-        child: Row(
-          children: [
-            const Icon(Icons.person_add_outlined),
-            const SizedBox(width: 18),
-            Text(L10n.of(context).addAccount),
-          ],
-        ),
-      ),
     ];
   }
 
@@ -271,10 +265,6 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
       controller.setActiveBundle(object);
     } else if (object is SettingsAction) {
       switch (object) {
-        case SettingsAction.addAccount:
-          if (!context.mounted) return;
-          context.go('/rooms/settings/addaccount');
-          break;
         case SettingsAction.newGroup:
           context.go('/rooms/newgroup');
           break;
@@ -302,7 +292,6 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
 }
 
 enum SettingsAction {
-  addAccount,
   newGroup,
   setStatus,
   markAllAsRead,

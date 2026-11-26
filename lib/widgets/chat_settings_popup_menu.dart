@@ -6,6 +6,7 @@
 import 'dart:async';
 
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:go_router/go_router.dart';
@@ -55,6 +56,11 @@ class ChatSettingsPopupMenuState extends State<ChatSettingsPopupMenu> {
               false,
         )
         .listen((u) => setState(() {}));
+    // A chat bridged to another network has no Matrix encryption settings
+    // worth showing, and leaving it means deleting the conversation.
+    final plumbing = MatrixFeatures.forClient(
+      widget.room.client,
+    ).isRelevant(MatrixFeature.roomPlumbing, room: widget.room);
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -69,8 +75,10 @@ class ChatSettingsPopupMenuState extends State<ChatSettingsPopupMenu> {
                 final confirmed = await showOkCancelAlertDialog(
                   context: context,
                   title: l10n.areYouSure,
-                  message: l10n.archiveRoomDescription,
-                  okLabel: l10n.leave,
+                  message: plumbing
+                      ? l10n.archiveRoomDescription
+                      : l10n.deleteConversationDescription,
+                  okLabel: plumbing ? l10n.leave : l10n.deleteConversation,
                   cancelLabel: l10n.cancel,
                   isDestructive: true,
                 );
@@ -124,7 +132,9 @@ class ChatSettingsPopupMenuState extends State<ChatSettingsPopupMenu> {
                   ],
                 ),
               ),
-            if (widget.room.membership case .join || .leave)
+            if (plumbing &&
+                (widget.room.membership == Membership.join ||
+                    widget.room.membership == Membership.leave))
               PopupMenuItem<ChatPopupMenuActions>(
                 value: ChatPopupMenuActions.encryption,
                 child: Row(
@@ -141,7 +151,13 @@ class ChatSettingsPopupMenuState extends State<ChatSettingsPopupMenu> {
                 children: [
                   const Icon(Icons.delete_outlined),
                   const SizedBox(width: 12),
-                  Text(L10n.of(context).leave),
+                  Flexible(
+                    child: Text(
+                      plumbing
+                          ? L10n.of(context).leave
+                          : L10n.of(context).deleteConversation,
+                    ),
+                  ),
                 ],
               ),
             ),

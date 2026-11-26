@@ -9,6 +9,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/navi_rail_item.dart';
 import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
 import 'package:fluffychat/pages/chat_list/start_chat_fab.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -46,6 +47,9 @@ class SpacesNavigationRail extends StatelessWidget {
             // Each badge counts the unread chats it covers. Collecting the
             // unread ids once keeps that to one pass over the rooms instead
             // of one pass per space.
+            final canCreateSpace = MatrixFeatures.forClient(
+              client,
+            ).isRelevant(MatrixFeature.spaces);
             final unreadRoomIds = <String>{
               for (final room in client.rooms)
                 if (room.isUnread || room.membership == Membership.invite)
@@ -62,7 +66,7 @@ class SpacesNavigationRail extends StatelessWidget {
                     child: ListView.builder(
                       padding: EdgeInsets.symmetric(vertical: 4),
                       scrollDirection: Axis.vertical,
-                      itemCount: allSpaces.length + 2,
+                      itemCount: allSpaces.length + (canCreateSpace ? 2 : 1),
                       itemBuilder: (context, i) {
                         if (i == 0) {
                           return NaviRailItem(

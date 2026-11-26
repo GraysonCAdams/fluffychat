@@ -3395,5 +3395,188 @@
     "@originalProject": {
         "type": "String",
         "placeholders": {}
+    },
+    "deleteConversation": "Delete conversation",
+    "@deleteConversation": {
+        "description": "Replaces Leave in the menu of a chat bridged to another network.",
+        "type": "String",
+        "placeholders": {}
+    },
+    "deleteConversationDescription": "The conversation is removed from your chats.",
+    "@deleteConversationDescription": {
+        "description": "Confirmation text before deleting a bridged chat.",
+        "type": "String",
+        "placeholders": {}
+    },
+    "newChatSearchHint": "Name, phone number or username",
+    "@newChatSearchHint": {
+        "description": "Hint of the New chat search field while Matrix IDs are hidden.",
+        "type": "String",
+        "placeholders": {}
+    },
+    "advanced": "Advanced",
+    "@advanced": {
+        "description": "Settings section with account, homeserver, device and encryption options.",
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatures": "Matrix features",
+    "@matrixFeatures": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeaturesDescription": "Features that only work between Matrix users. Auto hides each one until it is useful to you.",
+    "@matrixFeaturesDescription": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeaturesAuto": "Auto",
+    "@matrixFeaturesAuto": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeaturesAlwaysShow": "Always show",
+    "@matrixFeaturesAlwaysShow": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeaturesAlwaysHide": "Always hide",
+    "@matrixFeaturesAlwaysHide": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeaturesAutoMessengerMode": "Auto right now: messenger mode ({count, plural, =1{1 Matrix contact} other{{count} Matrix contacts}} outside bridged chats)",
+    "@matrixFeaturesAutoMessengerMode": {
+        "description": "What auto mode decided, with the number of Matrix users found outside bridged chats.",
+        "type": "String",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "matrixFeaturesAutoAllFeatures": "Auto right now: all Matrix features ({count, plural, =1{1 Matrix contact} other{{count} Matrix contacts}} outside bridged chats)",
+    "@matrixFeaturesAutoAllFeatures": {
+        "description": "What auto mode decided, with the number of Matrix users found outside bridged chats.",
+        "type": "String",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "matrixFeaturesFooter": "Tapping a feature overrides it to Show or Hide. Add account, homeserver, devices and encryption keys are under Settings > Advanced.",
+    "@matrixFeaturesFooter": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureStatus": "Set status and online dots",
+    "@matrixFeatureStatus": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureIdentity": "Your Matrix ID, invite link, QR code",
+    "@matrixFeatureIdentity": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureFullUserIds": "Full @user:server IDs",
+    "@matrixFeatureFullUserIds": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureSpaces": "Spaces",
+    "@matrixFeatureSpaces": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureExplore": "Explore public rooms",
+    "@matrixFeatureExplore": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureRoomPlumbing": "Matrix calls, encryption, permissions in chats",
+    "@matrixFeatureRoomPlumbing": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureCustomEmotes": "Custom emoji and sticker packs",
+    "@matrixFeatureCustomEmotes": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureTriggerFirstContact": "shows after your first Matrix contact",
+    "@matrixFeatureTriggerFirstContact": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureTriggerFullUserIds": "own server hidden, others shown",
+    "@matrixFeatureTriggerFullUserIds": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureTriggerSpaces": "shows when you join or are invited to one",
+    "@matrixFeatureTriggerSpaces": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureTriggerRoomPlumbing": "only in plain Matrix rooms",
+    "@matrixFeatureTriggerRoomPlumbing": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureTriggerCustomEmotes": "shows when a room uses them",
+    "@matrixFeatureTriggerCustomEmotes": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureShown": "Shown",
+    "@matrixFeatureShown": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureHidden": "Hidden",
+    "@matrixFeatureHidden": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeaturePerChat": "Per chat",
+    "@matrixFeaturePerChat": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureYourChoice": "your choice",
+    "@matrixFeatureYourChoice": {
+        "description": "Why a Matrix feature is shown or hidden: the user overrode it.",
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureState": "{state} · {reason}",
+    "@matrixFeatureState": {
+        "description": "A Matrix feature's state, such as Hidden, and why.",
+        "type": "String",
+        "placeholders": {
+            "state": {
+                "type": "String"
+            },
+            "reason": {
+                "type": "String"
+            }
+        }
+    },
+    "matrixFeatureFollowMode": "Follow the mode",
+    "@matrixFeatureFollowMode": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureShow": "Show",
+    "@matrixFeatureShow": {
+        "type": "String",
+        "placeholders": {}
+    },
+    "matrixFeatureHide": "Hide",
+    "@matrixFeatureHide": {
+        "type": "String",
+        "placeholders": {}
     }
 }

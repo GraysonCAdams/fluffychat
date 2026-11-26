@@ -3,7 +3,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/string_color.dart';
+import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
 import 'package:fluffychat/widgets/presence_builder.dart';
 import 'package:material_ui/material_ui.dart';
@@ -81,7 +83,14 @@ class Avatar extends StatelessWidget {
         mxContent.toString().isEmpty ||
         mxContent.toString() == 'null';
     final borderRadius = this.borderRadius ?? BorderRadius.circular(size / 2);
-    final presenceUserId = this.presenceUserId;
+    // Online dots only mean something between Matrix users.
+    final presenceUserId =
+        this.presenceUserId != null &&
+            MatrixFeatures.forClient(
+              client ?? Matrix.of(context).client,
+            ).isRelevant(MatrixFeature.status)
+        ? this.presenceUserId
+        : null;
     final shape =
         shapeBorder ??
         RoundedSuperellipseBorder(

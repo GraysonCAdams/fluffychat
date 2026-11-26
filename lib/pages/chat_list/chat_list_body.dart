@@ -16,6 +16,7 @@ import 'package:fluffychat/pages/chat_list/pinned_order.dart';
 import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
 import 'package:fluffychat/pages/chat_list/search_title.dart';
 import 'package:fluffychat/pages/chat_list/space_view.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/room_unread.dart';
@@ -104,6 +105,9 @@ class ChatListViewBody extends StatelessWidget {
   ) {
     final theme = Theme.of(context);
     const dummyChatCount = 4;
+    final explore = MatrixFeatures.forClient(
+      client,
+    ).isRelevant(MatrixFeature.explore);
     final scrollView = CustomScrollView(
       // A different account starts from fresh tile state.
       key: ValueKey(client.userID.toString()),
@@ -123,16 +127,20 @@ class ChatListViewBody extends StatelessWidget {
         SliverList(
           delegate: SliverChildListDelegate([
             if (controller.isSearchMode) ...[
-              SearchTitle(
-                title: L10n.of(context).publicRooms,
-                icon: const Icon(Icons.explore_outlined),
-              ),
-              PublicRoomsHorizontalList(publicRooms: publicRooms),
-              SearchTitle(
-                title: L10n.of(context).publicSpaces,
-                icon: const Icon(Icons.workspaces_outlined),
-              ),
-              PublicRoomsHorizontalList(publicRooms: publicSpaces),
+              if (explore || (publicRooms?.isNotEmpty ?? false)) ...[
+                SearchTitle(
+                  title: L10n.of(context).publicRooms,
+                  icon: const Icon(Icons.explore_outlined),
+                ),
+                PublicRoomsHorizontalList(publicRooms: publicRooms),
+              ],
+              if (explore || (publicSpaces?.isNotEmpty ?? false)) ...[
+                SearchTitle(
+                  title: L10n.of(context).publicSpaces,
+                  icon: const Icon(Icons.workspaces_outlined),
+                ),
+                PublicRoomsHorizontalList(publicRooms: publicSpaces),
+              ],
               SearchTitle(
                 title: L10n.of(context).users,
                 icon: const Icon(Icons.group_outlined),
@@ -1212,11 +1220,15 @@ class _SpaceChatListHeader extends StatelessWidget {
         ],
       ),
       actions: [
-        IconButton(
-          tooltip: L10n.of(context).discover,
-          icon: const Icon(Icons.explore_outlined),
-          onPressed: onOpenDirectory,
-        ),
+        // A bridge's space holds only its own chats: nothing to discover.
+        if (MatrixFeatures.forClient(
+          space.client,
+        ).isRelevant(MatrixFeature.spaces))
+          IconButton(
+            tooltip: L10n.of(context).discover,
+            icon: const Icon(Icons.explore_outlined),
+            onPressed: onOpenDirectory,
+          ),
         const SizedBox(width: 8),
       ],
     );

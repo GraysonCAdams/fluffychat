@@ -12,6 +12,7 @@ import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
 import 'package:fluffychat/utils/inserted_content_file.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/markdown_context_builder.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/media_adaptation.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/room_features.dart';
@@ -340,6 +341,18 @@ class InputBar extends StatelessWidget {
           client: client,
         ),
         title: Text(suggestion['displayname'] ?? suggestion['mxid']!),
+        // A user is told apart by their ID, shortened in messenger mode.
+        // The mention inserted keeps the full ID.
+        subtitle:
+            suggestion['type'] == 'user' && suggestion['displayname'] != null
+            ? Text(
+                MatrixFeatures.forClient(
+                  room.client,
+                ).userLabel(suggestion['mxid']!, room: room),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              )
+            : null,
       );
     }
     return const SizedBox.shrink();
