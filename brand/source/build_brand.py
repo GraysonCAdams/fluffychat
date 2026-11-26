@@ -78,7 +78,7 @@ def windows_tile():
     S=1024; m=0; r=int(S*0.22); t=Image.new('RGBA',(S,S),(0,0,0,0))
     ImageDraw.Draw(t).rounded_rectangle((m,m,S-1-m,S-1-m),radius=r,fill=(0x1A,0x5A,0xD7,255))
     g=big['seam-glyph-white']; x0,y0,x1,y1=g.getbbox(); g=g.crop((x0,y0,x1,y1))
-    k=int(S*0.66)/max(g.size); g=g.resize((max(1,int(g.size[0]*k)),max(1,int(g.size[1]*k))),Image.LANCZOS)
+    k=int(S*0.75)/max(g.size); g=g.resize((max(1,int(g.size[0]*k)),max(1,int(g.size[1]*k))),Image.LANCZOS)
     t.alpha_composite(g,((S-g.size[0])//2,(S-g.size[1])//2)); return t
 windows_tile().save(f'{WIN}/app_icon.ico',sizes=ico)
 big['seam-app-icon'].save(f'{WIN}/tray_icon.ico',sizes=ico)
