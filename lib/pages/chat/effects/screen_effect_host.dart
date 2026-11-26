@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/pages/chat/effects/screen_effect_scenes.dart';
+import 'package:fluffychat/utils/effect_haptics.dart';
 import 'package:fluffychat/utils/message_effects.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -39,8 +40,8 @@ class ScreenEffectHostState extends State<ScreenEffectHost>
   int get plays => _plays;
 
   /// Starts [effect]'s scene for the bubble at [globalRect] (in global
-  /// coordinates), in place of any scene still running. Returns whether
-  /// the effect has a scene.
+  /// coordinates), in place of any scene still running, with the scene's
+  /// haptics. Returns whether the effect has a scene.
   bool play(
     MessageEffect effect, {
     Rect? globalRect,
@@ -72,6 +73,7 @@ class ScreenEffectHostState extends State<ScreenEffectHost>
     _controller
       ..duration = scene.duration
       ..forward(from: 0);
+    EffectHaptics.instance.playFor(context, scene.haptics);
     return true;
   }
 

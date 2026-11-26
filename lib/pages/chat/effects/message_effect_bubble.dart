@@ -8,6 +8,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/effects/invisible_ink.dart';
 import 'package:fluffychat/pages/chat/effects/played_message_effects.dart';
 import 'package:fluffychat/pages/chat/effects/screen_effect_host.dart';
+import 'package:fluffychat/utils/effect_haptics.dart';
 import 'package:fluffychat/utils/message_effects.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -19,8 +20,9 @@ import 'package:matrix/matrix.dart';
 /// covers it until touched. A screen effect leaves the bubble alone and
 /// plays on the [ScreenEffectHost] above it.
 ///
-/// Under reduced motion nothing moves; a line under the bubble names the
-/// effect it was sent with.
+/// Each play is felt too, on phones with haptics (see [EffectHaptics]).
+/// Under reduced motion nothing moves and nothing is felt; a line under the
+/// bubble names the effect it was sent with.
 class EffectBubble extends StatefulWidget {
   final MessageEffect effect;
   final Widget child;
@@ -56,6 +58,31 @@ class EffectBubble extends StatefulWidget {
 
   /// The part of [slamDuration] before the bubble lands.
   static const slamImpact = 0.3;
+
+  /// The part of [loudDuration] the bubble takes to swell to full size.
+  static const loudGrown = 0.16;
+
+  /// The part of [gentleDuration] the bubble waits, small, before it grows.
+  static const gentleSmall = 0.12;
+
+  /// What a bubble effect is felt as, from the start of the play. Slam's
+  /// thud belongs to its `SlamScene`, which starts as the bubble lands.
+  static List<HapticBeat> hapticsOf(MessageEffect effect) => switch (effect) {
+    // A quick rise as the bubble swells, a thud as it reaches full size.
+    MessageEffect.loud => [
+      const HapticBeat(HapticPrimitive.quickRise, Duration.zero, scale: 0.7),
+      HapticBeat(HapticPrimitive.thud, loudDuration * loudGrown, scale: 0.9),
+    ],
+    // One soft tick as it starts to grow.
+    MessageEffect.gentle => [
+      HapticBeat(
+        HapticPrimitive.tick,
+        gentleDuration * gentleSmall,
+        scale: 0.4,
+      ),
+    ],
+    _ => const [],
+  };
 
   @override
   State<EffectBubble> createState() => EffectBubbleState();
@@ -148,6 +175,7 @@ class EffectBubbleState extends State<EffectBubble>
     _controller
       ..duration = duration
       ..forward(from: 0);
+    EffectHaptics.instance.playFor(context, EffectBubble.hapticsOf(effect));
   }
 
   /// [child] where the effect has it at this moment; in place when
@@ -176,7 +204,7 @@ class EffectBubbleState extends State<EffectBubble>
               1 - 0.08 * math.exp(-5 * after) * math.sin(after * math.pi * 3);
         }
       case MessageEffect.loud:
-        const grown = 0.16, held = 0.68;
+        const grown = EffectBubble.loudGrown, held = 0.68;
         final double swell;
         if (v < grown) {
           swell = Easing.emphasizedDecelerate.transform(v / grown);
@@ -200,7 +228,7 @@ class EffectBubbleState extends State<EffectBubble>
         );
       case MessageEffect.gentle:
         // Arrives small and takes its time growing up.
-        const small = 0.12;
+        const small = EffectBubble.gentleSmall;
         final grow = v < small
             ? 0.0
             : Curves.easeInOutSine.transform((v - small) / (1 - small));

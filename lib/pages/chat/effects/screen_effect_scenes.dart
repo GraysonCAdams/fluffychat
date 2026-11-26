@@ -10,6 +10,7 @@ library;
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:fluffychat/utils/effect_haptics.dart';
 import 'package:fluffychat/utils/message_effects.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -106,6 +107,9 @@ abstract class EffectScene {
 
   /// How far the conversation under the scene is pushed [t] seconds in.
   Offset shake(double t) => Offset.zero;
+
+  /// What the scene is felt as, timed from its start to land on its beats.
+  List<HapticBeat> get haptics => const [];
 
   double get seconds => duration.inMicroseconds / 1e6;
 
@@ -234,6 +238,28 @@ class BalloonsScene extends EffectScene {
   @override
   Duration get duration => const Duration(milliseconds: 4600);
 
+  /// A soft tick as each balloon is let go, firmer for the near ones.
+  /// Balloons let go within a tenth of a second of the last tick share it.
+  @override
+  List<HapticBeat> get haptics {
+    final beats = <HapticBeat>[];
+    var last = double.negativeInfinity;
+    for (final b in [
+      ..._balloons,
+    ]..sort((a, b) => a.delay.compareTo(b.delay))) {
+      if (b.delay - last < 0.1) continue;
+      last = b.delay;
+      beats.add(
+        HapticBeat.after(
+          HapticPrimitive.tick,
+          b.delay,
+          scale: (0.15 + b.scale * 0.22).clamp(0.0, 0.8),
+        ),
+      );
+    }
+    return beats;
+  }
+
   @override
   void paint(Canvas canvas, Size size, double t) {
     final base = size.shortestSide * 0.2;
@@ -354,6 +380,13 @@ class ConfettiScene extends EffectScene {
   @override
   Duration get duration => const Duration(milliseconds: 4400);
 
+  /// A burst of light ticks as most of the confetti lets go at once.
+  @override
+  List<HapticBeat> get haptics => [
+    for (var i = 0; i < 8; i++)
+      HapticBeat.after(HapticPrimitive.tick, i * 0.045, scale: 0.6 - i * 0.05),
+  ];
+
   @override
   void paint(Canvas canvas, Size size, double t) {
     final paint = Paint();
@@ -449,6 +482,18 @@ class LoveScene extends EffectScene {
 
   static const _swell = 1.25;
 
+  /// How long each breath that blows the heart up takes.
+  static const _breath = 0.62;
+
+  /// Two beats, a heartbeat, on the heart's first breath. They are as far
+  /// apart as a thud lasts on a Pixel (300 ms), so the second does not
+  /// wait for the first to end.
+  @override
+  List<HapticBeat> get haptics => [
+    HapticBeat.after(HapticPrimitive.thud, _breath / 4, scale: 0.8),
+    HapticBeat.after(HapticPrimitive.thud, _breath / 4 + 0.3, scale: 0.5),
+  ];
+
   @override
   void paint(Canvas canvas, Size size, double t) {
     final from = origin.centerIn(size);
@@ -510,7 +555,7 @@ class LoveScene extends EffectScene {
 
     // Blown up in two breaths, the bottom tip held at the bubble.
     final swell = Easing.emphasizedDecelerate.transform(_unit(t / _swell));
-    final breath = 1 + 0.05 * math.sin(t * math.pi * 2 / 0.62) * (1 - swell);
+    final breath = 1 + 0.05 * math.sin(t * math.pi * 2 / _breath) * (1 - swell);
     final width = full * (0.08 + 0.92 * swell) * breath;
     final away = t - _swell;
     var center = from - Offset(0, width * 0.46);
@@ -568,6 +613,16 @@ class LasersScene extends EffectScene {
   @override
   Duration get duration => const Duration(milliseconds: 4400);
 
+  /// The beat the beams flicker to, in seconds.
+  static const _beat = 0.7;
+
+  /// A low pulse on every beat while the room is dark.
+  @override
+  List<HapticBeat> get haptics => [
+    for (var t = 0.35; t < seconds - 0.7; t += _beat)
+      HapticBeat.after(HapticPrimitive.lowTick, t),
+  ];
+
   @override
   void paint(Canvas canvas, Size size, double t) {
     final env = _envelope(t, seconds, 0.35, 0.7);
@@ -584,7 +639,8 @@ class LasersScene extends EffectScene {
         0.95,
         0.6,
       ).toColor();
-      final flicker = 0.75 + 0.25 * math.sin(b.phase * 3 + t * 9);
+      final flicker =
+          0.75 + 0.25 * math.sin(b.phase * 3 + t * math.pi * 2 / _beat);
       final half = b.width;
       final path = Path()
         ..moveTo(from.dx, from.dy)
@@ -682,6 +738,17 @@ class FireworksScene extends EffectScene {
 
   @override
   Duration get duration => const Duration(milliseconds: 6400);
+
+  /// A thud as each shell bursts, the big ones harder.
+  @override
+  List<HapticBeat> get haptics => [
+    for (final shell in _shells)
+      HapticBeat.after(
+        HapticPrimitive.thud,
+        shell.at,
+        scale: 0.5 + (shell.radius - 0.36) / 0.24 * 0.5,
+      ),
+  ];
 
   static const _climb = 0.45;
   static const _life = 1.9;
@@ -827,6 +894,14 @@ class CelebrationScene extends EffectScene {
   @override
   Duration get duration => const Duration(milliseconds: 4800);
 
+  /// A burst of light ticks as the sparkler catches and its first sparks
+  /// fly.
+  @override
+  List<HapticBeat> get haptics => [
+    for (var i = 0; i < 10; i++)
+      HapticBeat.after(HapticPrimitive.tick, 0.2 + i * 0.06, scale: 0.5),
+  ];
+
   @override
   void paint(Canvas canvas, Size size, double t) {
     final env = _envelope(t, seconds, 0.35, 0.8);
@@ -920,6 +995,12 @@ class ShootingStarScene extends EffectScene {
 
   static const _start = 0.35;
   static const _flight = 1.45;
+
+  /// One gentle tick as the star lands and blooms.
+  @override
+  List<HapticBeat> get haptics => [
+    HapticBeat.after(HapticPrimitive.tick, _start + _flight, scale: 0.5),
+  ];
 
   Offset _at(Size size, double p) {
     final a = Offset(-size.width * 0.08, size.height * 0.78);
@@ -1027,6 +1108,15 @@ class SpotlightScene extends EffectScene {
   @override
   Duration get duration => const Duration(milliseconds: 3800);
 
+  /// When the spot comes to rest on the bubble, in seconds.
+  static const _arrived = 1.0;
+
+  /// One gentle tick as the spot comes to rest.
+  @override
+  List<HapticBeat> get haptics => [
+    HapticBeat.after(HapticPrimitive.tick, _arrived, scale: 0.5),
+  ];
+
   @override
   void paint(Canvas canvas, Size size, double t) {
     final env = _envelope(t, seconds, 0.4, 0.7);
@@ -1036,7 +1126,7 @@ class SpotlightScene extends EffectScene {
     final radius = math.max(rect.width * 0.62, rect.height) + 28;
     // The spot arrives from above the far side and settles with a little
     // overshoot, as a lamp swung by hand does.
-    final arrive = Curves.easeOutBack.transform(_span(t, 0.15, 1.0));
+    final arrive = Curves.easeOutBack.transform(_span(t, 0.15, _arrived));
     final start = Offset(size.width - rect.center.dx, rect.center.dy - 260);
     final center = Offset.lerp(start, rect.center, arrive)!;
     final lamp = Offset(
@@ -1126,6 +1216,12 @@ class EchoScene extends EffectScene {
   @override
   Duration get duration => const Duration(milliseconds: 4200);
 
+  /// One gentle tick as the copies start to stream out.
+  @override
+  List<HapticBeat> get haptics => [
+    HapticBeat.after(HapticPrimitive.tick, 0, scale: 0.5),
+  ];
+
   @override
   void paint(Canvas canvas, Size size, double t) {
     final from = origin.centerIn(size);
@@ -1192,6 +1288,10 @@ class SlamScene extends EffectScene {
 
   @override
   Duration get duration => const Duration(milliseconds: 700);
+
+  /// A heavy thud: the scene starts as the bubble lands.
+  @override
+  List<HapticBeat> get haptics => [HapticBeat.after(HapticPrimitive.thud, 0)];
 
   @override
   Offset shake(double t) {

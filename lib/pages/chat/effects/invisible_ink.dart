@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/effect_haptics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:material_ui/material_ui.dart';
@@ -18,7 +19,8 @@ import 'package:material_ui/material_ui.dart';
 /// specks of dust, so what can be seen is a shimmer in the shape of the
 /// text. A touch (or the mouse pointer) opens a clear circle that grows
 /// from the finger across the bubble while the blur pulls into focus. The
-/// ink closes again [concealAfter] after the finger lifts.
+/// ink closes again [concealAfter] after the finger lifts. A finger that
+/// swipes over the ink while it is still clearing feels light ticks.
 class InvisibleInk extends StatefulWidget {
   final Widget child;
 
@@ -29,8 +31,9 @@ class InvisibleInk extends StatefulWidget {
   final Color dustColor;
   final BorderRadius borderRadius;
 
-  /// Whether the dust drifts and the reveal animates. Off under reduced
-  /// motion: the dust holds still and a touch reveals at once.
+  /// Whether the dust drifts, the reveal animates and a swipe ticks. Off
+  /// under reduced motion: the dust holds still and a touch reveals at
+  /// once.
   final bool animate;
 
   const InvisibleInk({
@@ -43,6 +46,9 @@ class InvisibleInk extends StatefulWidget {
   });
 
   static const concealAfter = Duration(seconds: 5);
+
+  /// How far a finger moves over the ink between two ticks.
+  static const tickDistance = 14.0;
 
   @override
   State<InvisibleInk> createState() => InvisibleInkState();
@@ -62,6 +68,9 @@ class InvisibleInkState extends State<InvisibleInk>
   final _dust = _Dust(math.Random(3));
   Timer? _concealTimer;
   Offset _touch = Offset.zero;
+
+  /// Where the finger was at the last tick, while it is on the ink.
+  Offset? _lastTick;
   ui.Image? _mask;
 
   /// Whether the whole bubble can be read.
@@ -103,7 +112,24 @@ class InvisibleInkState extends State<InvisibleInk>
     }
   }
 
+  /// Ticks when a finger lands on ink that is not yet clear, and again
+  /// every [InvisibleInk.tickDistance] it moves until the ink has cleared.
+  void _tickAt(Offset position, {required bool down}) {
+    if (!widget.animate || isRevealed) return;
+    final last = _lastTick;
+    if (!down &&
+        last != null &&
+        (position - last).distance < InvisibleInk.tickDistance) {
+      return;
+    }
+    _lastTick = position;
+    EffectHaptics.instance.play([
+      HapticBeat(HapticPrimitive.tick, Duration.zero, scale: down ? 0.5 : 0.3),
+    ]);
+  }
+
   void _release() {
+    _lastTick = null;
     _concealTimer?.cancel();
     _concealTimer = Timer(InvisibleInk.concealAfter, conceal);
   }
@@ -184,8 +210,14 @@ class InvisibleInkState extends State<InvisibleInk>
       onHover: (event) => _touchAt(event.localPosition),
       onExit: (_) => _release(),
       child: Listener(
-        onPointerDown: (event) => _touchAt(event.localPosition),
-        onPointerMove: (event) => _touchAt(event.localPosition),
+        onPointerDown: (event) {
+          _tickAt(event.localPosition, down: true);
+          _touchAt(event.localPosition);
+        },
+        onPointerMove: (event) {
+          _tickAt(event.localPosition, down: false);
+          _touchAt(event.localPosition);
+        },
         onPointerUp: (_) => _release(),
         onPointerCancel: (_) => _release(),
         child: Semantics(
