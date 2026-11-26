@@ -68,13 +68,10 @@ class _NetworkBubbleColorsState extends State<NetworkBubbleColors> {
                   ? Icon(
                       Icons.check,
                       size: 16,
-                      // Black or white, whichever reads on the swatch.
+                      // As the bubble's own text reads on it.
                       color: shown == null
                           ? theme.colorScheme.onSurface
-                          : ThemeData.estimateBrightnessForColor(shown) ==
-                                Brightness.dark
-                          ? Colors.white
-                          : Colors.black,
+                          : NetworkColors.foregroundOn(shown),
                     )
                   : null,
             ),
