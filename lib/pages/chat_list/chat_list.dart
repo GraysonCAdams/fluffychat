@@ -891,6 +891,8 @@ class ChatListController extends State<ChatList>
     _unwatchMergedContacts();
     HardwareKeyboard.instance.removeHandler(_onKey);
     _firstClickTimer?.cancel();
+    // A search still waiting for typing to pause would run without a page.
+    _coolDown?.cancel();
     scrollController.removeListener(_onScroll);
     final titleBarSearch = this.titleBarSearch;
     if (titleBarSearch == null) {
