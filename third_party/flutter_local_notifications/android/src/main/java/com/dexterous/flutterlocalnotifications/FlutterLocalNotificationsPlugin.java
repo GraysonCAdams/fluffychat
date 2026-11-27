@@ -132,6 +132,8 @@ public class FlutterLocalNotificationsPlugin
   static final String NOTIFICATION_ID = "notificationId";
   static final String NOTIFICATION_TAG = "notificationTag";
   static final String CANCEL_NOTIFICATION = "cancelNotification";
+  // FluffyChat: text an action copies to the clipboard when tapped.
+  static final String CLIPBOARD_TEXT = "clipboardText";
 
   private static final String TAG = "FLTLocalNotifPlugin";
 
@@ -363,6 +365,10 @@ public class FlutterLocalNotificationsPlugin
             .putExtra(ACTION_ID, action.id)
             .putExtra(CANCEL_NOTIFICATION, action.cancelNotification)
             .putExtra(PAYLOAD, notificationDetails.payload);
+        // FluffyChat: the receiver copies this before the action reaches Dart.
+        if (action.clipboardText != null) {
+          actionIntent.putExtra(CLIPBOARD_TEXT, action.clipboardText);
+        }
         int actionFlags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (action.actionInputs == null || action.actionInputs.isEmpty()) {
           if (VERSION.SDK_INT >= VERSION_CODES.M) {

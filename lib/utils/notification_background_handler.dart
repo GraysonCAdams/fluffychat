@@ -16,6 +16,7 @@ import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/push_helper.dart';
 import 'package:fluffychat/utils/windows_shell.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_vodozemac/flutter_vodozemac.dart' as vod;
 import 'package:go_router/go_router.dart';
@@ -117,10 +118,16 @@ Future<void> notificationTapBackground(
 
 /// Packs a notification action with its payload into a Windows toast
 /// button's arguments, which is the only value Windows hands back on click.
+/// The copy code button carries its [code] after the action's name.
 String windowsNotificationActionArguments(
   FluffyChatNotificationActions action,
-  String payload,
-) => '${action.name}#$payload';
+  String payload, {
+  String? code,
+}) => '${action.name}${code == null ? '' : ':$code'}#$payload';
+
+/// The key of [NotificationResponse.data] that holds the code a Windows copy
+/// code button carries, see [unpackWindowsResponse].
+const windowsCopyCodeKey = 'code';
 
 /// The input id of the reply box on Windows toasts.
 const windowsReplyInputId = 'reply';
@@ -132,7 +139,8 @@ const windowsReplyInputId = 'reply';
 /// A click on the toast body also arrives as an action, because the plugin
 /// takes any launch arguments to mean a button, and the toast's own launch
 /// arguments are its payload. Button arguments always contain `#`, so
-/// arguments without one are a body click.
+/// arguments without one are a body click. A code a button carries goes to
+/// [windowsCopyCodeKey] in the data.
 @visibleForTesting
 NotificationResponse unpackWindowsResponse(NotificationResponse response) {
   final arguments = response.actionId;
@@ -150,13 +158,22 @@ NotificationResponse unpackWindowsResponse(NotificationResponse response) {
     );
   }
   final separator = arguments.indexOf('#');
+  final action = arguments.substring(0, separator);
+  final codeSeparator = action.indexOf(':');
   return NotificationResponse(
     notificationResponseType: response.notificationResponseType,
     id: response.id,
-    actionId: arguments.substring(0, separator),
+    actionId: codeSeparator == -1
+        ? action
+        : action.substring(0, codeSeparator),
     payload: arguments.substring(separator + 1),
     input: response.data[windowsReplyInputId] as String? ?? response.input,
-    data: response.data,
+    data: codeSeparator == -1
+        ? response.data
+        : {
+            ...response.data,
+            windowsCopyCodeKey: action.substring(codeSeparator + 1),
+          },
   );
 }
 
@@ -231,11 +248,16 @@ Future<void> notificationTap(
       }
       switch (actionType) {
         case FluffyChatNotificationActions.markAsRead:
-          await room.setReadMarker(
-            payload.eventId ?? room.lastEvent!.eventId,
-            mRead: payload.eventId ?? room.lastEvent!.eventId,
-            public: AppSettings.sendPublicReadReceipts.value,
-          );
+          await _markRead(room, payload.eventId);
+        case FluffyChatNotificationActions.copyCode:
+          // On Android the plugin copied the code before the action got here
+          // (see AndroidNotificationAction.clipboardText); a Windows toast
+          // hands it over in the data.
+          final code = notificationResponse.data[windowsCopyCodeKey];
+          if (code is String) {
+            await Clipboard.setData(ClipboardData(text: code));
+          }
+          await _markRead(room, payload.eventId);
         case FluffyChatNotificationActions.reply:
           final input = notificationResponse.input;
           if (input == null || input.isEmpty) {
@@ -267,7 +289,27 @@ Future<void> notificationTap(
   }
 }
 
-enum FluffyChatNotificationActions { markAsRead, reply, mute, open, enterCall }
+/// Moves [room]'s read marker to the notified event [eventId], or to the
+/// newest event when the notification named none.
+Future<void> _markRead(Room room, String? eventId) {
+  final target = eventId ?? room.lastEvent!.eventId;
+  return room.setReadMarker(
+    target,
+    mRead: target,
+    public: AppSettings.sendPublicReadReceipts.value,
+  );
+}
+
+enum FluffyChatNotificationActions {
+  markAsRead,
+  reply,
+  mute,
+  open,
+  enterCall,
+
+  /// Copies the one-time code of the notified message and marks it read.
+  copyCode,
+}
 
 /// The chat a notification belongs to, scrolled to the notified message.
 String _notificationRoute(Client client, String roomId, String? eventId) {

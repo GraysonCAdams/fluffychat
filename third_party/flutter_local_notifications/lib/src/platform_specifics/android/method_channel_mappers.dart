@@ -390,6 +390,8 @@ extension AndroidNotificationDetailsMapper on AndroidNotificationDetails {
               'cancelNotification': e.cancelNotification,
               'semanticAction': e.semanticAction.value,
               'invisible': e.invisible,
+              // FluffyChat: text to copy when the action is tapped.
+              'clipboardText': e.clipboardText,
             },
           )
           .toList(),

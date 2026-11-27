@@ -25,6 +25,7 @@ import 'package:fluffychat/utils/notification_avatar_extension.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/notification_media.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
+import 'package:fluffychat/utils/one_time_code.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/start_push_foreground_service.dart';
 import 'package:flutter/foundation.dart';
@@ -345,37 +346,7 @@ Future<void> _tryPushHelper(
     importance: Importance.high,
     priority: Priority.max,
     groupKey: client.clientName,
-    actions: switch (event.type) {
-      EventTypes.Message ||
-      EventTypes.Encrypted ||
-      EventTypes.Sticker => <AndroidNotificationAction>[
-        AndroidNotificationAction(
-          FluffyChatNotificationActions.reply.name,
-          l10n.reply,
-          inputs: [AndroidNotificationActionInput(label: l10n.writeAMessage)],
-          allowGeneratedReplies: true,
-          semanticAction: SemanticAction.reply,
-        ),
-        AndroidNotificationAction(
-          FluffyChatNotificationActions.markAsRead.name,
-          l10n.markAsRead,
-          semanticAction: SemanticAction.markAsRead,
-        ),
-        AndroidNotificationAction(
-          FluffyChatNotificationActions.mute.name,
-          l10n.mute,
-          semanticAction: SemanticAction.mute,
-        ),
-      ],
-      RtcNotificationContent.eventType => [
-        AndroidNotificationAction(
-          FluffyChatNotificationActions.enterCall.name,
-          l10n.enterCall,
-          semanticAction: SemanticAction.call,
-        ),
-      ],
-      _ => null,
-    },
+    actions: androidNotificationActions(event, l10n),
   );
   final iOSAttachmentPath = PlatformInfos.isIOS
       ? await client.getIosNotificationAvatar(event.room.avatar)
@@ -436,6 +407,57 @@ Future<void> _tryPushHelper(
     );
   }
   Logs().v('Push helper has been completed!');
+}
+
+/// The buttons of an Android notification for [event]. Android shows three
+/// at most. A message with a one-time code (see [oneTimeCodeOf]) offers to
+/// copy it first, which also marks it read, in place of muting: a code's
+/// sender is seldom one to mute from the notification, while replying and
+/// marking read without copying stay useful.
+List<AndroidNotificationAction>? androidNotificationActions(
+  Event event,
+  L10n l10n,
+) {
+  switch (event.type) {
+    case EventTypes.Message || EventTypes.Encrypted || EventTypes.Sticker:
+      final code = oneTimeCodeOf(event);
+      return [
+        if (code != null)
+          AndroidNotificationAction(
+            FluffyChatNotificationActions.copyCode.name,
+            l10n.copyOneTimeCode(code),
+            clipboardText: code,
+          ),
+        AndroidNotificationAction(
+          FluffyChatNotificationActions.reply.name,
+          l10n.reply,
+          inputs: [AndroidNotificationActionInput(label: l10n.writeAMessage)],
+          allowGeneratedReplies: true,
+          semanticAction: SemanticAction.reply,
+        ),
+        AndroidNotificationAction(
+          FluffyChatNotificationActions.markAsRead.name,
+          l10n.markAsRead,
+          semanticAction: SemanticAction.markAsRead,
+        ),
+        if (code == null)
+          AndroidNotificationAction(
+            FluffyChatNotificationActions.mute.name,
+            l10n.mute,
+            semanticAction: SemanticAction.mute,
+          ),
+      ];
+    case RtcNotificationContent.eventType:
+      return [
+        AndroidNotificationAction(
+          FluffyChatNotificationActions.enterCall.name,
+          l10n.enterCall,
+          semanticAction: SemanticAction.call,
+        ),
+      ];
+    default:
+      return null;
+  }
 }
 
 void updateAppBadge(int unreadCount) {

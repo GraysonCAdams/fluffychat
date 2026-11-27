@@ -1,8 +1,13 @@
 package com.dexterous.flutterlocalnotifications;
 
 import android.content.BroadcastReceiver;
+import android.content.ClipData;
+import android.content.ClipDescription;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
+import android.os.PersistableBundle;
 import android.util.Log;
 
 import androidx.annotation.Keep;
@@ -70,6 +75,15 @@ public class ActionBroadcastReceiver extends BroadcastReceiver {
 
     preferences = preferences == null ? new IsolatePreferences(context) : preferences;
 
+    // FluffyChat: copy the action's text here, where a context is at hand.
+    // Flutter's clipboard needs an activity, which the background isolate
+    // that handles the action does not have. Writing the clipboard needs no
+    // focus, unlike reading it.
+    String clipboardText = intent.getStringExtra(FlutterLocalNotificationsPlugin.CLIPBOARD_TEXT);
+    if (clipboardText != null) {
+      copyToClipboard(context, clipboardText);
+    }
+
     if (intent.getBooleanExtra(FlutterLocalNotificationsPlugin.CANCEL_NOTIFICATION, false)) {
       int notificationId = (int) action.get(FlutterLocalNotificationsPlugin.NOTIFICATION_ID);
       Object tag = action.get(FlutterLocalNotificationsPlugin.NOTIFICATION_TAG);
@@ -87,6 +101,27 @@ public class ActionBroadcastReceiver extends BroadcastReceiver {
     actionEventSink.addItem(action);
 
     startEngine(context);
+  }
+
+  // FluffyChat: copies [text] as a sensitive clip, so Android 13 and later
+  // do not show it in their clipboard preview.
+  private static void copyToClipboard(Context context, String text) {
+    ClipboardManager clipboard =
+        (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+    if (clipboard == null) {
+      return;
+    }
+    ClipData clip = ClipData.newPlainText(null, text);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      PersistableBundle extras = new PersistableBundle();
+      extras.putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true);
+      clip.getDescription().setExtras(extras);
+    }
+    try {
+      clipboard.setPrimaryClip(clip);
+    } catch (RuntimeException e) {
+      Log.w(TAG, "Unable to copy to the clipboard", e);
+    }
   }
 
   private void startEngine(Context context) {

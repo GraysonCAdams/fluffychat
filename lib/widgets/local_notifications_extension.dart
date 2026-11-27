@@ -18,6 +18,7 @@ import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
+import 'package:fluffychat/utils/one_time_code.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/push_helper.dart';
 import 'package:fluffychat/utils/string_color.dart';
@@ -33,6 +34,51 @@ import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:universal_html/html.dart' as html;
+
+/// The buttons of a Windows toast for [event], whose [payload] they carry.
+/// A message with a one-time code (see [oneTimeCodeOf]) offers to copy it
+/// first, which also marks it read. Toasts take up to five buttons, so the
+/// others stay.
+List<WindowsAction> windowsNotificationActions(
+  Event event,
+  L10n l10n,
+  String payload,
+) {
+  if (!{
+    EventTypes.Message,
+    EventTypes.Encrypted,
+    EventTypes.Sticker,
+  }.contains(event.type)) {
+    return [];
+  }
+  final code = oneTimeCodeOf(event);
+  return [
+    if (code != null)
+      WindowsAction(
+        content: l10n.copyOneTimeCode(code),
+        arguments: windowsNotificationActionArguments(
+          FluffyChatNotificationActions.copyCode,
+          payload,
+          code: code,
+        ),
+      ),
+    WindowsAction(
+      content: l10n.reply,
+      arguments: windowsNotificationActionArguments(
+        FluffyChatNotificationActions.reply,
+        payload,
+      ),
+      inputId: windowsReplyInputId,
+    ),
+    WindowsAction(
+      content: l10n.markAsRead,
+      arguments: windowsNotificationActionArguments(
+        FluffyChatNotificationActions.markAsRead,
+        payload,
+      ),
+    ),
+  ];
+}
 
 extension LocalNotificationsExtension on MatrixState {
   static final html.AudioElement _audioPlayer = html.AudioElement()
@@ -206,25 +252,7 @@ extension LocalNotificationsExtension on MatrixState {
                 placeHolderContent: l10n.writeAMessage,
               ),
           ],
-          actions: [
-            if (isMessage) ...[
-              WindowsAction(
-                content: l10n.reply,
-                arguments: windowsNotificationActionArguments(
-                  FluffyChatNotificationActions.reply,
-                  payload,
-                ),
-                inputId: windowsReplyInputId,
-              ),
-              WindowsAction(
-                content: l10n.markAsRead,
-                arguments: windowsNotificationActionArguments(
-                  FluffyChatNotificationActions.markAsRead,
-                  payload,
-                ),
-              ),
-            ],
-          ],
+          actions: windowsNotificationActions(event, l10n, payload),
         ),
         macOS: DarwinNotificationDetails(
           badgeNumber: unreadRooms,

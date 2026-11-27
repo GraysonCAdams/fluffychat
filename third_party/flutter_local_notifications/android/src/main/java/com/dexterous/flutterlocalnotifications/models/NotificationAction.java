@@ -85,6 +85,8 @@ public class NotificationAction implements Serializable {
   private static final String CANCEL_NOTIFICATION = "cancelNotification";
   private static final String SEMANTIC_ACTION = "semanticAction";
   private static final String INVISIBLE = "invisible";
+  // FluffyChat: text copied to the clipboard when the action is tapped.
+  private static final String CLIPBOARD_TEXT = "clipboardText";
 
   public final String id;
   public final String title;
@@ -97,6 +99,7 @@ public class NotificationAction implements Serializable {
   @Nullable public final Integer semanticAction;
   @Nullable public final Boolean invisible;
   @Nullable public final IconSource iconSource;
+  @Nullable public final String clipboardText;
   // actionInputs is annotated as nullable as the Flutter API use to allow this to be nullable
   // before null-safety was added in
   @Nullable public final List<NotificationActionInput> actionInputs = new ArrayList<>();
@@ -122,6 +125,7 @@ public class NotificationAction implements Serializable {
     allowGeneratedReplies = (Boolean) arguments.get(ALLOW_GENERATED_REPLIES);
     semanticAction = (Integer) arguments.get(SEMANTIC_ACTION);
     invisible = (Boolean) arguments.get(INVISIBLE);
+    clipboardText = (String) arguments.get(CLIPBOARD_TEXT);
 
     Integer iconSourceIndex = (Integer) arguments.get(ICON_SOURCE);
     if (iconSourceIndex != null) {

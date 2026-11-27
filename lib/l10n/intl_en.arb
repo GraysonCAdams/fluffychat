@@ -3176,7 +3176,7 @@
   },
   "copyOneTimeCode": "Copy \"{code}\"",
   "@copyOneTimeCode": {
-    "description": "Button under a chat in the chat list whose latest message holds a one-time passcode; copies the code.",
+    "description": "Button that copies a one-time passcode: under a chat in the chat list whose latest message holds one, and on the notification for such a message.",
     "type": "String",
     "placeholders": {
       "code": {
