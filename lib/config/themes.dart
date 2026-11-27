@@ -6,6 +6,7 @@
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:flutter/services.dart';
+import 'package:material_color_utilities/material_color_utilities.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract class FluffyThemes {
@@ -43,7 +44,9 @@ abstract class FluffyThemes {
   /// ColorScheme.fromSeed computes its tonal palettes from scratch and is
   /// costly. buildTheme runs for both brightnesses whenever the app root
   /// rebuilds (it reads the window width), usually with unchanged inputs.
-  /// The immutable result depends only on brightness and seed.
+  /// The immutable result depends only on brightness and seed. The default
+  /// seed, Seam Cobalt, gets [seamCobaltScheme]; any other seed the user
+  /// picks gets fromSeed's rainbow scheme.
   static final Map<(Brightness, Color), ColorScheme> _colorSchemeCache = {};
 
   static ColorScheme _colorSchemeFor(Brightness brightness, Color seed) {
@@ -53,10 +56,58 @@ abstract class FluffyThemes {
     // Each pick in the color settings adds a seed; a handful covers the
     // light and dark schemes of the current and previous choices.
     if (_colorSchemeCache.length >= 8) _colorSchemeCache.clear();
-    return _colorSchemeCache[key] = ColorScheme.fromSeed(
+    return _colorSchemeCache[key] = seed == AppConfig.primaryColor
+        ? seamCobaltScheme(brightness)
+        : ColorScheme.fromSeed(
+            brightness: brightness,
+            seedColor: seed,
+            dynamicSchemeVariant: DynamicSchemeVariant.rainbow,
+          );
+  }
+
+  /// The HCT hue of Seam Cobalt's light tints, #7EA6FF. HCT keeps a
+  /// colour's hue as its chroma falls, but the seed's own hue (about 271)
+  /// reads lavender in the light, low-chroma tones that dark mode uses.
+  static final double cobaltHue = Hct.fromInt(0xFF7EA6FF).hue;
+
+  /// The scheme of the default seed: fromSeed's rainbow scheme, whose
+  /// surfaces are neutral greys, with the primary and secondary roles
+  /// retuned so the accent stays cobalt. The primary roles sit on
+  /// [cobaltHue] at more chroma than fromSeed gives them, and the
+  /// secondary roles, which fill the selected chat, are a quiet blue
+  /// turned 15 degrees towards cyan, where low chroma reads slate rather
+  /// than violet. In dark mode primary is tone 70 rather than 80, a cobalt
+  /// tint rather than periwinkle, and the selection is tone 26 so primary
+  /// text on it (someone typing) keeps 4.5:1.
+  static ColorScheme seamCobaltScheme(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    final primary = TonalPalette.of(cobaltHue, 56);
+    final container = TonalPalette.of(cobaltHue, 36);
+    final secondary = TonalPalette.of(cobaltHue - 15, 16);
+    Color tone(TonalPalette palette, int tone) => Color(palette.get(tone));
+    return ColorScheme.fromSeed(
       brightness: brightness,
-      seedColor: seed,
+      seedColor: AppConfig.primaryColor,
       dynamicSchemeVariant: DynamicSchemeVariant.rainbow,
+    ).copyWith(
+      primary: tone(primary, dark ? 70 : 40),
+      surfaceTint: tone(primary, dark ? 70 : 40),
+      onPrimary: tone(primary, dark ? 15 : 100),
+      primaryContainer: tone(container, dark ? 30 : 90),
+      onPrimaryContainer: tone(container, dark ? 90 : 10),
+      inversePrimary: tone(primary, dark ? 40 : 70),
+      primaryFixed: tone(primary, 90),
+      primaryFixedDim: tone(primary, 80),
+      onPrimaryFixed: tone(primary, 10),
+      onPrimaryFixedVariant: tone(primary, 30),
+      secondary: tone(secondary, dark ? 80 : 40),
+      onSecondary: tone(secondary, dark ? 20 : 100),
+      secondaryContainer: tone(secondary, dark ? 26 : 90),
+      onSecondaryContainer: tone(secondary, dark ? 90 : 10),
+      secondaryFixed: tone(secondary, 90),
+      secondaryFixedDim: tone(secondary, 80),
+      onSecondaryFixed: tone(secondary, 10),
+      onSecondaryFixedVariant: tone(secondary, 30),
     );
   }
 

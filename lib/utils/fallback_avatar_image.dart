@@ -21,7 +21,7 @@ import 'package:material_ui/material_ui.dart';
 /// icon is larger and fills most of the circle.
 Future<Uint8List?> renderFallbackAvatar(String name, {int size = 216}) async {
   final letters = Avatar.calcFallbackLetters(name);
-  final colors = letters.colorScheme;
+  final colors = letters.avatarColors;
   final icon = Avatar.numberIcon(name);
   final dimension = size.toDouble();
 
@@ -29,7 +29,7 @@ Future<Uint8List?> renderFallbackAvatar(String name, {int size = 216}) async {
   final canvas = Canvas(recorder);
   canvas.drawRect(
     Rect.fromLTWH(0, 0, dimension, dimension),
-    Paint()..color = colors.primaryContainer,
+    Paint()..color = colors.fill,
   );
   final painter = TextPainter(
     textDirection: TextDirection.ltr,
@@ -42,7 +42,7 @@ Future<Uint8List?> renderFallbackAvatar(String name, {int size = 216}) async {
               package: icon.fontPackage,
               // Fills the circle the way Google Messages' silhouette does.
               fontSize: dimension * 0.8,
-              color: colors.onPrimaryContainer,
+              color: colors.onFill,
             ),
           )
         : TextSpan(
@@ -52,7 +52,7 @@ Future<Uint8List?> renderFallbackAvatar(String name, {int size = 216}) async {
               fontFamily: 'GoogleSansFlex',
               fontWeight: FontWeight.bold,
               fontSize: dimension / 3.75,
-              color: colors.onPrimaryContainer,
+              color: colors.onFill,
             ),
           ),
   )..layout(maxWidth: dimension);

@@ -576,9 +576,18 @@ class _SpaceViewState extends State<SpaceView> {
                                         name: '#',
                                         backgroundColor:
                                             theme.colorScheme.surfaceContainer,
-                                        textColor:
-                                            item.name?.colorScheme.primary ??
-                                            theme.colorScheme.onSurface,
+                                        // The name's initials colour: its
+                                        // light fill reads on a dark page,
+                                        // its letter colour on a light one.
+                                        textColor: switch (item
+                                            .name
+                                            ?.avatarColors) {
+                                          final colors? =>
+                                            theme.brightness == Brightness.dark
+                                                ? colors.fill
+                                                : colors.onFill,
+                                          null => theme.colorScheme.onSurface,
+                                        },
                                         shapeBorder: item.roomType == 'm.space'
                                             ? RoundedSuperellipseBorder(
                                                 side: BorderSide(

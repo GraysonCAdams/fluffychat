@@ -75,8 +75,8 @@ Future<Uint8List?> renderGroupCollage(
       picture.dispose();
     } else {
       final letters = Avatar.calcFallbackLetters(member.name);
-      final colors = letters.colorScheme;
-      canvas.drawRect(rect, Paint()..color = colors.primaryContainer);
+      final colors = letters.avatarColors;
+      canvas.drawRect(rect, Paint()..color = colors.fill);
       final painter = TextPainter(
         textDirection: TextDirection.ltr,
         text: TextSpan(
@@ -85,7 +85,7 @@ Future<Uint8List?> renderGroupCollage(
             fontFamily: 'GoogleSansFlex',
             fontWeight: FontWeight.bold,
             fontSize: face / 2.6,
-            color: colors.onPrimaryContainer,
+            color: colors.onFill,
           ),
         ),
       )..layout(maxWidth: face);

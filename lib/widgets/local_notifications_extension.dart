@@ -258,10 +258,10 @@ extension LocalNotificationsExtension on MatrixState {
     try {
       final letters = Avatar.calcFallbackLetters(name);
       final icon = Avatar.numberIcon(name);
-      final colors = letters.colorScheme;
+      final colors = letters.avatarColors;
       final key =
           '$letters ${icon?.codePoint} '
-                  '${colors.primaryContainer.toARGB32()}'
+                  '${colors.fill.toARGB32()}'
               .hashCode
               .toUnsigned(32);
       final file = File(
@@ -275,7 +275,7 @@ extension LocalNotificationsExtension on MatrixState {
       final canvas = Canvas(recorder);
       canvas.drawRect(
         Rect.fromLTWH(0, 0, size.toDouble(), size.toDouble()),
-        Paint()..color = colors.primaryContainer,
+        Paint()..color = colors.fill,
       );
       // Same text styles as the Avatar widget, scaled to the image size.
       final painter = TextPainter(
@@ -287,7 +287,7 @@ extension LocalNotificationsExtension on MatrixState {
                   fontFamily: icon.fontFamily,
                   package: icon.fontPackage,
                   fontSize: size / 2,
-                  color: colors.onPrimaryContainer,
+                  color: colors.onFill,
                 ),
               )
             : TextSpan(
@@ -297,7 +297,7 @@ extension LocalNotificationsExtension on MatrixState {
                   fontFamily: 'GoogleSansFlex',
                   fontWeight: FontWeight.bold,
                   fontSize: size / 2.5,
-                  color: colors.onPrimaryContainer,
+                  color: colors.onFill,
                 ),
               ),
       )..layout();
