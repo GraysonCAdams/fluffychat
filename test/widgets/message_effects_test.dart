@@ -19,6 +19,7 @@ import 'package:fluffychat/pages/chat/effects/played_message_effects.dart';
 import 'package:fluffychat/pages/chat/effects/screen_effect_host.dart';
 import 'package:fluffychat/pages/chat/effects/screen_effect_scenes.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
+import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/effect_haptics.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/message_effects.dart';
@@ -132,6 +133,7 @@ void main() {
     bool reducedMotion = false,
     void Function(VoidCallback rebuild)? rebuild,
     double above = 0,
+    bool timeRevealed = false,
   }) async {
     final timeline = Timeline(
       room: room,
@@ -166,7 +168,7 @@ void main() {
                         onSelect: (_) {},
                         selected: false,
                         longPressSelect: false,
-                        timeRevealed: false,
+                        timeRevealed: timeRevealed,
                         onToggleTime: (_) {},
                         onInfoTab: (_) {},
                         scrollToEventId: (_) {},
@@ -606,10 +608,10 @@ void main() {
       final target = tester.getRect(replayLink);
       final shape = tester.getRect(pill);
       expect(target.height, greaterThanOrEqualTo(48));
-      expect(target.width, greaterThanOrEqualTo(48));
       expect(shape.height, lessThanOrEqualTo(28));
-      // The pill sits in the middle of the touch target, around the label.
-      expect((shape.center.dy - target.center.dy).abs(), lessThan(1));
+      // The pill sits at the top of the touch target, around the label,
+      // the rest of the target below it.
+      expect(shape.top - target.top, lessThan(2));
       expect(shape.contains(tester.getCenter(find.text('Replay'))), isTrue);
       Color? pillColor() =>
           (tester.widget<DecoratedBox>(pill).decoration as ShapeDecoration)
@@ -624,6 +626,59 @@ void main() {
       await press.up();
       await tester.pump(const Duration(seconds: 6));
     });
+
+    testWidgets('sits right under the bubble, as in iMessage', (tester) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.confetti));
+      await tester.pump(const Duration(seconds: 6));
+      final bubble = tester.getRect(find.byType(EffectBubble));
+      final label = tester.getRect(find.text('Replay'));
+      expect(label.top - bubble.bottom, inInclusiveRange(0, 4));
+      expect(tester.getRect(replayLink).height, greaterThanOrEqualTo(48));
+    });
+
+    for (final own in [false, true]) {
+      testWidgets('with the time shown, reads "time · arrow" '
+          '(${own ? 'sent' : 'received'})', (tester) async {
+        final event = effectEvent(
+          MessageEffect.confetti,
+          sender: own ? client.userID! : '@alice:example.org',
+        );
+        await pumpMessage(tester, event, timeRevealed: true);
+        await tester.pump(const Duration(seconds: 6));
+        final time = event.originServerTs.localizedTimeOfDay(
+          tester.element(find.byType(EffectBubble)),
+        );
+        final row = find.textContaining('$time ·');
+        expect(row, findsOneWidget);
+        expect(find.text('Replay'), findsNothing);
+        final arrow = find.descendant(
+          of: replayLink,
+          matching: find.byIcon(Icons.replay),
+        );
+        expect(arrow, findsOneWidget);
+        // The time comes first, then the arrow, right under the bubble.
+        expect(
+          tester.getRect(row).right,
+          lessThanOrEqualTo(tester.getRect(arrow).left),
+        );
+        final bubble = tester.getRect(find.byType(EffectBubble));
+        expect(tester.getRect(arrow).top - bubble.bottom, lessThanOrEqualTo(6));
+        expect(tester.getRect(replayLink).height, greaterThanOrEqualTo(48));
+        // The arrow alone still replays, from anywhere in a 48dp target
+        // around it: over the time beside it, and below it.
+        final before = host(tester).plays;
+        await tester.tap(arrow);
+        await tester.pump();
+        expect(host(tester).plays, before + 1);
+        await tester.tapAt(tester.getCenter(arrow) + const Offset(-22, 0));
+        await tester.pump();
+        expect(host(tester).plays, before + 2);
+        await tester.tapAt(tester.getCenter(arrow) + const Offset(0, 30));
+        await tester.pump();
+        expect(host(tester).plays, before + 3);
+        await tester.pump(const Duration(seconds: 6));
+      });
+    }
 
     testWidgets('a tap plays a screen effect again', (tester) async {
       await pumpMessage(tester, effectEvent(MessageEffect.confetti));
