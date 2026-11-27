@@ -76,6 +76,32 @@ Future<void> pumpUntilBuilt(WidgetTester tester) async {
   expect(find.byType(Scaffold), findsWidgets);
 }
 
+/// Rubs the ink back and forth from its top down until the rest of it
+/// starts to go by itself, and returns the finger, still down. [bubble]
+/// finds the ink where there is more than one.
+Future<TestGesture> rubInkClear(WidgetTester tester, [Finder? bubble]) async {
+  bubble ??= find.byType(InvisibleInk);
+  final rect = tester.getRect(bubble);
+  final ink = tester.state<InvisibleInkState>(bubble);
+  final gesture = await tester.startGesture(
+    rect.topLeft + const Offset(10, 10),
+  );
+  var rightwards = true;
+  for (var y = 10.0; y < rect.height; y += 20) {
+    final from = rightwards ? 10.0 : rect.width - 10;
+    final to = rightwards ? rect.width - 10 : 10.0;
+    for (var i = 0; i <= 10; i++) {
+      if (ink.isFinishing || ink.isRevealed) return gesture;
+      await gesture.moveTo(
+        rect.topLeft + Offset(from + (to - from) * i / 10, y),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    rightwards = !rightwards;
+  }
+  return gesture;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Client client;
@@ -127,6 +153,8 @@ void main() {
   /// Shows [event] as the chat does: a message in a list under the area
   /// screen effects play over. [rebuild] gets a function that rebuilds
   /// the message. [above] is the height of the list above the message.
+  /// [onSelect] is told of a long press on the message. [next] is a
+  /// message shown under it.
   Future<void> pumpMessage(
     WidgetTester tester,
     Event event, {
@@ -134,10 +162,12 @@ void main() {
     void Function(VoidCallback rebuild)? rebuild,
     double above = 0,
     bool timeRevealed = false,
+    void Function(Event event)? onSelect,
+    Event? next,
   }) async {
     final timeline = Timeline(
       room: room,
-      chunk: TimelineChunk(events: [event]),
+      chunk: TimelineChunk(events: [event, ?next]),
     );
     final scrollController = ScrollController();
     addTearDown(scrollController.dispose);
@@ -162,26 +192,27 @@ void main() {
                     controller: scrollController,
                     children: [
                       if (above > 0) SizedBox(height: above),
-                      Message(
-                        event,
-                        bigEmojis: const {},
-                        onSelect: (_) {},
-                        selected: false,
-                        longPressSelect: false,
-                        timeRevealed: timeRevealed,
-                        onToggleTime: (_) {},
-                        onInfoTab: (_) {},
-                        scrollToEventId: (_) {},
-                        onSwipe: () {},
-                        onMention: () {},
-                        onEdit: () {},
-                        enterThread: null,
-                        singleSelected: false,
-                        hideReactionPicker: true,
-                        timeline: timeline,
-                        scrollController: scrollController,
-                        colors: const [Colors.blue, Colors.blue],
-                      ),
+                      for (final shown in [event, ?next])
+                        Message(
+                          shown,
+                          bigEmojis: const {},
+                          onSelect: onSelect ?? (_) {},
+                          selected: false,
+                          longPressSelect: false,
+                          timeRevealed: timeRevealed,
+                          onToggleTime: (_) {},
+                          onInfoTab: (_) {},
+                          scrollToEventId: (_) {},
+                          onSwipe: () {},
+                          onMention: () {},
+                          onEdit: () {},
+                          enterThread: null,
+                          singleSelected: false,
+                          hideReactionPicker: true,
+                          timeline: timeline,
+                          scrollController: scrollController,
+                          colors: const [Colors.blue, Colors.blue],
+                        ),
                     ],
                   );
                 },
@@ -843,6 +874,24 @@ void main() {
     InvisibleInkState ink(WidgetTester tester) =>
         tester.state<InvisibleInkState>(find.byType(InvisibleInk));
 
+    /// Long enough to fill a bubble several lines high.
+    final long = List.filled(5, 'The password is swordfish.').join(' ');
+
+    final clip = find.byKey(const ValueKey('invisible_ink_content'));
+    final particles = find.byKey(const ValueKey('invisible_ink_particles'));
+
+    /// The part of the bubble its content is painted in.
+    Rect painted(WidgetTester tester) =>
+        tester.widget<ClipRect>(clip).clipper!.getClip(tester.getSize(clip));
+
+    /// Lets the ink close in again after the finger has lifted.
+    Future<void> pumpUntilCovered(WidgetTester tester) async {
+      await tester.pump(InvisibleInk.holdAfterRub);
+      await tester.pump();
+      await tester.pump(InvisibleInk.concealDuration);
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
     testWidgets('hides the text until it is touched, then hides it again', (
       tester,
     ) async {
@@ -862,11 +911,7 @@ void main() {
       expect(find.bySemanticsLabel(RegExp('The password')), findsNothing);
       // Nothing of the content is painted, blurred or otherwise: it is
       // clipped away whole, and the specks lie over the bare bubble.
-      final clip = find.byKey(const ValueKey('invisible_ink_content'));
-      final size = tester.getSize(clip);
-      Rect shown() =>
-          tester.widget<ClipPath>(clip).clipper!.getClip(size).getBounds();
-      expect(shown().isEmpty, isTrue);
+      expect(painted(tester).isEmpty, isTrue);
       for (final type in [ImageFiltered, ShaderMask, BackdropFilter]) {
         expect(
           find.descendant(
@@ -876,54 +921,426 @@ void main() {
           findsNothing,
         );
       }
-      final particles = find.byKey(const ValueKey('invisible_ink_particles'));
       expect(particles, findsOneWidget);
 
+      // A tap clears a patch under the finger at once.
+      final size = tester.getSize(find.byType(InvisibleInk));
+      final center = size.center(Offset.zero);
       final gesture = await tester.startGesture(
         tester.getCenter(find.byType(InvisibleInk)),
       );
       await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
-      await tester.pump();
-      expect(ink(tester).isRevealed, isTrue);
-      expect(shown(), Offset.zero & size);
-      expect(particles, findsNothing);
+      expect(ink(tester).isHidden, isFalse);
+      expect(ink(tester).shownAt(center), 1);
+      expect(painted(tester).contains(center), isTrue);
       expect(find.bySemanticsLabel(RegExp('The password')), findsOneWidget);
-
-      await gesture.up();
-      await tester.pump(InvisibleInk.concealAfter - const Duration(seconds: 1));
-      expect(ink(tester).isRevealed, isTrue);
-      await tester.pump(const Duration(seconds: 1));
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pump();
-      expect(ink(tester).isHidden, isTrue);
-      expect(shown().isEmpty, isTrue);
+      // The ink is still there around it.
+      expect(ink(tester).isRevealed, isFalse);
       expect(particles, findsOneWidget);
+
+      // It holds for as long as the finger is down.
+      await tester.pump(const Duration(seconds: 20));
+      expect(ink(tester).shownAt(center), 1);
+
+      // And a little longer, then the ink closes in again.
+      await gesture.up();
+      await tester.pump(
+        InvisibleInk.holdAfterRub - const Duration(milliseconds: 100),
+      );
+      expect(ink(tester).shownAt(center), 1);
+      expect(
+        ink(tester).shownAt(center + const Offset(14, 0)),
+        greaterThan(0.99),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
+      // From the rim of the patch inwards.
+      await tester.pump(InvisibleInk.concealDuration ~/ 2);
+      expect(ink(tester).isHidden, isFalse);
+      expect(ink(tester).shownAt(center), greaterThan(0));
+      expect(ink(tester).shownAt(center + const Offset(14, 0)), lessThan(0.3));
+      await tester.pump(InvisibleInk.concealDuration ~/ 2);
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(ink(tester).isHidden, isTrue);
+      expect(ink(tester).shownAt(center), 0);
+      expect(painted(tester).isEmpty, isTrue);
+      expect(
+        find.bySemanticsLabel('Hidden with Invisible Ink. Touch to reveal.'),
+        findsOneWidget,
+      );
       handle.dispose();
     });
 
-    testWidgets('the reveal opens from the finger', (tester) async {
+    testWidgets('a rub clears the ink along the finger\'s path only', (
+      tester,
+    ) async {
       await pumpMessage(
         tester,
-        effectEvent(MessageEffect.invisibleInk, body: 'The password'),
+        effectEvent(MessageEffect.invisibleInk, body: long),
       );
-      final clip = find.byKey(const ValueKey('invisible_ink_content'));
-      final size = tester.getSize(clip);
-      final gesture = await tester.startGesture(
-        tester.getTopLeft(find.byType(InvisibleInk)) + const Offset(20, 12),
+      final origin = tester.getTopLeft(find.byType(InvisibleInk));
+      final size = tester.getSize(find.byType(InvisibleInk));
+      // Room for a track along the top with ink left whole below it.
+      expect(size.width, greaterThan(200));
+      expect(size.height, greaterThan(120));
+      const y = 16.0;
+      final gesture = await tester.startGesture(origin + const Offset(20, y));
+      for (var x = 20.0; x < size.width - 20; x += 12) {
+        await gesture.moveTo(origin + Offset(x, y));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      // Clear all along the path, the first place rubbed included.
+      for (var x = 20.0; x < size.width - 32; x += 10) {
+        expect(ink(tester).shownAt(Offset(x, y)), 1, reason: 'at $x');
+      }
+      // Thinning out beside it, and whole beyond the brush.
+      expect(
+        ink(
+          tester,
+        ).shownAt(Offset(size.width / 2, y + InvisibleInk.brushRadius * 0.8)),
+        inExclusiveRange(0, 1),
+      );
+      for (final point in [
+        Offset(size.width / 2, y + InvisibleInk.brushRadius + 8),
+        Offset(20, size.height - 10),
+        size.bottomRight(const Offset(-10, -10)),
+        size.center(const Offset(0, 30)),
+      ]) {
+        expect(ink(tester).shownAt(point), 0, reason: 'at $point');
+      }
+      // Nothing below the track is painted at all.
+      expect(painted(tester).bottom, lessThan(size.height - 40));
+      expect(ink(tester).cleared, lessThan(InvisibleInk.revealThreshold));
+      expect(ink(tester).isRevealed, isFalse);
+      expect(particles, findsOneWidget);
+      await gesture.up();
+      await pumpUntilCovered(tester);
+      expect(ink(tester).isHidden, isTrue);
+    });
+
+    testWidgets('once most of the ink is rubbed away the rest goes by itself', (
+      tester,
+    ) async {
+      await pumpMessage(
+        tester,
+        effectEvent(MessageEffect.invisibleInk, body: long),
+      );
+      final size = tester.getSize(find.byType(InvisibleInk));
+      final corner = size.bottomRight(const Offset(-6, -6));
+      // One pass along the top is far short of it.
+      final origin = tester.getTopLeft(find.byType(InvisibleInk));
+      final pass = await tester.startGesture(origin + const Offset(10, 10));
+      await pass.moveTo(origin + Offset(size.width - 10, 10));
+      await tester.pump(const Duration(seconds: 1));
+      expect(ink(tester).cleared, inExclusiveRange(0.05, 0.5));
+      expect(ink(tester).isRevealed, isFalse);
+      await pass.up();
+
+      final gesture = await rubInkClear(tester);
+      expect(
+        ink(tester).cleared,
+        greaterThanOrEqualTo(InvisibleInk.revealThreshold),
+      );
+      // The finger has not been everywhere, and ink is left.
+      expect(ink(tester).cleared, lessThan(0.95));
+      expect(ink(tester).isRevealed, isFalse);
+      expect(particles, findsOneWidget);
+      // The rest goes without another move.
+      await tester.pump(InvisibleInk.completeDuration ~/ 2);
+      expect(ink(tester).isRevealed, isFalse);
+      await tester.pump(InvisibleInk.completeDuration ~/ 2);
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(ink(tester).isRevealed, isTrue);
+      expect(ink(tester).cleared, 1);
+      expect(ink(tester).shownAt(corner), 1);
+      expect(painted(tester), Offset.zero & size);
+      expect(particles, findsNothing);
+      // It stays so for as long as the finger is down.
+      await tester.pump(const Duration(seconds: 30));
+      expect(ink(tester).isRevealed, isTrue);
+      await gesture.up();
+      await tester.pump(InvisibleInk.revealedIdle);
+      await pumpUntilCovered(tester);
+      expect(ink(tester).isHidden, isTrue);
+    });
+
+    testWidgets('a bubble rubbed clear stays readable until left alone', (
+      tester,
+    ) async {
+      await pumpMessage(
+        tester,
+        effectEvent(MessageEffect.invisibleInk, body: long),
+      );
+      final gesture = await rubInkClear(tester);
+      await tester.pump(InvisibleInk.completeDuration);
+      await tester.pump(const Duration(milliseconds: 50));
+      await gesture.up();
+      expect(ink(tester).isRevealed, isTrue);
+      // Longer than rubbed ink holds, shorter than the idle time.
+      const most = Duration(seconds: 3);
+      expect(most, greaterThan(InvisibleInk.holdAfterRub));
+      expect(most, lessThan(InvisibleInk.revealedIdle));
+      await tester.pump(most);
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(ink(tester).isRevealed, isTrue);
+      // A touch starts the wait again.
+      await tester.tap(find.byType(InvisibleInk));
+      await tester.pump(most);
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(ink(tester).isRevealed, isTrue);
+      expect(particles, findsNothing);
+      // Left alone, the ink comes back over all of it at once.
+      await tester.pump(InvisibleInk.revealedIdle - most);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(InvisibleInk.concealDuration ~/ 2);
+      expect(ink(tester).isRevealed, isFalse);
+      expect(particles, findsOneWidget);
+      final size = tester.getSize(find.byType(InvisibleInk));
+      final shown = ink(tester).shownAt(const Offset(8, 8));
+      expect(shown, inExclusiveRange(0.2, 0.8));
+      expect(
+        ink(tester).shownAt(size.bottomRight(const Offset(-8, -8))),
+        closeTo(shown, 1e-6),
+      );
+      expect(
+        ink(tester).shownAt(size.center(Offset.zero)),
+        closeTo(shown, 1e-6),
+      );
+      // A touch as it comes back clears it all again.
+      final again = await tester.startGesture(
+        tester.getCenter(find.byType(InvisibleInk)),
       );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 40));
-      final shown = tester
-          .widget<ClipPath>(clip)
-          .clipper!
-          .getClip(size)
-          .getBounds();
-      expect(shown.center.dx, moreOrLessEquals(20, epsilon: 0.01));
-      expect(shown.center.dy, moreOrLessEquals(12, epsilon: 0.01));
-      expect(shown.width, greaterThan(0));
-      expect(shown.width, lessThan(size.width));
+      expect(ink(tester).isRevealed, isTrue);
+      await again.up();
+      await tester.pump(InvisibleInk.revealedIdle);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(InvisibleInk.concealDuration);
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(ink(tester).isHidden, isTrue);
+      expect(painted(tester).isEmpty, isTrue);
+    });
+
+    testWidgets('a touch while the ink closes in keeps what is still clear', (
+      tester,
+    ) async {
+      await pumpMessage(
+        tester,
+        effectEvent(MessageEffect.invisibleInk, body: long),
+      );
+      final origin = tester.getTopLeft(find.byType(InvisibleInk));
+      const first = Offset(40, 20);
+      const second = Offset(160, 90);
+      await tester.tapAt(origin + first);
+      await tester.pump(InvisibleInk.holdAfterRub);
+      await tester.pump();
+      await tester.pump(InvisibleInk.concealDuration * 0.7);
+      final closing = ink(tester).shownAt(first);
+      expect(closing, greaterThan(0));
+      // Its rim has closed in already.
+      expect(ink(tester).shownAt(first + const Offset(26, 0)), 0);
+      final gesture = await tester.startGesture(origin + second);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 10));
+      expect(ink(tester).shownAt(first), closeTo(closing, 1e-3));
+      expect(ink(tester).shownAt(second), 1);
       await gesture.up();
+      await pumpUntilCovered(tester);
+      expect(ink(tester).isHidden, isTrue);
+    });
+
+    testWidgets('under reduced motion a touch shows the whole bubble', (
+      tester,
+    ) async {
+      await pumpMessage(
+        tester,
+        effectEvent(MessageEffect.invisibleInk, body: long),
+        reducedMotion: true,
+      );
+      final size = tester.getSize(clip);
+      expect(ink(tester).isHidden, isTrue);
+      expect(painted(tester).isEmpty, isTrue);
+      await tester.tapAt(
+        tester.getTopLeft(find.byType(InvisibleInk)) + const Offset(12, 12),
+      );
+      await tester.pump();
+      expect(ink(tester).isRevealed, isTrue);
+      expect(painted(tester), Offset.zero & size);
+      expect(ink(tester).shownAt(size.bottomRight(const Offset(-4, -4))), 1);
+      expect(particles, findsNothing);
+      // Nothing moves, and it is covered again at once when its time is up.
+      expect(tester.hasRunningAnimations, isFalse);
+      await tester.pump(
+        InvisibleInk.concealAfter - const Duration(milliseconds: 100),
+      );
+      expect(ink(tester).isRevealed, isTrue);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
+      expect(ink(tester).isHidden, isTrue);
+      expect(painted(tester).isEmpty, isTrue);
+      expect(particles, findsOneWidget);
+    });
+
+    testWidgets('a rub on the ink does not scroll the chat', (tester) async {
+      await pumpMessage(
+        tester,
+        effectEvent(MessageEffect.invisibleInk, body: long),
+        above: 900,
+      );
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      // Twice: the list learns its length as the message is laid out.
+      for (var i = 0; i < 2; i++) {
+        position.jumpTo(position.maxScrollExtent);
+        await tester.pump();
+      }
+      final end = position.pixels;
+      expect(end, position.maxScrollExtent);
+      expect(end, greaterThan(200));
+      final inkRect = tester.getRect(find.byType(InvisibleInk));
+      expect(inkRect.height, greaterThan(120));
+      expect(inkRect.top, greaterThan(160));
+      expect(inkRect.bottom, lessThan(600));
+
+      Future<void> drag(Offset from, Offset by) async {
+        final gesture = await tester.startGesture(from);
+        for (var i = 0; i < 10; i++) {
+          await gesture.moveBy(by / 10);
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await gesture.up();
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+
+      // Down the ink, then across it: the list stays where it is and the
+      // ink clears under the finger.
+      await drag(inkRect.topCenter + const Offset(0, 10), const Offset(0, 100));
+      expect(position.pixels, end);
+      expect(ink(tester).shownAt(Offset(inkRect.width / 2, 60)), 1);
+      await drag(
+        inkRect.centerLeft + const Offset(20, 0),
+        const Offset(120, 0),
+      );
+      expect(position.pixels, end);
+      expect(ink(tester).shownAt(Offset(80, inkRect.height / 2)), 1);
+
+      // The same drag from above the bubble scrolls as ever.
+      await drag(
+        inkRect.topCenter - const Offset(0, 150),
+        const Offset(0, 100),
+      );
+      expect(position.pixels, lessThan(end - 50));
+      await pumpUntilCovered(tester);
+      expect(ink(tester).isHidden, isTrue);
+    });
+
+    testWidgets('a rub runs on from one ink bubble into the next', (
+      tester,
+    ) async {
+      await pumpMessage(
+        tester,
+        effectEvent(MessageEffect.invisibleInk, body: long),
+        next: effectEvent(MessageEffect.invisibleInk, id: '\$next', body: long),
+        above: 900,
+      );
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      for (var i = 0; i < 2; i++) {
+        position.jumpTo(position.maxScrollExtent);
+        await tester.pump();
+      }
+      final end = position.pixels;
+      final bubbles = find.byType(InvisibleInk);
+      expect(bubbles, findsNWidgets(2));
+      InvisibleInkState inkAt(int i) =>
+          tester.state<InvisibleInkState>(bubbles.at(i));
+      final first = tester.getRect(bubbles.at(0));
+      final second = tester.getRect(bubbles.at(1));
+      expect(first.top, greaterThan(0));
+      expect(second.bottom, lessThan(600));
+      // Apart, with more than the brush's reach between the two points.
+      expect(second.top, greaterThan(first.bottom));
+      final from = first.center;
+      final to = second.center;
+      expect((to - from).distance, greaterThan(InvisibleInk.brushRadius * 3));
+
+      final gesture = await tester.startGesture(from);
+      await tester.pump();
+      expect(inkAt(1).isHidden, isTrue);
+      for (var i = 1; i <= 12; i++) {
+        await gesture.moveTo(Offset.lerp(from, to, i / 12)!);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      // The second is clear where the finger went, and only there.
+      expect(inkAt(1).shownAt(to - second.topLeft), 1);
+      expect(inkAt(1).shownAt(const Offset(8, 8)), 0);
+      expect(inkAt(0).shownAt(from - first.topLeft), 1);
+      // The chat did not scroll under it.
+      expect(position.pixels, end);
+      // Both hold while the finger is down, the first too.
+      await tester.pump(const Duration(seconds: 10));
+      expect(inkAt(0).shownAt(from - first.topLeft), 1);
+      expect(inkAt(1).shownAt(to - second.topLeft), 1);
+      await gesture.up();
+      await pumpUntilCovered(tester);
+      expect(inkAt(0).isHidden, isTrue);
+      expect(inkAt(1).isHidden, isTrue);
+    });
+
+    testWidgets('ink bubbles of two messages are rubbed clear one by one', (
+      tester,
+    ) async {
+      await pumpMessage(
+        tester,
+        effectEvent(MessageEffect.invisibleInk, body: long),
+        next: effectEvent(MessageEffect.invisibleInk, id: '\$next', body: long),
+      );
+      final bubbles = find.byType(InvisibleInk);
+      InvisibleInkState inkAt(int i) =>
+          tester.state<InvisibleInkState>(bubbles.at(i));
+      final gesture = await rubInkClear(tester, bubbles.at(0));
+      await tester.pump(InvisibleInk.completeDuration);
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(inkAt(0).isRevealed, isTrue);
+      expect(inkAt(1).isRevealed, isFalse);
+      // The same finger goes on to the second, which has its own share
+      // to reach.
+      await gesture.moveTo(tester.getCenter(bubbles.at(1)));
+      await tester.pump();
+      expect(inkAt(1).cleared, inExclusiveRange(0, 0.4));
+      expect(inkAt(1).isFinishing, isFalse);
+      final size = tester.getSize(bubbles.at(1));
+      expect(inkAt(1).shownAt(size.bottomRight(const Offset(-8, -8))), 0);
+      await gesture.up();
+      // The second closes in after its own short hold, while the first is
+      // still wholly readable.
+      final rubbed = inkAt(1).cleared;
+      expect(rubbed, greaterThan(0));
+      await tester.pump(InvisibleInk.holdAfterRub);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(InvisibleInk.concealDuration ~/ 2);
+      expect(inkAt(1).cleared, lessThan(rubbed * 0.8));
+      expect(inkAt(0).isRevealed, isTrue);
+      await tester.pump(InvisibleInk.revealedIdle);
+      await pumpUntilCovered(tester);
+      expect(inkAt(0).isHidden, isTrue);
+      expect(inkAt(1).isHidden, isTrue);
+    });
+
+    testWidgets('a long press on the ink still selects the message', (
+      tester,
+    ) async {
+      final selected = <Event>[];
+      await pumpMessage(
+        tester,
+        effectEvent(MessageEffect.invisibleInk, body: long),
+        onSelect: selected.add,
+      );
+      await tester.longPress(find.byType(InvisibleInk));
+      await tester.pump();
+      expect(selected, hasLength(1));
       await tester.pump(const Duration(seconds: 8));
     });
 
@@ -989,25 +1406,64 @@ void main() {
       }
     });
 
-    test('an opening reveal clears the specks inside it', () {
+    test('rubbed ink has no specks, and those at its edge are pushed off', () {
       final particles = InkParticles(math.Random(3));
-      const center = Offset(60, 22);
+      const from = Offset(40, 22), to = Offset(100, 22);
+      final mask = InkMask()..resize(bubble);
+      addTearDown(mask.dispose);
       final all = particles.layout(bubble, 1, white);
-      final left = particles.layout(
-        bubble,
-        1,
-        white,
-        clearCenter: center,
-        clearRadius: 30,
-      );
-      expect(left, lessThan(all - 200));
+      final whole = Float32List.fromList(particles.positions);
+      // An untouched mask changes nothing.
+      expect(particles.layout(bubble, 1, white, mask: mask), all);
+      expect(particles.positions, whole);
+
+      expect(mask.stroke(from, to, 20), isTrue);
+      final left = particles.layout(bubble, 1, white, mask: mask);
+      expect(left, lessThan(all - 150));
+      var dimmed = 0;
       for (var i = 0; i < left; i++) {
         final at = Offset(
           particles.positions[i * 8] + 0.5,
           particles.positions[i * 8 + 1] + 0.5,
         );
-        expect((at - center).distance, greaterThan(29));
+        // None on the clear middle of the track.
+        if (at.dx > from.dx && at.dx < to.dx) {
+          expect((at.dy - from.dy).abs(), greaterThan(9), reason: '$at');
+        }
+        if (mask.shownAt(at) > 0.2) {
+          dimmed++;
+          expect(particles.colors[i * 4] >>> 24, lessThan(205));
+        }
       }
+      expect(dimmed, greaterThan(10));
+      // Far from the track the specks are where they were.
+      final far = particles.layout(bubble, 1, white);
+      expect(far, all);
+      // Going back over the track clears nothing new.
+      expect(mask.stroke(to, from, 20), isFalse);
+      expect(
+        mask.stroke(const Offset(60, 22), const Offset(80, 22), 20),
+        isFalse,
+      );
+    });
+
+    test('the cover over hidden content is one mesh, kept between frames', () {
+      final mask = InkMask()..resize(bubble);
+      addTearDown(mask.dispose);
+      var changes = 0;
+      mask.addListener(() => changes++);
+      mask.stroke(const Offset(40, 22), const Offset(100, 22), 20);
+      expect(changes, 1);
+      final cover = mask.cover(white);
+      expect(mask.cover(white), same(cover));
+      mask.fade = 0.5;
+      expect(changes, 2);
+      expect(mask.cover(white), isNot(same(cover)));
+      // The points stay a few pixels apart on a large photo too.
+      final photo = InkMask()..resize(const Size(320, 420));
+      addTearDown(photo.dispose);
+      expect(photo.columns * photo.rows, lessThanOrEqualTo(6200));
+      expect(photo.stepX, lessThan(8));
     });
   });
 
@@ -1468,7 +1924,9 @@ void main() {
       expect(played, isEmpty);
     }, variant: TargetPlatformVariant.desktop());
 
-    testWidgets('invisible ink ticks while a swipe reveals it', (tester) async {
+    testWidgets('invisible ink ticks while a rub clears fresh ink', (
+      tester,
+    ) async {
       await pumpMessage(
         tester,
         effectEvent(MessageEffect.invisibleInk, body: 'The password'),
@@ -1490,12 +1948,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 16));
       }
       expect(played, hasLength(5));
-      // Once the ink has cleared, swiping over it is not felt.
-      await tester.pump(const Duration(seconds: 1));
-      expect(
-        tester.state<InvisibleInkState>(find.byType(InvisibleInk)).isRevealed,
-        isTrue,
-      );
+      // Going back over ink already cleared is not felt.
       for (var i = 0; i < 3; i++) {
         await gesture.moveBy(const Offset(-InvisibleInk.tickDistance, 0));
         await tester.pump(const Duration(milliseconds: 16));
@@ -1503,6 +1956,39 @@ void main() {
       expect(played, hasLength(5));
       await gesture.up();
       await tester.pump(const Duration(seconds: 8));
+    });
+
+    testWidgets('invisible ink ticks once, harder, as the last of it goes', (
+      tester,
+    ) async {
+      await pumpMessage(
+        tester,
+        effectEvent(
+          MessageEffect.invisibleInk,
+          body: List.filled(5, 'The password is swordfish.').join(' '),
+        ),
+      );
+      final gesture = await rubInkClear(tester);
+      double scaleOf(MethodCall call) =>
+          ((call.arguments as List).single as List)[1] as double;
+      expect(played.map(composed), everyElement(beats('tick', [0])));
+      final rubbing = played.sublist(0, played.length - 1).map(scaleOf);
+      expect(rubbing, everyElement(lessThanOrEqualTo(0.5)));
+      expect(scaleOf(played.last), InvisibleInk.completeTick);
+      expect(InvisibleInk.completeTick, greaterThan(0.5));
+      // Nothing more as the ink goes, or under a finger on the bare bubble.
+      final felt = played.length;
+      await tester.pump(InvisibleInk.completeDuration);
+      await tester.pump(const Duration(milliseconds: 50));
+      await gesture.moveBy(const Offset(0, -40));
+      await gesture.moveBy(const Offset(40, 0));
+      await tester.pump();
+      expect(played, hasLength(felt));
+      await gesture.up();
+      await tester.pump(InvisibleInk.revealedIdle);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(InvisibleInk.concealDuration);
+      await tester.pump(const Duration(milliseconds: 50));
     });
 
     testWidgets('invisible ink does not tick under reduced motion', (
@@ -2162,6 +2648,157 @@ void main() {
     });
   });
 
+  group('the picker sheet', () {
+    Future<List<String>> pumpInkPicker(WidgetTester tester) async {
+      final log = <String>[];
+      // A phone's screen with its status bar, so the sheet has a phone's
+      // room and stops short of the top.
+      tester.view.physicalSize = const Size(412, 900);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 40);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: L10n.localizationsDelegates,
+          supportedLocales: L10n.supportedLocales,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async {
+                  final effect = await showMessageEffectPicker(
+                    context,
+                    text: List.filled(
+                      4,
+                      'The password is swordfish.',
+                    ).join(' '),
+                    bubbleColor: Colors.green,
+                    onBubbleColor: Colors.white,
+                  );
+                  log.add('closed with $effect');
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await pumpUntilBuilt(tester);
+      await tester.tap(find.text('Open'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      await tester.tap(find.byKey(const ValueKey('effect_invisibleInk')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      return log;
+    }
+
+    final sheet = find.byType(BottomSheet);
+    final stage = find.byType(ScreenEffectHost);
+
+    testWidgets('stays still while the ink in the preview is rubbed', (
+      tester,
+    ) async {
+      final log = await pumpInkPicker(tester);
+      final top = tester.getTopLeft(sheet).dy;
+      final inkRect = tester.getRect(find.byType(InvisibleInk));
+      expect(inkRect.height, greaterThan(80));
+      final gesture = await tester.startGesture(
+        inkRect.topCenter + const Offset(0, 10),
+      );
+      for (var i = 0; i < 10; i++) {
+        await gesture.moveBy(const Offset(0, 10));
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.getTopLeft(sheet).dy, top);
+      }
+      // The ink took the rub.
+      final ink = tester.state<InvisibleInkState>(find.byType(InvisibleInk));
+      expect(ink.shownAt(Offset(inkRect.width / 2, 60)), 1);
+      await gesture.up();
+      await tester.pump();
+      // Lifting does not replay the preview and cover the ink again.
+      expect(ink.mounted, isTrue);
+      expect(ink.isHidden, isFalse);
+      await tester.pump(const Duration(seconds: 1));
+      expect(log, isEmpty);
+      expect(tester.getTopLeft(sheet).dy, top);
+
+      // A fast downward flick over the ink does not close the sheet.
+      await tester.flingFrom(inkRect.topCenter, const Offset(0, 120), 3000);
+      await tester.pump(const Duration(seconds: 1));
+      expect(log, isEmpty);
+      expect(find.byType(MessageEffectPicker), findsOneWidget);
+      await tester.pump(const Duration(seconds: 8));
+    });
+
+    testWidgets('a tap on the ink in the preview clears a patch of it', (
+      tester,
+    ) async {
+      await pumpInkPicker(tester);
+      final ink = tester.state<InvisibleInkState>(find.byType(InvisibleInk));
+      await tester.tap(find.byType(InvisibleInk));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      // The preview is not played again, which would cover the ink anew.
+      expect(ink.mounted, isTrue);
+      expect(ink.isHidden, isFalse);
+      expect(ink.isRevealed, isFalse);
+      await tester.pump(const Duration(seconds: 8));
+    });
+
+    testWidgets('stays still under a drag on the stage around the bubble', (
+      tester,
+    ) async {
+      final log = await pumpInkPicker(tester);
+      final top = tester.getTopLeft(sheet).dy;
+      final from = tester.getTopLeft(stage) + const Offset(30, 30);
+      final gesture = await tester.startGesture(from);
+      for (var i = 0; i < 10; i++) {
+        await gesture.moveBy(const Offset(0, 12));
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.getTopLeft(sheet).dy, top);
+      }
+      await gesture.up();
+      await tester.pump(const Duration(seconds: 1));
+      expect(log, isEmpty);
+    });
+
+    testWidgets('still closes when its handle is dragged down', (tester) async {
+      final log = await pumpInkPicker(tester);
+      final top = tester.getTopLeft(sheet).dy;
+      final handle = tester.getRect(sheet).topCenter + const Offset(0, 16);
+      final gesture = await tester.startGesture(handle);
+      await gesture.moveBy(const Offset(0, 30));
+      await gesture.moveBy(const Offset(0, 100));
+      await tester.pump();
+      expect(tester.getTopLeft(sheet).dy, greaterThan(top + 60));
+      for (var i = 0; i < 10; i++) {
+        await gesture.moveBy(const Offset(0, 40));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(log, ['closed with null']);
+      expect(find.byType(MessageEffectPicker), findsNothing);
+    });
+
+    testWidgets('still closes on a tap outside it and on back', (tester) async {
+      final log = await pumpInkPicker(tester);
+      await tester.tapAt(const Offset(200, 20));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(log, ['closed with null']);
+      await tester.tap(find.text('Open'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.byType(MessageEffectPicker), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(log, ['closed with null', 'closed with null']);
+    });
+  });
+
   group('the send button', () {
     Future<List<Object>> pumpSendButton(
       WidgetTester tester,
@@ -2329,6 +2966,160 @@ void main() {
         findsOneWidget,
       );
       await tester.pumpWidget(const SizedBox());
+    });
+
+    group('ink over a photo and its caption is one surface', () {
+      const caption = 'The door code is 4471, tell nobody at all';
+      final inks = find.byType(InvisibleInk);
+      InvisibleInkState inkAt(WidgetTester tester, int i) =>
+          tester.state<InvisibleInkState>(inks.at(i));
+
+      /// How much shows of bubble [i] at the point [global] of the screen.
+      double shownAt(WidgetTester tester, int i, Offset global) =>
+          inkAt(tester, i).shownAt(
+            tester.renderObject<RenderBox>(inks.at(i)).globalToLocal(global),
+          );
+
+      Future<void> pumpPreview(WidgetTester tester) async {
+        await pumpSendButton(
+          tester,
+          iMessage,
+          text: caption,
+          media: [staged('photo.png', 'image/png')],
+        );
+        await tester.pump(const Duration(seconds: 3));
+        await tester.tap(find.byKey(const ValueKey('effect_invisibleInk')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(inks, findsNWidgets(2));
+      }
+
+      Future<void> pumpUntilCovered(WidgetTester tester) async {
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pump(InvisibleInk.concealDuration);
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      testWidgets('a rub runs from the caption up onto the photo', (
+        tester,
+      ) async {
+        await pumpPreview(tester);
+        final photo = tester.getRect(inks.at(0));
+        final text = tester.getRect(inks.at(1));
+        expect(text.top, greaterThan(photo.bottom));
+        final from = text.center;
+        final to = Offset(text.center.dx, photo.center.dy);
+        expect(photo.contains(to), isTrue);
+        final gesture = await tester.startGesture(from);
+        for (var i = 1; i <= 12; i++) {
+          await gesture.moveTo(Offset.lerp(from, to, i / 12)!);
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(shownAt(tester, 1, from), 1);
+        expect(shownAt(tester, 0, to), 1);
+        expect(inkAt(tester, 0).shownAt(const Offset(8, 8)), 0);
+        expect(inkAt(tester, 0).isRevealed, isFalse);
+        // What is clear on the photo holds for as long as the caption's.
+        await gesture.up();
+        await tester.pump(
+          InvisibleInk.holdAfterRub - const Duration(milliseconds: 100),
+        );
+        expect(shownAt(tester, 0, to), 1);
+        await tester.pump(const Duration(milliseconds: 100));
+        await pumpUntilCovered(tester);
+        expect(inkAt(tester, 0).isHidden, isTrue);
+        expect(inkAt(tester, 1).isHidden, isTrue);
+        await tester.pumpWidget(const SizedBox());
+      });
+
+      testWidgets('the caption rubbed clear alone leaves both under ink', (
+        tester,
+      ) async {
+        await pumpPreview(tester);
+        final gesture = await rubInkClear(tester, inks.at(1));
+        // All of the caption is a small share of the two together.
+        expect(
+          inkAt(tester, 1).cleared,
+          greaterThan(InvisibleInk.revealThreshold),
+        );
+        await tester.pump(const Duration(seconds: 1));
+        expect(inkAt(tester, 1).isFinishing, isFalse);
+        expect(inkAt(tester, 1).isRevealed, isFalse);
+        expect(inkAt(tester, 0).isRevealed, isFalse);
+        expect(inkAt(tester, 0).shownAt(const Offset(90, 40)), 0);
+        await gesture.up();
+        await tester.pump(InvisibleInk.holdAfterRub);
+        await pumpUntilCovered(tester);
+        expect(inkAt(tester, 0).isHidden, isTrue);
+        expect(inkAt(tester, 1).isHidden, isTrue);
+        await tester.pumpWidget(const SizedBox());
+      });
+
+      testWidgets('most of the two rubbed clear clears both, and both '
+          'come back together', (tester) async {
+        await pumpPreview(tester);
+        // All of the photo is not enough of the two.
+        final photo = await rubInkClear(tester, inks.at(0));
+        expect(inkAt(tester, 0).cleared, greaterThan(0.9));
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(inkAt(tester, 0).isFinishing, isFalse);
+        expect(inkAt(tester, 0).isRevealed, isFalse);
+        await photo.up();
+        // Some of the caption with it is. The finger keeps to the foot of
+        // the caption, out of the brush's reach of the photo, and never
+        // comes near the caption's top corner.
+        final text = tester.getRect(inks.at(1));
+        expect(text.height, greaterThan(55));
+        const far = Offset(4, 2);
+        final gesture = await tester.startGesture(
+          text.bottomLeft + const Offset(10, -6),
+        );
+        for (final y in [6.0, 28.0]) {
+          for (var x = 10.0; x <= text.width - 10; x += 10) {
+            if (inkAt(tester, 1).isFinishing) break;
+            await gesture.moveTo(text.bottomLeft + Offset(x, -y));
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+        }
+        expect(inkAt(tester, 1).isFinishing, isTrue);
+        expect(inkAt(tester, 0).isFinishing, isTrue);
+        expect(inkAt(tester, 1).shownAt(far), 0);
+        await tester.pump(InvisibleInk.completeDuration);
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(inkAt(tester, 0).isRevealed, isTrue);
+        expect(inkAt(tester, 1).isRevealed, isTrue);
+        expect(inkAt(tester, 1).shownAt(far), 1);
+        await gesture.up();
+        // A finger held on the caption keeps the photo readable too, past
+        // the time the photo would have been left alone.
+        const most = Duration(seconds: 3);
+        await tester.pump(most);
+        final held = await tester.startGesture(
+          text.bottomCenter - const Offset(0, 6),
+        );
+        await tester.pump(most);
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(inkAt(tester, 0).isRevealed, isTrue);
+        expect(inkAt(tester, 1).isRevealed, isTrue);
+        // The wait starts again for both when it lifts.
+        await held.up();
+        await tester.pump(most);
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(inkAt(tester, 0).isRevealed, isTrue);
+        expect(inkAt(tester, 1).isRevealed, isTrue);
+        // Left alone, the ink comes back over both at once.
+        await tester.pump(InvisibleInk.revealedIdle - most);
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pump(InvisibleInk.concealDuration ~/ 2);
+        final shown = inkAt(tester, 0).shownAt(const Offset(90, 100));
+        expect(shown, inExclusiveRange(0.2, 0.8));
+        expect(inkAt(tester, 1).shownAt(far), closeTo(shown, 1e-6));
+        await tester.pump(InvisibleInk.concealDuration ~/ 2);
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(inkAt(tester, 0).isHidden, isTrue);
+        expect(inkAt(tester, 1).isHidden, isTrue);
+        await tester.pumpWidget(const SizedBox());
+      });
     });
 
     testWidgets('a long press elsewhere does what it did before', (

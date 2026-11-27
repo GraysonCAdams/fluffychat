@@ -5,6 +5,7 @@
 import 'dart:io';
 
 import 'package:cross_file/cross_file.dart';
+import 'package:fluffychat/pages/chat/effects/invisible_ink.dart';
 import 'package:fluffychat/pages/chat/effects/message_effect_bubble.dart';
 import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/utils/resize_video.dart';
@@ -17,8 +18,10 @@ import 'package:mime/mime.dart';
 /// sent with a caption. Several items lie in a stack, the first on top.
 ///
 /// A bubble effect moves the media and the text as one. Invisible ink
-/// covers each of them on its own, so a touch on the photo leaves the text
-/// hidden. A screen effect plays around the whole message.
+/// covers each of them in its own shape, as one surface (see
+/// [InvisibleInkGroup]): a rub runs from one onto the other, and once
+/// most of the two together is clear the rest of both goes. A screen
+/// effect plays around the whole message.
 class EffectPreviewMessage extends StatelessWidget {
   final MessageEffect effect;
   final String text;
@@ -75,20 +78,22 @@ class EffectPreviewMessage extends StatelessWidget {
 
     final Widget message;
     if (effect == MessageEffect.invisibleInk) {
-      message = Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        spacing: 4,
-        children: [
-          if (mediaStack != null)
-            bubble(
-              mediaStack,
-              key: const ValueKey('effect_preview_media_ink'),
-              color: theme.colorScheme.surfaceContainerHighest,
-              onColor: theme.colorScheme.onSurface,
-            ),
-          if (hasText) bubble(textBubble),
-        ],
+      message = InvisibleInkGroup(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          spacing: 4,
+          children: [
+            if (mediaStack != null)
+              bubble(
+                mediaStack,
+                key: const ValueKey('effect_preview_media_ink'),
+                color: theme.colorScheme.surfaceContainerHighest,
+                onColor: theme.colorScheme.onSurface,
+              ),
+            if (hasText) bubble(textBubble),
+          ],
+        ),
       );
     } else {
       message = bubble(
