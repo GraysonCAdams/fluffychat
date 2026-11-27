@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:math';
 
@@ -51,7 +52,15 @@ abstract class MergedContactsBackend {
 class ClientMergedContactsBackend extends MergedContactsBackend {
   final Client client;
 
-  ClientMergedContactsBackend(this.client);
+  ClientMergedContactsBackend(
+    this.client, {
+    @visibleForTesting
+    Future<void> Function(Room room) loadMembers = GroupAvatar.loadMembers,
+  }) : _loadRoomMembers = loadMembers;
+
+  /// Loads a room's members once a session, shared with the chat list's
+  /// group avatars so the server is asked once.
+  final Future<void> Function(Room room) _loadRoomMembers;
 
   @override
   Map<String, Object?>? read() =>
@@ -108,26 +117,47 @@ class ClientMergedContactsBackend extends MergedContactsBackend {
   Stream<void> get onRoomsChanged =>
       StreamGroup.merge([_onRoomsChanged, _membersLoaded.stream]);
 
-  /// Fires when the member list of a group, missing from memory when the
-  /// same-people groups were looked for, has been loaded.
+  /// Fires when the member lists of the groups missing from memory when the
+  /// same-people groups were looked for have been loaded: once for all the
+  /// groups waiting, not once per group.
   final StreamController<void> _membersLoaded = StreamController.broadcast();
 
   @override
   List<({List<String> rooms, String? name})> sameGroups() => [
-    for (final group in findSameGroups(client, onIncomplete: _loadMembers))
+    for (final group in findSameGroups(client, onIncomplete: requestMembers))
       (rooms: group.roomIds, name: group.name),
   ];
 
   /// The groups whose members were asked for, so each is asked once.
   final Set<String> _asked = {};
 
-  /// Loads [room]'s members once a session, shared with the chat list's
-  /// group avatars so the server is asked once, then looks again.
-  void _loadMembers(Room room) {
+  /// Groups asked for whose members are not loaded yet, oldest first.
+  final Queue<Room> _waiting = Queue();
+  bool _loading = false;
+
+  /// Loads [room]'s members once a session, then looks for same-people
+  /// groups again.
+  ///
+  /// The first look after a start finds every bridged group without its
+  /// members in memory, a couple of hundred on a large account. Their lists
+  /// are loaded one room at a time, so the database stays free for the
+  /// screens in between, and the groups are looked for again once the
+  /// queue is empty. Looking costs about 100 ms over that many rooms, so
+  /// doing it after each room kept the app busy for over 20 seconds.
+  @visibleForTesting
+  void requestMembers(Room room) {
     if (!_asked.add(room.id)) return;
-    GroupAvatar.loadMembers(room).then((_) {
-      if (!_membersLoaded.isClosed) _membersLoaded.add(null);
-    });
+    _waiting.add(room);
+    if (!_loading) _loadWaiting();
+  }
+
+  Future<void> _loadWaiting() async {
+    _loading = true;
+    while (_waiting.isNotEmpty && !_membersLoaded.isClosed) {
+      await _loadRoomMembers(_waiting.removeFirst());
+    }
+    _loading = false;
+    if (!_membersLoaded.isClosed) _membersLoaded.add(null);
   }
 
   @override
