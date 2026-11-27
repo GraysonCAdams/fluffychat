@@ -6,6 +6,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_filter_menu.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/utils/message_search/message_search_hit.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -93,7 +94,7 @@ enum SearchScope {
 /// Whether a listed chat counts as a person for the search: a one-to-one
 /// chat, or a contact merged from several.
 bool searchChatIsPerson(ChatListController controller, Room room) =>
-    controller.mergedContactFor(room) != null || room.isDirectChat;
+    controller.mergedContactFor(room) != null || room.isOneToOne;
 
 /// [text] with each case-insensitive match of [query] in [style].
 List<TextSpan> highlightMatches(String text, String query, TextStyle style) {

@@ -12,6 +12,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/hover_builder.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -85,7 +86,7 @@ class ChatInputRow extends StatelessWidget {
         (networks == null
             ? spacesByChild(
                 targetRoom.client,
-              )[targetRoom.id]?.getLocalizedDisplayname(locals)
+              )[targetRoom.id]?.chatDisplayname(locals)
             : null) ??
         (targetRoom.encrypted
             ? L10n.of(context).encryptedMessage

@@ -11,6 +11,7 @@ import 'package:fluffychat/pages/settings/settings.dart';
 import 'package:fluffychat/utils/file_selector.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_text_input_dialog.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
@@ -51,7 +52,7 @@ class ChatDetailsController extends State<ChatDetails> {
       title: l10n.changeTheNameOfTheGroup,
       okLabel: l10n.ok,
       cancelLabel: l10n.cancel,
-      initialText: room.getLocalizedDisplayname(MatrixLocals(l10n)),
+      initialText: room.chatDisplayname(MatrixLocals(l10n)),
     );
     if (input == null) return;
     if (!mounted) return;

@@ -14,6 +14,7 @@ import 'package:fluffychat/utils/merged_contacts/merge_rules.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/room_unread.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_modal_action_popup.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
@@ -388,12 +389,11 @@ List<(_MoreAction, String)> _moreActions(
       (_MoreAction.manage, l10n.manageLinkedChats),
       (_MoreAction.unmerge, l10n.unmerge),
     ] else if (room != null) ...[
-      if (joined && room.isDirectChat && !room.isSpace)
-        (_MoreAction.mergeWith, l10n.mergeWith),
+      if (joined && room.isOneToOne) (_MoreAction.mergeWith, l10n.mergeWith),
       if (spacesByChild(client)[room.id] case final space?)
         (
           _MoreAction.goToSpace,
-          l10n.goToSpace(space.getLocalizedDisplayname(MatrixLocals(l10n))),
+          l10n.goToSpace(space.chatDisplayname(MatrixLocals(l10n))),
         ),
     ] else if (canMergeTogether(client, [for (final chat in chats) chat.rooms]))
       (_MoreAction.mergeSelected, l10n.mergeTheseChats),
@@ -590,7 +590,7 @@ Future<void> _onMore(
           for (final space in spaces)
             AdaptiveModalAction(
               value: space,
-              label: space.getLocalizedDisplayname(MatrixLocals(l10n)),
+              label: space.chatDisplayname(MatrixLocals(l10n)),
             ),
         ],
       );

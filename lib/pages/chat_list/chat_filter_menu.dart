@@ -6,6 +6,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:material_ui/material_ui.dart';
@@ -33,7 +34,7 @@ String chatFilterLabel(BuildContext context, ChatListController controller) {
       controller.activeTag!.replaceFirst('u.', '')
     else if (filter != ActiveFilter.allChats)
       filter.toLocalizedString(context),
-    if (network != null) network.getLocalizedDisplayname(MatrixLocals(l10n)),
+    if (network != null) network.chatDisplayname(MatrixLocals(l10n)),
   ];
   return parts.isEmpty ? l10n.allChats : parts.join(' · ');
 }
@@ -122,7 +123,7 @@ Future<void> showChatFilterMenu(
           chatMenuItem(
             value: 'network:${space.id}',
             leading: _networkAvatar(space, locals),
-            label: space.getLocalizedDisplayname(locals),
+            label: space.chatDisplayname(locals),
             checked: space.id == network?.id,
           ),
       ],
@@ -230,7 +231,7 @@ PopupMenuItem<String> chatMenuItem({
 
 Widget _networkAvatar(Room space, MatrixLocals locals) => Avatar(
   mxContent: space.avatar,
-  name: space.getLocalizedDisplayname(locals),
+  name: space.chatDisplayname(locals),
   size: 24,
   borderRadius: BorderRadius.circular(6),
 );

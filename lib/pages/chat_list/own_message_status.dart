@@ -6,7 +6,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:fluffychat/l10n/l10n.dart';
-import 'package:fluffychat/utils/matrix_features.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -33,8 +33,9 @@ class OwnMessageStatus {
 ///
 /// A member has read it when their newest receipt is on it, or on anything
 /// they read after it was sent: a receipt can sit on a later event the chat
-/// list does not show. The bridge bot does not count as a reader or a
-/// member, so in a bridged chat only the other side's own receipts (which
+/// list does not show. The bridge bot and other service members (see
+/// [RoomKind.serviceMembers]) do not count as readers or members,
+/// so in a bridged chat only the other side's own receipts (which
 /// Google Messages over RCS and Telegram send, and iMessage and SMS never
 /// do) turn it read.
 OwnMessageStatus? ownMessageStatusOf(Event event) {
@@ -48,11 +49,10 @@ OwnMessageStatus? ownMessageStatusOf(Event event) {
     return const OwnMessageStatus(OwnMessageState.sending);
   }
 
-  final bot = RoomBridge.fromState(room)?.bot;
   final readers = <String>{};
   void collect(LatestReceiptStateForTimeline? receipts) =>
       receipts?.otherUsers.forEach((user, receipt) {
-        if (user == me || user == bot) return;
+        if (!room.countsAsPerson(user)) return;
         if (receipt.eventId == event.eventId ||
             receipt.timestamp.isAfter(event.originServerTs)) {
           readers.add(user);
@@ -61,17 +61,7 @@ OwnMessageStatus? ownMessageStatusOf(Event event) {
   collect(room.receiptState.global);
   collect(room.receiptState.mainThread);
 
-  // The joined count takes in the user and, while it is in the room, the
-  // bridge bot.
-  final botMembership = bot == null
-      ? null
-      : room
-            .getState(EventTypes.RoomMember, bot)
-            ?.content
-            .tryGet<String>('membership');
-  final botJoined = bot != null && (botMembership ?? 'join') == 'join';
-  final joined = room.summary.mJoinedMemberCount ?? 0;
-  final others = max(joined - 1 - (botJoined ? 1 : 0), readers.length);
+  final others = max(room.otherPeopleCount, readers.length);
 
   if (readers.isEmpty) {
     return OwnMessageStatus(OwnMessageState.sent, others: others);

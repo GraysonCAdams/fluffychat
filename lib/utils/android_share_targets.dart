@@ -10,6 +10,7 @@ import 'package:fluffychat/utils/conversation_shortcut_icon.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:matrix/matrix.dart';
 
 /// How many recent chats are offered in the Android share sheet. The system
@@ -154,12 +155,12 @@ class AndroidShareTargets {
       if (room == null) continue;
       final name =
           notificationConversationName(client, room.id, i18n) ??
-          room.getLocalizedDisplayname(i18n);
+          room.chatDisplayname(i18n);
       shortcuts.add((id: target.shortcutId, name: name, room: room));
     }
 
     final signature = shortcuts
-        .map((s) => '${s.id}\u0000${s.name}\u0000${s.room.avatar}')
+        .map((s) => '${s.id}\u0000${s.name}\u0000${s.room.chatAvatar}')
         .join('\u0001');
     if (signature == _published) return;
     _published = signature;

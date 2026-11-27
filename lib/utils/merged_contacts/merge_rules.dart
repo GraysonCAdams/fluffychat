@@ -5,6 +5,7 @@
 import 'package:fluffychat/utils/merged_contacts/contact_identifiers.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:matrix/matrix.dart';
 
 /// Tells whether a chat may be merged into the conversation made of
@@ -26,12 +27,12 @@ bool Function(Room room) mergeCandidateTest(
   final spaceOf = spaces ?? spacesByChild(client);
   final currentIds = {for (final room in current) room.id};
   final networks = {for (final room in current) spaceOf[room.id]?.id};
-  final isGroup = !current.first.isDirectChat;
+  final isGroup = current.first.isGroupChat;
 
   String? Function(Room room) keyOf;
   if (isGroup) {
     keyOf = (room) {
-      final name = normalizeName(room.getLocalizedDisplayname());
+      final name = normalizeName(room.chatDisplayname());
       return name.isEmpty ? null : name;
     };
   } else {
@@ -43,8 +44,7 @@ bool Function(Room room) mergeCandidateTest(
 
   return (room) =>
       room.membership == Membership.join &&
-      !room.isSpace &&
-      room.isDirectChat != isGroup &&
+      room.isGroupChat == isGroup &&
       !currentIds.contains(room.id) &&
       spaceOf[room.id] != null &&
       !networks.contains(spaceOf[room.id]!.id) &&

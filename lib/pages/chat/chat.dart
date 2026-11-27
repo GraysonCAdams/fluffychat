@@ -49,6 +49,7 @@ import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/pasted_file_type.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/room_features.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/room_unread.dart';
 import 'package:fluffychat/utils/scheduled_messages.dart';
 import 'package:fluffychat/utils/send_attachments.dart';
@@ -486,7 +487,7 @@ class ChatController extends State<ChatPageWithRoom>
     final (sendColor, onSendColor) = sendButtonColors(context);
     final result = await showGalleryPicker(
       context,
-      recipientName: room.getLocalizedDisplayname(),
+      recipientName: room.chatDisplayname(),
       sendColor: sendColor,
       onSendColor: onSendColor,
       effectsAvailable:
@@ -615,8 +616,8 @@ class ChatController extends State<ChatPageWithRoom>
       target,
       title: isMerged
           ? mergedContact?.displayName(i18n) ??
-                widget.room.getLocalizedDisplayname(i18n)
-          : widget.room.getLocalizedDisplayname(i18n),
+                widget.room.chatDisplayname(i18n)
+          : widget.room.chatDisplayname(i18n),
     );
     context.go('/rooms');
   }
@@ -721,7 +722,7 @@ class ChatController extends State<ChatPageWithRoom>
     final l10n = L10n.of(context);
     final name =
         mergedContact?.displayName(MatrixLocals(l10n)) ??
-        target.getLocalizedDisplayname(MatrixLocals(l10n));
+        target.chatDisplayname(MatrixLocals(l10n));
     final toast = shareSentToast(l10n, target, name);
     try {
       await textSent;

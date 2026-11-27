@@ -6,6 +6,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -61,13 +62,12 @@ class _MergePickerState extends State<_MergePicker> {
     _candidates = [
       for (final room in widget.client.rooms)
         if (room.membership == Membership.join &&
-            room.isDirectChat &&
-            !room.isSpace &&
+            room.isOneToOne &&
             !widget.exclude.contains(room.id))
           _Candidate(
             room,
             spaces[room.id],
-            room.getLocalizedDisplayname(locals),
+            room.chatDisplayname(locals),
             networkName(room, spaces[room.id], locals),
           ),
     ];
@@ -136,7 +136,7 @@ class _MergePickerState extends State<_MergePicker> {
                             clipBehavior: Clip.none,
                             children: [
                               Avatar(
-                                mxContent: candidate.room.avatar,
+                                mxContent: candidate.room.chatAvatar,
                                 name: candidate.name,
                               ),
                               if (network != null)

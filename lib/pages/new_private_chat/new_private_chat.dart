@@ -28,6 +28,7 @@ import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
 import 'package:fluffychat/utils/new_chat/new_group.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/share_items.dart';
 import 'package:fluffychat/utils/url_launcher.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
@@ -466,7 +467,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
         sources
             .people(
               chat.contact?.displayName(locals) ??
-                  chat.room.getLocalizedDisplayname(locals),
+                  chat.room.chatDisplayname(locals),
               [chatPersonInput(chat, locals)],
             )
             .firstWhere((person) => person.chat == chat),
@@ -1080,7 +1081,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
         _routeOf(existing),
         room,
         existing.contact?.displayName(locals) ??
-            existing.room.getLocalizedDisplayname(locals),
+            existing.room.chatDisplayname(locals),
       );
       return;
     }

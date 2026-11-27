@@ -14,6 +14,7 @@ import 'package:fluffychat/utils/handoff_page.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_timeline.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/read_only_conversation.dart';
@@ -534,14 +535,12 @@ class _PeekCard extends StatelessWidget {
     final l10n = L10n.of(context);
     final locals = MatrixLocals(l10n);
     final contact = controller.mergedContactFor(room);
-    final name =
-        contact?.displayName(locals) ?? room.getLocalizedDisplayname(locals);
+    final name = contact?.displayName(locals) ?? room.chatDisplayname(locals);
     final avatarRoom = contact?.sendViaRoom ?? room;
     final spaces = spacesByChild(room.client);
     final networks = {
       for (final room in contact?.rooms ?? [room])
-        if (spaces[room.id] case final space?)
-          space.getLocalizedDisplayname(locals),
+        if (spaces[room.id] case final space?) space.chatDisplayname(locals),
     };
     return Semantics(
       button: true,
@@ -572,7 +571,7 @@ class _PeekCard extends StatelessWidget {
                         GroupAvatar(room: avatarRoom, name: name, size: 40)
                       else
                         Avatar(
-                          mxContent: contact?.avatar ?? room.avatar,
+                          mxContent: contact?.avatar ?? room.chatAvatar,
                           name: name,
                           size: 40,
                           borderRadius: room.isSpace

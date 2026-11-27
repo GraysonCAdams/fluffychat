@@ -10,6 +10,7 @@ import 'package:fluffychat/utils/merged_contacts/model.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/same_groups.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_text_input_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -75,7 +76,7 @@ class _ManageContact extends StatelessWidget {
       initialText: contact.userName ?? '',
       hintText: contact.isGroup
           ? liveGroupName(contact.rooms, MatrixLocals(l10n))
-          : contact.sendViaRoom.getLocalizedDisplayname(MatrixLocals(l10n)),
+          : contact.sendViaRoom.chatDisplayname(MatrixLocals(l10n)),
     );
     if (name == null || !context.mounted) return;
     await showFutureLoadingDialog(
@@ -195,7 +196,7 @@ class _ManageContact extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(
-                      room.getLocalizedDisplayname(locals),
+                      room.chatDisplayname(locals),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

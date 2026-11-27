@@ -253,7 +253,15 @@ conversation without the user doing anything (`findSameGroups`):
 ### MergeSuggester (`lib/utils/merged_contacts/suggester.dart`)
 
 Groups direct chats that share an identifier and never merges without the
-user. Each chat is matched on two things: its display name, and a primary
+user. A direct chat here is a one-to-one chat by `RoomKind.isOneToOne`
+(`lib/utils/room_kind.dart`), the rule every screen uses: the bridge's
+`com.beeper.room_type` (`dm` or `group`) in its `m.bridge` state when it
+names one, else `m.direct`. Suggestions take only `isMergeableOneToOne`
+chats: the bridge says `dm`, or `m.direct` lists the chat and exactly one
+other person is in it, so a group that `m.direct` lists by mistake is never
+suggested. Service members (`io.element.functional_members`, and the bridge
+bot, which stays joined in every portal) are not people: they never count,
+name a chat, type or read. Each chat is matched on two things: its display name, and a primary
 identifier, the first one available in this order:
 
 1. **Phone number**, normalised to E.164. Sources: the iMessage bridge's
@@ -390,7 +398,7 @@ pass.
   lists `mergeCandidates` (`lib/pages/chat/add_merged_chat.dart`). With
   none, the "+" opens a dialog saying so. The "+" and "Merge these chats"
   are the ways a group chat joins a contact; suggestions and the picker
-  list direct chats only.
+  list one-to-one chats only.
 
 ### New chat
 

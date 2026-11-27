@@ -18,6 +18,7 @@ import 'package:fluffychat/utils/account_config.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/mxc_image_viewer.dart';
 import 'package:material_ui/material_ui.dart';
@@ -50,7 +51,7 @@ class ChatEventList extends StatelessWidget {
           : room.canonicalAlias.isNotEmpty
           ? room.canonicalAlias
           : null;
-      final roomAvatar = room.avatar;
+      final roomAvatar = room.chatAvatar;
 
       return Center(
         child: Container(
@@ -64,7 +65,7 @@ class ChatEventList extends StatelessWidget {
             children: [
               Avatar(
                 mxContent: roomAvatar,
-                name: room.getLocalizedDisplayname(),
+                name: room.chatDisplayname(),
                 size: Avatar.defaultSize * 2.5,
                 onTap: roomAvatar != null
                     ? () => showDialog(

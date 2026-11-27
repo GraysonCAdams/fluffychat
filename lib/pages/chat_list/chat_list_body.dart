@@ -27,6 +27,7 @@ import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/message_effects.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/room_unread.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/public_room_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -970,8 +971,7 @@ class _PinnedChat extends StatelessWidget {
     final theme = Theme.of(context);
     final locals = MatrixLocals(L10n.of(context));
     final contact = this.contact;
-    final name =
-        contact?.displayName(locals) ?? room.getLocalizedDisplayname(locals);
+    final name = contact?.displayName(locals) ?? room.chatDisplayname(locals);
     final unread = contact?.isUnread ?? room.countsAsUnread;
     final notificationCount =
         contact?.notificationCount ?? room.notificationCount;
@@ -1031,7 +1031,8 @@ class _PinnedChat extends StatelessWidget {
                                     size: _avatarSize,
                                   )
                                 : Avatar(
-                                    mxContent: contact?.avatar ?? room.avatar,
+                                    mxContent:
+                                        contact?.avatar ?? room.chatAvatar,
                                     name: name,
                                     size: _avatarSize,
                                     presenceUserId:
@@ -1125,7 +1126,7 @@ class _PinnedChat extends StatelessWidget {
                                 ),
                                 mxContent: space.avatar,
                                 size: 24,
-                                name: space.getLocalizedDisplayname(locals),
+                                name: space.chatDisplayname(locals),
                               ),
                             ),
                         ],
@@ -1590,7 +1591,7 @@ class _RecentPeople extends StatelessWidget {
                         controller
                             .mergedContactFor(room)
                             ?.displayName(locals) ??
-                        room.getLocalizedDisplayname(locals);
+                        room.chatDisplayname(locals);
                     return Semantics(
                       button: true,
                       label: name,
@@ -1605,7 +1606,7 @@ class _RecentPeople extends StatelessWidget {
                               children: [
                                 const SizedBox(height: 4),
                                 Avatar(
-                                  mxContent: room.avatar,
+                                  mxContent: room.chatAvatar,
                                   name: name,
                                   size: 56,
                                   client: room.client,

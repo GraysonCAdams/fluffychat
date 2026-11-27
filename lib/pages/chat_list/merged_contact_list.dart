@@ -5,6 +5,7 @@
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:matrix/matrix.dart';
 
 /// The chats the chat list shows, with every merged contact collapsed into
@@ -68,7 +69,6 @@ extension MergedContactSearch on MergedContact {
   bool matchesSearch(String filter, MatrixLocals locals) =>
       displayName(locals).toLowerCase().contains(filter) ||
       rooms.any(
-        (room) =>
-            room.getLocalizedDisplayname(locals).toLowerCase().contains(filter),
+        (room) => room.chatDisplayname(locals).toLowerCase().contains(filter),
       );
 }

@@ -10,6 +10,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -177,7 +178,7 @@ Future<void> _swipeLowPriority(
   final messenger = ScaffoldMessenger.of(context);
   final name =
       chat.contact?.displayName(MatrixLocals(l10n)) ??
-      chat.room.getLocalizedDisplayname(MatrixLocals(l10n));
+      chat.room.chatDisplayname(MatrixLocals(l10n));
   final changed = await setSelectedLowPriority(controller, [chat], set);
   if (changed.isEmpty) return;
   messenger.showSnackBar(

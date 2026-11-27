@@ -7,6 +7,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/settings_list.dart';
 import 'package:fluffychat/widgets/settings_switch_list_tile.dart';
@@ -33,7 +34,7 @@ class _NetworkBubbleColorsState extends State<NetworkBubbleColors> {
     final spaces = spacesByChild(widget.client);
     final networks = <String, (String, Room?)>{};
     for (final room in widget.client.rooms) {
-      if (room.isSpace || !room.isDirectChat) continue;
+      if (!room.isOneToOne) continue;
       final bridgeId = NetworkColors.bridgeIdOf(room);
       if (bridgeId == null || networks.containsKey(bridgeId)) continue;
       final space = spaces[room.id];

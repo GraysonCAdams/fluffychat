@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fluffychat/config/setting_keys.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:flutter/foundation.dart';
 import 'package:matrix/matrix.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -171,11 +172,13 @@ class MergeSuggestionService {
     }
   }
 
+  /// The chats that may be suggested: joined, certainly one-to-one (see
+  /// [RoomKind.isMergeableOneToOne]) and with the other person known.
   List<Room> get _directChats => [
     for (final room in client.rooms)
       if (room.membership == Membership.join &&
-          !room.isSpace &&
-          room.isDirectChat)
+          room.isMergeableOneToOne &&
+          room.oneToOnePartnerId != null)
         room,
   ];
 
@@ -190,8 +193,8 @@ class MergeSuggestionService {
     final region = phoneRegion();
     final chats = <SuggesterChat>[];
     for (final room in _directChats) {
-      final partner = room.directChatMatrixID!;
-      final displayName = room.getLocalizedDisplayname();
+      final partner = room.oneToOnePartnerId!;
+      final displayName = room.chatDisplayname();
       chats.add(
         SuggesterChat(
           roomId: room.id,
@@ -230,12 +233,12 @@ class MergeSuggestionService {
   /// by, from their user ID, their fetched profile or the chat's name. Null
   /// for a group chat and when no number is known.
   ContactIdentifier? phoneOf(Room room) {
-    final partner = room.directChatMatrixID;
+    final partner = room.oneToOnePartnerId;
     if (partner == null) return null;
     final identifier = primaryIdentifier(
       userId: partner,
       profileIdentifiers: _cachedProfile(partner),
-      displayName: room.getLocalizedDisplayname(),
+      displayName: room.chatDisplayname(),
       defaultRegion: phoneRegion(),
     );
     return identifier?.type == IdentifierType.phone ? identifier : null;
@@ -274,9 +277,9 @@ class MergeSuggestionService {
   Future<bool> _fetchMissingProfiles() async {
     final missing = {
       for (final room in _directChats)
-        if (_mayHaveProfileIdentifiers(room.directChatMatrixID!) &&
-            !_isCached(room.directChatMatrixID!))
-          room.directChatMatrixID!,
+        if (room.oneToOnePartnerId! case final partner
+            when _mayHaveProfileIdentifiers(partner) && !_isCached(partner))
+          partner,
     }.take(maxFetchesPerPass);
     var found = false;
     for (final userId in missing) {

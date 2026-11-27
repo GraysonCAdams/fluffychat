@@ -10,6 +10,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/phone_number.dart';
 import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/merged_contacts/manage_merged_contact_sheet.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -89,7 +90,7 @@ class ChatDetailsNetworkSheet extends StatelessWidget {
   static String _identifierOn(Room room, MatrixLocals locals) {
     final phone = MergeSuggestionService.forClient(room.client).phoneOf(room);
     if (phone != null) return formatPhoneForDisplay(phone.value);
-    return room.getLocalizedDisplayname(locals);
+    return room.chatDisplayname(locals);
   }
 
   /// One entry per network of [networks] in their order: its room the one

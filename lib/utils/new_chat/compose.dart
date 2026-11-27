@@ -16,6 +16,7 @@ import 'package:fluffychat/utils/new_chat/add_people.dart' as add_people;
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
 import 'package:fluffychat/utils/new_chat/new_group.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:matrix/matrix.dart';
 
 /// Whether [person] is someone only Matrix reaches: a user from the
@@ -357,7 +358,7 @@ List<ComposeNetwork> composeNetworksOf(
         room: room,
         user: user,
         space: space,
-        name: space?.getLocalizedDisplayname(locals) ?? bridge.displayName,
+        name: space?.chatDisplayname(locals) ?? bridge.displayName,
         avatar: space?.avatar ?? bridge.icon,
       ),
     );

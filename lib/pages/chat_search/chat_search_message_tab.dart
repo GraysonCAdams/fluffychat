@@ -7,6 +7,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_search/search_footer.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/url_launcher.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
@@ -45,9 +46,9 @@ class ChatSearchMessageTab extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32.0),
             child: Text(
-              L10n.of(context).searchIn(
-                room.getLocalizedDisplayname(MatrixLocals(L10n.of(context))),
-              ),
+              L10n.of(
+                context,
+              ).searchIn(room.chatDisplayname(MatrixLocals(L10n.of(context)))),
               textAlign: TextAlign.center,
             ),
           ),

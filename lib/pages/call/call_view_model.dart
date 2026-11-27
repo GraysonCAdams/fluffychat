@@ -16,6 +16,7 @@ import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call_member.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/position_from_build_context.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter/foundation.dart';
@@ -251,7 +252,7 @@ class CallViewModel extends ValueNotifier<CallViewModelState> {
 
     liveKitRoom.addListener(notifyListeners);
 
-    if (room.isDirectChat && room.hasActiveMatrixRtcCall) {
+    if (room.isOneToOne && room.hasActiveMatrixRtcCall) {
       await connect();
     } else {
       value.localVideoTrack = await lk.LocalVideoTrack.createCameraTrack();
@@ -326,8 +327,7 @@ class CallViewModel extends ValueNotifier<CallViewModelState> {
     try {
       value.isLoading = true;
       notifyListeners();
-      final playWaitingSound =
-          !room.hasActiveMatrixRtcCall && room.isDirectChat;
+      final playWaitingSound = !room.hasActiveMatrixRtcCall && room.isOneToOne;
 
       final intent =
           room.getActiveMatrixRtcMembers().firstOrNull?.callIntent ??

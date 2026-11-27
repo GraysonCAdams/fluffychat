@@ -9,6 +9,7 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
 import 'package:fluffychat/utils/notification_avatar_extension.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:matrix/matrix.dart';
 import 'package:uuid/uuid.dart';
@@ -20,7 +21,7 @@ Future<CallKitParams> buildFluffyChatCallKitParams(
   Duration timeout = RtcNotificationContent.defaultLifetime,
 }) async {
   l10n ??= await lookupL10n(PlatformDispatcher.instance.locale);
-  final avatarUrl = await room.avatar?.getThumbnailUri(
+  final avatarUrl = await room.chatAvatar?.getThumbnailUri(
     room.client,
     width: notificationAvatarDimension,
     height: notificationAvatarDimension,
@@ -35,7 +36,7 @@ Future<CallKitParams> buildFluffyChatCallKitParams(
       'intent': intent.name,
     },
     appName: AppSettings.applicationName.value,
-    nameCaller: room.getLocalizedDisplayname(),
+    nameCaller: room.chatDisplayname(),
     avatar: avatarUrl?.toString(),
     handle: switch (intent) {
       MatrixRtcCallIntent.voice => l10n.voiceCall,

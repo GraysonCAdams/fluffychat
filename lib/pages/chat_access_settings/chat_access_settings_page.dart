@@ -7,6 +7,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_access_settings/chat_access_settings_controller.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/layouts/max_width_body.dart';
 import 'package:material_ui/material_ui.dart' hide Visibility;
 import 'package:matrix/matrix.dart';
@@ -304,13 +305,13 @@ extension JoinRulesDisplayString on JoinRules {
       case JoinRules.restricted:
         return l10n.spaceMemberOf(
           spaceParents
-              .map((space) => space.getLocalizedDisplayname(MatrixLocals(l10n)))
+              .map((space) => space.chatDisplayname(MatrixLocals(l10n)))
               .join(', '),
         );
       case JoinRules.knockRestricted:
         return l10n.spaceMemberOfCanKnock(
           spaceParents
-              .map((space) => space.getLocalizedDisplayname(MatrixLocals(l10n)))
+              .map((space) => space.chatDisplayname(MatrixLocals(l10n)))
               .join(', '),
         );
     }

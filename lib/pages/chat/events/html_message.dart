@@ -10,6 +10,7 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/code_highlight_theme.dart';
 import 'package:fluffychat/utils/event_checkbox_extension.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
@@ -284,8 +285,8 @@ class _HtmlMessageState extends State<HtmlMessage> {
                 : this.room.client.getRoomByAlias(matrixId);
             return WidgetSpan(
               child: MatrixPill(
-                name: room?.getLocalizedDisplayname() ?? matrixId,
-                avatar: room?.avatar,
+                name: room?.chatDisplayname() ?? matrixId,
+                avatar: room?.chatAvatar,
                 uri: href,
                 outerContext: context,
                 fontSize: fontSize,
@@ -673,10 +674,7 @@ class _HtmlMessageState extends State<HtmlMessage> {
             ? room.client.getRoomById(id)
             : room.client.getRoomByAlias(id)) {
           null => const [null, null],
-          final pillRoom => [
-            pillRoom.getLocalizedDisplayname(),
-            pillRoom.avatar,
-          ],
+          final pillRoom => [pillRoom.chatDisplayname(), pillRoom.avatar],
         },
   ];
 

@@ -11,6 +11,7 @@ import 'package:cross_file/cross_file.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:matrix/matrix.dart';
 
 abstract class ShareItem {}
@@ -82,8 +83,5 @@ String shareSentToast(L10n l10n, Room room, String name) {
   final space = spacesByChild(room.client)[room.id];
   return space == null
       ? l10n.sentToName(name)
-      : l10n.sentToOnNetwork(
-          name,
-          space.getLocalizedDisplayname(MatrixLocals(l10n)),
-        );
+      : l10n.sentToOnNetwork(name, space.chatDisplayname(MatrixLocals(l10n)));
 }

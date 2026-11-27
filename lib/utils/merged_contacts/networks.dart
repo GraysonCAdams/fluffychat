@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:matrix/matrix.dart';
 
 /// The space each room is a child of, by room ID. A bridge puts all of its
@@ -28,7 +29,7 @@ String networkName(
   Room? space, [
   MatrixLocalizations i18n = const MatrixDefaultLocalizations(),
 ]) {
-  if (space != null) return space.getLocalizedDisplayname(i18n);
+  if (space != null) return space.chatDisplayname(i18n);
   final partner = room.directChatMatrixID;
   final localpart = partner?.localpart;
   if (localpart != null) {
