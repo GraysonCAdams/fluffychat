@@ -87,6 +87,11 @@ class SettingsChatView extends StatelessWidget {
               subtitle: l10n.recordVoiceMessagesDescription,
               setting: AppSettings.voiceMessages,
             ),
+            SettingsSwitchListTile.adaptive(
+              title: l10n.convertEmoticons,
+              subtitle: l10n.convertEmoticonsDescription,
+              setting: AppSettings.convertEmoticons,
+            ),
           ],
         ),
         SettingsSectionHeader(l10n.settingsGestures),

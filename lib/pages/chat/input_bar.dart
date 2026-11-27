@@ -10,6 +10,7 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
 import 'package:fluffychat/utils/composer_native_menu.dart';
+import 'package:fluffychat/utils/emoticons.dart';
 import 'package:fluffychat/utils/inserted_content_file.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/markdown_context_builder.dart';
@@ -58,6 +59,10 @@ class InputBar extends StatelessWidget {
   final List<Emoji> suggestionEmojis;
   final UndoHistoryController? undoController;
 
+  /// Converts emoticons as they are typed; kept by the page, as it
+  /// remembers the last conversion for Backspace to undo.
+  final EmoticonFormatter? emoticonFormatter;
+
   const InputBar({
     required this.room,
     this.minLines,
@@ -75,6 +80,7 @@ class InputBar extends StatelessWidget {
     this.readOnly = false,
     required this.suggestionEmojis,
     this.undoController,
+    this.emoticonFormatter,
     super.key,
   });
 
@@ -543,6 +549,7 @@ class InputBar extends StatelessWidget {
             textInputAction: textInputAction,
             autofocus: autofocus!,
             inputFormatters: [
+              ?emoticonFormatter,
               LengthLimitingTextInputFormatter((maxPDUSize / 3).floor()),
             ],
             onSubmitted: (text) {
