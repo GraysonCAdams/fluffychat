@@ -803,6 +803,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username} invitis vin al Seam. \n1. Instalu la aplikaĵon Seam: https://seam.312.dev \n2. Registriĝu aŭ salutu \n3. Malfermu la invitan ligilon: {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "tajpas…",
     "@isTyping": {
         "type": "String",

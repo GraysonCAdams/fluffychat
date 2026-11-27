@@ -619,6 +619,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username} הזמין אותך ל-Seam.\n1. התקן את Seam: https://seam.312.dev\n2. הירשם או היכנס\n3. פתח את קישור ההזמנה: {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "מקליד/ה…",
     "@isTyping": {
         "type": "String",
@@ -1242,10 +1254,6 @@
                 "type": "String"
             }
         }
-    },
-    "@videoCall": {
-        "type": "String",
-        "placeholders": {}
     },
     "@userAndOthersAreTyping": {
         "type": "String",

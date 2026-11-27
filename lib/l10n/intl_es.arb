@@ -622,6 +622,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username} te invitó a Seam.\n1.Visita seam.312.dev e instala la app\n2. Regístrate o inicia sesión\n3. Abre el enlace de invitación:\n{link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "escribiendo…",
     "@isTyping": {
         "type": "String",

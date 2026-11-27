@@ -27,9 +27,14 @@ enum AppSettings<T> {
   showNoGoogle<bool>('chat.fluffy.show_no_google', false),
   unifiedPushRegistered<bool>('chat.fluffy.unifiedpush.registered', false),
   unifiedPushEndpoint<String>('chat.fluffy.unifiedpush.endpoint', ''),
+  // The Matrix push gateway for Firebase Cloud Messaging. Empty unless the
+  // build passes --dart-define=SEAM_PUSH_GATEWAY_URL=..., which only makes
+  // sense together with scripts/add-firebase-messaging.sh and a Firebase
+  // project of our own (android/store/STORE-LAUNCH.md, "Push"). Without one,
+  // push goes through UnifiedPush alone.
   pushNotificationsGatewayUrl<String>(
     'pushNotificationsGatewayUrl',
-    'https://push.fluffychat.im/_matrix/push/v1/notify',
+    String.fromEnvironment('SEAM_PUSH_GATEWAY_URL'),
   ),
   pushNotificationsPusherFormat<String>(
     'pushNotificationsPusherFormat',
@@ -105,20 +110,19 @@ enum AppSettings<T> {
   presetHomeserver<String>('chat.fluffy.preset_homeserver', ''),
   welcomeText<String>('chat.fluffy.welcome_text', ''),
 
-  /// The client_uri this app registers with a homeserver for OIDC sign-in.
-  /// The mobile redirect scheme (AppConfig.appSsoUrlScheme, im.fluffychat.auth)
-  /// must be this host in reverse, so it stays fluffychat.im until the scheme
-  /// changes too. The app does not link to it.
-  website<String>('chat.fluffy.website_url', 'https://fluffychat.im'),
+  /// The client_uri this app registers with a homeserver for OIDC sign-in,
+  /// Seam's site.
+  website<String>('chat.fluffy.website_url', 'https://seam.312.dev'),
 
-  /// Sent with the OIDC registration when set, and must then be on the host
-  /// of [website] (the Matrix SDK enforces it). Settings and sign-in also
-  /// link to [privacyPolicy] when it is set. Seam has no logo, privacy policy
-  /// or terms on that host, so all three are empty unless a deployment
-  /// configures them.
-  logoUrl<String>('chat.fluffy.logo_url', ''),
-  privacyPolicy<String>('chat.fluffy.privacy_policy_url', ''),
-  tos<String>('chat.fluffy.tos_url', ''),
+  /// Sent with the OIDC registration, and each must be on the host of
+  /// [website] (the Matrix SDK enforces it). Settings and sign-in also link
+  /// to [privacyPolicy] when it is set.
+  logoUrl<String>('chat.fluffy.logo_url', 'https://seam.312.dev/icon-512.png'),
+  privacyPolicy<String>(
+    'chat.fluffy.privacy_policy_url',
+    'https://seam.312.dev/privacy',
+  ),
+  tos<String>('chat.fluffy.tos_url', 'https://seam.312.dev/terms'),
   sendTimelineEventTimeout<int>('chat.fluffy.send_timeline_event_timeout', 15),
   webNotificationSound<bool>('chat.fluffy.web_notification_sound', true),
   chatFilter<String>('chat.fluffy.chat_filter', 'allChats'),
@@ -160,8 +164,7 @@ enum AppSettings<T> {
   autoSendErrorReports<bool?>('chat.fluffy.auto_send_eror_reports', null),
   knownErrorHashes<List<String>>('chat.fluffy.known_crash_hashes', []),
   checkForUpdates<bool>('chat.fluffy.check_for_updates', true),
-  lastUpdateCheckDate<String>('chat.fluffy.last_update_check_date', ''),
-  fallbackLiveKitInstance<String>('chat.fluffy.fallback_live_kit_instance', '');
+  lastUpdateCheckDate<String>('chat.fluffy.last_update_check_date', '');
 
   final String key;
   final T _defaultValue;

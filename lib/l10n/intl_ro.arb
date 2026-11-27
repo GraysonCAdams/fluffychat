@@ -714,6 +714,18 @@
             }
         }
     },
+    "inviteText": "{username} v-a invitat la Seam.\n1. Instalați Seam: https://seam.312.dev\n2. Înregistrați-vă sau conectați-vă\n3. Deschideți invitația: {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "joinedTheChat": "👋{username} a intrat în chat",
     "@joinedTheChat": {
         "type": "String",

@@ -1133,6 +1133,18 @@
         }
     },
     "noChatDescriptionYet": "Ulac aglam n udiwenni i d-yenulfan yakan.",
+    "inviteText": "{username} yeɛreḍ-ik·m ɣer Seam.\n1. Rzu ɣer seam.312.dev syin sbedd asnas \n2. Jerred neɣ kcem \n3. Ldi aseɣwen n tinubga: \n {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "configureChat": "Swel adiwenni",
     "@configureChat": {
         "type": "String",

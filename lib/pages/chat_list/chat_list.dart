@@ -43,12 +43,9 @@ import 'package:fluffychat/widgets/adaptive_dialogs/show_text_input_dialog.dart'
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/services.dart';
-import 'package:flutter_callkit_incoming/entities/entities.dart';
-import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_shortcuts_new/flutter_shortcuts_new.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart' as sdk;
 import 'package:matrix/matrix.dart';
@@ -119,8 +116,6 @@ class ChatListController extends State<ChatList>
 
   StreamSubscription? _intentFileStreamSubscription;
 
-  StreamSubscription? _callEventSubscription;
-
   late ActiveFilter activeFilter;
   String? activeTag;
 
@@ -168,34 +163,6 @@ class ChatListController extends State<ChatList>
   void setSpaceDirectoryOpen(bool open) => setState(() {
     _spaceDirectoryOpen = open;
   });
-
-  Future<void> _onCallEvent(CallEvent? event) async {
-    switch (event) {
-      case CallEventActionCallAccept():
-        _joinCallWith(event.callKitParams);
-        break;
-      case CallEventActionCallEnded():
-        final roomId = event.callKitParams.extra?.tryGet<String>('roomId');
-        if (roomId != null &&
-            Matrix.of(context).activeCallRoomId.value == roomId) {
-          Matrix.of(context).activeCallRoomId.value = null;
-        }
-        break;
-      case CallEventActionCallIncoming() || CallEventActionCallStart()
-          when PlatformInfos.isIOS:
-        // To have audio session correctly configured on iOS:
-        lk.AudioManager.instance.setEngineAvailability(.none);
-        break;
-      case CallEventActionCallToggleAudioSession() when PlatformInfos.isIOS:
-        // To have audio session correctly configured on iOS:
-        await lk.AudioManager.instance.setEngineAvailability(
-          event.isActive ? .defaultAvailability : .none,
-        );
-        break;
-      default:
-        break;
-    }
-  }
 
   /// Opens [room]'s row: in the main window, or in its chat window when it
   /// has one, which comes to the front.
@@ -846,14 +813,6 @@ class ChatListController extends State<ChatList>
     }
   }
 
-  void _joinCallWith(CallKitParams params) {
-    final roomId = params.extra?.tryGet<String>('roomId');
-    final clientName = params.extra?.tryGet<String>('clientName');
-    if (roomId != null) {
-      context.go('/rooms/$roomId?client=$clientName&action=call');
-    }
-  }
-
   StreamSubscription? _onRoomTagUpdate;
 
   @override
@@ -951,21 +910,6 @@ class ChatListController extends State<ChatList>
     scrollController.addListener(_onScroll);
     HardwareKeyboard.instance.addHandler(_onKey);
     _waitForFirstSync();
-    if (PlatformInfos.isMobile) {
-      _callEventSubscription = FlutterCallkitIncoming.onEvent.listen(
-        _onCallEvent,
-      );
-      // To have audio session correctly configured on iOS:
-      lk.AudioManager.instance.setAudioSessionManagementMode(
-        lk.AudioSessionManagementMode.externalCallSystem,
-      );
-      FlutterCallkitIncoming.activeCalls().then((calls) {
-        final params = calls.firstOrNull;
-        if (params == null) return;
-        _joinCallWith(params);
-      });
-    }
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.activeSpace != null) {
         setActiveSpace(widget.activeSpace!);
@@ -1020,7 +964,6 @@ class ChatListController extends State<ChatList>
   void dispose() {
     _intentDataStreamSubscription?.cancel();
     _intentFileStreamSubscription?.cancel();
-    _callEventSubscription?.cancel();
     _onRoomTagUpdate?.cancel();
     _unwatchMergedContacts();
     HardwareKeyboard.instance.removeHandler(_onKey);

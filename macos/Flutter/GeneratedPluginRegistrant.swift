@@ -6,7 +6,6 @@ import FlutterMacOS
 import Foundation
 
 import audio_session
-import connectivity_plus
 import desktop_drop
 import desktop_webview_window
 import device_info_plus
@@ -15,22 +14,20 @@ import emoji_picker_flutter
 import ffmpeg_kit_flutter_new_min
 import file_picker_darwin
 import file_selector_macos
+import flutter_contacts
 import flutter_local_notifications
 import flutter_new_badger
 import flutter_secure_storage_darwin
 import flutter_web_auth_2
-import flutter_webrtc
 import geolocator_apple
 import just_audio
 import light_compressor_v2
-import livekit_client
 import local_auth_darwin
 import managed_configurations
 import media_kit_video
 import opus_codec_macos
 import package_info_plus
 import pasteboard
-import photo_manager
 import record_macos
 import screen_retriever_macos
 import share_plus
@@ -44,7 +41,6 @@ import window_to_front
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   AudioSessionPlugin.register(with: registry.registrar(forPlugin: "AudioSessionPlugin"))
-  ConnectivityPlusPlugin.register(with: registry.registrar(forPlugin: "ConnectivityPlusPlugin"))
   DesktopDropPlugin.register(with: registry.registrar(forPlugin: "DesktopDropPlugin"))
   DesktopWebviewWindowPlugin.register(with: registry.registrar(forPlugin: "DesktopWebviewWindowPlugin"))
   DeviceInfoPlusMacosPlugin.register(with: registry.registrar(forPlugin: "DeviceInfoPlusMacosPlugin"))
@@ -53,22 +49,20 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   FFmpegKitFlutterPlugin.register(with: registry.registrar(forPlugin: "FFmpegKitFlutterPlugin"))
   FilePickerPlugin.register(with: registry.registrar(forPlugin: "FilePickerPlugin"))
   FileSelectorPlugin.register(with: registry.registrar(forPlugin: "FileSelectorPlugin"))
+  FlutterContactsPlugin.register(with: registry.registrar(forPlugin: "FlutterContactsPlugin"))
   FlutterLocalNotificationsPlugin.register(with: registry.registrar(forPlugin: "FlutterLocalNotificationsPlugin"))
   FlutterNewBadgerPlugin.register(with: registry.registrar(forPlugin: "FlutterNewBadgerPlugin"))
   FlutterSecureStorageDarwinPlugin.register(with: registry.registrar(forPlugin: "FlutterSecureStorageDarwinPlugin"))
   FlutterWebAuth2Plugin.register(with: registry.registrar(forPlugin: "FlutterWebAuth2Plugin"))
-  FlutterWebRTCPlugin.register(with: registry.registrar(forPlugin: "FlutterWebRTCPlugin"))
   GeolocatorPlugin.register(with: registry.registrar(forPlugin: "GeolocatorPlugin"))
   JustAudioPlugin.register(with: registry.registrar(forPlugin: "JustAudioPlugin"))
   LightCompressorPlugin.register(with: registry.registrar(forPlugin: "LightCompressorPlugin"))
-  LiveKitPlugin.register(with: registry.registrar(forPlugin: "LiveKitPlugin"))
   LocalAuthPlugin.register(with: registry.registrar(forPlugin: "LocalAuthPlugin"))
   ManagedConfigurationsPlugin.register(with: registry.registrar(forPlugin: "ManagedConfigurationsPlugin"))
   MediaKitVideoPlugin.register(with: registry.registrar(forPlugin: "MediaKitVideoPlugin"))
   OpusFlutterMacosPlugin.register(with: registry.registrar(forPlugin: "OpusFlutterMacosPlugin"))
   FPPPackageInfoPlusPlugin.register(with: registry.registrar(forPlugin: "FPPPackageInfoPlusPlugin"))
   PasteboardPlugin.register(with: registry.registrar(forPlugin: "PasteboardPlugin"))
-  PhotoManagerPlugin.register(with: registry.registrar(forPlugin: "PhotoManagerPlugin"))
   RecordMacOsPlugin.register(with: registry.registrar(forPlugin: "RecordMacOsPlugin"))
   ScreenRetrieverMacosPlugin.register(with: registry.registrar(forPlugin: "ScreenRetrieverMacosPlugin"))
   SharePlusMacosPlugin.register(with: registry.registrar(forPlugin: "SharePlusMacosPlugin"))

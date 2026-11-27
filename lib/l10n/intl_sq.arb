@@ -234,10 +234,6 @@
             }
         }
     },
-    "@videoCall": {
-        "type": "String",
-        "placeholders": {}
-    },
     "@banFromChat": {
         "type": "String",
         "placeholders": {}

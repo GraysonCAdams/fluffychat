@@ -814,6 +814,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username} heeft je uitgenodigd voor Seam.\n1. Bezoek https://seam.312.dev en installeer de app\n2. Registreer of log in\n3. Open deze uitnodigingslink:\n{link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "is aan het typen",
     "@isTyping": {
         "type": "String",
@@ -2760,36 +2772,7 @@
     "doubleTapReaction": "Dubbele tik reactie",
     "shareCrashReports": "Foutmeldingen delen",
     "shareCrashReportsDescription": "Automatisch foutmeldingen delen met de ontwikkelaars?",
-    "countActiveCallMembers": "{count} actieve oproep deelnemers",
-    "@countActiveCallMembers": {
-        "placeholders": {
-            "count": {
-                "type": "int"
-            }
-        }
-    },
-    "enterCall": "Oproep opnemen",
-    "videoCallsBetaWarning": "Video oproepen zijn een beta functie. Er zijn mogelijk fouten of onverwachte reacties. We horen graag je feedback.",
-    "noDevicesFound": "Geen apparaten gevonden",
-    "incomingCall": "Inkomende oproep",
-    "videoCall": "Video oproepen",
-    "voiceCall": "Spraakoproep",
-    "missedCall": "Oproep gemist",
-    "callBack": "Terugbellen",
-    "hangUp": "Ophangen",
-    "waitingForParticipant": "Wachten op deelnemer...",
     "decline": "Weigeren",
-    "startCall": "Start een oproep",
-    "selectCamera": "Camera selecteren",
-    "selectMicrophone": "Microfoon selecteren",
-    "selectSpeaker": "Speaker selecteren",
-    "toggleMicrophone": "Microfoon aan/uit",
-    "toggleCamera": "Camera aan/uit",
-    "startScreensharing": "Schermdelen starten",
-    "stopScreensharing": "Schermdelen stoppen",
-    "raiseHand": "Hand opsteken",
-    "stopRaiseHand": "Hand omlaag",
-    "preferSpeaker": "Voorkeur aan speaker",
     "unexpectedErrorOccurded": "Helaas is er een onverwachte fout opgetreden: {msg}",
     "@unexpectedErrorOccurded": {
         "placeholders": {

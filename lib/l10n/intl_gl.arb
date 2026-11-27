@@ -814,6 +814,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username} convidoute a Seam.\n1. Visita seam.312.dev e instala a app\n2. Crea unha conta ou Accede\n3. Abre a ligazón do convite: \n {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "está escribindo",
     "@isTyping": {
         "type": "String",
@@ -2756,41 +2768,12 @@
     "compressingVideo": "Comprimindo o vídeo…",
     "shareCrashReports": "Compartir informe dos fallos",
     "shareCrashReportsDescription": "Compartir automaticamente coas desenvolvedoras os informes dos fallos?",
-    "countActiveCallMembers": "{count} participantes na chamada activa",
-    "@countActiveCallMembers": {
-        "placeholders": {
-            "count": {
-                "type": "int"
-            }
-        }
-    },
-    "enterCall": "Entrar na chamada",
-    "videoCallsBetaWarning": "As chamadas de vídeo son unha función en probas. Podería haber fallos ou comportamentos non agardados. Apreciamos que nos contes que tal funcionan.",
-    "noDevicesFound": "Non se atopan dispositivos",
     "accountsAndSettings": "Contas e axustes",
     "@accountsAndSettings": {
         "type": "String",
         "placeholders": {}
     },
-    "incomingCall": "Chamada entrante",
-    "videoCall": "Chamada de vídeo",
-    "voiceCall": "Chamada de voz",
-    "missedCall": "Chamada perdida",
-    "callBack": "Devolver chamada",
-    "hangUp": "Responder",
-    "waitingForParticipant": "Agardando por participante…",
     "decline": "Rexeitar",
-    "startCall": "Chamar",
-    "selectCamera": "Seleccionar cámara",
-    "selectMicrophone": "Seleccionar micrófono",
-    "selectSpeaker": "Seleccionar altofalante",
-    "toggleMicrophone": "Activación do micrófono",
-    "toggleCamera": "Activación da cámara",
-    "startScreensharing": "Iniciar a compartir pantalla",
-    "stopScreensharing": "Deixar de compartir pantalla",
-    "raiseHand": "Erguer a man",
-    "stopRaiseHand": "Baixar a man",
-    "preferSpeaker": "Preferir altofalante",
     "unexpectedErrorOccurded": "Por desgraza, houbo un fallo co que non contabamos: {msg}",
     "@unexpectedErrorOccurded": {
         "placeholders": {

@@ -1,0 +1,9 @@
+Seam is a client for the Matrix network. It has no accounts of its own: you sign in with an account on a Matrix homeserver. We have created a test account on the public homeserver matrix.org.
+
+1. Open Seam and tap "Sign in".
+2. In the homeserver field, type matrix.org and pick it from the list.
+3. matrix.org's sign-in page opens in the browser. Enter username {{REVIEW_USER}} and password {{REVIEW_PASSWORD}}, then approve the request to sign in to Seam. The browser returns you to the app.
+4. If Seam asks to verify this device or enter a recovery key, enter {{RECOVERY_KEY}}, or skip. Skipping only hides older encrypted messages.
+5. The chat list shows a direct chat with {{PARTNER_USER}}. Open it to read and send messages, pictures and voice messages.
+
+Optional features: New Chat asks for contacts access; contacts are matched on the device only. Voice messages can be transcribed on the device after a one-time model download. Notifications need a UnifiedPush distributor app (for example ntfy) installed; without one Seam shows a notice that push is unavailable, and messages still arrive while the app is open.

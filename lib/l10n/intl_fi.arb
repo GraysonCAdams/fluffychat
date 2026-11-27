@@ -638,6 +638,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username} kutsui sinut Seamiin.\n1. Viereaile sivulla: https://seam.312.dev ja asenna sovellus\n2. Rekisteröidy tai kirjaudu sisään\n3. Avaa kutsulinkki:\n{link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "kicked": "👞 {username} potki käyttäjän {targetName}",
     "@kicked": {
         "type": "String",

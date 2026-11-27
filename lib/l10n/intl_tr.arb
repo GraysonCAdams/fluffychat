@@ -815,6 +815,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username} sizi Seam'e davet etti.\n1. seam.312.dev adresini ziyaret edin ve uygulamayı kurun \n2. Kaydolun veya oturum açın \n3. Davet bağlantısını açın: \n {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "yazıyor…",
     "@isTyping": {
         "type": "String",

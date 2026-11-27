@@ -79,7 +79,9 @@ class SignInPage extends StatelessWidget {
                       context,
                     ),
                     prefixIcon: const Icon(Icons.search_outlined),
-                    hintText: L10n.of(context).searchOrEnterHomeserverAddress,
+                    hintText: AppConfig.isPlayRelease
+                        ? L10n.of(context).enterYourHomeserver
+                        : L10n.of(context).searchOrEnterHomeserverAddress,
                   ),
                 ),
                 if (state.publicHomeservers.connectionState ==

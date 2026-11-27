@@ -814,6 +814,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username} vás pozval/a na Seam.\n1. Navštivte seam.312.dev a nainstalujte si aplikaci.\n2. Zaregistrujte se nebo se přihlaste.\n3. Otevřte pozvánku: \n {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "píše…",
     "@isTyping": {
         "type": "String",
