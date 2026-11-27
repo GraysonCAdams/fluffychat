@@ -16,3 +16,10 @@ The patch moves `opus.xcframework` into `macos/opus_codec_macos/` and points
 its output after running it. To move to a newer release, copy it over this
 one and repeat the move, unless upstream ships the framework inside the
 package.
+
+The macOS framework inside the pub.dev archive is also flattened: its
+`Versions/Current` links are gone, so `Info.plist` sits at the top level and
+Xcode refuses to embed it ("contains Info.plist, expected
+Versions/Current/Resources/Info.plist"). The copy here is laid out as a
+versioned bundle again (`Versions/A` with `Current`, `opus`, `Headers`,
+`Modules` and `Resources` as symbolic links). Keep the links when copying.
