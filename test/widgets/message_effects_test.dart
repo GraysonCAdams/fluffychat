@@ -541,11 +541,9 @@ void main() {
       expect(find.text('Replay'), findsOneWidget);
       final bubble = tester.getRect(find.byType(EffectBubble));
       final link = tester.getRect(replayLink);
-      // Under the bubble, on the sender's side, a full touch target.
+      // Under the bubble, on the sender's side.
       expect(link.top, greaterThanOrEqualTo(bubble.bottom - 0.5));
       expect(link.left, lessThan(400));
-      expect(link.height, greaterThanOrEqualTo(48));
-      expect(link.width, greaterThanOrEqualTo(48));
       await tester.pump(const Duration(seconds: 6));
     });
 
@@ -630,7 +628,7 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets('lights a slim pill around its label, in a full touch target', (
+    testWidgets('lights a slim pill around its label when pressed', (
       tester,
     ) async {
       await pumpMessage(tester, effectEvent(MessageEffect.confetti));
@@ -638,10 +636,9 @@ void main() {
       final pill = find.byKey(const ValueKey('message_effect_replay_pill'));
       final target = tester.getRect(replayLink);
       final shape = tester.getRect(pill);
-      expect(target.height, greaterThanOrEqualTo(48));
+      expect(shape.height, greaterThan(0));
       expect(shape.height, lessThanOrEqualTo(28));
-      // The pill sits at the top of the touch target, around the label,
-      // the rest of the target below it.
+      // The pill is the link's own box, around the label.
       expect(shape.top - target.top, lessThan(2));
       expect(shape.contains(tester.getCenter(find.text('Replay'))), isTrue);
       Color? pillColor() =>
@@ -658,14 +655,166 @@ void main() {
       await tester.pump(const Duration(seconds: 6));
     });
 
-    testWidgets('sits right under the bubble, as in iMessage', (tester) async {
-      await pumpMessage(tester, effectEvent(MessageEffect.confetti));
+    /// A conversation of [events], oldest first, as the chat shows it;
+    /// the events in [revealed] have their time shown. [toggled] gets each
+    /// message whose bubble is tapped.
+    Future<void> pumpConversation(
+      WidgetTester tester,
+      List<Event> events, {
+      Set<String> revealed = const {},
+      List<String>? toggled,
+    }) async {
+      final newestFirst = events.reversed.toList();
+      final timeline = Timeline(
+        room: room,
+        chunk: TimelineChunk(events: newestFirst),
+      );
+      final scrollController = ScrollController();
+      addTearDown(scrollController.dispose);
+      await tester.pumpWidget(
+        Provider<MatrixState>.value(
+          value: _FakeMatrix(client),
+          child: MaterialApp(
+            localizationsDelegates: L10n.localizationsDelegates,
+            supportedLocales: L10n.supportedLocales,
+            home: Scaffold(
+              body: ScreenEffectHost(
+                child: ListView.builder(
+                  reverse: true,
+                  controller: scrollController,
+                  itemCount: newestFirst.length,
+                  itemBuilder: (context, i) {
+                    final event = newestFirst[i];
+                    return Message(
+                      event,
+                      previousEvent: i > 0 ? newestFirst[i - 1] : null,
+                      nextEvent: i + 1 < newestFirst.length
+                          ? newestFirst[i + 1]
+                          : null,
+                      timeRevealed: revealed.contains(event.eventId),
+                      bigEmojis: const {},
+                      onSelect: (_) {},
+                      selected: false,
+                      longPressSelect: false,
+                      onToggleTime: (event) => toggled?.add(event.eventId),
+                      onInfoTab: (_) {},
+                      scrollToEventId: (_) {},
+                      onSwipe: () {},
+                      onMention: () {},
+                      onEdit: () {},
+                      enterThread: null,
+                      singleSelected: false,
+                      hideReactionPicker: true,
+                      timeline: timeline,
+                      scrollController: scrollController,
+                      colors: const [Colors.blue, Colors.blue],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await pumpUntilBuilt(tester);
+      await tester.pump();
       await tester.pump(const Duration(seconds: 6));
-      final bubble = tester.getRect(find.byType(EffectBubble));
+    }
+
+    /// Lets the senders' lookups in the database, which run outside the
+    /// test's clock, finish before the test ends.
+    Future<void> settleLookups(WidgetTester tester) async {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 200)),
+      );
+      await tester.pump(const Duration(seconds: 11));
+    }
+
+    Event plainEvent(String id, String body, String sender) => Event(
+      content: {'msgtype': 'm.text', 'body': body},
+      type: EventTypes.Message,
+      eventId: id,
+      senderId: sender,
+      originServerTs: DateTime.now(),
+      status: EventStatus.synced,
+      room: room,
+    );
+
+    final line = find.byKey(const ValueKey('message_effect_replay_line'));
+    final target = find.byKey(const ValueKey('message_effect_replay_row'));
+
+    testWidgets('takes the label\'s height, the next message as far below '
+        'as after a plain message', (tester) async {
+      const alice = '@alice:example.org';
+      final me = client.userID!;
+      await pumpConversation(
+        tester,
+        [
+          plainEvent('\$plain', 'Plain', alice),
+          plainEvent('\$after-plain', 'After plain', me),
+          effectEvent(MessageEffect.confetti, id: '\$fx', body: 'Effect'),
+          plainEvent('\$after-fx', 'After effect', me),
+        ],
+        revealed: {'\$plain'},
+      );
+      expect(tester.getRect(line).height, lessThanOrEqualTo(20));
       final label = tester.getRect(find.text('Replay'));
-      expect(label.top - bubble.bottom, inInclusiveRange(0, 4));
-      expect(tester.getRect(replayLink).height, greaterThanOrEqualTo(48));
+      final effect = tester.getRect(find.text('Effect', findRichText: true));
+      expect(label.top - (effect.bottom + 8), inInclusiveRange(0, 4));
+      double gap(String above, String below) =>
+          tester.getRect(find.text(below, findRichText: true)).top -
+          tester.getRect(find.text(above, findRichText: true)).bottom;
+      debugPrint(
+        'Replay line ${tester.getRect(line).height} dp; gap to the next '
+        'message ${gap('Effect', 'After effect')} dp, after a plain message '
+        '${gap('Plain', 'After plain')} dp',
+      );
+      expect(
+        (gap('Effect', 'After effect') - gap('Plain', 'After plain')).abs(),
+        lessThanOrEqualTo(1.5),
+      );
+      await settleLookups(tester);
     });
+
+    for (final sameSender in [false, true]) {
+      testWidgets('takes taps over its row and the space below it, '
+          'not the next message\'s (${sameSender ? 'same' : 'other'} '
+          'sender next)', (tester) async {
+        final toggled = <String>[];
+        const alice = '@alice:example.org';
+        await pumpConversation(tester, [
+          effectEvent(MessageEffect.confetti, id: '\$fx', body: 'Effect'),
+          plainEvent('\$next', 'Next', sameSender ? alice : client.userID!),
+        ], toggled: toggled);
+        final area = tester.getRect(target);
+        final bubble = tester.getRect(find.byType(EffectBubble));
+        final next = tester.getRect(find.text('Next', findRichText: true));
+        // Never over the bubble, never over the next message.
+        expect(area.top, greaterThanOrEqualTo(bubble.bottom - 0.5));
+        expect(area.bottom, lessThanOrEqualTo(next.top - 8 + 0.5));
+        debugPrint('Replay touch target ${area.height} dp tall');
+        expect(area.height, greaterThanOrEqualTo(sameSender ? 20.5 : 27.5));
+        // At least 48dp across, from the bubble's edge to the next
+        // message's space.
+        final link = tester.getRect(replayLink);
+        final reach = (link.width < 48 ? 48 : link.width) / 2 - 1;
+        final before = host(tester).plays;
+        for (final y in [area.top + 0.5, area.bottom - 0.5]) {
+          for (final dx in [-reach, 0.0, reach]) {
+            await tester.tapAt(Offset(link.center.dx + dx, y));
+            await tester.pump();
+          }
+        }
+        expect(host(tester).plays, before + 6);
+        // A tap on the next message is the next message's.
+        await tester.tapAt(Offset(next.center.dx, next.top + 1));
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(host(tester).plays, before + 6);
+        expect(toggled, ['\$next']);
+        await tester.pump(const Duration(seconds: 6));
+        await settleLookups(tester);
+      });
+    }
 
     for (final own in [false, true]) {
       testWidgets('with the time shown, reads "time · arrow" '
@@ -679,8 +828,9 @@ void main() {
         final time = event.originServerTs.localizedTimeOfDay(
           tester.element(find.byType(EffectBubble)),
         );
-        final row = find.textContaining('$time ·');
+        final row = find.text(time);
         expect(row, findsOneWidget);
+        expect(find.byKey(const ValueKey('replay_dot')), findsOneWidget);
         expect(find.text('Replay'), findsNothing);
         final arrow = find.descendant(
           of: replayLink,
@@ -694,9 +844,8 @@ void main() {
         );
         final bubble = tester.getRect(find.byType(EffectBubble));
         expect(tester.getRect(arrow).top - bubble.bottom, lessThanOrEqualTo(6));
-        expect(tester.getRect(replayLink).height, greaterThanOrEqualTo(48));
-        // The arrow alone still replays, from anywhere in a 48dp target
-        // around it: over the time beside it, and below it.
+        // The arrow alone still replays, from anywhere in a 48dp wide
+        // target around it, over the time beside it too.
         final before = host(tester).plays;
         await tester.tap(arrow);
         await tester.pump();
@@ -704,7 +853,7 @@ void main() {
         await tester.tapAt(tester.getCenter(arrow) + const Offset(-22, 0));
         await tester.pump();
         expect(host(tester).plays, before + 2);
-        await tester.tapAt(tester.getCenter(arrow) + const Offset(0, 30));
+        await tester.tapAt(tester.getCenter(arrow) + const Offset(0, 8));
         await tester.pump();
         expect(host(tester).plays, before + 3);
         await tester.pump(const Duration(seconds: 6));

@@ -27,10 +27,12 @@ import 'package:matrix/matrix.dart';
 /// bubble again by itself, and under reduced motion nothing plays, so
 /// neither gets it; the message then has its usual [statusLine], if any.
 ///
-/// The link looks small but takes taps over a full 48dp target that runs
-/// down from the bubble's edge, so it never covers the bubble. A touch,
-/// hover or focus lights only a slim pill around the arrow and the word,
-/// as Material's state layer.
+/// The line is only as tall as its label, so the next message sits as far
+/// below as after a plain message's status line. Its taps reach further:
+/// 48dp across the arrow, and from the bubble's edge down through the space
+/// the message keeps below itself ([bottomPadding]), never over the bubble
+/// or the next message. A touch, hover or focus lights only a slim pill
+/// around the arrow and the word, as Material's state layer.
 class MessageEffectReplayLink extends StatefulWidget {
   final Event event;
 
@@ -55,6 +57,11 @@ class MessageEffectReplayLink extends StatefulWidget {
   /// Shadows for the label, to keep it legible over a wallpaper.
   final List<Shadow>? shadows;
 
+  /// The space the message keeps below itself, which this line takes
+  /// into its own box when it is the last thing in the message, so that
+  /// taps there are the link's.
+  final double bottomPadding;
+
   const MessageEffectReplayLink({
     required this.event,
     this.ownMessage = false,
@@ -64,11 +71,17 @@ class MessageEffectReplayLink extends StatefulWidget {
     this.statusLine,
     this.timeStyle,
     this.shadows,
+    this.bottomPadding = 0,
     super.key,
   });
 
-  /// The least height and width of the link's touch target.
+  /// The least width of the link's touch target.
   static const height = 48.0;
+
+  /// The space between the time and the dot after it. The dot's other side
+  /// has the pill's own padding and the arrow's side bearing, which this
+  /// matches, so the dot sits as far from the time as from the arrow.
+  static const dotGap = 5.25;
 
   /// How long the time takes to come in or go.
   static const duration = Duration(milliseconds: 220);
@@ -132,7 +145,14 @@ class _MessageEffectReplayLinkState extends State<MessageEffectReplayLink> {
         effect == MessageEffect.invisibleInk ||
         MediaQuery.disableAnimationsOf(context) ||
         PlayedMessageEffects.shouldAutoPlay(widget.event)) {
-      return widget.statusLine ?? const SizedBox.shrink();
+      final statusLine = widget.statusLine;
+      if (widget.bottomPadding == 0) {
+        return statusLine ?? const SizedBox.shrink();
+      }
+      return Padding(
+        padding: EdgeInsets.only(bottom: widget.bottomPadding),
+        child: statusLine,
+      );
     }
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
@@ -156,62 +176,49 @@ class _MessageEffectReplayLinkState extends State<MessageEffectReplayLink> {
           statesController: _states,
           splashFactory: NoSplash.splashFactory,
           overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minHeight: MessageEffectReplayLink.height,
+          child: ValueListenableBuilder<Set<WidgetState>>(
+            valueListenable: _states,
+            builder: (context, states, child) => DecoratedBox(
+              key: const ValueKey('message_effect_replay_pill'),
+              decoration: ShapeDecoration(
+                shape: const StadiumBorder(),
+                color: _stateLayer(color, states),
+              ),
+              child: child,
             ),
-            child: Align(
-              alignment: Alignment.topCenter,
-              widthFactor: 1,
-              heightFactor: 1,
-              child: ValueListenableBuilder<Set<WidgetState>>(
-                valueListenable: _states,
-                builder: (context, states, child) => DecoratedBox(
-                  key: const ValueKey('message_effect_replay_pill'),
-                  decoration: ShapeDecoration(
-                    shape: const StadiumBorder(),
-                    color: _stateLayer(color, states),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.replay,
+                    size: 16,
+                    color: color,
+                    shadows: widget.shadows,
                   ),
-                  child: child,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 1,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.replay,
-                        size: 16,
-                        color: color,
-                        shadows: widget.shadows,
-                      ),
-                      if (folded < 1)
-                        ClipRect(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            widthFactor: 1 - folded,
-                            child: Opacity(
-                              opacity: 1 - folded,
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 2),
-                                child: Text(
-                                  l10n.replay,
-                                  style: theme.textTheme.labelMedium?.copyWith(
-                                    color: color,
-                                    fontWeight: FontWeight.w600,
-                                    shadows: widget.shadows,
-                                  ),
-                                ),
+                  if (folded < 1)
+                    ClipRect(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: 1 - folded,
+                        child: Opacity(
+                          opacity: 1 - folded,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 2),
+                            child: Text(
+                              l10n.replay,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: color,
+                                fontWeight: FontWeight.w600,
+                                shadows: widget.shadows,
                               ),
                             ),
                           ),
                         ),
-                    ],
-                  ),
-                ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -227,39 +234,90 @@ class _MessageEffectReplayLinkState extends State<MessageEffectReplayLink> {
         widthFactor: shown,
         child: Opacity(
           opacity: shown,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 1),
-            child: Text('${_lastTime ?? ''} \u00b7', style: widget.timeStyle),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_lastTime ?? '', style: widget.timeStyle),
+              const SizedBox(width: MessageEffectReplayLink.dotGap),
+              Text(
+                '\u00b7',
+                key: const ValueKey('replay_dot'),
+                style: widget.timeStyle,
+              ),
+            ],
           ),
         ),
       ),
     );
 
-    return Padding(
-      // The arrow lines up with the text inside the bubble.
-      padding: EdgeInsets.only(left: 10 + widget.indent, right: 10),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(end: widget.time == null ? 0 : 1),
-        duration: MessageEffectReplayLink.duration,
-        curve: Easing.standard,
-        // One row the whole width of the message, so the link's touch
-        // target can reach past the arrow on either side.
-        builder: (context, shown, _) => Row(
-          mainAxisAlignment: own
-              ? MainAxisAlignment.end
-              : MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (shown > 0)
-              KeyedSubtree(key: const ValueKey('time'), child: time(shown)),
-            KeyedSubtree(key: const ValueKey('link'), child: link(shown)),
-            if (widget.status.isNotEmpty) const SizedBox(width: 2),
-            for (final item in widget.status)
-              Padding(padding: const EdgeInsets.only(top: 1), child: item),
-          ],
+    return _TapsBelow(
+      key: const ValueKey('message_effect_replay_row'),
+      below: widget.bottomPadding,
+      child: Padding(
+        // The arrow lines up with the text inside the bubble, just under it.
+        padding: EdgeInsets.only(
+          left: 12 + widget.indent,
+          right: 12,
+          top: _top,
+          bottom: widget.bottomPadding,
+        ),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(end: widget.time == null ? 0 : 1),
+          duration: MessageEffectReplayLink.duration,
+          curve: Easing.standard,
+          // One row the whole width of the message, so the link's touch
+          // target can reach past the arrow on either side.
+          builder: (context, shown, _) => Row(
+            key: const ValueKey('message_effect_replay_line'),
+            mainAxisAlignment: own
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            children: [
+              if (shown > 0)
+                KeyedSubtree(key: const ValueKey('time'), child: time(shown)),
+              KeyedSubtree(key: const ValueKey('link'), child: link(shown)),
+              if (widget.status.isNotEmpty) const SizedBox(width: 2),
+              ...widget.status,
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  /// The space between the bubble and the line.
+  static const _top = 2.0;
+}
+
+/// The line's box, which takes taps over all of it, the space above and
+/// below the line included: a tap there is passed on at the nearest height
+/// within the line, [below] being the space at the bottom.
+class _TapsBelow extends SingleChildRenderObjectWidget {
+  final double below;
+
+  const _TapsBelow({required this.below, required super.child, super.key});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderTapsBelow(below);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderTapsBelow renderObject) {
+    renderObject.below = below;
+  }
+}
+
+class _RenderTapsBelow extends RenderProxyBox {
+  _RenderTapsBelow(this.below);
+
+  double below;
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    const top = _MessageEffectReplayLinkState._top;
+    final bottom = size.height - below;
+    final dy = position.dy.clamp(top + 0.5, bottom - 0.5);
+    return super.hitTestChildren(result, position: Offset(position.dx, dy));
   }
 }
 
@@ -281,15 +339,13 @@ class _RenderTouchTarget extends RenderProxyBox {
     final width = size.width < MessageEffectReplayLink.height
         ? MessageEffectReplayLink.height
         : size.width;
-    final target = Rect.fromCenter(
-      center: size.center(Offset.zero),
-      width: width,
-      height: size.height,
+    // How far up and down a tap may be is the line's to say (see
+    // [_TapsBelow]); this only widens the target.
+    if ((position.dx - size.width / 2).abs() > width / 2) return false;
+    final inside = Offset(
+      (Offset.zero & size).contains(position) ? position.dx : size.width / 2,
+      position.dy.clamp(0.5, size.height - 0.5),
     );
-    if (!target.contains(position)) return false;
-    final inside = (Offset.zero & size).contains(position)
-        ? position
-        : Offset(size.width / 2, position.dy);
     return super.hitTest(result, position: inside);
   }
 }

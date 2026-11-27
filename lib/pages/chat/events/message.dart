@@ -396,6 +396,15 @@ class Message extends StatelessWidget {
     const highlightInsetX = 6.0;
     final highlightInsetTop = min(rowPaddingTop, 4.0);
     final highlightInsetBottom = min(rowPaddingBottom, 4.0);
+    // Under an effect message whose Replay line is the last thing in it,
+    // the line takes the space below the message into its own box, so taps
+    // there are the link's.
+    final replayOwnsBottom =
+        effectOf(event) != null &&
+        !showSeenBy &&
+        !showReactionPicker &&
+        threadChildren.isEmpty &&
+        !displayReadMarker;
 
     return Center(
       child: SwipeToReply(
@@ -410,7 +419,7 @@ class Message extends StatelessWidget {
             left: 8.0,
             right: 8.0,
             top: rowPaddingTop,
-            bottom: rowPaddingBottom,
+            bottom: replayOwnsBottom ? 0 : rowPaddingBottom,
           ),
           child: Column(
             mainAxisSize: .min,
@@ -421,7 +430,9 @@ class Message extends StatelessWidget {
                 children: [
                   Positioned(
                     top: -highlightInsetTop,
-                    bottom: -highlightInsetBottom,
+                    bottom: replayOwnsBottom
+                        ? rowPaddingBottom - highlightInsetBottom
+                        : -highlightInsetBottom,
                     left: -highlightInsetX,
                     right: -highlightInsetX,
                     child: InkWell(
@@ -806,6 +817,9 @@ class Message extends StatelessWidget {
                                 statusLine: hasStatusLine ? statusLine : null,
                                 timeStyle: timeStyle,
                                 shadows: wallpaperTextShadow,
+                                bottomPadding: replayOwnsBottom
+                                    ? rowPaddingBottom
+                                    : 0,
                               )
                             else if (hasStatusLine)
                               statusLine,
