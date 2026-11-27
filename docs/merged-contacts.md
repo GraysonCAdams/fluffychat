@@ -358,8 +358,12 @@ pass.
   press elsewhere on the row peeks instead (`lib/pages/chat_list/chat_peek.dart`):
   the list blurs and the chat's recent messages show in a card, read-only
   and without moving the read marker, over the chat's menu, the
-  right-click menu's entries with icons. A tap on the card opens the chat;
-  the finger can slide onto an entry and lift to pick it. A right-click
+  right-click menu's entries with icons. A tap on the card opens the chat,
+  as does dragging it down by its handle or anywhere on it: it stretches
+  with resistance, and let go past 35% of the way or flung, it fills the
+  window and the chat opens under it without a transition
+  (`lib/utils/handoff_page.dart`); short of that it springs back. The
+  finger that opened the peek can slide onto an entry and lift to pick it. A right-click
   opens the menu itself. While chats are selected, a long press anywhere on
   a row picks it. In the pinned row,
   moving the finger after the hold lifts the chat to drag it and undoes the
