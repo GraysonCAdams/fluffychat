@@ -14,6 +14,7 @@ import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_swipe.dart';
 import 'package:fluffychat/pages/chat_list/dummy_chat_list_item.dart';
+import 'package:fluffychat/pages/chat_list/floating_control_transition.dart';
 import 'package:fluffychat/pages/chat_list/hold_then_drag.dart';
 import 'package:fluffychat/pages/chat_list/message_search_results.dart';
 import 'package:fluffychat/pages/chat_list/pinned_order.dart';
@@ -518,7 +519,8 @@ class ChatListViewBody extends StatelessWidget {
 /// the visible rows and scrolls to the next one when tapped. Row positions
 /// are estimated from the two row heights the list uses, plus the copy code
 /// button where a row shows one, which is close enough to count rows and to
-/// land the next unread chat on screen.
+/// land the next unread chat on screen. It comes and goes with
+/// [FloatingControlTransition].
 class _UnreadBelowChip extends StatelessWidget {
   final ChatListController controller;
 
@@ -541,7 +543,7 @@ class _UnreadBelowChip extends StatelessWidget {
         final scroll = controller.scrollController;
         // The list reports no size until its first layout.
         if (!scroll.hasClients || !scroll.position.hasViewportDimension) {
-          return const SizedBox.shrink();
+          return const FloatingControlTransition(visible: false, child: null);
         }
         final listed = controller.listedRooms.value;
         final bottom = scroll.offset + scroll.position.viewportDimension;
@@ -563,29 +565,34 @@ class _UnreadBelowChip extends StatelessWidget {
           top += height;
         }
         final target = firstTop;
-        if (below == 0 || target == null) return const SizedBox.shrink();
-        return ActionChip(
-          avatar: Icon(
-            Icons.arrow_downward,
-            size: 16,
-            color: theme.colorScheme.onPrimary,
-          ),
-          label: Text('$below ${L10n.of(context).unread.toLowerCase()}'),
-          labelStyle: theme.textTheme.labelLarge?.copyWith(
-            color: theme.colorScheme.onPrimary,
-          ),
-          backgroundColor: theme.colorScheme.primary,
-          side: BorderSide.none,
-          shape: const StadiumBorder(),
-          elevation: 3,
-          onPressed: () => scroll.animateTo(
-            // Leaves the unread chat a third of the way down the screen.
-            (target - scroll.position.viewportDimension / 3).clamp(
-              0.0,
-              scroll.position.maxScrollExtent,
+        if (below == 0 || target == null) {
+          return const FloatingControlTransition(visible: false, child: null);
+        }
+        return FloatingControlTransition(
+          visible: true,
+          child: ActionChip(
+            avatar: Icon(
+              Icons.arrow_downward,
+              size: 16,
+              color: theme.colorScheme.onPrimary,
             ),
-            duration: FluffyThemes.animationDuration,
-            curve: FluffyThemes.animationCurve,
+            label: Text('$below ${L10n.of(context).unread.toLowerCase()}'),
+            labelStyle: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onPrimary,
+            ),
+            backgroundColor: theme.colorScheme.primary,
+            side: BorderSide.none,
+            shape: const StadiumBorder(),
+            elevation: 3,
+            onPressed: () => scroll.animateTo(
+              // Leaves the unread chat a third of the way down the screen.
+              (target - scroll.position.viewportDimension / 3).clamp(
+                0.0,
+                scroll.position.maxScrollExtent,
+              ),
+              duration: FluffyThemes.animationDuration,
+              curve: FluffyThemes.animationCurve,
+            ),
           ),
         );
       },

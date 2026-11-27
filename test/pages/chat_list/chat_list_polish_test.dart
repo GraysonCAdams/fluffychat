@@ -87,8 +87,9 @@ void main() {
   ChatListController list(WidgetTester tester) =>
       tester.state<ChatListController>(find.byType(ChatList));
 
-  double buttonHeight(WidgetTester tester) =>
-      tester.getSize(find.byType(ScrollToTopButton)).height;
+  /// Whether back to top is up and takes taps.
+  bool buttonShown() =>
+      find.byIcon(Icons.arrow_upward).hitTestable().evaluate().isNotEmpty;
 
   group('back to top', () {
     testWidgets('shows once scrolled down a screen and goes back up', (
@@ -100,17 +101,17 @@ void main() {
       final scroll = list(tester).scrollController;
 
       // At the top there is nothing to go back up to.
-      expect(buttonHeight(tester), 0);
+      expect(buttonShown(), isFalse);
 
       await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
       await tester.pumpAndSettle();
       expect(scroll.offset, greaterThan(0));
-      expect(buttonHeight(tester), 0, reason: 'less than a screen down');
+      expect(buttonShown(), isFalse, reason: 'less than a screen down');
 
       await tester.drag(find.byType(CustomScrollView), const Offset(0, -900));
       await tester.pumpAndSettle();
       expect(scroll.offset, greaterThan(800));
-      expect(buttonHeight(tester), greaterThan(40));
+      expect(buttonShown(), isTrue);
 
       // Near the top and clear of New chat and the unread chip below.
       final button = tester.getRect(find.byType(ScrollToTopButton));
@@ -133,7 +134,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pumpAndSettle();
       expect(scroll.offset, 0);
-      expect(buttonHeight(tester), 0);
+      expect(buttonShown(), isFalse);
 
       await finishFakeChatList(tester, client);
     });
@@ -153,7 +154,7 @@ void main() {
     // below the status bar (4 of it is the room for the button's shadow).
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -1300));
     await tester.pumpAndSettle();
-    expect(buttonHeight(tester), greaterThan(40));
+    expect(buttonShown(), isTrue);
     expect(find.byType(AppBar).hitTestable(), findsNothing);
     expect(buttonTop(), 24 + 4);
 
@@ -402,7 +403,10 @@ void main() {
     }
 
     final lastChat = tester.getRect(
-      find.ancestor(of: find.text('Chat 39'), matching: find.byType(ChatListItem)),
+      find.ancestor(
+        of: find.text('Chat 39'),
+        matching: find.byType(ChatListItem),
+      ),
     );
     final fab = tester.getRect(find.byType(StartChatFab));
     expect(lastChat.bottom, lessThanOrEqualTo(fab.top));
