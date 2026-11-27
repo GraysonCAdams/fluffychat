@@ -3933,5 +3933,22 @@
     "pickTwoOrMorePeople": "Pick two or more people",
     "@pickTwoOrMorePeople": {
         "description": "Subtitle of the New group row at the top of the new chat page."
+        },
+    "notificationSettings": "Notification settings",
+    "appearance": "Appearance",
+    "networkSettings": "Network settings",
+    "muteAllChats": "Mute all chats",
+    "unmuteAllChats": "Unmute all chats",
+    "hideFromRail": "Hide from rail",
+    "@hideFromRail": {
+        "description": "Item in the menu of a network's tile on the chat list's rail that takes the tile off the rail."
+    },
+    "hiddenFromRail": "Hidden from the rail",
+    "@hiddenFromRail": {
+        "description": "Chat settings row listing the networks taken off the chat list's rail; opens a sheet to show them again."
+    },
+    "showOnRail": "Show",
+    "@showOnRail": {
+        "description": "Button beside a hidden network in the Hidden from the rail sheet that puts it back on the rail."
     }
 }

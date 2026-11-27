@@ -57,6 +57,7 @@ class ChatListView extends StatelessWidget {
                       context: context,
                       removeTop: controller.titleBarSearch != null,
                       child: SpacesNavigationRail(
+                        controller: controller,
                         activeSpaceId: controller.activeSpaceId,
                         onGoToChats: controller.clearActiveSpace,
                         onGoToSpaceId: controller.setActiveSpace,

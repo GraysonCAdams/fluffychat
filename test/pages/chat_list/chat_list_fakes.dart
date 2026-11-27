@@ -321,6 +321,13 @@ Future<GoRouter> pumpFakeChatList(WidgetTester tester, Client client) async {
             path: ':roomid',
             builder: (context, state) =>
                 Text('opened ${state.pathParameters['roomid']}'),
+            routes: [
+              GoRoute(
+                path: 'details',
+                builder: (context, state) =>
+                    Text('details of ${state.pathParameters['roomid']}'),
+              ),
+            ],
           ),
         ],
       ),

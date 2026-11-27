@@ -53,6 +53,9 @@ enum AppSettings<T> {
   chatListNetworkBadges<bool>('chat.fluffy.chat_list_network_badges', true),
   // Swiping a row in the main chat list. Each direction holds a
   // ChatSwipeAction name: markRead, lowPriority, pin, mute, leave or none.
+  // The spaces (networks) taken off the chat list's rail with Hide from
+  // rail, by room ID; Settings > Chat shows them again.
+  railHiddenSpaces<List<String>>('chat.fluffy.rail_hidden_spaces', []),
   chatListSwipe<bool>('chat.fluffy.chat_list_swipe', true),
   chatListSwipeRight<String>('chat.fluffy.chat_list_swipe_right', 'markRead'),
   chatListSwipeLeft<String>('chat.fluffy.chat_list_swipe_left', 'lowPriority'),

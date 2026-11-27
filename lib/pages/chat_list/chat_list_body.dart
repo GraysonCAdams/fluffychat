@@ -195,7 +195,7 @@ class ChatListViewBody extends StatelessWidget {
                 final filterSpace = activeSpaceRoom ?? sourceSpace;
                 final spaceRoomIds = filterSpace == null
                     ? null
-                    : _roomIdsInSpace(client, filterSpace);
+                    : roomIdsInSpace(client, filterSpace);
                 final hideRoomsInSpaces = AppSettings.hideRoomsInSpaces.value;
                 // A merged contact is listed once and passes when any of its
                 // rooms does (see MergedChatList).
@@ -1087,23 +1087,6 @@ class _BubbleTailPainter extends CustomPainter {
   @override
   bool shouldRepaint(_BubbleTailPainter oldDelegate) =>
       oldDelegate.color != color;
-}
-
-/// The chats of [space] and of the spaces directly inside it, matching the
-/// two levels the space's room directory shows.
-Set<String> _roomIdsInSpace(Client client, Room space) {
-  final roomIds = <String>{};
-  for (final child in space.spaceChildren) {
-    final roomId = child.roomId;
-    if (roomId == null) continue;
-    final room = client.getRoomById(roomId);
-    if (room != null && room.isSpace) {
-      roomIds.addAll(room.spaceChildren.map((child) => child.roomId).nonNulls);
-    } else {
-      roomIds.add(roomId);
-    }
-  }
-  return roomIds;
 }
 
 /// Heads the chat list while it is filtered to a space: the space's name, a

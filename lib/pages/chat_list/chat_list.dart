@@ -55,6 +55,23 @@ import '../../config/setting_keys.dart';
 import '../../utils/url_launcher.dart';
 import '../../widgets/matrix.dart';
 
+/// The chats of [space] and of the spaces directly inside it, matching the
+/// two levels the space's room directory shows.
+Set<String> roomIdsInSpace(Client client, Room space) {
+  final roomIds = <String>{};
+  for (final child in space.spaceChildren) {
+    final roomId = child.roomId;
+    if (roomId == null) continue;
+    final room = client.getRoomById(roomId);
+    if (room != null && room.isSpace) {
+      roomIds.addAll(room.spaceChildren.map((child) => child.roomId).nonNulls);
+    } else {
+      roomIds.add(roomId);
+    }
+  }
+  return roomIds;
+}
+
 enum ActiveFilter { allChats, unread, groups, messages, tag }
 
 extension LocalizedActiveFilter on ActiveFilter {
@@ -934,17 +951,26 @@ class ChatListController extends State<ChatList>
     });
   }
 
-  /// Moves the read marker to the newest event of every unread chat of the
-  /// active account, in small batches so large accounts are not rate limited.
-  Future<void> markAllAsRead() async {
+  /// The chats [markAllAsRead] would mark: every unread joined chat of the
+  /// active account, or only those of [space] and the spaces in it.
+  List<Room> unreadChats([Room? space]) {
     final client = Matrix.of(context).client;
-    final rooms = client.rooms
+    final among = space == null ? null : roomIdsInSpace(client, space);
+    return client.rooms
         .where(
           (room) =>
               room.membership == Membership.join &&
-              (room.isUnread || room.markedUnread),
+              (room.isUnread || room.markedUnread) &&
+              (among == null || among.contains(room.id)),
         )
         .toList();
+  }
+
+  /// Moves the read marker to the newest event of every unread chat of the
+  /// active account, or of [space] only, in small batches so large accounts
+  /// are not rate limited.
+  Future<void> markAllAsRead([Room? space]) async {
+    final rooms = unreadChats(space);
     if (rooms.isEmpty) return;
     await showFutureLoadingDialog(
       context: context,
@@ -965,6 +991,21 @@ class ChatListController extends State<ChatList>
         }
       },
     );
+  }
+
+  /// Takes [space] off the rail (see [AppSettings.railHiddenSpaces]),
+  /// leaving it first if it is the one open.
+  Future<void> hideFromRail(Room space) async {
+    await AppSettings.railHiddenSpaces.setItem([
+      ...AppSettings.railHiddenSpaces.value.where((id) => id != space.id),
+      space.id,
+    ]);
+    if (!mounted) return;
+    if (activeSpaceId == space.id) {
+      clearActiveSpace();
+    } else {
+      setState(() {});
+    }
   }
 
   /// Resumes notifications when snoozed, and otherwise asks for how long to
