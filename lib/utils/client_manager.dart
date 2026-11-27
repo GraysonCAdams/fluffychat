@@ -15,6 +15,7 @@ import 'package:fluffychat/utils/init_with_restore.dart';
 import 'package:fluffychat/utils/last_event_keeper.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call_member.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/network_error_log.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -170,6 +171,8 @@ abstract class ClientManager {
     );
     // Bridge bookkeeping in a limited sync must not replace a chat's preview.
     LastEventKeeper.attach(client);
+    // The network colour picks follow the account across devices.
+    NetworkColorSync.attach(client);
     // A failed sync says why in one line of the log.
     SyncErrorLog.attach(client);
     return client;
