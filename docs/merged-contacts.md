@@ -40,8 +40,13 @@ One account data event, `im.fluffychat.merged_contacts`:
 - `send_mode`: `preferred` (always `send_via` unless the user picks another
   for one message) or `last_received` (reply on the network they last wrote
   from).
-- `name` is optional. Without it the display name of the `send_via` room is
-  used.
+- `name` is optional, set by renaming the contact, which also writes
+  `"name_set": true`. Without it a one-to-one contact shows the display
+  name of the `send_via` room, and a contact of group chats the name its
+  rooms give it now (see "Same-people groups"). A group contact's `name`
+  without `name_set` that is one of its rooms' own names, as an earlier
+  version stored the name a conversation showed when a chat was added to
+  it, is not used, so the name follows the rooms.
 - `fallback` (optional, default false) turns on the offer to resend a failed
   message through the next network (see SendRouter).
 - Conflicts between devices: last write wins per contact, by `updated`. The
@@ -91,7 +96,9 @@ Derived, never stored:
 
 - last event: newest `lastEvent` across rooms
 - unread and highlight counts: sums; `isUnread` if any room is
-- avatar and name: from the `send_via` room unless `name` is set
+- avatar: from the `send_via` room
+- name: `name` when the user set it, else the `send_via` room's name, or
+  for group chats the live name (`liveGroupName`)
 - networks: the bridge each room belongs to, for badges (from the room's
   parent space, the same source as the chat list's corner badge)
 - muted: only if every room is muted
@@ -214,13 +221,18 @@ conversation without the user doing anything (`findSameGroups`):
 - Its rooms are ordered most recently active first, and new messages go to
   the first (`send_via`). Replies, edits and reactions go to their
   message's room, as for every merged contact.
-- Its name is the newest room's name that the bridge did not build from
-  the members, else the newest built name other than the legacy "Group
-  Chat". A name is built (`groupNameIsBuilt`) when the bridge's
-  `dev.macoun.group_name` state says `"generated": true`; without that
-  event, when the room has no name, is named "Group Chat", or is named as
-  the iMessage bridge builds one: the other members' names joined with
-  ", " for four or fewer, "A, B, C +N more" for five or more, in any order.
+- Its name, like that of any contact of group chats without a name the
+  user set, follows the rooms as they are now (`liveGroupName`): the
+  newest room's name that the bridge did not build from the members, else
+  the newest built name that still matches its room's members, else the
+  members' names built the same way. A name is built (`groupNameIsBuilt`)
+  when the bridge's `dev.macoun.group_name` state says `"generated":
+  true`; without that event, when the room has no name, is named "Group
+  Chat", or is named as the iMessage bridge builds one: the other members'
+  names joined with ", " for four or fewer, "A, B, C +N more" for five or
+  more, in any order. A list of only some of the members (two or more, or
+  the three before "+N more") counts as built too, since the bridge builds
+  a name again only some time after someone joins.
 - Rooms on different bridges, and rooms whose people differ at all, are
   never merged this way. A room whose member list is not all in memory is
   left out until it is loaded (its joined members, at most 50, once a
@@ -230,7 +242,7 @@ conversation without the user doing anything (`findSameGroups`):
   or picking another default network is not stored for an automatic
   contact.
 - Adding a chat to it with the chat's "+" stores a contact made of its
-  rooms and the added one, under the name it showed, and the conversation
+  rooms and the added one, with no name of its own, and the conversation
   opens under the new contact's route. The automatic one is not made again,
   as its rooms now belong to a contact the user made.
 - The chat list badges it as its one network, and the chat's network

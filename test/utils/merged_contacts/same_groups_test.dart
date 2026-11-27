@@ -9,6 +9,7 @@ import 'dart:async';
 import 'package:fluffychat/pages/chat_list/merged_contact_list.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_timeline.dart';
+import 'package:fluffychat/utils/merged_contacts/model.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -260,6 +261,116 @@ void main() {
     },
   );
 
+  group('a stored group conversation', () {
+    const four = {
+      _drew: 'Drew Andersen',
+      _harrison: 'Harrison Young',
+      _peter: 'Peter Park',
+      _quinn: 'Quinn Imsg',
+    };
+
+    /// The four-person threads, stored as one conversation with [entry]'s
+    /// fields: the unnamed one newest, then P-Patrol Rebørn.
+    MergedContact store4(Map<String, Object?> entry) {
+      final unnamed = addGroup(
+        '!ntWu:x',
+        four,
+        name: 'Quinn Imsg, Peter Park, Harrison Young, Drew Andersen',
+        last: DateTime(2025, 5, 1),
+      );
+      final named = addGroup(
+        '!SlpI:x',
+        four,
+        name: 'P-Patrol Rebørn',
+        last: DateTime(2025, 3, 1),
+      );
+      return MergedContact.fromRooms(
+        MergedContactEntry.fromJson('c_1', {
+          'rooms': ['!ntWu:x', '!SlpI:x'],
+          'send_via': '!ntWu:x',
+          'updated': 1,
+          ...entry,
+        })!,
+        [unnamed, named],
+      )!;
+    }
+
+    test('takes the name its people gave the group', () {
+      expect(store4({}).displayName(), 'P-Patrol Rebørn');
+    });
+
+    test('follows its members when no thread has a given name', () {
+      final newest = addGroup(
+        '!a:x',
+        drewAndHarrison,
+        name: 'Drew Andersen, Harrison Young',
+        last: DateTime(2026, 11, 26),
+      );
+      final older = addGroup(
+        '!b:x',
+        drewAndHarrison,
+        name: 'Harrison Young, Drew Andersen',
+        last: DateTime(2025, 1, 1),
+      );
+      final contact = MergedContact.fromRooms(
+        MergedContactEntry.fromJson('c_2', {
+          'rooms': ['!b:x', '!a:x'],
+          'send_via': '!b:x',
+          'updated': 1,
+        })!,
+        [older, newest],
+      )!;
+      expect(contact.displayName(), 'Drew Andersen, Harrison Young');
+
+      // Peter joins; the bridge has not renamed the threads.
+      member(newest, _peter, 'Peter Park');
+      member(older, _peter, 'Peter Park');
+      expect(
+        contact.displayName(),
+        'Drew Andersen, Harrison Young, Peter Park',
+      );
+    });
+
+    test('a name an earlier version stored as shown follows the rooms', () {
+      // Stored by "+" on the automatic conversation, which showed the
+      // newest thread's built name then.
+      final contact = store4({
+        'name': 'Quinn Imsg, Peter Park, Harrison Young, Drew Andersen',
+      });
+      expect(contact.userName, isNull);
+      expect(contact.displayName(), 'P-Patrol Rebørn');
+    });
+
+    test('a rename sticks, even to a thread\'s own name, and clearing it '
+        'follows the rooms again', () async {
+      final rooms = store4({});
+      final backend = _Backend()
+        ..content = {
+          'version': 1,
+          'contacts': {
+            'c_1': {
+              'rooms': ['!ntWu:x', '!SlpI:x'],
+              'send_via': '!ntWu:x',
+              'updated': 1,
+            },
+          },
+        };
+      final store = MergedContactsStore(backend);
+      addTearDown(store.dispose);
+      MergedContact named() =>
+          MergedContact.fromRooms(store.contactById('c_1')!, rooms.rooms)!;
+
+      const built = 'Quinn Imsg, Peter Park, Harrison Young, Drew Andersen';
+      await store.rename('c_1', built);
+      expect(named().displayName(), built);
+      await store.rename('c_1', 'Turkey crew');
+      expect(named().displayName(), 'Turkey crew');
+
+      await store.rename('c_1', null);
+      expect(named().displayName(), 'P-Patrol Rebørn');
+    });
+  });
+
   test('splitting them up keeps them apart', () async {
     final backend = _Backend();
     final store = MergedContactsStore(backend);
@@ -302,7 +413,7 @@ class _Backend extends MergedContactsBackend {
   Future<void> get ready async {}
 
   @override
-  List<({List<String> rooms, String? name})> sameGroups() => [
-    (rooms: ['!a', '!b'], name: null),
+  List<List<String>> sameGroups() => [
+    ['!a', '!b'],
   ];
 }

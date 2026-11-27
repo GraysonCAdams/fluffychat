@@ -39,8 +39,8 @@ abstract class MergedContactsBackend {
   Future<void> get ready;
 
   /// The group chats on one bridge with the same people, each the room IDs
-  /// most recently active first with the group's own name, if any.
-  List<({List<String> rooms, String? name})> sameGroups() => const [];
+  /// most recently active first.
+  List<List<String>> sameGroups() => const [];
 
   int now() => DateTime.now().millisecondsSinceEpoch;
 
@@ -113,9 +113,9 @@ class ClientMergedContactsBackend extends MergedContactsBackend {
   final StreamController<void> _membersLoaded = StreamController.broadcast();
 
   @override
-  List<({List<String> rooms, String? name})> sameGroups() => [
+  List<List<String>> sameGroups() => [
     for (final group in findSameGroups(client, onIncomplete: _loadMembers))
-      (rooms: group.roomIds, name: group.name),
+      group.roomIds,
   ];
 
   /// The groups whose members were asked for, so each is asked once.
@@ -262,7 +262,7 @@ class MergedContactsStore {
     final result = <MergedContactEntry>[];
     for (final group in backend.sameGroups()) {
       final rooms = [
-        for (final room in group.rooms)
+        for (final room in group)
           if (!claimed.contains(room) && backend.isUsableRoom(room)) room,
       ];
       if (rooms.length < 2) continue;
@@ -280,7 +280,6 @@ class MergedContactsStore {
           rooms: rooms,
           sendVia: rooms.first,
           updated: 0,
-          name: group.name,
         ),
       );
     }
@@ -375,7 +374,7 @@ class MergedContactsStore {
     if (automatic != null && automatic.automatic) {
       return merge(
         [...automatic.rooms, ...roomIds],
-        name: name ?? automatic.name,
+        name: name,
         identifier: identifier,
       );
     }
@@ -504,11 +503,14 @@ class MergedContactsStore {
     (contact, now) => contact.copyWith(sendMode: mode, updated: now),
   );
 
-  /// Sets the contact's name; null or blank goes back to the room's name.
+  /// Sets the contact's name, marked as set by the user (see
+  /// [MergedContactEntry.nameSet]); null or blank goes back to the name
+  /// the rooms give it.
   Future<void> rename(String contactId, String? name) => _edit(
     contactId,
     (contact, now) => contact.copyWith(
       name: () => name == null || name.trim().isEmpty ? null : name.trim(),
+      nameSet: name != null && name.trim().isNotEmpty,
       updated: now,
     ),
   );

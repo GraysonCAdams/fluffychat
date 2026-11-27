@@ -16,13 +16,7 @@ class SameGroup {
   /// The rooms, most recently active first.
   final List<Room> rooms;
 
-  /// The group's name: the newest room's name that the bridge did not
-  /// build from the members (see [groupNameIsBuilt]), else the newest
-  /// built name other than the [legacyBuiltGroupName]. Null when there is
-  /// neither.
-  final String? name;
-
-  const SameGroup(this.rooms, this.name);
+  const SameGroup(this.rooms);
 
   List<String> get roomIds => [for (final room in rooms) room.id];
 }
@@ -63,26 +57,11 @@ List<SameGroup> findSameGroups(
   ];
 }
 
-SameGroup _sameGroup(List<Room> rooms) {
-  rooms.sort(
+SameGroup _sameGroup(List<Room> rooms) => SameGroup(
+  rooms..sort(
     (a, b) => b.latestEventReceivedTime.compareTo(a.latestEventReceivedTime),
-  );
-  String? given;
-  String? built;
-  for (final room in rooms) {
-    if (!groupNameIsBuilt(room)) {
-      given = room.getLocalizedDisplayname();
-      break;
-    }
-    final name = room.getState(EventTypes.RoomName)?.content['name'];
-    if (built == null &&
-        name is String &&
-        name.trim() != legacyBuiltGroupName) {
-      built = room.getLocalizedDisplayname();
-    }
-  }
-  return SameGroup(rooms, given ?? built);
-}
+  ),
+);
 
 /// The people of [room] besides the user and the bridge [bot], joined or
 /// invited; null when the room counts more members than are in memory.
@@ -117,17 +96,50 @@ const legacyBuiltGroupName = 'Group Chat';
 /// iMessage bridge makes one counts as built: the other members' names
 /// joined with ", " for four or fewer, and "A, B, C +N more" for five or
 /// more, where N is the members past the third. The members may be listed
-/// in any order.
+/// in any order, and a name listing only some of them counts (see
+/// [isBuiltGroupName]).
 bool groupNameIsBuilt(Room room) {
   final marker = room.getState(groupNameStateType)?.content['generated'];
   if (marker is bool) return marker;
   final name = room.getState(EventTypes.RoomName)?.content['name'];
   if (name is! String || name.trim().isEmpty) return true;
-  if (name.trim() == legacyBuiltGroupName) return true;
+  return isBuiltGroupName(name, room);
+}
+
+/// Whether [name] is one the bridge builds from [room]'s members, or the
+/// [legacyBuiltGroupName], by the rules of [groupNameIsBuilt]. A name
+/// listing only some of the members (two or more of them, or the three
+/// before "+N more") counts too: it was built before someone joined, and
+/// the bridge has not built it again yet. With [exact], only a name built
+/// from the members as they are now counts.
+bool isBuiltGroupName(String name, Room room, {bool exact = false}) {
+  if (name.trim() == legacyBuiltGroupName) return !exact;
+  final names = _memberNames(room);
+  if (names == null || names.isEmpty) return false;
+  final more = RegExp(r'^(.*) \+(\d+) more$').firstMatch(name);
+  if (more != null) {
+    final shown = more.group(1)!.split(', ');
+    return shown.length == 3 &&
+        shown.every(names.contains) &&
+        (!exact ||
+            names.length >= 5 && int.parse(more.group(2)!) == names.length - 3);
+  }
+  final shown = name.split(', ');
+  if (shown.toSet().length != shown.length || !shown.every(names.contains)) {
+    return false;
+  }
+  return exact
+      ? names.length <= 4 && shown.length == names.length
+      : shown.length == names.length || shown.length >= 2;
+}
+
+/// The display names of [room]'s people besides the user and its bridge
+/// bot, or null when its member list is not all in memory.
+Set<String>? _memberNames(Room room) {
   final bot = MatrixFeatures.forClient(room.client).bridgeOf(room)?.bot;
   final people = groupPeopleOf(room, bot);
-  if (people == null || people.isEmpty) return false;
-  final names = {
+  if (people == null) return null;
+  return {
     for (final id in people)
       room
               .getState(EventTypes.RoomMember, id)
@@ -136,17 +148,37 @@ bool groupNameIsBuilt(Room room) {
           id.localpart ??
           id,
   };
-  final more = RegExp(r'^(.*) \+(\d+) more$').firstMatch(name);
-  if (more != null) {
-    final shown = more.group(1)!.split(', ');
-    return people.length >= 5 &&
-        shown.length == 3 &&
-        int.parse(more.group(2)!) == people.length - 3 &&
-        shown.every(names.contains);
+}
+
+/// The name of a conversation of the group chats [rooms], as their members
+/// and the group's network name it now, newest room first:
+/// 1. a name given to the group on its network (see [groupNameIsBuilt]),
+/// 2. else the name the bridge built for the newest room whose built name
+///    still matches its members,
+/// 3. else the members' names, as the bridge builds a name: joined with
+///    ", " for four or fewer, "A, B, C +N more" for five or more,
+/// 4. else the newest room's own display name.
+String liveGroupName(
+  List<Room> rooms, [
+  MatrixLocalizations i18n = const MatrixDefaultLocalizations(),
+]) {
+  final newest = [...rooms]
+    ..sort(
+      (a, b) => b.latestEventReceivedTime.compareTo(a.latestEventReceivedTime),
+    );
+  for (final room in newest) {
+    if (!groupNameIsBuilt(room)) return room.getLocalizedDisplayname(i18n);
   }
-  final shown = name.split(', ');
-  return people.length <= 4 &&
-      shown.length == people.length &&
-      shown.toSet().length == names.length &&
-      shown.every(names.contains);
+  for (final room in newest) {
+    final name = room.getState(EventTypes.RoomName)?.content['name'];
+    if (name is String && isBuiltGroupName(name, room, exact: true)) {
+      return name;
+    }
+  }
+  final latest = newest.first;
+  final names = (_memberNames(latest)?.toList() ?? [])..sort();
+  if (names.isEmpty) return latest.getLocalizedDisplayname(i18n);
+  return names.length <= 4
+      ? names.join(', ')
+      : '${names.take(3).join(', ')} +${names.length - 3} more';
 }
