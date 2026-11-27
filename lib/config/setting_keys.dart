@@ -152,6 +152,19 @@ enum AppSettings<T> {
   /// FluffyChat's purple, the default [colorSchemeSeedInt] before Seam Cobalt.
   static const int legacyColorSchemeSeed = 0xFF5625BA;
 
+  /// Picking the system colour used to store the default seed, FluffyChat
+  /// purple. Treats that as unset so the user gets Seam Cobalt; any other
+  /// stored colour was picked on purpose and stays.
+  @visibleForTesting
+  static Future<void> dropLegacyColorSchemeSeed(SharedPreferences store) async {
+    final seed = Result(
+      () => store.getInt(AppSettings.colorSchemeSeedInt.key),
+    ).asValue?.value;
+    if (seed == legacyColorSchemeSeed) {
+      await store.remove(AppSettings.colorSchemeSeedInt.key);
+    }
+  }
+
   static SharedPreferences get store => _store!;
   static SharedPreferences? _store;
 
@@ -188,14 +201,7 @@ enum AppSettings<T> {
       }
     }
 
-    // Picking the system colour used to store the default seed, FluffyChat
-    // purple. Treat that as unset so the user gets Seam Cobalt.
-    if (Result(
-          () => store.getInt(AppSettings.colorSchemeSeedInt.key),
-        ).asValue?.value ==
-        legacyColorSchemeSeed) {
-      await store.remove(AppSettings.colorSchemeSeedInt.key);
-    }
+    await dropLegacyColorSchemeSeed(store);
 
     if (store.getBool(AppSettings.sendOnEnter.key) == null) {
       await store.setBool(AppSettings.sendOnEnter.key, !PlatformInfos.isMobile);
