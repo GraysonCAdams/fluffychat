@@ -8,6 +8,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/events/html_message.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
+import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -100,6 +101,9 @@ void main() {
   }
 
   Finder pill(String userId) => find.byKey(Key('user_pill_$userId'));
+  const chipKey = ValueKey('mention_chip');
+  const labelKey = ValueKey('mention_label');
+  const roomGlyphKey = ValueKey('mention_room_glyph');
   String pillName(WidgetTester tester, String userId) =>
       tester.widget<MatrixPill>(pill(userId)).name;
 
@@ -130,11 +134,28 @@ void main() {
         ),
       );
       expect(pill(harrison), findsOneWidget);
-      expect(pillName(tester, harrison), 'Harrison Young');
+      // Labelled as written, though the member's name is Harrison Young.
+      expect(pillName(tester, harrison), 'Harrison');
       expect(
         find.textContaining('@Harrison', findRichText: true),
         findsNothing,
       );
+    });
+
+    testWidgets('a user ID as link text gives way to the display name', (
+      tester,
+    ) async {
+      final room = groupRoom();
+      await pump(
+        tester,
+        message(
+          room,
+          bridgeMention(
+            'after <a href="https://matrix.to/#/$harrison">$harrison</a>',
+          ),
+        ),
+      );
+      expect(pillName(tester, harrison), 'Harrison Young');
     });
 
     testWidgets('names a member not loaded yet by the link text', (
@@ -191,10 +212,6 @@ void main() {
       );
       expect(pill(client.userID!), findsOneWidget);
       expect(tester.widget<MatrixPill>(pill(client.userID!)).isUser, isTrue);
-      expect(
-        find.byKey(const ValueKey('own_mention_highlight')),
-        findsOneWidget,
-      );
     });
 
     testWidgets('a mention of someone else is not highlighted', (tester) async {
@@ -206,7 +223,94 @@ void main() {
           bridgeMention('<a href="https://matrix.to/#/$harrison">Harrison</a>'),
         ),
       );
-      expect(find.byKey(const ValueKey('own_mention_highlight')), findsNothing);
+      expect(
+        find.byWidgetPredicate((w) => w is MatrixPill && w.isUser),
+        findsNothing,
+      );
+    });
+  });
+
+  group('one mention chip', () {
+    Finder chip(Finder pill) =>
+        find.descendant(of: pill, matching: find.byKey(chipKey));
+    Finder label(Finder pill) =>
+        find.descendant(of: pill, matching: find.byKey(labelKey));
+
+    Future<void> pumpBoth(WidgetTester tester) async {
+      final room = groupRoom();
+      await pump(
+        tester,
+        message(
+          room,
+          bridgeMention(
+            'Friday, <a href="https://matrix.to/#/${client.userID}">Gray</a>'
+            ' after <a href="https://matrix.to/#/$harrison">Harrison</a>'
+            ' in <a href="https://matrix.to/#/#lounge:x">#lounge</a>',
+          ),
+        ),
+      );
+    }
+
+    testWidgets('every mention has the same shape, avatar and type', (
+      tester,
+    ) async {
+      await pumpBoth(tester);
+      final own = pill(client.userID!);
+      final other = pill(harrison);
+      final room = find.byKey(const Key('room_pill_#lounge:x'));
+      final chips = [chip(own), chip(other), chip(room)];
+      for (final c in chips) {
+        expect(c, findsOneWidget);
+      }
+      final height = tester.getSize(chips.first).height;
+      for (final c in chips) {
+        expect(tester.getSize(c).height, height);
+        final box = tester.widget<DecoratedBox>(c).decoration as BoxDecoration;
+        expect(box.borderRadius, BorderRadius.circular(height / 2));
+      }
+      for (final p in [own, other]) {
+        final avatar = tester.widget<Avatar>(
+          find.descendant(of: p, matching: find.byType(Avatar)),
+        );
+        expect(avatar.size, 16);
+      }
+      // The room pill has a # in the avatar's place, the same size.
+      expect(
+        tester.getSize(
+          find.descendant(of: room, matching: find.byKey(roomGlyphKey)),
+        ),
+        const Size(16, 16),
+      );
+      final styles = [
+        for (final p in [own, other, room])
+          tester.widget<Text>(label(p)).style!,
+      ];
+      for (final style in styles) {
+        expect(style.decoration, isNot(TextDecoration.underline));
+        expect(style.fontSize, styles.first.fontSize);
+        expect(style.height, styles.first.height);
+      }
+    });
+
+    testWidgets('someone else is a neutral chip, the user the accent one', (
+      tester,
+    ) async {
+      await pumpBoth(tester);
+      final room = find.byKey(const Key('room_pill_#lounge:x'));
+      final scheme = Theme.of(tester.element(pill(harrison))).colorScheme;
+      Color fill(Finder p) =>
+          (tester.widget<DecoratedBox>(chip(p)).decoration as BoxDecoration)
+              .color!;
+      TextStyle style(Finder p) => tester.widget<Text>(label(p)).style!;
+
+      expect(fill(pill(harrison)), MatrixPill.neutralFill(scheme));
+      expect(fill(room), MatrixPill.neutralFill(scheme));
+      expect(style(pill(harrison)).color, scheme.onSurface);
+      expect(style(pill(harrison)).fontWeight, isNot(FontWeight.bold));
+
+      expect(fill(pill(client.userID!)), scheme.primaryContainer);
+      expect(style(pill(client.userID!)).color, scheme.onPrimaryContainer);
+      expect(style(pill(client.userID!)).fontWeight, FontWeight.bold);
     });
   });
 
@@ -221,12 +325,21 @@ void main() {
         }),
       );
       expect(pill(harrison), findsOneWidget);
-      expect(pillName(tester, harrison), 'Harrison Young');
+      expect(pillName(tester, harrison), 'Harrison');
       expect(
         find.textContaining('@Harrison', findRichText: true),
         findsNothing,
       );
       expect(find.textContaining('and I’s', findRichText: true), findsWidgets);
+    });
+
+    testWidgets('is labelled with the name as typed', (tester) async {
+      final room = groupRoom();
+      await pump(
+        tester,
+        message(room, {'msgtype': 'm.text', 'body': 'ask @harrison young'}),
+      );
+      expect(pillName(tester, harrison), 'harrison young');
     });
 
     testWidgets('of the user is a highlighted pill', (tester) async {
@@ -236,7 +349,7 @@ void main() {
         message(room, {'msgtype': 'm.text', 'body': 'Friday, @Gray'}),
       );
       expect(
-        find.byKey(const ValueKey('own_mention_highlight')),
+        find.byWidgetPredicate((w) => w is MatrixPill && w.isUser),
         findsOneWidget,
       );
     });
