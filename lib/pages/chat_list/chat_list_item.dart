@@ -246,9 +246,10 @@ class _ChatListItemState extends State<ChatListItem> {
                           SelectableAvatar(
                             selected: selected,
                             size: Avatar.defaultSize,
-                            child: contact == null && GroupAvatar.shows(room)
+                            child:
+                                GroupAvatar.shows(contact?.sendViaRoom ?? room)
                                 ? GroupAvatar(
-                                    room: room,
+                                    room: contact?.sendViaRoom ?? room,
                                     name: displayname,
                                     outlineColor:
                                         backgroundColor ??
@@ -287,7 +288,7 @@ class _ChatListItemState extends State<ChatListItem> {
                           if (selected ||
                               !AppSettings.chatListNetworkBadges.value)
                             const SizedBox.shrink()
-                          else if (contact != null)
+                          else if (contact != null && contact.spansNetworks)
                             Positioned(
                               right: -4,
                               bottom: -4,

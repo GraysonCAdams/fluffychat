@@ -8,8 +8,10 @@ rooms, and nothing is written into the rooms themselves.
 
 ## Scope
 
-- Direct chats only. A merged contact is a set of 1:1 rooms with the same
-  person. Group chats are never merged.
+- A merged contact is a set of 1:1 rooms with the same person, or of group
+  chats: groups with the same name on different networks, merged by the
+  user, and groups on one bridge with exactly the same people, which the
+  app merges by itself (see "Same-people groups").
 - Rooms stay separate on the server. Unmerging loses nothing.
 - Every message is sent into exactly one room. Nothing is cross-posted.
 
@@ -196,6 +198,41 @@ macOS), else either goes as `m.file` if the room takes that type as a file;
 otherwise, or over the room's `max_size`, nothing is sent and a snackbar names
 what the chat accepts. A caption the room refuses is sent as its own text
 message after the media. A room without the event behaves as before.
+
+### Same-people groups (`lib/utils/merged_contacts/same_groups.dart`)
+
+A network can keep several threads with the same people (iMessage does),
+and its bridge makes a room for each. Joined group chats on one bridge
+(the `m.bridge` bot, else the bridge space) whose people are the same,
+joined or invited, besides the user and the bridge bot, are one
+conversation without the user doing anything (`findSameGroups`):
+
+- The store adds an automatic contact for each such set (ID prefix
+  `auto_`, `MergedContactEntry.automatic`) next to the stored ones. It
+  lives in memory only and is made again on every reindex, which also runs
+  on new messages. A room in a contact the user made is left out of it.
+- Its rooms are ordered most recently active first, and new messages go to
+  the first (`send_via`). Replies, edits and reactions go to their
+  message's room, as for every merged contact.
+- Its name is the newest room's name that the bridge did not build from
+  the members, else the newest built name other than the legacy "Group
+  Chat". A name is built (`groupNameIsBuilt`) when the bridge's
+  `dev.macoun.group_name` state says `"generated": true`; without that
+  event, when the room has no name, is named "Group Chat", or is named as
+  the iMessage bridge builds one: the other members' names joined with
+  ", " for four or fewer, "A, B, C +N more" for five or more, in any order.
+- Rooms on different bridges, and rooms whose people differ at all, are
+  never merged this way. A room whose member list is not all in memory is
+  left out until it is loaded (its joined members, at most 50, once a
+  session, shared with the chat list's group avatars).
+- Unmerge and removing a room store the pairs of rooms as dismissed
+  (`dismissed_suggestions`), so the contact is not made again. Renaming
+  or picking another default network is not stored for an automatic
+  contact.
+- The chat list badges it as its one network, and the chat's network
+  switcher shows that network once, for the room the next message goes
+  to. A group conversation without a picture shows its members, as a
+  single group does.
 
 ### MergeSuggester (`lib/utils/merged_contacts/suggester.dart`)
 

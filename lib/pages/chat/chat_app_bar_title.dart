@@ -375,10 +375,20 @@ class ChatNetworkIcons extends StatelessWidget {
         );
     final entries = <NetworkSwitcherOption>[];
     if (merged) {
+      // Same-people groups on one bridge are one network: one button, for
+      // the room the next message goes to.
+      final target = controller.composerTarget.roomId;
+      final bySpace = <String, (Room, String)>{};
       for (final network
           in controller.mergedNetworks(locals) ?? const <MergedNetwork>[]) {
         final space = network.space;
-        if (space != null) entries.add(option(space, network.room.id));
+        if (space == null) continue;
+        if (!bySpace.containsKey(space.id) || network.room.id == target) {
+          bySpace[space.id] = (space, network.room.id);
+        }
+      }
+      for (final (space, roomId) in bySpace.values) {
+        entries.add(option(space, roomId));
       }
     } else {
       final space = spacesByChild(room.client)[room.id];

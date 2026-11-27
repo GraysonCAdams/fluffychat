@@ -75,6 +75,14 @@ class MergedContactEntry {
     this.fallback = false,
   });
 
+  /// The prefix of the ID of a contact the app made by itself for group
+  /// chats on one bridge with the same people (see `findSameGroups`). Such
+  /// a contact lives in memory only and is never stored.
+  static const automaticIdPrefix = 'auto_';
+
+  /// Whether the app made this contact by itself for same-people groups.
+  bool get automatic => id.startsWith(automaticIdPrefix);
+
   /// The `send_via` room if it is one of [usableRooms], else the first of
   /// them in the stored order.
   String? sendViaIn(List<String> usableRooms) {

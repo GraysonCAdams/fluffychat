@@ -6,10 +6,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:async/async.dart';
+import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:matrix/matrix.dart';
 
 import 'model.dart';
+import 'same_groups.dart';
 
 /// Where a [MergedContactsStore] reads and writes its account data, and how
 /// it learns which rooms can be merged. The app uses [ClientMergedContactsBackend];
@@ -34,6 +37,10 @@ abstract class MergedContactsBackend {
 
   /// Completes once the account data and the rooms are loaded.
   Future<void> get ready;
+
+  /// The group chats on one bridge with the same people, each the room IDs
+  /// most recently active first with the group's own name, if any.
+  List<({List<String> rooms, String? name})> sameGroups() => const [];
 
   int now() => DateTime.now().millisecondsSinceEpoch;
 
@@ -66,18 +73,21 @@ class ClientMergedContactsBackend extends MergedContactsBackend {
         false,
   );
 
-  @override
-  Stream<void> get onRoomsChanged => client.onSync.stream.where(
+  /// Fires on what can change which rooms merge: joins and leaves, the
+  /// direct chat list, members, and new messages, which decide the most
+  /// recently active of same-people groups.
+  Stream<void> get _onRoomsChanged => client.onSync.stream.where(
     (sync) =>
         (sync.rooms?.leave?.isNotEmpty ?? false) ||
         (sync.rooms?.invite?.isNotEmpty ?? false) ||
         (sync.accountData?.any((event) => event.type == 'm.direct') ?? false) ||
         (sync.rooms?.join?.values.any(
               (update) =>
-                  update.state?.any(
-                    (event) => event.type == EventTypes.RoomMember,
-                  ) ??
-                  false,
+                  (update.timeline?.events?.isNotEmpty ?? false) ||
+                  (update.state?.any(
+                        (event) => event.type == EventTypes.RoomMember,
+                      ) ??
+                      false),
             ) ??
             false),
   );
@@ -85,9 +95,7 @@ class ClientMergedContactsBackend extends MergedContactsBackend {
   @override
   bool isUsableRoom(String roomId) {
     final room = client.getRoomById(roomId);
-    return room != null &&
-        room.membership == Membership.join &&
-        !room.isSpace;
+    return room != null && room.membership == Membership.join && !room.isSpace;
   }
 
   @override
@@ -95,6 +103,35 @@ class ClientMergedContactsBackend extends MergedContactsBackend {
     await client.roomsLoading;
     await client.accountDataLoading;
   }
+
+  @override
+  Stream<void> get onRoomsChanged =>
+      StreamGroup.merge([_onRoomsChanged, _membersLoaded.stream]);
+
+  /// Fires when the member list of a group, missing from memory when the
+  /// same-people groups were looked for, has been loaded.
+  final StreamController<void> _membersLoaded = StreamController.broadcast();
+
+  @override
+  List<({List<String> rooms, String? name})> sameGroups() => [
+    for (final group in findSameGroups(client, onIncomplete: _loadMembers))
+      (rooms: group.roomIds, name: group.name),
+  ];
+
+  /// The groups whose members were asked for, so each is asked once.
+  final Set<String> _asked = {};
+
+  /// Loads [room]'s members once a session, shared with the chat list's
+  /// group avatars so the server is asked once, then looks again.
+  void _loadMembers(Room room) {
+    if (!_asked.add(room.id)) return;
+    GroupAvatar.loadMembers(room).then((_) {
+      if (!_membersLoaded.isClosed) _membersLoaded.add(null);
+    });
+  }
+
+  @override
+  void dispose() => _membersLoaded.close();
 }
 
 /// Merged contacts of one account: the account data event
@@ -200,7 +237,8 @@ class MergedContactsStore {
 
   void _reindex({bool force = false}) {
     if (_disposed) return;
-    final contacts = _stored.normalized(backend.isUsableRoom);
+    final contacts = [..._stored.normalized(backend.isUsableRoom)];
+    contacts.addAll(_automaticContacts(contacts));
     if (!force && _sameContacts(contacts, _contacts)) return;
     _contacts = contacts;
     _byId = {for (final contact in contacts) contact.id: contact};
@@ -209,6 +247,52 @@ class MergedContactsStore {
         for (final room in contact.rooms) room: contact,
     };
     revision.value++;
+  }
+
+  /// A contact for each set of same-people groups on one bridge that the
+  /// user has not split up and none of whose rooms is in [stored], a
+  /// contact the user made. Its rooms are most recently active first, and
+  /// new messages go to the first.
+  List<MergedContactEntry> _automaticContacts(List<MergedContactEntry> stored) {
+    final claimed = {for (final contact in stored) ...contact.rooms};
+    final dismissed = {
+      for (final pair in _stored.dismissedSuggestions)
+        _pairKey(pair[0], pair[1]),
+    };
+    final result = <MergedContactEntry>[];
+    for (final group in backend.sameGroups()) {
+      final rooms = [
+        for (final room in group.rooms)
+          if (!claimed.contains(room) && backend.isUsableRoom(room)) room,
+      ];
+      if (rooms.length < 2) continue;
+      var split = false;
+      for (var i = 0; i < rooms.length && !split; i++) {
+        for (var j = i + 1; j < rooms.length && !split; j++) {
+          split = dismissed.contains(_pairKey(rooms[i], rooms[j]));
+        }
+      }
+      if (split) continue;
+      claimed.addAll(rooms);
+      result.add(
+        MergedContactEntry(
+          id: _automaticId(rooms),
+          rooms: rooms,
+          sendVia: rooms.first,
+          updated: 0,
+          name: group.name,
+        ),
+      );
+    }
+    return result;
+  }
+
+  /// The same ID for the same rooms whichever is most recent, so the
+  /// conversation keeps its route as messages arrive.
+  static String _automaticId(List<String> rooms) {
+    final sorted = [...rooms]..sort();
+    final hash = sorted.join('|').hashCode.toUnsigned(32).toRadixString(16);
+    return '${MergedContactEntry.automaticIdPrefix}$hash';
   }
 
   static bool _sameContacts(
@@ -331,8 +415,23 @@ class MergedContactsStore {
     return id;
   }
 
-  /// Dissolves the contact; its rooms show as separate chats again.
-  Future<void> unmerge(String contactId) => _update((data, now) {
+  /// Dissolves the contact; its rooms show as separate chats again. A
+  /// contact the app made for same-people groups is split by remembering
+  /// each pair of its rooms as kept apart, so it is not made again.
+  Future<void> unmerge(String contactId) {
+    final automatic = _byId[contactId];
+    if (automatic != null && automatic.automatic) {
+      return dismissSuggestions(_pairsOf(automatic.rooms));
+    }
+    return _unmergeStored(contactId);
+  }
+
+  static List<(String, String)> _pairsOf(List<String> rooms) => [
+    for (var i = 0; i < rooms.length; i++)
+      for (var j = i + 1; j < rooms.length; j++) (rooms[i], rooms[j]),
+  ];
+
+  Future<void> _unmergeStored(String contactId) => _update((data, now) {
     final contact = data.contacts[contactId];
     if (contact == null) return data;
     return _withContact(
@@ -342,8 +441,21 @@ class MergedContactsStore {
   });
 
   /// Takes [roomId] out of its contact, dissolving the contact when fewer
-  /// than two rooms would be left.
-  Future<void> removeRoom(String roomId) => _update((data, now) {
+  /// than two rooms would be left. From a contact the app made for
+  /// same-people groups, the room is remembered as kept apart from the
+  /// others.
+  Future<void> removeRoom(String roomId) {
+    final automatic = _byRoom[roomId];
+    if (automatic != null && automatic.automatic) {
+      return dismissSuggestions([
+        for (final other in automatic.rooms)
+          if (other != roomId) (roomId, other),
+      ]);
+    }
+    return _removeStoredRoom(roomId);
+  }
+
+  Future<void> _removeStoredRoom(String roomId) => _update((data, now) {
     var result = data;
     for (final contact in data.contacts.values) {
       if (contact.removed || !contact.rooms.contains(roomId)) continue;
