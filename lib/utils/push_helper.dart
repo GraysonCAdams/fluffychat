@@ -23,6 +23,7 @@ import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/utils/notification_avatar_extension.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
+import 'package:fluffychat/utils/notification_media.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/start_push_foreground_service.dart';
@@ -211,7 +212,10 @@ Future<void> _tryPushHelper(
       ? l10n.newMessageInFluffyChat
       // An effect that hides the message keeps it out of the notification.
       : effectPreviewOf(event, l10n) ??
-            event.calcLocalizedBody(
+            // A picture that comes as an edit of a placeholder reads as the
+            // picture, not as the edit's own fallback text.
+            (hasNotificationMedia(event) ? effectiveEvent(event) : event)
+                .calcLocalizedBody(
               matrixLocals,
               plaintextBody: true,
               hideReply: true,
@@ -245,22 +249,43 @@ Future<void> _tryPushHelper(
   final senderIcon = senderAvatarFile ?? await renderFallbackAvatar(senderName);
   // Show notification
 
-  final newMessage = Message(
-    body,
-    event.originServerTs,
-    Person(
+  // Photos and videos show in the notification. Anything that goes wrong
+  // getting one leaves the text, never no notification.
+  final media = PlatformInfos.isAndroid
+      ? await notificationMediaOf(event)
+      : null;
+
+  final newMessage = notificationMessage(
+    event,
+    body: body,
+    person: Person(
       bot: event.messageType == MessageTypes.Notice,
       key: event.senderId,
       name: senderName,
       icon: senderIcon == null ? null : ByteArrayAndroidIcon(senderIcon),
     ),
+    media: media,
   );
 
   final messagingStyleInformation = PlatformInfos.isAndroid
       ? await AndroidFlutterLocalNotificationsPlugin()
             .getActiveNotificationMessagingStyle(id: id)
       : null;
-  messagingStyleInformation?.messages?.add(newMessage);
+  final activeMessages = messagingStyleInformation?.messages;
+  if (activeMessages != null) {
+    // The edit that brings a bridge's awaited attachment takes the line of
+    // the placeholder notice it edits.
+    final merged = withNotificationMessage(
+      activeMessages,
+      newMessage,
+      replacedTime: hasNotificationMedia(event)
+          ? await editedEventTime(event)
+          : null,
+    );
+    activeMessages
+      ..clear()
+      ..addAll(merged);
+  }
 
   final roomName =
       notificationConversationName(client, event.room.id, MatrixLocals(l10n)) ??

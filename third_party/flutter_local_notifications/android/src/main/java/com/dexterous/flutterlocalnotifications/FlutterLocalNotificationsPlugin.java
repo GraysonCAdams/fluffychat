@@ -1351,7 +1351,20 @@ public class FlutterLocalNotificationsPlugin
             messageDetails.timestamp,
             buildPerson(context, messageDetails.person));
     if (messageDetails.dataUri != null && messageDetails.dataMimeType != null) {
-      message.setData(messageDetails.dataMimeType, Uri.parse(messageDetails.dataUri));
+      Uri dataUri = Uri.parse(messageDetails.dataUri);
+      message.setData(messageDetails.dataMimeType, dataUri);
+      // FluffyChat: the system UI draws the picture, so it needs read access
+      // to the app's own content URI.
+      if ("content".equals(dataUri.getScheme())
+          && dataUri.getAuthority() != null
+          && dataUri.getAuthority().startsWith(context.getPackageName() + ".")) {
+        try {
+          context.grantUriPermission(
+              "com.android.systemui", dataUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (RuntimeException e) {
+          // The notification still posts, without its picture.
+        }
+      }
     }
     return message;
   }
