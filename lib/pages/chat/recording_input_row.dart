@@ -3,7 +3,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat_input_row.dart';
 import 'package:fluffychat/pages/chat/recording_view_model.dart';
@@ -12,9 +11,17 @@ import 'package:material_ui/material_ui.dart';
 class RecordingInputRow extends StatelessWidget {
   final RecordingViewModelState state;
   final Future<void> Function(String, int, List<int>, String) onSend;
+
+  /// The send button's background and foreground, those of the chat's own
+  /// bubbles (see ChatController.sendButtonColors).
+  final Color sendColor;
+  final Color onSendColor;
+
   const RecordingInputRow({
     required this.state,
     required this.onSend,
+    required this.sendColor,
+    required this.onSendColor,
     super.key,
   });
 
@@ -91,9 +98,9 @@ class RecordingInputRow extends StatelessWidget {
           ),
           IconButton(
             style: IconButton.styleFrom(
-              disabledBackgroundColor: theme.bubbleColor.withAlpha(128),
-              backgroundColor: theme.bubbleColor,
-              foregroundColor: theme.onBubbleColor,
+              disabledBackgroundColor: sendColor.withAlpha(128),
+              backgroundColor: sendColor,
+              foregroundColor: onSendColor,
             ),
             tooltip: L10n.of(context).sendAudio,
             icon: const Icon(Icons.send_outlined),

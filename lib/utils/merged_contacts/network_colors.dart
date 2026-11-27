@@ -2,14 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// The bubble colour of each bridged network in a merged contact's chat: the
-/// main colour of the network's logo unless the user picked another one.
+/// The bubble colour of each bridged network: the main colour of the
+/// network's logo unless the user picked another one. A merged contact's
+/// chat colours each message by the network it went out on; any other
+/// bridged chat takes its own network's colour.
 library;
 
 import 'dart:convert';
 import 'dart:ui';
 
 import 'package:fluffychat/config/setting_keys.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:matrix/matrix.dart';
 
 abstract class NetworkColors {
@@ -47,6 +50,22 @@ abstract class NetworkColors {
     if (localpart == null) return null;
     final underscore = localpart.indexOf('_');
     return underscore <= 0 ? null : localpart.substring(0, underscore);
+  }
+
+  /// The bridge any chat goes through: a direct chat's by its ghost (see
+  /// [bridgeIdOf]), and a group's by the bridge bot its bridge state names
+  /// (`@imessagebot` gives `imessage`), else the network that state names.
+  /// Null for a plain Matrix room.
+  static String? bridgeIdOfRoom(Room room) {
+    final direct = bridgeIdOf(room);
+    if (direct != null) return direct;
+    final bridge = MatrixFeatures.forClient(room.client).bridgeOf(room);
+    if (bridge == null) return null;
+    final bot = bridge.bot?.localpart?.toLowerCase();
+    if (bot != null && bot.length > 3 && bot.endsWith('bot')) {
+      return bot.substring(0, bot.length - 3);
+    }
+    return bridge.network?.toLowerCase().replaceAll(' ', '');
   }
 
   static Map<String, int>? _picked;
