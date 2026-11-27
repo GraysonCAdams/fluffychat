@@ -3822,5 +3822,25 @@
                 "type": "String"
             }
         }
+    },
+    "previewGif": "GIF",
+    "@previewGif": {
+        "description": "Chat list preview of a message that is an animated GIF, after a GIF icon."
+    },
+    "previewSticker": "Sticker",
+    "@previewSticker": {
+        "description": "Chat list preview of a sticker, after a sticker icon."
+    },
+    "previewWithDuration": "{type} {duration}",
+    "@previewWithDuration": {
+        "description": "Chat list preview of a video or voice message with its length, like 'Video 0:48'; type is 'Video' or 'Voice message', duration a clock.",
+        "placeholders": {
+            "type": {
+                "type": "String"
+            },
+            "duration": {
+                "type": "String"
+            }
+        }
     }
 }
