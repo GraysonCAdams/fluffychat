@@ -12,6 +12,7 @@ import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
+import 'package:fluffychat/utils/terms_acceptance.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -245,6 +246,8 @@ Future<T> setUpFakeChatList<T extends FakeChatListClient>(
   await AppSettings.mergedContactsPhoneRegion.setItem('US');
   await AppSettings.matrixFeaturesMode.setItem('auto');
   await AppSettings.matrixFeatureOverrides.setItem('{}');
+  // Agreed to the Terms of use, so chats show the composer.
+  await TermsAcceptance.recordOnDevice();
   // The chat list stores the filter last picked.
   await AppSettings.store.remove(AppSettings.chatFilter.key);
   await AppSettings.store.remove(MatrixFeatures.scanCacheKeyFor(name));

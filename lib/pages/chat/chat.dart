@@ -1879,6 +1879,40 @@ class ChatController extends State<ChatPageWithRoom>
     );
   }
 
+  /// Whether the single selected message came from someone this account
+  /// can still block.
+  bool get canBlockSelectedSender {
+    if (selectedEvents.length != 1) return false;
+    final senderId = selectedEvents.single.senderId;
+    final client = room.client;
+    return senderId != client.userID &&
+        senderId.sigil == '@' &&
+        !client.ignoredUsers.contains(senderId);
+  }
+
+  /// Blocks the selected message's sender after a confirmation: the same
+  /// ignore list as Settings > Security > Blocked users.
+  Future<void> blockSenderAction() async {
+    final event = selectedEvents.single;
+    final l10n = L10n.of(context);
+    final sender = event.senderFromMemoryOrFallback;
+    final consent = await showOkCancelAlertDialog(
+      context: context,
+      title: l10n.blockUserQuestion(sender.calcDisplayname()),
+      message: l10n.blockListDescription,
+      okLabel: l10n.block,
+      cancelLabel: l10n.cancel,
+      isDestructive: true,
+    );
+    if (consent != OkCancelResult.ok || !mounted) return;
+    final result = await showFutureLoadingDialog(
+      context: context,
+      future: () => room.client.ignoreUser(event.senderId),
+    );
+    if (result.error != null || !mounted) return;
+    clearSelectedEvents();
+  }
+
   Future<void> deleteErrorEventsAction() async {
     try {
       if (selectedEvents.any((event) => event.status != EventStatus.error)) {

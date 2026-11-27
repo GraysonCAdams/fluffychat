@@ -9,6 +9,7 @@ import 'package:fluffychat/pages/intro/flows/restore_backup_flow.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/layouts/login_scaffold.dart';
 import 'package:fluffychat/widgets/matrix.dart';
+import 'package:fluffychat/widgets/terms_acceptance_views.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -141,48 +142,52 @@ class IntroPage extends StatelessWidget {
                           const Spacer(),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 32),
-                            child: Column(
-                              mainAxisSize: .min,
-                              crossAxisAlignment: .stretch,
-                              children: [
-                                if (!hasPresetHomeserver)
+                            child: SignInTermsGate(
+                              builder: (context, gate) => Column(
+                                mainAxisSize: .min,
+                                crossAxisAlignment: .stretch,
+                                children: [
+                                  if (!hasPresetHomeserver)
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            theme.colorScheme.secondary,
+                                        foregroundColor:
+                                            theme.colorScheme.onSecondary,
+                                      ),
+                                      onPressed: gate(
+                                        () => context.go(
+                                          '${GoRouterState.of(context).uri.path}/sign_up',
+                                        ),
+                                      ),
+                                      child: Text(
+                                        L10n.of(context).createNewAccount,
+                                      ),
+                                    ),
+                                  SizedBox(height: 16),
                                   ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor:
-                                          theme.colorScheme.secondary,
-                                      foregroundColor:
-                                          theme.colorScheme.onSecondary,
-                                    ),
-                                    onPressed: () => context.go(
-                                      '${GoRouterState.of(context).uri.path}/sign_up',
-                                    ),
-                                    child: Text(
-                                      L10n.of(context).createNewAccount,
-                                    ),
+                                    onPressed: gate(login),
+                                    child: Text(L10n.of(context).signIn),
                                   ),
-                                SizedBox(height: 16),
-                                ElevatedButton(
-                                  onPressed: login,
-                                  child: Text(L10n.of(context).signIn),
-                                ),
 
-                                if (!hasPresetHomeserver)
-                                  TextButton(
-                                    onPressed: () async {
-                                      final client = await Matrix.of(
-                                        context,
-                                      ).getLoginClient();
-                                      if (!context.mounted) return;
-                                      context.go(
-                                        '${GoRouterState.of(context).uri.path}/login',
-                                        extra: client,
-                                      );
-                                    },
-                                    child: Text(
-                                      L10n.of(context).loginWithMatrixId,
+                                  if (!hasPresetHomeserver)
+                                    TextButton(
+                                      onPressed: gate(() async {
+                                        final client = await Matrix.of(
+                                          context,
+                                        ).getLoginClient();
+                                        if (!context.mounted) return;
+                                        context.go(
+                                          '${GoRouterState.of(context).uri.path}/login',
+                                          extra: client,
+                                        );
+                                      }),
+                                      child: Text(
+                                        L10n.of(context).loginWithMatrixId,
+                                      ),
                                     ),
-                                  ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                           const SizedBox(height: 36),
