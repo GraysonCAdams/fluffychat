@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat/status_mark.dart';
 import 'package:fluffychat/utils/room_kind.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -76,21 +77,16 @@ OwnMessageStatus? ownMessageStatusOf(Event event) {
 }
 
 /// The icon in front of "You:" in the chat list for [event], the user's
-/// newest message: a clock while it is sending, one circled check once
-/// sent, two when some members of a group have read it, and two filled in
-/// the primary color once everyone has; the error icon when it failed.
-/// [color] is the preview text's color. It follows read receipts as they
-/// arrive.
+/// newest message, a [StatusMark] in the preview text's [color]: a clock
+/// while it is sending, one circled check once sent, two rings when some
+/// members of a group have read it, and the two filled once everyone has;
+/// the error icon when it failed. It follows read receipts as they arrive,
+/// animating from one state to the next.
 class OwnMessageStatusIcon extends StatefulWidget {
   final Event event;
   final Color? color;
 
   const OwnMessageStatusIcon(this.event, {this.color, super.key});
-
-  static const double size = 16;
-
-  /// How far the front check sits from the back one.
-  static const double overlap = 7;
 
   @override
   State<OwnMessageStatusIcon> createState() => _OwnMessageStatusIconState();
@@ -140,109 +136,34 @@ class _OwnMessageStatusIconState extends State<OwnMessageStatusIcon> {
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
     final color = widget.color ?? DefaultTextStyle.of(context).style.color;
-    const size = OwnMessageStatusIcon.size;
 
-    final (label, icon) = switch (status.state) {
-      OwnMessageState.sending => (
-        l10n.sending,
-        Icon(Icons.schedule, size: size, color: color),
+    final label = switch (status.state) {
+      OwnMessageState.sending => l10n.sending,
+      OwnMessageState.failed => l10n.failedToSend,
+      OwnMessageState.sent => l10n.sent,
+      OwnMessageState.readBySome => l10n.readByCount(
+        status.readers,
+        status.others,
       ),
-      OwnMessageState.failed => (
-        l10n.failedToSend,
-        Icon(Icons.error_outline, size: size, color: theme.colorScheme.error),
-      ),
-      OwnMessageState.sent => (
-        l10n.sent,
-        Icon(Icons.check_circle_outline, size: size, color: color),
-      ),
-      OwnMessageState.readBySome => (
-        l10n.readByCount(status.readers, status.others),
-        TwoChecks(filled: false, color: color),
-      ),
-      OwnMessageState.read => (
-        l10n.messageRead,
-        TwoChecks(filled: true, color: theme.colorScheme.primary),
-      ),
+      OwnMessageState.read => l10n.messageRead,
     };
+    final icon = StatusMark(
+      // A newer message is a new mark, not the last one's changing.
+      key: ValueKey(widget.event.transactionId ?? widget.event.eventId),
+      state: switch (status.state) {
+        OwnMessageState.sending => StatusMarkState.sending,
+        OwnMessageState.failed => StatusMarkState.failed,
+        OwnMessageState.sent => StatusMarkState.sent,
+        OwnMessageState.readBySome => StatusMarkState.readBySome,
+        OwnMessageState.read => StatusMarkState.read,
+      },
+      color: color ?? theme.colorScheme.onSurfaceVariant,
+      sending: StatusMarkSending.clock,
+      errorIcon: Icons.error_outline,
+    );
     return Padding(
       padding: const EdgeInsetsDirectional.only(end: 4),
       child: Semantics(label: label, excludeSemantics: true, child: icon),
     );
   }
-}
-
-/// Two circled checks, the front one over the back one with a ring of the
-/// background between them. Filled in the primary colour they are the read
-/// mark, here and under the user's newest message in a chat.
-class TwoChecks extends StatelessWidget {
-  final bool filled;
-  final Color? color;
-
-  const TwoChecks({super.key, required this.filled, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    const size = OwnMessageStatusIcon.size;
-    const ring = 1.5;
-    final check = Icon(
-      filled ? Icons.check_circle : Icons.check_circle_outline,
-      size: size,
-      color: color,
-    );
-    return SizedBox(
-      width: size + OwnMessageStatusIcon.overlap,
-      height: size,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // The back check is cut where the front one covers it, leaving a
-          // ring of whatever is behind the row between them.
-          PositionedDirectional(
-            start: 0,
-            top: 0,
-            child: ClipPath(
-              clipper: _BehindFront(
-                ring,
-                rtl: Directionality.of(context) == TextDirection.rtl,
-              ),
-              child: check,
-            ),
-          ),
-          PositionedDirectional(
-            start: OwnMessageStatusIcon.overlap,
-            top: 0,
-            child: check,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The back check's area less the front check's circle, grown by [ring].
-/// The front check sits after the back one in the reading direction.
-class _BehindFront extends CustomClipper<Path> {
-  final double ring;
-  final bool rtl;
-
-  const _BehindFront(this.ring, {required this.rtl});
-
-  @override
-  Path getClip(Size size) {
-    final front = Offset(
-      (rtl ? -1 : 1) * OwnMessageStatusIcon.overlap + size.width / 2,
-      size.height / 2,
-    );
-    return Path.combine(
-      PathOperation.difference,
-      Path()..addRect(Offset.zero & size),
-      Path()..addOval(
-        Rect.fromCircle(center: front, radius: size.width / 2 + ring),
-      ),
-    );
-  }
-
-  @override
-  bool shouldReclip(_BehindFront oldClipper) =>
-      oldClipper.ring != ring || oldClipper.rtl != rtl;
 }
