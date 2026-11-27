@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/encoded_image_size.dart';
 import 'package:fluffychat/utils/file_description.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/event_extension.dart';
@@ -53,10 +54,11 @@ Size videoBubbleSize(
 const minAspectRatio = 9 / 21;
 const maxAspectRatio = 21 / 9;
 
-/// The shape of [event]'s video as sent: the thumbnail's size first, since a
-/// thumbnail is a frame as it is shown, then the video's own `w` and `h`.
-/// Phones record portrait video as landscape frames plus a rotation, and some
-/// clients report those raw frame sizes, which the thumbnail does not have.
+/// The shape of [event]'s video as its event states it: the thumbnail's size
+/// first, since a thumbnail is a frame as it is shown, then the video's own
+/// `w` and `h`. Phones record portrait video as landscape frames plus a
+/// rotation, and some clients report those raw frame sizes, which the
+/// thumbnail does not have.
 double? sentVideoAspectRatio(Event event) {
   double? ratio(Map<String, Object?> info) {
     final w = info.tryGet<int>('w');
@@ -66,6 +68,25 @@ double? sentVideoAspectRatio(Event event) {
   }
 
   return ratio(event.thumbnailInfoMap) ?? ratio(event.infoMap);
+}
+
+/// Whether [event]'s thumbnail must be read to learn the video's shape: it
+/// has one, but its info gives no size, so the event's `w` and `h` are all
+/// that is left, and those may be the raw landscape frame size of a portrait
+/// clip.
+bool needsThumbnailMeasure(Event event) {
+  if (!event.hasThumbnail) return false;
+  final info = event.thumbnailInfoMap;
+  final w = info.tryGet<int>('w');
+  final h = info.tryGet<int>('h');
+  return w == null || h == null || w <= 0 || h <= 0;
+}
+
+/// The shape of [event]'s thumbnail image, read from the image itself.
+Future<double?> measureVideoThumbnail(Event event) async {
+  final file = await event.downloadAndDecryptAttachment(getThumbnail: true);
+  final size = await encodedImageSize(file.bytes);
+  return size == null ? null : size.width / size.height;
 }
 
 /// A video in the timeline, in a bubble of the video's own shape. Its
@@ -92,6 +113,10 @@ class EventVideoPlayer extends StatefulWidget {
   )?
   loadController;
 
+  /// Reads the shape of this video's thumbnail from the image itself.
+  /// Defaults to downloading the thumbnail; tests pass a fake.
+  final Future<double?> Function(Event event)? measureThumbnail;
+
   const EventVideoPlayer(
     this.event, {
     this.timeline,
@@ -99,6 +124,7 @@ class EventVideoPlayer extends StatefulWidget {
     this.linkColor,
     this.playInline = false,
     this.loadController,
+    this.measureThumbnail,
     super.key,
   });
 
@@ -109,8 +135,8 @@ class EventVideoPlayer extends StatefulWidget {
 class _EventVideoPlayerState extends State<EventVideoPlayer> {
   static const String fallbackBlurHash = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 
-  /// The shape of each video once its player has measured it, so a bubble
-  /// built again later starts at the right size.
+  /// The shape of each video once its thumbnail image or its player has
+  /// measured it, so a bubble built again later starts at the right size.
   static final _measuredAspectRatios = <String, double>{};
 
   /// Whether inline videos play without sound. A choice made on one video
@@ -126,6 +152,33 @@ class _EventVideoPlayerState extends State<EventVideoPlayer> {
   Event get event => widget.event;
 
   bool get _inline => widget.playInline && PlatformInfos.supportsVideoPlayer;
+
+  @override
+  void initState() {
+    super.initState();
+    _measureThumbnail();
+  }
+
+  /// Learns the shape from the thumbnail image when the event does not give
+  /// it, as long as thumbnails are shown, since that downloads the thumbnail.
+  Future<void> _measureThumbnail() async {
+    if (_measuredAspectRatios.containsKey(event.eventId) ||
+        !AppSettings.showThumbnailsInTimeline.value ||
+        !needsThumbnailMeasure(event)) {
+      return;
+    }
+    try {
+      final measure = widget.measureThumbnail ?? measureVideoThumbnail;
+      final ratio = await measure(event);
+      if (ratio == null || !ratio.isFinite || ratio <= 0) return;
+      // A measurement by the player is the better one; keep it if it came
+      // first.
+      _measuredAspectRatios.putIfAbsent(event.eventId, () => ratio);
+      if (mounted) setState(() {});
+    } catch (e, s) {
+      Logs().d('Unable to measure a video thumbnail', e, s);
+    }
+  }
 
   @override
   void dispose() {
