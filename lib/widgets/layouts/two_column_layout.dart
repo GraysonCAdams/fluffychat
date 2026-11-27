@@ -4,11 +4,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/config/themes.dart';
+import 'package:fluffychat/pages/chat_list/title_bar_search.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// The column-mode layout: [mainView] (the rail and chat list, or settings)
 /// on the base surface, and [sideView] as a floating card on
-/// surfaceContainerLow, inset from the right and bottom window edges.
+/// surfaceContainerLow, inset from the right and bottom window edges. Under
+/// the Windows title bar, which lies over the top of the window, the card
+/// starts below the bar so its top corners stay in sight.
 class TwoColumnLayout extends StatelessWidget {
   /// Gap between the card and the right and bottom window edges.
   static const double cardInset = 8.0;
@@ -27,6 +30,10 @@ class TwoColumnLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cardTheme = FluffyThemes.cardPaneTheme(Theme.of(context));
+    // The Windows title bar adds its height to the top padding.
+    final barHeight = TitleBarSearch.maybeOf(context) == null
+        ? 0.0
+        : MediaQuery.paddingOf(context).top;
 
     return ScaffoldMessenger(
       child: Scaffold(
@@ -42,7 +49,8 @@ class TwoColumnLayout extends StatelessWidget {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.only(
+                padding: EdgeInsets.only(
+                  top: barHeight,
                   right: cardInset,
                   bottom: cardInset,
                 ),
@@ -52,7 +60,12 @@ class TwoColumnLayout extends StatelessWidget {
                     borderRadius: BorderRadius.circular(cardRadius),
                     child: Material(
                       color: cardTheme.colorScheme.surface,
-                      child: sideView,
+                      // The card already starts below the bar.
+                      child: MediaQuery.removePadding(
+                        context: context,
+                        removeTop: barHeight > 0,
+                        child: sideView,
+                      ),
                     ),
                   ),
                 ),

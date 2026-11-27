@@ -3,9 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/config/themes.dart';
+import 'package:fluffychat/utils/windows_shell_ffi.dart';
 import 'package:fluffychat/widgets/layouts/two_column_layout.dart';
+import 'package:fluffychat/widgets/matrix.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../pages/chat_list/chat_list_fakes.dart';
 
@@ -86,6 +92,96 @@ void main() {
         find.descendant(of: scaffold, matching: find.byType(Material)).first,
       );
       expect(material.color, theme.colorScheme.surfaceContainerLow);
+    });
+  });
+
+  group('under the Windows title bar', () {
+    late FakeChatListClient client;
+    setUp(() async {
+      client = await setUpFakeChatList('two column card bar test');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('window_manager'),
+            (call) async => call.method == 'isMaximized' ? false : null,
+          );
+    });
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('window_manager'),
+            null,
+          );
+      tearDownFakeChatList(client);
+    });
+
+    testWidgets('the card starts below the bar with its corners rounded', (
+      tester,
+    ) async {
+      tester.view.physicalSize = desktop;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final prefs = await SharedPreferences.getInstance();
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        Provider<MatrixState>.value(
+          value: FakeMatrix(client, prefs),
+          child: RepaintBoundary(
+            key: key,
+            child: MaterialApp(
+              theme: theme,
+              builder: (context, child) =>
+                  WindowsChrome(showChatList: () {}, child: child!),
+              home: const TwoColumnLayout(
+                mainView: SizedBox.expand(),
+                sideView: Scaffold(body: SizedBox.expand(key: Key('chat'))),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final card = tester.getRect(
+        find.ancestor(
+          of: find.byKey(const Key('chat')),
+          matching: find.byType(ClipRRect),
+        ),
+      );
+      expect(card.top, WindowsChrome.height);
+      // The chat's own app bar needs no room for the bar above the card.
+      expect(
+        MediaQuery.paddingOf(tester.element(find.byKey(const Key('chat')))).top,
+        0,
+      );
+
+      // Drawn, the card's top left corner is the bar's color, the base
+      // surface, and the card's own color starts a corner radius in.
+      final pixels = await tester.runAsync(() async {
+        final boundary =
+            key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+        final image = await boundary.toImage();
+        return (await image.toByteData())!.buffer.asUint8List();
+      });
+      int pixel(Offset at) {
+        final i = (at.dy.floor() * desktop.width.toInt() + at.dx.floor()) * 4;
+        return Color.fromARGB(
+          pixels![i + 3],
+          pixels[i],
+          pixels[i + 1],
+          pixels[i + 2],
+        ).toARGB32();
+      }
+
+      expect(
+        pixel(card.topLeft + const Offset(1, 1)),
+        theme.colorScheme.surface.toARGB32(),
+      );
+      expect(
+        pixel(card.topLeft + const Offset(16, 16)),
+        theme.colorScheme.surfaceContainerLow.toARGB32(),
+      );
+      await tester.pumpWidget(const SizedBox());
+      await finishFakeChatList(tester, client);
     });
   });
 
