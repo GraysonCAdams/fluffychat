@@ -4013,6 +4013,22 @@
   "@replayVideo": {
     "description": "Label of the button in the middle of a video in a chat that has played to the end, which plays it again."
   },
+  "linkPreviews": "Link previews",
+  "@linkPreviews": {
+    "description": "Settings > Chat switch that shows a card with the title and image of a linked page under messages with links."
+  },
+  "linkPreviewsDescription": "Ask your homeserver for a preview of links in messages. Previews sent by bridges are always shown.",
+  "@linkPreviewsDescription": {
+    "description": "Subtitle of the Link previews switch in Settings > Chat."
+  },
+  "linkPreviewsInEncryptedChats": "Link previews in encrypted chats",
+  "@linkPreviewsInEncryptedChats": {
+    "description": "Settings > Chat switch that also fetches link previews in end-to-end encrypted chats."
+  },
+  "linkPreviewsInEncryptedChatsDescription": "Your homeserver fetches the page, so it sees the links you receive in encrypted chats.",
+  "@linkPreviewsInEncryptedChatsDescription": {
+    "description": "Subtitle of the encrypted chats link previews switch, warning that the server learns the URLs."
+  },
   "unmute": "Unmute",
   "@unmute": {
     "description": "Label of the speaker button in the corner of a muted video in a chat, which turns its sound back on."

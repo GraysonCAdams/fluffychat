@@ -21,6 +21,7 @@ import 'audio_player.dart';
 import 'cute_events.dart';
 import 'html_message.dart';
 import 'image_bubble.dart';
+import 'link_preview_card.dart';
 import 'map_bubble.dart';
 import 'message_download_content.dart';
 import 'sender_user_builder.dart';
@@ -175,7 +176,7 @@ class MessageContent extends StatelessWidget {
             final bigEmotes =
                 !event.isRichMessage && bigEmojis.contains(event.body);
 
-            return Padding(
+            final text = Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: HtmlMessage(
                 html: html,
@@ -195,6 +196,15 @@ class MessageContent extends StatelessWidget {
                   EventCheckboxRoomExtension.relationshipType,
                 ),
               ),
+            );
+            if (bigEmotes) return text;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                text,
+                LinkPreviews(event: event, textColor: textColor),
+              ],
             );
         }
       case PollEventContent.startType:

@@ -40,6 +40,15 @@ enum AppSettings<T> {
   hideRedactedEvents<bool>('chat.fluffy.hideRedactedEvents', false),
   hideUnknownEvents<bool>('chat.fluffy.hideUnknownEvents', true),
   autoplayImages<bool>('chat.fluffy.autoplay_images', true),
+  // Link preview cards from the homeserver's preview_url. Previews a bridge
+  // put in the message itself are shown regardless.
+  linkPreviews<bool>('chat.fluffy.link_previews', true),
+  // Off: the homeserver fetches the page, so asking it for a preview tells
+  // it the URL, which end-to-end encryption otherwise keeps from it.
+  linkPreviewsInEncryptedRooms<bool>(
+    'chat.fluffy.link_previews_encrypted_rooms',
+    false,
+  ),
   sendTypingNotifications<bool>('chat.fluffy.send_typing_notifications', true),
   // Off: reads are still marked with a private receipt, which clears unread
   // counts on the account's own devices without telling the other side.

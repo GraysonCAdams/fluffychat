@@ -48,6 +48,18 @@ class SettingsChatView extends StatelessWidget {
                 setting: AppSettings.renderHtml,
               ),
               SettingsSwitchListTile.adaptive(
+                title: L10n.of(context).linkPreviews,
+                subtitle: L10n.of(context).linkPreviewsDescription,
+                setting: AppSettings.linkPreviews,
+              ),
+              SettingsSwitchListTile.adaptive(
+                title: L10n.of(context).linkPreviewsInEncryptedChats,
+                subtitle: L10n.of(
+                  context,
+                ).linkPreviewsInEncryptedChatsDescription,
+                setting: AppSettings.linkPreviewsInEncryptedRooms,
+              ),
+              SettingsSwitchListTile.adaptive(
                 title: L10n.of(context).hideRedactedMessages,
                 subtitle: L10n.of(context).hideRedactedMessagesBody,
                 setting: AppSettings.hideRedactedEvents,
