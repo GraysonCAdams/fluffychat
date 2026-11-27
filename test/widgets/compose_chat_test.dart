@@ -341,6 +341,10 @@ void main() {
           ),
         ),
         GoRoute(
+          path: '/rooms/newgroup',
+          builder: (_, _) => const Scaffold(body: Text('matrix group')),
+        ),
+        GoRoute(
           path: '/rooms/:roomid',
           builder: (_, state) =>
               Scaffold(body: Text('chat ${state.pathParameters['roomid']}')),
@@ -1192,27 +1196,56 @@ void main() {
     expect(chip('+14045550103'), findsOneWidget);
   });
 
-  group('Create group row', () {
-    final createGroup = find.text('Create group');
+  group('New group row', () {
+    final newGroup = find.text('New group');
 
-    testWidgets('not offered while the networks are loading, nor once they '
-        'answer with some', (tester) async {
+    testWidgets('comes first whether the networks are loading, have some or '
+        'have none', (tester) async {
       delivery.sourcesGate = Completer();
       await pump(tester);
-      expect(createGroup, findsNothing);
+      expect(newGroup, findsOneWidget);
+      expect(find.text('Pick two or more people'), findsOneWidget);
+      final share = find.text('Share invite link');
+      if (share.evaluate().isNotEmpty) {
+        expect(
+          tester.getTopLeft(newGroup).dy,
+          lessThan(tester.getTopLeft(share).dy),
+        );
+      }
       delivery.sourcesGate!.complete();
       await tester.pumpAndSettle();
-      expect(createGroup, findsNothing);
+      expect(newGroup, findsOneWidget);
     });
 
-    testWidgets('offered once the networks answer with none', (tester) async {
+    testWidgets('shown on an account with no networks too', (tester) async {
       delivery.bridgeList = const [];
-      delivery.sourcesGate = Completer();
       await pump(tester);
-      expect(createGroup, findsNothing);
-      delivery.sourcesGate!.complete();
+      expect(newGroup, findsOneWidget);
+    });
+
+    testWidgets('with networks, puts the cursor in the To field', (
+      tester,
+    ) async {
+      await pump(tester);
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      expect(tester.widget<TextField>(toField).focusNode!.hasFocus, isFalse);
+      await tester.tap(newGroup);
       await tester.pumpAndSettle();
-      expect(createGroup, findsOneWidget);
+      // The To field has the focus on opening, so it is taken away first.
+      expect(tester.widget<TextField>(toField).focusNode!.hasFocus, isTrue);
+      expect(find.text('matrix group'), findsNothing);
+    });
+
+    testWidgets('without networks, opens the Matrix group page', (
+      tester,
+    ) async {
+      delivery.bridges = false;
+      delivery.bridgeList = const [];
+      await pump(tester);
+      await tester.tap(newGroup);
+      await tester.pumpAndSettle();
+      expect(find.text('matrix group'), findsOneWidget);
     });
   });
 

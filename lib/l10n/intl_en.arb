@@ -3381,7 +3381,7 @@
     },
     "newGroup": "New group",
     "@newGroup": {
-        "description": "Row at the top of the share page that switches it to picking people for a new group."
+        "description": "Row at the top of the share page and of the new chat page that starts picking people for a new group."
     },
     "groupMembersNotAdded": "Could not add {names}",
     "@groupMembersNotAdded": {
@@ -3929,5 +3929,9 @@
     "failedToSend": "Failed to send",
     "@failedToSend": {
         "description": "Spoken label of the error icon before the user's own newest message in the chat list when it could not be sent."
+        },
+    "pickTwoOrMorePeople": "Pick two or more people",
+    "@pickTwoOrMorePeople": {
+        "description": "Subtitle of the New group row at the top of the new chat page."
     }
 }

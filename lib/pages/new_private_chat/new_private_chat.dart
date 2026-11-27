@@ -119,10 +119,6 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// The user's bridges, once their `whoami` answered.
   List<BridgeInfo> get bridges => sources.bridges;
 
-  /// Whether the user has no network: the bridges answered with none.
-  /// False while they are still being asked.
-  bool get noNetworks => sources.bridgesLoaded && sources.bridges.isEmpty;
-
   /// The people in the To field, in the order they were added.
   final List<NewChatPerson<ExistingChat>> recipients = [];
 
@@ -527,6 +523,21 @@ class NewPrivateChatController extends State<NewPrivateChat> {
       }
     }
     await widget.delivery.loadSources(client, sources);
+  }
+
+  /// Starts a group from the New group row: on an account with networks,
+  /// by putting the cursor in the To field, where a second person makes
+  /// the chat a group; on one with none, on the Matrix group page.
+  Future<void> newGroup() async {
+    final hasBridges = await widget.delivery.hasBridges(
+      Matrix.of(context).client,
+    );
+    if (!mounted) return;
+    if (!hasBridges) {
+      context.go('/rooms/newgroup');
+      return;
+    }
+    textFieldFocus.requestFocus();
   }
 
   /// Asks for the contacts permission from the offer row.
