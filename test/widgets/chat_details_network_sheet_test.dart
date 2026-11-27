@@ -152,6 +152,55 @@ void main() {
     expect(find.byIcon(Icons.link), findsOneWidget);
   });
 
+  group('threads on one network', () {
+    /// A second iMessage thread with the same person, newer than the first.
+    Room addSecondThread() => addDirectChat(
+      client,
+      id: '!imsg2:x',
+      partner: '@imessage_tel=3a+14045551234:x',
+      name: 'Harrison Young',
+      lastMessage: 'newer',
+      lastMessageTime: DateTime(2026, 11, 26),
+    );
+
+    Future<void> openSheet(WidgetTester tester, List<String> rooms) async {
+      setMergedContacts(client, {
+        'c_2': {'rooms': rooms, 'send_via': '!imsg2:x', 'updated': 2},
+      });
+      MergedContactsStore.disposeFor(client);
+      final contact = MergedContact.ofRoom(client, '!imsg2:x')!;
+      await pumpChat(tester, _Chat(room: imessage, contact: contact));
+      await tester.tap(find.text('title'));
+      await tester.pumpAndSettle();
+    }
+
+    final sheet = find.byType(ChatDetailsNetworkSheet);
+    Finder inSheet(String text) =>
+        find.descendant(of: sheet, matching: find.text(text));
+
+    testWidgets('are one row, opening the thread messages go to', (
+      tester,
+    ) async {
+      addSecondThread();
+      await openSheet(tester, ['!imsg:x', '!imsg2:x']);
+      expect(inSheet('Imessage'), findsOneWidget);
+      expect(inSheet('2 threads combined'), findsOneWidget);
+      await tester.tap(inSheet('Imessage'));
+      await tester.pumpAndSettle();
+      expect(find.text('details of !imsg2:x'), findsOneWidget);
+    });
+
+    testWidgets('beside another network keep a row per network', (
+      tester,
+    ) async {
+      addSecondThread();
+      await openSheet(tester, ['!imsg:x', '!imsg2:x', '!sms:x']);
+      expect(inSheet('Imessage'), findsOneWidget);
+      expect(inSheet('Gmessages'), findsOneWidget);
+      expect(find.byIcon(Icons.chevron_right), findsNWidgets(3));
+    });
+  });
+
   testWidgets('a single chat goes straight to its details', (tester) async {
     final router = await pumpChat(tester, _Chat(room: imessage));
 

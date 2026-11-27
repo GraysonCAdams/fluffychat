@@ -3212,6 +3212,15 @@
     "@linkedChats": {
         "description": "Last row of the chat details sheet of a merged chat; opens the sheet that manages the chats merged into it."
     },
+    "threadsCombined": "{count} threads combined",
+    "@threadsCombined": {
+        "description": "Subtitle of a network row in the chat details sheet of a merged chat whose network holds several rooms with the same people, such as two iMessage threads, shown as one conversation.",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
     "linkedChatsDescription": "Add, remove or unlink",
     "@linkedChatsDescription": {
         "description": "Subtitle of the Linked chats row in the chat details sheet of a merged chat."

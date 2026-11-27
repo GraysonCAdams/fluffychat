@@ -618,7 +618,10 @@ with a `SharedDraft` (`lib/utils/share_items.dart`) as the route's `extra`.
 - Chat details: a sheet titled "Chat details", "Choose a network", lists
   one row per network (its icon, its name, and the person's phone number
   there when known, else the chat's name); a row opens that room's own
-  details page, as there is no merged details page. A last "Linked chats"
+  details page, as there is no merged details page. Several rooms on one
+  network (threads with the same people) are one row, "N threads
+  combined", opening the room messages go to: `send_via` when it is one of
+  them, else the most recently active. A last "Linked chats"
   row opens the manage sheet. The details page is pushed over the merged
   chat, so going back returns to the merged view with the send-via pick
   unchanged. A chat on one network opens its details directly.
