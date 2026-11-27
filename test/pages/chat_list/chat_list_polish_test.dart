@@ -177,15 +177,15 @@ void main() {
       checked++;
     }
     expect(checked, greaterThan(5));
-    // All the way in: 8 below the 72 high bar under the status bar.
+    // All the way in: 8 below the 64 high bar under the status bar.
     for (var i = 0; i < 10; i++) {
       await gesture.moveBy(const Offset(0, 10));
       await tester.pump(const Duration(milliseconds: 16));
     }
     await gesture.up();
     await tester.pumpAndSettle();
-    expect(tester.getRect(find.byType(AppBar)).bottom, 24 + 72);
-    expect(buttonTop(), 24 + 72 + 4);
+    expect(tester.getRect(find.byType(AppBar)).bottom, 24 + 64);
+    expect(buttonTop(), 24 + 64 + 4);
 
     await finishFakeChatList(tester, client);
   });

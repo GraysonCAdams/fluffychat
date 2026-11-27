@@ -478,11 +478,10 @@ Iterable<({Room room, double top, double height})> listedRowPositions(
 ) sync* {
   const rowHeight = 68.0;
   const unreadRowHeight = 89.0;
-  const headerHeight = 72.0;
   final listed = controller.listedRooms.value;
   // Under a title bar the list has no header, only room for the bar.
   final header = controller.titleBarSearch == null
-      ? headerHeight
+      ? chatListHeaderHeight(context)
       : MediaQuery.paddingOf(context).top;
   var top = header + (listed.pins ? _PinnedRow.height : 0);
   for (final room in listed.rooms) {

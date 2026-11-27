@@ -10,9 +10,10 @@ import 'package:material_ui/material_ui.dart';
 
 import 'chat_list_fakes.dart';
 
-/// The space between the phone's header and the pinned row, as approved:
-/// the header's 72 below the status bar, then room for the preview bubbles
-/// over the pins, then the pins.
+/// The space between the phone's header and the pinned row: the header is
+/// Material's small top app bar, 64 below the status bar with the title
+/// centred in it, then the 30 band for the preview bubbles over the pins,
+/// then the pins.
 void main() {
   late FakeChatListClient client;
 
@@ -22,7 +23,7 @@ void main() {
 
   tearDown(() => tearDownFakeChatList(client));
 
-  testWidgets('the pinned row sits 37 below the header', (tester) async {
+  testWidgets('the pinned row sits 37 below a 64 high header', (tester) async {
     // A Pixel 10: 1080 by 2410 at density 2.625, with a 52 high status bar.
     tester.view.devicePixelRatio = 2.625;
     tester.view.physicalSize = const Size(1080, 2410);
@@ -50,13 +51,13 @@ void main() {
           .first,
     );
     expect(bar.top, 0);
-    expect(bar.bottom, closeTo(statusBar + 72, 0.01));
+    expect(bar.bottom, closeTo(statusBar + 64, 0.01));
     expect(pin.top - bar.bottom, closeTo(37, 0.01));
-    // The title, centred in the bar's 72 below the status bar.
-    expect(
-      tester.getCenter(find.text('All chats')).dy,
-      closeTo(statusBar + 36, 0.01),
-    );
+    // The title, centred in the bar's 64 below the status bar, ends 18 above
+    // the bubble band, which starts where the bar ends.
+    final title = tester.getRect(find.text('All chats'));
+    expect(title.center.dy, closeTo(statusBar + 32, 0.01));
+    expect(bar.bottom - title.bottom, closeTo(18, 0.01));
 
     await finishFakeChatList(tester, client);
   });
