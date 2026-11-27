@@ -4,23 +4,26 @@
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
-/// The network the chat list is narrowed to, if any. Inside a space the
-/// space itself narrows the list, so no network applies.
+/// The network the chat list is narrowed to, if any: the space open from
+/// the rail, else the network picked in the menu.
 Room? _network(ChatListController controller) {
-  final id = controller.sourceSpaceId;
-  if (id == null || controller.activeSpaceId != null) return null;
+  final id = controller.activeSpaceId ?? controller.sourceSpaceId;
+  if (id == null) return null;
   return Matrix.of(controller.context).client.getRoomById(id);
 }
 
 /// What the chat list shows, as its title says it: "All chats", a filter
-/// ("Unread", "Groups", "People" or a tag), a network's name, or a filter
-/// and a network together ("Unread · WhatsApp").
+/// ("Unread", "Groups", "People" or a tag), a network's name (also inside
+/// a space opened from the rail, as Google Messages and iMessage title
+/// their folders), or a filter and a network together ("Unread ·
+/// WhatsApp").
 String chatFilterLabel(BuildContext context, ChatListController controller) {
   final l10n = L10n.of(context);
   final filter = controller.activeFilter;
@@ -39,7 +42,13 @@ String chatFilterLabel(BuildContext context, ChatListController controller) {
 /// People, then the networks (the spaces, which for bridged networks are
 /// the networks themselves) and the user's tags. The kind of chat and the
 /// network combine, as each narrows the list on its own; the active ones
-/// carry a check, and picking a checked one again clears it.
+/// carry a check, and picking a checked one again clears it. Inside a space
+/// opened from the rail, a network switches to that space and All chats
+/// leaves it.
+///
+/// Last come the actions: Discover for a Matrix space (its room
+/// directory), and Mark all as read for the chats of the network shown, or
+/// all chats; it stays in the menu, disabled, while none of them is unread.
 Future<void> showChatFilterMenu(
   BuildContext anchor,
   ChatListController controller,
@@ -58,9 +67,11 @@ Future<void> showChatFilterMenu(
   );
   final filter = controller.activeFilter;
   final network = _network(controller);
-  final networks = controller.activeSpaceId == null
-      ? controller.spaces
-      : const <Room>[];
+  final networks = controller.spaces;
+  final inSpace = controller.activeSpaceId != null;
+  final discover =
+      inSpace &&
+      MatrixFeatures.forClient(client).isRelevant(MatrixFeature.spaces);
   final tags = controller.roomTags.keys.toList();
 
   PopupMenuEntry<String> heading(String text) => PopupMenuItem(
@@ -126,6 +137,21 @@ Future<void> showChatFilterMenu(
             checked: filter == ActiveFilter.tag && controller.activeTag == tag,
           ),
       ],
+      const PopupMenuDivider(),
+      if (discover)
+        _item(
+          value: 'action:discover',
+          leading: const Icon(Icons.explore_outlined),
+          label: l10n.discover,
+          checked: false,
+        ),
+      _item(
+        value: 'action:markAllRead',
+        leading: const Icon(Icons.mark_chat_read_outlined),
+        label: l10n.markAllAsRead,
+        checked: false,
+        enabled: controller.unreadChats(network).isNotEmpty,
+      ),
     ],
   );
   if (picked == null || !controller.mounted) return;
@@ -138,16 +164,27 @@ Future<void> showChatFilterMenu(
       if (chosen == ActiveFilter.allChats) {
         controller.setActiveFilter(ActiveFilter.allChats, null);
         controller.setSourceSpace(null);
+        if (inSpace) controller.clearActiveSpace();
       } else {
         controller.setActiveFilter(
           chosen == filter ? ActiveFilter.allChats : chosen,
           null,
         );
       }
+    case 'network' when inSpace:
+      if (value == network?.id) {
+        controller.clearActiveSpace();
+      } else {
+        await controller.setActiveSpace(value);
+      }
     case 'network':
       controller.setSourceSpace(
         value == network?.id ? null : client.getRoomById(value)?.id,
       );
+    case 'action' when value == 'discover':
+      controller.setSpaceDirectoryOpen(true);
+    case 'action':
+      await controller.markAllAsRead(network);
     case 'tag':
       if (filter == ActiveFilter.tag && controller.activeTag == value) {
         controller.setActiveFilter(ActiveFilter.allChats, null);
@@ -162,8 +199,10 @@ PopupMenuItem<String> _item({
   required Widget leading,
   required String label,
   required bool checked,
+  bool enabled = true,
 }) => PopupMenuItem(
   value: value,
+  enabled: enabled,
   height: 48,
   padding: const EdgeInsets.symmetric(horizontal: 12),
   child: Semantics(

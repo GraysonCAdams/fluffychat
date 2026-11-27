@@ -293,6 +293,26 @@ void main() {
     await finish(tester);
   });
 
+  testWidgets('inside a space the band names it, with no header below', (
+    tester,
+  ) async {
+    addFakeSpace(client, '!imsg:x', 'iMessage', ['!dm:x']);
+    await pumpWindow(tester, 1280);
+    await tester.runAsync(() => list(tester).setActiveSpace('!imsg:x'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(ChatFilterButton),
+        matching: find.text('iMessage'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.arrow_back), findsNothing);
+    expect(find.text('Harrison Young'), findsOneWidget);
+    expect(find.text('Squad Goals'), findsNothing);
+    await finish(tester);
+  });
+
   testWidgets('the title bar dropdown filters the chat list', (tester) async {
     await pumpWindow(tester, 1280);
     final dropdown = find.byType(ChatFilterButton);

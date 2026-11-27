@@ -9,7 +9,6 @@ import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
-import 'package:fluffychat/pages/chat_list/chat_filter_menu.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
@@ -140,17 +139,8 @@ class ChatListViewBody extends StatelessWidget {
     final explore = MatrixFeatures.forClient(
       client,
     ).isRelevant(MatrixFeature.explore);
-    final header = activeSpaceRoom == null || controller.selectionMode
-        ? controller.header
-        : RoomUpdatesBuilder(
-            client: client,
-            builder: (context) => _SpaceChatListHeader(
-              controller: controller,
-              space: activeSpaceRoom,
-              onBack: controller.clearActiveSpace,
-              onOpenDirectory: () => controller.setSpaceDirectoryOpen(true),
-            ),
-          );
+    // Inside a space too: its name is the title (see chatFilterLabel).
+    final header = controller.header;
     final scrollView = CustomScrollView(
       // A different account starts from fresh tile state.
       key: ValueKey(client.userID.toString()),
@@ -1087,98 +1077,6 @@ class _BubbleTailPainter extends CustomPainter {
   @override
   bool shouldRepaint(_BubbleTailPainter oldDelegate) =>
       oldDelegate.color != color;
-}
-
-/// Heads the chat list while it is filtered to a space: the space's name, a
-/// way back to all chats, and a way into the space's room directory.
-class _SpaceChatListHeader extends StatelessWidget {
-  final ChatListController controller;
-  final Room space;
-  final void Function() onBack;
-  final void Function() onOpenDirectory;
-
-  const _SpaceChatListHeader({
-    required this.controller,
-    required this.space,
-    required this.onBack,
-    required this.onOpenDirectory,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final displayname = space.getLocalizedDisplayname();
-    return SliverAppBar(
-      floating: true,
-      toolbarHeight: 72,
-      scrolledUnderElevation: 0,
-      surfaceTintColor: Colors.transparent,
-      backgroundColor: chatListBarColor(theme.colorScheme),
-      automaticallyImplyLeading: false,
-      leading: IconButton(
-        tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-        icon: const Icon(Icons.arrow_back),
-        onPressed: onBack,
-      ),
-      titleSpacing: 0,
-      title: Row(
-        children: [
-          Avatar(
-            size: Avatar.defaultSize / 1.5,
-            mxContent: space.avatar,
-            name: displayname,
-            shapeBorder: RoundedSuperellipseBorder(
-              side: BorderSide(width: 1, color: theme.dividerColor),
-              borderRadius: BorderRadius.circular(AppConfig.spaceBorderRadius),
-            ),
-            borderRadius: BorderRadius.circular(AppConfig.spaceBorderRadius),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              displayname,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        // The space's name is the title here, so the filter menu opens
-        // from a button, filled while a filter narrows the space's chats.
-        Builder(
-          builder: (context) {
-            final filtered = controller.activeFilter != ActiveFilter.allChats;
-            final label = L10n.of(
-              context,
-            ).filterChatsSelected(chatFilterLabel(context, controller));
-            void open() => showChatFilterMenu(context, controller);
-            return filtered
-                ? IconButton.filledTonal(
-                    tooltip: label,
-                    icon: const Icon(Icons.filter_list),
-                    onPressed: open,
-                  )
-                : IconButton(
-                    tooltip: label,
-                    icon: const Icon(Icons.filter_list),
-                    onPressed: open,
-                  );
-          },
-        ),
-        // A bridge's space holds only its own chats: nothing to discover.
-        if (MatrixFeatures.forClient(
-          space.client,
-        ).isRelevant(MatrixFeature.spaces))
-          IconButton(
-            tooltip: L10n.of(context).discover,
-            icon: const Icon(Icons.explore_outlined),
-            onPressed: onOpenDirectory,
-          ),
-        const SizedBox(width: 8),
-      ],
-    );
-  }
 }
 
 /// Places [child] centred, [gap] below the part of the list's top bar that

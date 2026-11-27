@@ -41,6 +41,7 @@ void main() {
       lastMessageTime: DateTime(2026, 1, 3),
     );
     addFakeSpace(client, '!imsg:x', 'iMessage', ['!harrison:x']);
+    addFakeSpace(client, '!wa:x', 'WhatsApp', ['!drew:x']);
   });
 
   tearDown(() => tearDownFakeChatList(client));
@@ -141,7 +142,8 @@ void main() {
         reason: label,
       );
     }
-    expect(find.byType(PopupMenuDivider), findsOneWidget);
+    // One before the networks, one before the actions.
+    expect(find.byType(PopupMenuDivider), findsNWidgets(2));
     expect(checked(tester), ['All chats']);
     // Material menu rows, 48 high.
     expect(
@@ -286,23 +288,99 @@ void main() {
     await finishFakeChatList(tester, client);
   });
 
-  testWidgets('inside a space the filter opens from a button', (tester) async {
-    await pump(tester);
+  ChatListController list(WidgetTester tester) =>
+      tester.state<ChatListController>(find.byType(ChatList));
+
+  Future<void> enterSpace(WidgetTester tester, String id) async {
     // Opening a space loads it from the database first.
-    await tester.runAsync(
-      () => tester
-          .state<ChatListController>(find.byType(ChatList))
-          .setActiveSpace('!imsg:x'),
-    );
+    await tester.runAsync(() => list(tester).setActiveSpace(id));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.filter_list));
-    await tester.pumpAndSettle();
-    expect(find.text('Networks'), findsNothing);
+  }
+
+  bool enabled(WidgetTester tester, String label) => tester
+      .widget<PopupMenuItem<String>>(
+        find.widgetWithText(PopupMenuItem<String>, label),
+      )
+      .enabled;
+
+  testWidgets('inside a space the title is its name, with the same menu', (
+    tester,
+  ) async {
+    await pump(tester);
+    await enterSpace(tester, '!imsg:x');
+    expect(titleText(tester), 'iMessage');
+    // No header of the space's own: no back arrow, no filter button.
+    expect(find.byIcon(Icons.arrow_back), findsNothing);
+    expect(find.byIcon(Icons.filter_list), findsNothing);
+    expect(find.text('Harrison Young'), findsOneWidget);
+    expect(find.text('Drew Park'), findsNothing);
+
+    await open(tester);
+    expect(checked(tester), ['iMessage']);
     await pick(tester, 'Unread');
+    expect(titleText(tester), 'Unread · iMessage');
+    expect(list(tester).activeSpaceId, '!imsg:x');
+
+    // All chats goes back to every chat.
+    await open(tester);
+    await pick(tester, 'All chats');
+    expect(list(tester).activeSpaceId, isNull);
+    expect(titleText(tester), 'All chats');
+    expect(find.text('Drew Park'), findsOneWidget);
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('inside a space the menu switches to another network', (
+    tester,
+  ) async {
+    await pump(tester);
+    await enterSpace(tester, '!imsg:x');
+    await open(tester);
+    await pick(tester, 'WhatsApp');
+    await tester.pumpAndSettle();
+    expect(list(tester).activeSpaceId, '!wa:x');
+    expect(titleText(tester), 'WhatsApp');
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('Mark all as read sits in the title menu', (tester) async {
+    await pump(tester);
+    await open(tester);
+    expect(find.text('Mark all as read'), findsOneWidget);
+    expect(enabled(tester, 'Mark all as read'), isTrue);
+    await pick(tester, 'Mark all as read');
+    expect((client.getRoomById('!harrison:x')! as FakeChatListRoom).calls, [
+      'read',
+    ]);
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('inside a space Mark all as read marks only its chats', (
+    tester,
+  ) async {
+    (client.getRoomById('!drew:x')! as FakeChatListRoom).notificationCount = 1;
+    await pump(tester);
+    await enterSpace(tester, '!wa:x');
+    await open(tester);
+    await pick(tester, 'Mark all as read');
+    expect((client.getRoomById('!drew:x')! as FakeChatListRoom).calls, [
+      'read',
+    ]);
     expect(
-      tester.state<ChatListController>(find.byType(ChatList)).activeFilter,
-      ActiveFilter.unread,
+      (client.getRoomById('!harrison:x')! as FakeChatListRoom).calls,
+      isEmpty,
     );
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('Mark all as read is disabled with nothing unread', (
+    tester,
+  ) async {
+    await pump(tester);
+    await enterSpace(tester, '!wa:x');
+    await open(tester);
+    expect(find.text('Mark all as read'), findsOneWidget);
+    expect(enabled(tester, 'Mark all as read'), isFalse);
     await finishFakeChatList(tester, client);
   });
 }
