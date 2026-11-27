@@ -9,6 +9,7 @@ import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat_list/chat_filter_menu.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
@@ -140,6 +141,7 @@ class ChatListViewBody extends StatelessWidget {
         : RoomUpdatesBuilder(
             client: client,
             builder: (context) => _SpaceChatListHeader(
+              controller: controller,
               space: activeSpaceRoom,
               onBack: controller.clearActiveSpace,
               onOpenDirectory: () => controller.setSpaceDirectoryOpen(true),
@@ -159,109 +161,6 @@ class ChatListViewBody extends StatelessWidget {
           slivers: [
             SliverList(
               delegate: SliverChildListDelegate([
-                // Under a title bar the selection bar takes the chip row's
-                // place while chats are selected.
-                if (!controller.isSearchMode &&
-                    !(controller.selectionMode &&
-                        controller.titleBarSearch != null))
-                  // Shown once the account has any chat, which only a sync
-                  // changes.
-                  RoomUpdatesBuilder(
-                    client: client,
-                    builder: (context) => client.rooms.isEmpty
-                        ? const SizedBox.shrink()
-                        : _ChipRow(
-                            titleBar: controller.titleBarSearch != null,
-                            child: ListView(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12.0,
-                              ),
-                              shrinkWrap: true,
-                              scrollDirection: Axis.horizontal,
-                              children: [
-                                if (activeSpaceRoom == null)
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4.0,
-                                    ),
-                                    child: Center(
-                                      child: _SourceFilterChip(controller),
-                                    ),
-                                  ),
-                                ...ActiveFilter.values
-                                    .where(
-                                      (filter) =>
-                                          filter != ActiveFilter.tag &&
-                                          // The first chip stands for
-                                          // all chats.
-                                          (filter != ActiveFilter.allChats ||
-                                              activeSpaceRoom != null),
-                                    )
-                                    .map(
-                                      (filter) => Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 4.0,
-                                        ),
-                                        child: Center(
-                                          child: FilterChip(
-                                            selected:
-                                                filter ==
-                                                controller.activeFilter,
-                                            onSelected: (_) => controller
-                                                .setActiveFilter(filter, null),
-                                            showCheckmark: false,
-                                            onDeleted:
-                                                filter ==
-                                                        controller
-                                                            .activeFilter &&
-                                                    filter !=
-                                                        ActiveFilter.allChats
-                                                ? () => controller
-                                                      .setActiveFilter(
-                                                        ActiveFilter.allChats,
-                                                        null,
-                                                      )
-                                                : null,
-                                            label: Text(
-                                              filter.toLocalizedString(context),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                ...controller.roomTags.entries.map(
-                                  (entry) => Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4.0,
-                                    ),
-                                    child: Center(
-                                      child: FilterChip(
-                                        selected:
-                                            entry.key == controller.activeTag,
-                                        showCheckmark: false,
-                                        onDeleted:
-                                            entry.key == controller.activeTag
-                                            ? () => controller.setActiveFilter(
-                                                ActiveFilter.allChats,
-                                                null,
-                                              )
-                                            : null,
-                                        onSelected: (_) =>
-                                            controller.setActiveFilter(
-                                              ActiveFilter.tag,
-                                              entry.key,
-                                            ),
-                                        label: Text(
-                                          entry.key.replaceFirst('u.', ''),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                  ),
                 // Offers chats that look like the same person for merging.
                 if (!controller.isSearchMode && activeSpaceRoom == null)
                   MergeSuggestionBanner(client: client),
@@ -510,7 +409,7 @@ class _UnreadBelowChip extends StatelessWidget {
 
   static const double _rowHeight = 68;
   static const double _unreadRowHeight = 89;
-  static const double _headerHeight = 72 + 39;
+  static const double _headerHeight = 72;
   static const double _pinsHeight = 146;
 
   @override
@@ -529,7 +428,9 @@ class _UnreadBelowChip extends StatelessWidget {
         }
         final listed = controller.listedRooms.value;
         final bottom = scroll.offset + scroll.position.viewportDimension;
-        var top = _headerHeight + (listed.pins ? _pinsHeight : 0);
+        // Under a title bar the list has no header.
+        final header = controller.titleBarSearch == null ? _headerHeight : 0.0;
+        var top = header + (listed.pins ? _pinsHeight : 0);
         var below = 0;
         double? firstTop;
         for (final room in listed.rooms) {
@@ -1096,177 +997,6 @@ class _PinnedChat extends StatelessWidget {
   }
 }
 
-/// The first filter chip. It reads "All" with a dropdown arrow and opens the
-/// list of sources: spaces, which for bridged networks are the networks
-/// themselves. With a source chosen it shows that source's icon and name and
-/// a clear button.
-/// The row of filter chips above the chats. Under a title bar that holds
-/// the search field it is the list's first row: 48 high, with 32 high chips
-/// 16 in from the edge, 8 apart and 8 from the corner of each.
-class _ChipRow extends StatelessWidget {
-  final bool titleBar;
-  final Widget child;
-
-  const _ChipRow({required this.titleBar, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    if (!titleBar) {
-      return Container(
-        // 1 above and 2 below leaves the same 16 between the search field,
-        // the chips and the first chat, given the padding those two already
-        // carry.
-        height: 36 + 1 + 2,
-        padding: const EdgeInsets.only(top: 1, bottom: 2),
-        child: child,
-      );
-    }
-    final theme = Theme.of(context);
-    return Theme(
-      data: theme.copyWith(
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        chipTheme: theme.chipTheme.copyWith(
-          // 6 above and below a 20 high label makes the chip 32 high; 8
-          // more to the side than the label's own 8 puts the label 16 in.
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      ),
-      child: Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: child,
-      ),
-    );
-  }
-}
-
-class _SourceFilterChip extends StatelessWidget {
-  final ChatListController controller;
-
-  const _SourceFilterChip(this.controller);
-
-  Future<void> _openMenu(BuildContext context, Room? selected) async {
-    final client = Matrix.of(context).client;
-    final locals = MatrixLocals(L10n.of(context));
-    final box = context.findRenderObject()! as RenderBox;
-    final overlay =
-        Overlay.of(context).context.findRenderObject()! as RenderBox;
-    final origin = box.localToGlobal(
-      Offset(0, box.size.height + 4),
-      ancestor: overlay,
-    );
-    final picked = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        origin.dx,
-        origin.dy,
-        overlay.size.width - origin.dx,
-        0,
-      ),
-      // Material menu metrics: 48 high rows, 12 side padding, and a width
-      // that follows the longest row between 112 and 280.
-      constraints: const BoxConstraints(minWidth: 112, maxWidth: 280),
-      items: [
-        _sourceItem(
-          value: '',
-          leading: const Icon(Icons.forum_outlined, size: 24),
-          label: L10n.of(context).all,
-          selected: selected == null,
-        ),
-        for (final space in controller.spaces)
-          _sourceItem(
-            value: space.id,
-            leading: _spaceAvatar(space, locals, 24),
-            label: space.getLocalizedDisplayname(locals),
-            selected: space.id == selected?.id,
-          ),
-      ],
-    );
-    if (picked == null) return;
-    controller.setSourceSpace(
-      picked.isEmpty ? null : client.getRoomById(picked)?.id,
-    );
-  }
-
-  static PopupMenuItem<String> _sourceItem({
-    required String value,
-    required Widget leading,
-    required String label,
-    required bool selected,
-  }) => PopupMenuItem(
-    value: value,
-    height: 48,
-    padding: const EdgeInsets.symmetric(horizontal: 12),
-    child: Row(
-      children: [
-        leading,
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-        ),
-        const SizedBox(width: 12),
-        // Keeps every row the same width whether or not it is checked.
-        SizedBox(
-          width: 24,
-          child: selected ? const Icon(Icons.check, size: 20) : null,
-        ),
-      ],
-    ),
-  );
-
-  static Widget _spaceAvatar(Room space, MatrixLocals locals, double size) =>
-      Avatar(
-        mxContent: space.avatar,
-        name: space.getLocalizedDisplayname(locals),
-        size: size,
-        borderRadius: BorderRadius.circular(size / 4),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    final client = Matrix.of(context).client;
-    final selectedId = controller.sourceSpaceId;
-    final selected = selectedId == null ? null : client.getRoomById(selectedId);
-    final locals = MatrixLocals(L10n.of(context));
-    final hasSources = controller.spaces.isNotEmpty;
-
-    return FilterChip(
-      // Lit while nothing narrows the list further, or a source is chosen.
-      selected:
-          selected != null || controller.activeFilter == ActiveFilter.allChats,
-      showCheckmark: false,
-      onSelected: (_) {
-        if (controller.activeFilter != ActiveFilter.allChats &&
-            selected == null) {
-          controller.setActiveFilter(ActiveFilter.allChats, null);
-          return;
-        }
-        if (hasSources) _openMenu(context, selected);
-      },
-      onDeleted: selected == null
-          ? null
-          : () => controller.setSourceSpace(null),
-      avatar: selected == null ? null : _spaceAvatar(selected, locals, 20),
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 140),
-            child: Text(
-              selected?.getLocalizedDisplayname(locals) ?? L10n.of(context).all,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (selected == null && hasSources)
-            const Icon(Icons.arrow_drop_down, size: 18),
-        ],
-      ),
-    );
-  }
-}
-
 /// The chats of [space] and of the spaces directly inside it, matching the
 /// two levels the space's room directory shows.
 Set<String> _roomIdsInSpace(Client client, Room space) {
@@ -1287,11 +1017,13 @@ Set<String> _roomIdsInSpace(Client client, Room space) {
 /// Heads the chat list while it is filtered to a space: the space's name, a
 /// way back to all chats, and a way into the space's room directory.
 class _SpaceChatListHeader extends StatelessWidget {
+  final ChatListController controller;
   final Room space;
   final void Function() onBack;
   final void Function() onOpenDirectory;
 
   const _SpaceChatListHeader({
+    required this.controller,
     required this.space,
     required this.onBack,
     required this.onOpenDirectory,
@@ -1337,6 +1069,28 @@ class _SpaceChatListHeader extends StatelessWidget {
         ],
       ),
       actions: [
+        // The space's name is the title here, so the filter menu opens
+        // from a button, filled while a filter narrows the space's chats.
+        Builder(
+          builder: (context) {
+            final filtered = controller.activeFilter != ActiveFilter.allChats;
+            final label = L10n.of(
+              context,
+            ).filterChatsSelected(chatFilterLabel(context, controller));
+            void open() => showChatFilterMenu(context, controller);
+            return filtered
+                ? IconButton.filledTonal(
+                    tooltip: label,
+                    icon: const Icon(Icons.filter_list),
+                    onPressed: open,
+                  )
+                : IconButton(
+                    tooltip: label,
+                    icon: const Icon(Icons.filter_list),
+                    onPressed: open,
+                  );
+          },
+        ),
         // A bridge's space holds only its own chats: nothing to discover.
         if (MatrixFeatures.forClient(
           space.client,

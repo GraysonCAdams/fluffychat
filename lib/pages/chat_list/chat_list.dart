@@ -128,8 +128,9 @@ class ChatListController extends State<ChatList>
 
   String? _sourceSpaceId;
 
-  /// The space the chat list is narrowed to by the source filter chip, on
-  /// top of the All / Unread / Groups filters. Null shows every source.
+  /// The network (a space) the chat list is narrowed to from the filter
+  /// menu's Networks section, on top of the Unread / Groups / People
+  /// filters. Null shows every network.
   String? get sourceSpaceId => _sourceSpaceId;
 
   void setSourceSpace(String? spaceId) => setState(() {

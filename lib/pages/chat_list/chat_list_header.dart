@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat_list/chat_filter_menu.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/client_chooser_button.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
@@ -58,6 +59,13 @@ class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
       title: isColumnMode
           ? Row(
               children: [
+                if (!controller.isSearchMode) ...[
+                  ChatFilterButton(
+                    controller: controller,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Expanded(child: _SearchField(controller, globalSearch)),
                 if (!controller.isSearchMode) ...[
                   const SizedBox(width: 8),
@@ -77,8 +85,9 @@ class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(56);
 }
 
-/// The phone header's content: "Chats" with a search button and the account
-/// button, or the search field while searching. The field opens out of the
+/// The phone header's content: the filter dropdown as its title (see
+/// [ChatFilterButton]) with a search button and the account button, or the
+/// search field while searching. The field opens out of the
 /// search button: its pill grows leftwards from the end of the bar in
 /// Material's emphasized decelerate easing over 400 ms (medium 4), and
 /// folds back in emphasized accelerate over 200 ms (short 4). The title is
@@ -139,13 +148,12 @@ class _PhoneTitleState extends State<_PhoneTitle>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final title = Row(
       children: [
         Expanded(
-          child: Text(
-            L10n.of(context).chats,
-            style: theme.textTheme.titleLarge,
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: ChatFilterButton(controller: widget.controller),
           ),
         ),
         IconButton(

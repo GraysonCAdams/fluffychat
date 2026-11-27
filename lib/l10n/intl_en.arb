@@ -3681,7 +3681,7 @@
     },
     "chatListPeople": "People",
     "@chatListPeople": {
-        "description": "The chat list filter chip for one-to-one chats, and the heading of the people found in a search."
+        "description": "The chat list filter for one-to-one chats, and the heading of the people found in a search."
     },
     "backToTop": "Back to top",
     "@backToTop": {
@@ -3822,5 +3822,22 @@
                 "type": "String"
             }
         }
+        },
+    "allChats": "All chats",
+    "@allChats": {
+        "description": "The chat list filter that shows every chat; also the chat list title while no filter is set."
+    },
+    "filterChatsSelected": "Filter chats, {filter} selected",
+    "@filterChatsSelected": {
+        "description": "Screen reader label of the chat list title, which opens the filter menu; filter is the filter shown in the title.",
+        "placeholders": {
+            "filter": {
+                "type": "String"
+            }
+        }
+    },
+    "chatFilterTags": "Tags",
+    "@chatFilterTags": {
+        "description": "Heading over the user's tags in the chat list filter menu."
     }
 }

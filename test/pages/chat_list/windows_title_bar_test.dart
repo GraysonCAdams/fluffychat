@@ -5,6 +5,7 @@
 // ignore_for_file: depend_on_referenced_packages
 
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat_list/chat_filter_menu.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
@@ -159,8 +160,16 @@ void main() {
           ),
           findsOneWidget,
         );
-        final title = tester.getRect(find.text('Seam'));
+        // The chat filter dropdown stands where the app's name would.
+        expect(find.text('Seam'), findsNothing);
+        final title = tester.getRect(
+          find.descendant(
+            of: find.byType(ChatFilterButton),
+            matching: find.text('All chats'),
+          ),
+        );
         expect(title.left, 16 + 24 + 12);
+        expect(title.center.dy, closeTo(24, 1));
 
         // Window buttons: three 46 wide, full height, at the right edge.
         final glyphs = find.byWidgetPredicate(
@@ -209,51 +218,60 @@ void main() {
     });
   });
 
-  testWidgets('the list starts with the chips and has no header', (
+  testWidgets('the list has no header and the chats start under the bar', (
     tester,
   ) async {
     await pumpWindow(tester, 1280);
     expect(find.byType(ChatListHeader), findsNothing);
-
-    final chips = find.byType(FilterChip);
-    final first = tester.getRect(chips.at(0));
-    final second = tester.getRect(chips.at(1));
-    // A 48 row right under the bar: 8 above the chips, 16 in from the edge
-    // of the list, which starts after the 80 rail and its divider.
-    expect(first.top, 48 + 8);
-    expect(first.height, 32);
-    expect(first.left, 80 + 1 + 16);
-    expect(second.left - first.right, 8);
-    expect(second.top, first.top);
-    final label = tester.widget<DefaultTextStyle>(
-      find
-          .ancestor(
-            of: find.text('Unread'),
-            matching: find.byType(DefaultTextStyle),
-          )
-          .first,
-    );
-    // Centred in the chip, to the pixel: a 20 high label fits the 32. The
-    // test font sets the label a pixel low within its line.
-    final unread = find.ancestor(
-      of: find.text('Unread'),
-      matching: find.byType(FilterChip),
-    );
-    expect(
-      tester.getCenter(find.text('Unread')).dy,
-      closeTo(tester.getCenter(unread).dy, 1),
-    );
-    expect(label.style.fontSize, 14);
-    expect(label.style.fontWeight, FontWeight.w500);
-    // The chats follow the chip row.
-    expect(
-      tester.getTopLeft(find.text('Squad Goals')).dy,
-      greaterThan(48 + 48),
-    );
+    expect(find.byType(FilterChip), findsNothing);
+    // Only the 48 of title bar above the first chat's row.
+    expect(tester.getTopLeft(find.text('Squad Goals')).dy, lessThan(48 + 48));
     await finish(tester);
   });
 
-  testWidgets('selecting a chat keeps the chats where they are', (
+  testWidgets('the title bar dropdown filters the chat list', (tester) async {
+    await pumpWindow(tester, 1280);
+    final dropdown = find.byType(ChatFilterButton);
+    expect(dropdown, findsOneWidget);
+    // In the title bar, not in the list.
+    expect(
+      find.ancestor(of: dropdown, matching: find.byType(ChatList)),
+      findsNothing,
+    );
+    await tester.tap(dropdown);
+    await tester.pumpAndSettle();
+    // The menu hangs from the bar.
+    final unread = find.descendant(
+      of: find.byType(PopupMenuItem<String>),
+      matching: find.text('Groups'),
+    );
+    expect(unread, findsOneWidget);
+    expect(tester.getRect(unread).top, greaterThan(48));
+    await tester.tap(unread);
+    await tester.pumpAndSettle();
+    expect(list(tester).activeFilter, ActiveFilter.groups);
+    expect(find.text('Harrison Young'), findsNothing);
+    expect(
+      find.descendant(of: dropdown, matching: find.text('Groups')),
+      findsOneWidget,
+    );
+
+    // The keyboard reaches it too: Space opens the menu.
+    Focus.of(
+      tester.element(
+        find.descendant(of: dropdown, matching: find.byType(Row)).first,
+      ),
+    ).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(find.byType(PopupMenuItem<String>), findsWidgets);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await finish(tester);
+  });
+
+  testWidgets('selecting a chat puts the selection bar above the chats', (
     tester,
   ) async {
     await pumpWindow(tester, 1280);
@@ -261,8 +279,12 @@ void main() {
     await tester.longPress(find.text('Squad Goals'));
     await tester.pumpAndSettle();
     expect(find.byType(ChatListSelectionBar), findsOneWidget);
-    expect(find.byType(FilterChip), findsNothing);
-    expect(tester.getTopLeft(find.text('Squad Goals')).dy, before);
+    // Right under the title bar.
+    expect(
+      tester.getRect(find.byTooltip('Clear selection')).center.dy,
+      48 + 24,
+    );
+    expect(tester.getTopLeft(find.text('Squad Goals')).dy, before + 48);
     await finish(tester);
   });
 

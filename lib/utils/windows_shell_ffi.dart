@@ -13,6 +13,7 @@ import 'package:ffi/ffi.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat_list/chat_filter_menu.dart';
 import 'package:fluffychat/pages/chat_list/title_bar_search.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:material_ui/material_ui.dart';
@@ -753,13 +754,13 @@ class _TitleBar extends StatelessWidget {
                   left: 16,
                   top: 0,
                   bottom: 0,
-                  // Leaves clicks to the drag area underneath.
-                  child: IgnorePointer(
-                    child: Row(
-                      children: [
-                        // The app tile at half the rail's size, with its
-                        // corners rounded in the same proportion.
-                        ClipRSuperellipse(
+                  child: Row(
+                    children: [
+                      // The app tile at half the rail's size, with its
+                      // corners rounded in the same proportion. It leaves
+                      // clicks to the drag area underneath.
+                      IgnorePointer(
+                        child: ClipRSuperellipse(
                           borderRadius: BorderRadius.circular(
                             AppConfig.spaceBorderRadius / 2,
                           ),
@@ -770,16 +771,44 @@ class _TitleBar extends StatelessWidget {
                             filterQuality: FilterQuality.medium,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Text(
-                          AppSettings.applicationName.value,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontSize: 12,
-                            color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 12),
+                      // With a chat list up, the chat filter dropdown stands
+                      // where the app's name does otherwise, and the list
+                      // below needs no header of its own.
+                      if (list != null)
+                        ValueListenableBuilder(
+                          valueListenable: search.listState,
+                          builder: (context, _, _) => ChatFilterButton(
+                            controller: list,
+                            // Stops 16 short of the search field, or of the
+                            // account button when the field is folded away.
+                            maxWidth: math.max(
+                              0,
+                              (searchWidth > 0
+                                      ? (width - searchWidth) / 2
+                                      : width -
+                                            WindowsChrome.avatarInset -
+                                            WindowsChrome.avatarSize) -
+                                  16 -
+                                  (16 + 24 + 12),
+                            ),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        )
+                      else
+                        IgnorePointer(
+                          child: Text(
+                            AppSettings.applicationName.value,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
                 if (signedIn && searchWidth > 0)

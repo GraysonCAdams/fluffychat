@@ -4,12 +4,14 @@
 
 // ignore_for_file: depend_on_referenced_packages
 
+import 'package:fluffychat/pages/chat_list/chat_filter_menu.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/scroll_to_top_button.dart';
 import 'package:fluffychat/pages/chat_list/search_title.dart';
 import 'package:fluffychat/pages/chat_list/start_chat_fab.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -198,7 +200,7 @@ void main() {
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -1200));
     await tester.pumpAndSettle();
     expect(
-      find.text('Chats').hitTestable(),
+      find.byType(ChatFilterButton).hitTestable(),
       findsNothing,
       reason: 'scrolled away',
     );
@@ -215,7 +217,10 @@ void main() {
     await gesture.up();
     await tester.pumpAndSettle();
     expect(list(tester).scrollController.offset, greaterThan(800));
-    expect(tester.getRect(find.text('Chats')).top, greaterThanOrEqualTo(0));
+    expect(
+      tester.getRect(find.byType(ChatFilterButton)).top,
+      greaterThanOrEqualTo(0),
+    );
 
     final bar = tester.widget<Material>(
       find.descendant(of: header, matching: find.byType(Material)).first,
@@ -314,7 +319,14 @@ void main() {
       addFakeBridge(room);
       await pumpFakeChatList(tester, client);
       // One-to-one chats are named for the people in them.
-      expect(find.widgetWithText(FilterChip, 'People'), findsOneWidget);
+      await tester.tap(find.byType(ChatFilterButton));
+      await tester.pumpAndSettle();
+      expect(
+        find.widgetWithText(PopupMenuItem<String>, 'People'),
+        findsOneWidget,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('Search'));
       await tester.pumpAndSettle();
@@ -402,7 +414,10 @@ void main() {
     }
 
     final lastChat = tester.getRect(
-      find.ancestor(of: find.text('Chat 39'), matching: find.byType(ChatListItem)),
+      find.ancestor(
+        of: find.text('Chat 39'),
+        matching: find.byType(ChatListItem),
+      ),
     );
     final fab = tester.getRect(find.byType(StartChatFab));
     expect(lastChat.bottom, lessThanOrEqualTo(fab.top));

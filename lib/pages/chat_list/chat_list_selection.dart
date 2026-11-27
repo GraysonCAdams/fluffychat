@@ -83,8 +83,8 @@ enum _MoreAction {
 class ChatListSelectionBar extends StatelessWidget {
   final ChatListController controller;
 
-  /// Under a title bar the bar stands in for the 48 high chip row while
-  /// chats are selected, so the chats below stay where they were; otherwise
+  /// Under a title bar, where the list has no header, the bar is 48 high
+  /// and the chats move down under it while chats are selected; otherwise
   /// it takes the place of the 72 high search header.
   final double height;
 

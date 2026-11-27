@@ -162,6 +162,8 @@ Future<T> setUpFakeChatList<T extends FakeChatListClient>(
   await AppSettings.mergedContactsPhoneRegion.setItem('US');
   await AppSettings.matrixFeaturesMode.setItem('auto');
   await AppSettings.matrixFeatureOverrides.setItem('{}');
+  // The chat list stores the filter last picked.
+  await AppSettings.store.remove(AppSettings.chatFilter.key);
   await AppSettings.store.remove(MatrixFeatures.scanCacheKeyFor(name));
   MatrixFeatures.scanStoredState = false;
 
