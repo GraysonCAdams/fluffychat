@@ -4,9 +4,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/pages/chat_list/search_title.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/message_search/message_search_controller.dart';
 import 'package:fluffychat/utils/message_search/message_search_hit.dart';
 import 'package:fluffychat/utils/message_search/message_search_indexer.dart';
@@ -243,7 +245,12 @@ class _MessageSearchTile extends StatelessWidget {
     final client = room.client;
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
-    final roomName = room.getLocalizedDisplayname(MatrixLocals(l10n));
+    // A message in one of a merged contact's rooms belongs to the merged
+    // chat, which is what the row names and opens, at the message.
+    final contact = MergedContact.ofRoom(client, room.id);
+    final roomName =
+        contact?.displayName(MatrixLocals(l10n)) ??
+        room.getLocalizedDisplayname(MatrixLocals(l10n));
     final String sender;
     if (hit.senderId == client.userID) {
       sender = l10n.you;
@@ -265,7 +272,11 @@ class _MessageSearchTile extends StatelessWidget {
     // label small, all on the list's 16 insets.
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      leading: Avatar(mxContent: room.avatar, name: roomName, client: client),
+      leading: Avatar(
+        mxContent: contact?.avatar ?? room.avatar,
+        name: roomName,
+        client: client,
+      ),
       title: Row(
         children: [
           Expanded(
@@ -303,7 +314,12 @@ class _MessageSearchTile extends StatelessWidget {
         color: theme.colorScheme.onSurfaceVariant,
       ),
       onTap: () => context.go(
-        '/${Uri(pathSegments: ['rooms', hit.roomId], queryParameters: {'event': hit.eventId})}',
+        contact == null
+            ? '/${Uri(pathSegments: ['rooms', hit.roomId], queryParameters: {'event': hit.eventId})}'
+            : Uri(
+                path: mergedContactRoute(contact.id),
+                queryParameters: {'event': hit.eventId, 'room': hit.roomId},
+              ).toString(),
       ),
     );
   }
