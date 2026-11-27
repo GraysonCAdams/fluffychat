@@ -35,27 +35,39 @@ class ImageViewer extends StatefulWidget {
   ImageViewerController createState() => ImageViewerController();
 }
 
+/// The pictures and videos of [timeline] the viewer pages through, oldest
+/// first: each message once, as the chat shows it with its latest edit
+/// applied, beside the message it came from. A bridge can send a picture
+/// as an edit of a placeholder text, so a message counts by its edited
+/// content, and the edits themselves are not pages of their own.
+List<({Event shown, Event original})> viewerGallery(Timeline timeline) {
+  const types = {MessageTypes.Image, MessageTypes.Sticker};
+  return [
+    for (final original in timeline.events.reversed)
+      if (original.relationshipType != RelationshipTypes.edit)
+        if (original.getDisplayEvent(timeline) case final shown
+            when types.contains(shown.messageType) ||
+                (PlatformInfos.supportsVideoPlayer &&
+                    shown.messageType == MessageTypes.Video))
+          (shown: shown, original: original),
+  ];
+}
+
 class ImageViewerController extends State<ImageViewer> {
   final FocusNode focusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
-    allEvents =
-        widget.timeline?.events
-            .where(
-              (event) => {
-                MessageTypes.Image,
-                MessageTypes.Sticker,
-                if (PlatformInfos.supportsVideoPlayer) MessageTypes.Video,
-              }.contains(event.messageType),
-            )
-            .toList()
-            .reversed
-            .toList() ??
-        [widget.event];
-    var index = allEvents.indexWhere(
-      (event) => event.eventId == widget.event.eventId,
+    final timeline = widget.timeline;
+    final gallery = timeline == null
+        ? [(shown: widget.event, original: widget.event)]
+        : viewerGallery(timeline);
+    allEvents = [for (final entry in gallery) entry.shown];
+    var index = gallery.indexWhere(
+      (entry) =>
+          entry.shown.eventId == widget.event.eventId ||
+          entry.original.eventId == widget.event.eventId,
     );
     if (index < 0) index = 0;
     pageController = PageController(initialPage: index);
