@@ -75,41 +75,24 @@ enum _MoreAction {
   block,
 }
 
-/// The chat list's app bar while chats are selected: a close button, the
-/// number of chats, and the actions for all of them. Pin, mute and
-/// read/unread each set every selected chat the same way: pinned unless all
-/// already are, and so on. Whatever applies to only some selections waits
-/// in the overflow menu, and an action that does not apply is left out.
+/// The chat list's app bar while chats are selected on a phone or without
+/// the Windows title bar: a close button, the number of chats, and the
+/// actions for all of them (see [_selectionActions]). Under the title bar
+/// the same controls float at the bottom instead (see
+/// [ChatListSelectionToolbar]).
 class ChatListSelectionBar extends StatelessWidget {
   final ChatListController controller;
 
-  /// Under a title bar, where the list has no header, the bar is 48 high
-  /// and the chats move down under it while chats are selected; otherwise
-  /// it takes the place of the 72 high search header.
-  final double height;
-
-  const ChatListSelectionBar({
-    required this.controller,
-    this.height = 72,
-    super.key,
-  });
+  const ChatListSelectionBar({required this.controller, super.key});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
     final chats = controller.selectedChats;
-    final joined = chats.isNotEmpty && chats.every((chat) => chat.isJoined);
-    final pin = !chats.every((chat) => chat.isPinned);
-    final mute = !chats.every((chat) => chat.isMuted);
-    final markRead = chats.any((chat) => chat.isUnread);
-    final leavesInvites = chats.every(
-      (chat) => chat.room.membership == .invite,
-    );
-    final more = _moreActions(controller, chats);
-
     return SliverAppBar(
-      toolbarHeight: height,
+      // The height of the search header it takes the place of.
+      toolbarHeight: 72,
       pinned: true,
       scrolledUnderElevation: 0,
       backgroundColor: theme.colorScheme.surfaceContainer,
@@ -120,60 +103,142 @@ class ChatListSelectionBar extends StatelessWidget {
         onPressed: controller.clearSelection,
       ),
       titleSpacing: 0,
-      title: Semantics(
-        label: l10n.countSelected(chats.length),
-        excludeSemantics: true,
-        child: Text('${chats.length}', style: theme.textTheme.titleLarge),
-      ),
+      title: _SelectedCount(chats.length),
       actions: [
-        // A low priority chat is never pinned, so pinning stays out of a
-        // selection that has one, as Low priority does for pinned chats.
-        if (joined && !chats.any((chat) => chat.isLowPriority))
-          IconButton(
-            tooltip: pin ? l10n.pin : l10n.unpin,
-            icon: Icon(pin ? Icons.push_pin_outlined : Icons.push_pin),
-            onPressed: () => setSelectedPinned(controller, chats, pin),
-          ),
-        if (joined)
-          IconButton(
-            tooltip: mute ? l10n.muteChat : l10n.unmuteChat,
-            icon: Icon(
-              mute
-                  ? Icons.notifications_off_outlined
-                  : Icons.notifications_outlined,
-            ),
-            onPressed: () => setSelectedMuted(controller, chats, mute),
-          ),
-        if (joined)
-          IconButton(
-            tooltip: markRead ? l10n.markAsRead : l10n.markAsUnread,
-            icon: Icon(
-              markRead
-                  ? Icons.mark_email_read_outlined
-                  : Icons.mark_email_unread_outlined,
-            ),
-            onPressed: () => setSelectedRead(controller, chats, markRead),
-          ),
-        if (chats.isNotEmpty)
-          IconButton(
-            tooltip: leavesInvites ? l10n.delete : l10n.leave,
-            icon: const Icon(Icons.delete_outlined),
-            onPressed: () => leaveSelected(controller, chats),
-          ),
-        if (more.isNotEmpty)
-          PopupMenuButton<_MoreAction>(
-            tooltip: l10n.more,
-            icon: const Icon(Icons.more_vert),
-            onSelected: (action) => _onMore(controller, chats, action),
-            itemBuilder: (context) => [
-              for (final (action, label) in more)
-                PopupMenuItem(value: action, child: Text(label)),
-            ],
-          ),
+        ..._selectionActions(context, controller),
         const SizedBox(width: 4),
       ],
     );
   }
+}
+
+/// While chats are selected in the chat list under the Windows title bar:
+/// the selection bar's close button, count and actions as a Material
+/// floating toolbar at the bottom of the list, in New chat's place, so the
+/// chats stay where they are. It is 64 high and fully rounded, in the
+/// surface container color at elevation level 3, with 8 at each end and 4
+/// between its buttons.
+class ChatListSelectionToolbar extends StatelessWidget {
+  final ChatListController controller;
+
+  const ChatListSelectionToolbar({required this.controller, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final buttons = [
+      IconButton(
+        tooltip: L10n.of(context).clearSelection,
+        icon: const Icon(Icons.close_outlined),
+        onPressed: controller.clearSelection,
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: _SelectedCount(controller.selectedChats.length),
+      ),
+      ..._selectionActions(context, controller),
+    ];
+    return Material(
+      color: theme.colorScheme.surfaceContainer,
+      elevation: 6,
+      shadowColor: theme.colorScheme.shadow,
+      shape: const StadiumBorder(),
+      child: SizedBox(
+        height: 64,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final (i, button) in buttons.indexed) ...[
+                if (i > 0) const SizedBox(width: 4),
+                button,
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// How many chats are selected, read out as "2 selected".
+class _SelectedCount extends StatelessWidget {
+  final int count;
+
+  const _SelectedCount(this.count);
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: L10n.of(context).countSelected(count),
+    excludeSemantics: true,
+    child: Text('$count', style: Theme.of(context).textTheme.titleLarge),
+  );
+}
+
+/// The selection's actions, shared by the bar and the floating toolbar.
+/// Pin, mute and read/unread each set every selected chat the same way:
+/// pinned unless all already are, and so on. Whatever applies to only some
+/// selections waits in the overflow menu, and an action that does not
+/// apply is left out.
+List<Widget> _selectionActions(
+  BuildContext context,
+  ChatListController controller,
+) {
+  final l10n = L10n.of(context);
+  final chats = controller.selectedChats;
+  final joined = chats.isNotEmpty && chats.every((chat) => chat.isJoined);
+  final pin = !chats.every((chat) => chat.isPinned);
+  final mute = !chats.every((chat) => chat.isMuted);
+  final markRead = chats.any((chat) => chat.isUnread);
+  final leavesInvites = chats.every((chat) => chat.room.membership == .invite);
+  final more = _moreActions(controller, chats);
+  return [
+    // A low priority chat is never pinned, so pinning stays out of a
+    // selection that has one, as Low priority does for pinned chats.
+    if (joined && !chats.any((chat) => chat.isLowPriority))
+      IconButton(
+        tooltip: pin ? l10n.pin : l10n.unpin,
+        icon: Icon(pin ? Icons.push_pin_outlined : Icons.push_pin),
+        onPressed: () => setSelectedPinned(controller, chats, pin),
+      ),
+    if (joined)
+      IconButton(
+        tooltip: mute ? l10n.muteChat : l10n.unmuteChat,
+        icon: Icon(
+          mute
+              ? Icons.notifications_off_outlined
+              : Icons.notifications_outlined,
+        ),
+        onPressed: () => setSelectedMuted(controller, chats, mute),
+      ),
+    if (joined)
+      IconButton(
+        tooltip: markRead ? l10n.markAsRead : l10n.markAsUnread,
+        icon: Icon(
+          markRead
+              ? Icons.mark_email_read_outlined
+              : Icons.mark_email_unread_outlined,
+        ),
+        onPressed: () => setSelectedRead(controller, chats, markRead),
+      ),
+    if (chats.isNotEmpty)
+      IconButton(
+        tooltip: leavesInvites ? l10n.delete : l10n.leave,
+        icon: const Icon(Icons.delete_outlined),
+        onPressed: () => leaveSelected(controller, chats),
+      ),
+    if (more.isNotEmpty)
+      PopupMenuButton<_MoreAction>(
+        tooltip: l10n.more,
+        icon: const Icon(Icons.more_vert),
+        onSelected: (action) => _onMore(controller, chats, action),
+        itemBuilder: (context) => [
+          for (final (action, label) in more)
+            PopupMenuItem(value: action, child: Text(label)),
+        ],
+      ),
+  ];
 }
 
 /// The menu a right-click on [room]'s row opens at [position]: the

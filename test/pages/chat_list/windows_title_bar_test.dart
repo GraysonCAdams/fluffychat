@@ -13,6 +13,7 @@ import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/navi_rail_item.dart';
+import 'package:fluffychat/pages/chat_list/start_chat_fab.dart';
 import 'package:fluffychat/pages/chat_list/title_bar_search.dart';
 import 'package:fluffychat/utils/windows_shell_ffi.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -334,20 +335,43 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('selecting a chat puts the selection bar above the chats', (
+  testWidgets('selecting floats a toolbar over the list, which stays put', (
     tester,
   ) async {
     await pumpWindow(tester, 1280);
     final before = tester.getTopLeft(find.text('Squad Goals')).dy;
+    expect(find.byType(StartChatFab), findsOneWidget);
     await tester.longPress(find.text('Squad Goals'));
     await tester.pumpAndSettle();
-    expect(find.byType(ChatListSelectionBar), findsOneWidget);
-    // Right under the title bar.
+
+    expect(find.byType(ChatListSelectionBar), findsNothing);
+    final toolbar = find.byType(ChatListSelectionToolbar);
+    expect(toolbar, findsOneWidget);
+    expect(tester.getTopLeft(find.text('Squad Goals')).dy, before);
+    // In New chat's place: 64 high, 16 above the bottom, in the middle of
+    // the list, which runs from the 80 rail to the window's edge.
+    final rect = tester.getRect(toolbar);
+    expect(rect.height, closeTo(64, 0.01));
+    expect(rect.bottom, closeTo(800 - 16, 0.01));
+    expect(rect.center.dx, closeTo((80 + 1280) / 2, 1));
+    expect(find.byType(StartChatFab), findsNothing);
     expect(
-      tester.getRect(find.byTooltip('Clear selection')).center.dy,
-      48 + 24,
+      find.descendant(of: toolbar, matching: find.byTooltip('Clear selection')),
+      findsOneWidget,
     );
-    expect(tester.getTopLeft(find.text('Squad Goals')).dy, before + 48);
+    expect(
+      find.descendant(of: toolbar, matching: find.text('1')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: toolbar, matching: find.byTooltip('Leave')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Clear selection'));
+    await tester.pumpAndSettle();
+    expect(toolbar, findsNothing);
+    expect(find.byType(StartChatFab), findsOneWidget);
     await finish(tester);
   });
 

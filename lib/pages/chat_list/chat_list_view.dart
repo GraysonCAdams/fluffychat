@@ -5,8 +5,11 @@
 
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/navigation_rail.dart';
+import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
 import 'package:fluffychat/pages/chat_list/start_chat_fab.dart';
+import 'package:fluffychat/widgets/matrix.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'chat_list_body.dart';
@@ -18,6 +21,8 @@ class ChatListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selectionToolbar =
+        controller.selectionMode && controller.titleBarSearch != null;
     return PopScope(
       canPop:
           !controller.selectionMode &&
@@ -70,9 +75,20 @@ class ChatListView extends StatelessWidget {
               behavior: HitTestBehavior.translucent,
               child: Scaffold(
                 body: Material(child: ChatListViewBody(controller)),
+                // Under the Windows title bar a selection's controls float
+                // at the bottom middle of the list, in New chat's place.
+                floatingActionButtonLocation: selectionToolbar
+                    ? FloatingActionButtonLocation.centerFloat
+                    : null,
                 // Floats at the bottom right of the chat list in every layout.
-                floatingActionButton:
-                    !controller.isSearchMode && controller.activeSpaceId == null
+                floatingActionButton: selectionToolbar
+                    ? RoomUpdatesBuilder(
+                        client: Matrix.of(context).client,
+                        builder: (context) =>
+                            ChatListSelectionToolbar(controller: controller),
+                      )
+                    : !controller.isSearchMode &&
+                          controller.activeSpaceId == null
                     // Always the compact button, so it stays clear of the
                     // unread chip in the middle of the bottom edge.
                     ? const StartChatFab()

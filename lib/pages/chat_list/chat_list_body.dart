@@ -104,7 +104,9 @@ class ChatListViewBody extends StatelessWidget {
             child: ScrollToTopButton(controller: controller.scrollController),
           ),
         ),
-        if (!controller.isSearchMode)
+        // Not under a selection toolbar, which floats in the same place.
+        if (!controller.isSearchMode &&
+            !(controller.selectionMode && controller.titleBarSearch != null))
           Positioned(
             left: 0,
             right: 0,

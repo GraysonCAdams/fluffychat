@@ -645,21 +645,19 @@ class ChatListController extends State<ChatList>
   (int, Widget?)? _header;
 
   /// The list's app bar: the search header, or the selection bar while
-  /// chats are selected. Null while the title bar holds the search field
-  /// and nothing is selected.
+  /// chats are selected. Null under the title bar, which holds the search
+  /// field, and where a selection floats in a toolbar instead (see
+  /// [ChatListSelectionToolbar]).
   Widget? get header {
     final cached = _header;
     if (cached != null && cached.$1 == _viewGeneration) return cached.$2;
-    final header = selectionMode
+    final header = titleBarSearch != null
+        ? null
+        : selectionMode
         ? RoomUpdatesBuilder(
             client: Matrix.of(context).client,
-            builder: (context) => ChatListSelectionBar(
-              controller: this,
-              height: titleBarSearch == null ? 72 : 48,
-            ),
+            builder: (context) => ChatListSelectionBar(controller: this),
           )
-        : titleBarSearch != null
-        ? null
         : ChatListHeader(controller: this);
     _header = (_viewGeneration, header);
     return header;
