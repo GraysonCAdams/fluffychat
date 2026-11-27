@@ -276,4 +276,82 @@ void main() {
     expect(find.byType(ChatListSelectionBar), findsOneWidget);
     await finish(tester);
   });
+
+  group('dragging the card down', () {
+    final handle = find.byKey(const ValueKey('chat-peek-handle'));
+
+    List<String> ticks() =>
+        haptics().where((h) => h.endsWith('lightImpact')).toList();
+
+    testWidgets('a short drag stretches the card and springs back', (
+      tester,
+    ) async {
+      await pump(tester);
+      await peek(tester, 'Harrison Young');
+      final rest = tester.getRect(card);
+      final gesture = await tester.startGesture(tester.getCenter(handle));
+      for (var i = 0; i < 6; i++) {
+        await gesture.moveBy(const Offset(0, 10));
+        await tester.pump();
+      }
+      expect(tester.getRect(card).height, greaterThan(rest.height));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(tester.getRect(card), rest);
+      expect(card, findsOneWidget);
+      expect(router.state.uri.path, '/rooms');
+      expect(ticks(), isEmpty);
+      await finish(tester);
+    });
+
+    testWidgets('a long drag opens the chat, with a tick at the threshold', (
+      tester,
+    ) async {
+      await pump(tester);
+      await peek(tester, 'Harrison Young');
+      // Anywhere on the card, once the drag goes down.
+      final gesture = await tester.startGesture(
+        tester.getCenter(
+          find.descendant(of: card, matching: find.text('Harrison Young')),
+        ),
+      );
+      for (var i = 0; i < 30; i++) {
+        await gesture.moveBy(const Offset(0, 20));
+        await tester.pump();
+      }
+      expect(ticks(), hasLength(1));
+      // Still a peek until the finger lets go.
+      expect(router.state.uri.path, '/rooms');
+      expect(harrison.calls, ['timeline']);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(card, findsNothing);
+      expect(router.state.uri.path, '/rooms/!imsg:x');
+      // The peek read the timeline and marked nothing read; the chat does
+      // that once it is open.
+      expect(harrison.calls, ['timeline']);
+      await finish(tester);
+    });
+
+    testWidgets('a fling down opens the chat however short', (tester) async {
+      await pump(tester);
+      await peek(tester, 'Harrison Young');
+      await tester.fling(handle, const Offset(0, 60), 1500);
+      await tester.pumpAndSettle();
+      expect(card, findsNothing);
+      expect(router.state.uri.path, '/rooms/!imsg:x');
+      await finish(tester);
+    });
+
+    testWidgets('a drag up does nothing', (tester) async {
+      await pump(tester);
+      await peek(tester, 'Harrison Young');
+      final rest = tester.getRect(card);
+      await tester.drag(handle, const Offset(0, -200));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(card), rest);
+      expect(router.state.uri.path, '/rooms');
+      await finish(tester);
+    });
+  });
 }

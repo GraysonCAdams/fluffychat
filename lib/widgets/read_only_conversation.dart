@@ -34,12 +34,17 @@ class ReadOnlyConversation extends StatefulWidget {
   /// What a failed read logs, naming the screen.
   final String failureLog;
 
+  /// Whether a drag scrolls the messages. Without it the newest that fit
+  /// show, and drags are left to what holds the list.
+  final bool scrollable;
+
   const ReadOnlyConversation({
     required this.open,
     this.fillCount = 0,
     this.listKey,
     this.padding = const EdgeInsets.symmetric(vertical: 8),
     this.failureLog = 'Unable to read the chat',
+    this.scrollable = true,
     super.key,
   });
 
@@ -105,6 +110,7 @@ class _ReadOnlyConversationState extends State<ReadOnlyConversation> {
     return ListView.builder(
       key: widget.listKey,
       controller: _scrollController,
+      physics: widget.scrollable ? null : const NeverScrollableScrollPhysics(),
       reverse: true,
       padding: widget.padding,
       itemCount: events.length,

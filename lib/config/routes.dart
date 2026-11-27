@@ -37,6 +37,7 @@ import 'package:fluffychat/pages/settings_password/settings_password.dart';
 import 'package:fluffychat/pages/settings_security/settings_security.dart';
 import 'package:fluffychat/pages/settings_style/settings_style.dart';
 import 'package:fluffychat/pages/sign_in/sign_in_page.dart';
+import 'package:fluffychat/utils/handoff_page.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/share_items.dart';
@@ -443,6 +444,7 @@ abstract class AppRoutes {
                   eventRoomId: state.uri.queryParameters['room'],
                   action: state.uri.queryParameters['action'],
                 ),
+                handoff: true,
               ),
               redirect: loggedOutRedirect,
             ),
@@ -469,6 +471,7 @@ abstract class AppRoutes {
                     eventId: state.uri.queryParameters['event'],
                     action: state.uri.queryParameters['action'],
                   ),
+                  handoff: true,
                 );
               },
               redirect: (context, state) =>
@@ -640,23 +643,36 @@ abstract class AppRoutes {
     child: child,
   );
 
+  /// The page for [child]: without a transition beside the chat list, else
+  /// a Material page. A chat's page ([handoff]) enters at once when a peek
+  /// card grew into it, see [PageHandoff].
   static Page defaultPageBuilder(
     BuildContext context,
     GoRouterState state,
-    Widget child,
-  ) {
+    Widget child, {
+    bool handoff = false,
+  }) {
     final clientName = state.uri.queryParameters['client'];
     if (clientName != null) {
       final matrix = Matrix.of(context);
       final client = matrix.getClientByName(clientName);
       if (client != null) matrix.setActiveClient(client);
     }
-    return FluffyThemes.isColumnMode(context)
-        ? noTransitionPageBuilder(context, state, child)
-        : MaterialPage(
-            key: state.pageKey,
-            restorationId: state.pageKey.value,
-            child: child,
-          );
+    if (FluffyThemes.isColumnMode(context)) {
+      return noTransitionPageBuilder(context, state, child);
+    }
+    if (handoff) {
+      return HandoffPage(
+        key: state.pageKey,
+        restorationId: state.pageKey.value,
+        enterInstantly: PageHandoff.take(),
+        child: child,
+      );
+    }
+    return MaterialPage(
+      key: state.pageKey,
+      restorationId: state.pageKey.value,
+      child: child,
+    );
   }
 }

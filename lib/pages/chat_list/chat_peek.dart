@@ -3,12 +3,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
+import 'package:fluffychat/utils/handoff_page.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_timeline.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
@@ -26,8 +28,9 @@ import 'package:matrix/matrix.dart';
 /// under it. A touch long press on a row opens it, see `ChatListItem`.
 ///
 /// The card grows out of the row, whose [rowContext] gives its place. A
-/// tap on the card opens the chat; a tap beside it, back or Escape closes
-/// the peek. The finger that opened it, [pointer] at [pointerPosition], can
+/// tap on the card opens the chat, and so does dragging it down far enough
+/// or flinging it: it stretches over the whole window and the chat opens
+/// under it. A tap beside it, back or Escape closes the peek. The finger that opened it, [pointer] at [pointerPosition], can
 /// slide onto an entry of the menu and lift to pick it, or lift anywhere
 /// else and tap later.
 ///
@@ -120,7 +123,7 @@ class _ChatPeekView extends StatefulWidget {
 }
 
 class _ChatPeekViewState extends State<_ChatPeekView>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   /// Lifts the card out of the row and blurs the list behind, for about as
   /// long as iOS's context menus take.
   late final AnimationController _animation = AnimationController(
@@ -149,6 +152,32 @@ class _ChatPeekViewState extends State<_ChatPeekView>
     parent: _animation,
     curve: const Interval(0.25, 1, curve: Curves.easeOutCubic),
     reverseCurve: Curves.easeInCubic,
+  );
+
+  /// How far the card has grown toward the whole window, from 0 to 1. A
+  /// drag down on the card pulls it; let go past [_commitAt], or flung
+  /// down, it fills the window and the chat opens under it.
+  late final AnimationController _expand = AnimationController(vsync: this);
+
+  /// The share of the way to the whole window past which letting go opens
+  /// the chat.
+  static const double _commitAt = 0.35;
+
+  /// A downward fling faster than this, in logical pixels a second, opens
+  /// the chat however short the drag.
+  static const double _commitVelocity = 700;
+
+  /// How far the finger has dragged the card down, and how much the card
+  /// can still grow: the drag stretches it with growing resistance, half
+  /// way at a drag of that much (see [_expansionFor]).
+  double _dragDistance = 0;
+  double _room = 1;
+
+  /// Fades the peek out over the chat it opened, once that is built.
+  late final AnimationController _handoff = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+    value: 1,
   );
 
   /// The menu as it was when the peek opened.
@@ -192,6 +221,8 @@ class _ChatPeekViewState extends State<_ChatPeekView>
     _lift.dispose();
     _menuIn.dispose();
     _animation.dispose();
+    _expand.dispose();
+    _handoff.dispose();
     _focus.dispose();
     super.dispose();
   }
@@ -246,6 +277,67 @@ class _ChatPeekViewState extends State<_ChatPeekView>
 
   void _pick(ChatMenuEntry entry) => _close(entry.onSelected);
 
+  /// The card's growth for a drag of [distance]: it follows the finger at
+  /// first and resists more the further it goes, as a rubber band.
+  double _expansionFor(double distance) => distance / (distance + _room);
+
+  void _dragStarted(DragStartDetails details) {
+    if (_closing) return;
+    _expand.stop();
+    final value = _expand.value;
+    _dragDistance = value >= 1 ? 0 : value * _room / (1 - value);
+  }
+
+  void _dragged(DragUpdateDetails details) {
+    if (_closing) return;
+    _dragDistance = (_dragDistance + details.delta.dy).clamp(
+      0,
+      double.infinity,
+    );
+    final was = _expand.value;
+    final now = _expansionFor(_dragDistance);
+    // A tick where letting go starts to open the chat.
+    if (was < _commitAt && now >= _commitAt) HapticFeedback.lightImpact();
+    _expand.value = now;
+  }
+
+  void _dragEnded(DragEndDetails details) {
+    if (_closing) return;
+    final velocity = details.velocity.pixelsPerSecond.dy;
+    if (_expand.value >= _commitAt || velocity >= _commitVelocity) {
+      _expandIntoChat();
+    } else {
+      _expand.animateTo(
+        0,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutBack,
+      );
+    }
+  }
+
+  /// Grows the card over the whole window, then opens the chat under it
+  /// without a transition (see [PageHandoff]) and fades the peek away.
+  Future<void> _expandIntoChat() async {
+    if (_closing) return;
+    _closing = true;
+    if (ChatPeekGesture._open == this) ChatPeekGesture._open = null;
+    final remaining = 1 - _expand.value;
+    await _expand.animateTo(
+      1,
+      duration: Duration(milliseconds: (260 * remaining).round() + 1),
+      curve: Curves.easeOutCubic,
+    );
+    if (!mounted) return;
+    final peek = widget.peek;
+    PageHandoff.expect();
+    peek.listController.onListedChatTap(peek.room);
+    // The chat's page is built in the next frame; a handoff it did not
+    // take must not reach a later page.
+    WidgetsBinding.instance.addPostFrameCallback((_) => PageHandoff.cancel());
+    await _handoff.reverse();
+    widget.onClosed();
+  }
+
   void _openChat() {
     final peek = widget.peek;
     _close(() => peek.listController.onListedChatTap(peek.room));
@@ -290,78 +382,10 @@ class _ChatPeekViewState extends State<_ChatPeekView>
                   ),
                 ),
               ),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final cardHeight = (constraints.maxHeight * 0.6).clamp(
-                        240.0,
-                        560.0,
-                      );
-                      return Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Flexible(
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxWidth: 560,
-                                  maxHeight: cardHeight,
-                                ),
-                                child: AnimatedBuilder(
-                                  animation: lift,
-                                  builder: (context, child) => _Lift(
-                                    origin: widget.peek.origin,
-                                    progress: lift.value,
-                                    child: Opacity(
-                                      opacity: animation.value.clamp(0, 1),
-                                      child: child,
-                                    ),
-                                  ),
-                                  child: SizedBox(
-                                    height: cardHeight,
-                                    child: _PeekCard(
-                                      controller: widget.peek.listController,
-                                      room: widget.peek.room,
-                                      onOpen: _openChat,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 560),
-                              child: Align(
-                                alignment: AlignmentDirectional.centerStart,
-                                child: FadeTransition(
-                                  opacity: menuIn,
-                                  child: ScaleTransition(
-                                    scale: Tween(
-                                      begin: 0.85,
-                                      end: 1.0,
-                                    ).animate(menuIn),
-                                    alignment: AlignmentDirectional.topStart
-                                        .resolve(Directionality.of(context)),
-                                    child: _PeekMenu(
-                                      entries: _entries,
-                                      entryKeys: _entryKeys,
-                                      hovered: _hovered,
-                                      onPick: _pick,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+              Positioned.fill(
+                child: LayoutBuilder(
+                  builder: (context, constraints) =>
+                      _layOut(context, constraints.biggest, lift, menuIn),
                 ),
               ),
             ],
@@ -369,31 +393,139 @@ class _ChatPeekViewState extends State<_ChatPeekView>
         ),
       ),
     );
+    final fading = FadeTransition(opacity: _handoff, child: view);
     // Back closes the peek rather than leaving the chat list.
     return Router.maybeOf(context) == null
-        ? view
+        ? fading
         : BackButtonListener(
             onBackButtonPressed: () async {
               _close();
               return true;
             },
-            child: view,
+            child: fading,
           );
   }
+
+  /// Places the card and the menu in a window of [size]: the two centred
+  /// together inside the safe area, the card as tall as it fits up to
+  /// 560, and the card stretched toward the whole window by [_expand].
+  Widget _layOut(
+    BuildContext context,
+    Size size,
+    Animation<double> lift,
+    Animation<double> menuIn,
+  ) {
+    final insets = MediaQuery.paddingOf(context);
+    final area = (insets + const EdgeInsets.all(16)).deflateRect(
+      Offset.zero & size,
+    );
+    final menuHeight = math.min(
+      _entries.length * _PeekMenu.itemHeight + 2 * _PeekMenu.padding,
+      area.height / 2,
+    );
+    var cardHeight = (area.height * 0.6).clamp(240.0, 560.0);
+    if (cardHeight + _menuGap + menuHeight > area.height) {
+      cardHeight = math.max(160, area.height - _menuGap - menuHeight);
+    }
+    final cardWidth = math.min(area.width, 560.0);
+    final top =
+        area.top +
+        math.max(0, (area.height - cardHeight - _menuGap - menuHeight) / 2);
+    final left = area.left + (area.width - cardWidth) / 2;
+    final rest = Rect.fromLTWH(left, top, cardWidth, cardHeight);
+    final whole = Offset.zero & size;
+    _room = math.max(1, whole.height - rest.height);
+    return AnimatedBuilder(
+      animation: Listenable.merge([_expand, _animation]),
+      builder: (context, _) {
+        final expansion = _expand.value;
+        // The menu is gone by the time the card is half way.
+        final menuOpacity = menuIn.value * (1 - expansion * 2).clamp(0.0, 1.0);
+        return Stack(
+          children: [
+            Positioned(
+              left: left,
+              top: rest.bottom + _menuGap,
+              child: IgnorePointer(
+                ignoring: expansion > 0,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: cardWidth,
+                    maxHeight: menuHeight,
+                  ),
+                  child: Opacity(
+                    opacity: menuOpacity,
+                    child: Transform.scale(
+                      scale: 0.85 + 0.15 * menuIn.value,
+                      alignment: AlignmentDirectional.topStart.resolve(
+                        Directionality.of(context),
+                      ),
+                      child: _PeekMenu(
+                        entries: _entries,
+                        entryKeys: _entryKeys,
+                        hovered: _hovered,
+                        onPick: _pick,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fromRect(
+              rect: Rect.lerp(rest, whole, expansion)!,
+              child: _Lift(
+                origin: widget.peek.origin,
+                progress: lift.value,
+                child: Opacity(
+                  opacity: _fade.value.clamp(0, 1),
+                  child: GestureDetector(
+                    onVerticalDragStart: _dragStarted,
+                    onVerticalDragUpdate: _dragged,
+                    onVerticalDragEnd: _dragEnded,
+                    child: _PeekCard(
+                      controller: widget.peek.listController,
+                      room: widget.peek.room,
+                      onOpen: _openChat,
+                      expansion: expansion,
+                      topInset: insets.top * expansion,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// The space between the card and the menu.
+  static const double _menuGap = 12;
 }
 
 /// The card of a peek: the chat's avatar, name and networks over its
-/// recent messages. A tap anywhere on it opens the chat; the messages
-/// scroll.
+/// newest messages, with a drag handle at the bottom edge. A tap anywhere
+/// on it opens the chat. The messages do not scroll, as a drag down on the
+/// card stretches it into the chat.
 class _PeekCard extends StatelessWidget {
   final ChatListController controller;
   final Room room;
   final VoidCallback onOpen;
 
+  /// How far the card has grown toward the whole window: its corners
+  /// square off and the handle fades as it does.
+  final double expansion;
+
+  /// Space above the header, so that grown over the status bar the header
+  /// sits where the chat's app bar will.
+  final double topInset;
+
   const _PeekCard({
     required this.controller,
     required this.room,
     required this.onOpen,
+    required this.expansion,
+    required this.topInset,
   });
 
   @override
@@ -426,14 +558,14 @@ class _PeekCard extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           // Material's extra-large corner, as dialogs and sheets have.
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(28 * (1 - expansion)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               ExcludeSemantics(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+                  padding: EdgeInsets.fromLTRB(16, 12 + topInset, 12, 12),
                   child: Row(
                     children: [
                       if (GroupAvatar.shows(avatarRoom))
@@ -493,6 +625,28 @@ class _PeekCard extends StatelessWidget {
                       ? room.getTimeline(onUpdate: onUpdate)
                       : MergedTimeline.open(contact.rooms, onUpdate: onUpdate),
                   failureLog: 'Unable to read the chat for its peek',
+                  scrollable: false,
+                ),
+              ),
+              // Material's drag handle, as sheets have, telling that the
+              // card pulls down.
+              Opacity(
+                opacity: 1 - expansion,
+                child: SizedBox(
+                  height: 20,
+                  child: Center(
+                    child: Container(
+                      key: const ValueKey('chat-peek-handle'),
+                      width: 32,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.4,
+                        ),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -506,6 +660,10 @@ class _PeekCard extends StatelessWidget {
 /// The menu under a peek's card, drawn as a Material menu with an icon
 /// before each entry. [hovered] is the entry under a sliding finger.
 class _PeekMenu extends StatelessWidget {
+  /// The height of an entry and the space above and below them.
+  static const double itemHeight = 48;
+  static const double padding = 8;
+
   final List<ChatMenuEntry> entries;
   final List<GlobalKey> entryKeys;
   final int? hovered;
@@ -532,7 +690,7 @@ class _PeekMenu extends StatelessWidget {
         constraints: const BoxConstraints(minWidth: 200, maxWidth: 280),
         child: IntrinsicWidth(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: padding),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -576,7 +734,7 @@ class _PeekMenuItem extends StatelessWidget {
       child: Ink(
         // Material's pressed state layer while a finger slides over it.
         color: hovered ? color.withValues(alpha: 0.1) : null,
-        height: 48,
+        height: _PeekMenu.itemHeight,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
           children: [
