@@ -1131,7 +1131,7 @@
     "type": "String",
     "placeholders": {}
   },
-  "messagesStyle": "Messages:",
+  "messagesStyle": "Messages",
   "moderator": "Moderator",
   "@moderator": {
     "type": "String",
@@ -2066,7 +2066,7 @@
   "openLinkInBrowser": "Open link in browser",
   "reportErrorDescription": "😭 Oh no. Something went wrong. If you want, you can report this bug to the developers.",
   "report": "report",
-  "setColorTheme": "Set color theme:",
+  "setColorTheme": "Color",
   "invite": "Invite",
   "inviteGroupChat": "📨 Group chat invite",
   "invalidInput": "Invalid input!",
@@ -2131,7 +2131,7 @@
   "joinSpace": "Join space",
   "publicSpaces": "Public spaces",
   "addChatOrSubSpace": "Add chat or sub space",
-  "thisDevice": "This device:",
+  "thisDevice": "This device",
   "initAppError": "An error occured while init the app",
   "searchIn": "Search in chat \"{chat}\"...",
   "@searchIn": {
@@ -2361,15 +2361,15 @@
   "suggestContactsFromChatsDescription": "Search for a new chat also finds people you already have a chat with, including contacts on bridged networks.",
   "noticeChatBackupDeviceVerification": "Note: When you connect all your devices to the chat backup, they are automatically verified.",
   "continueText": "Continue",
-  "blur": "Blur:",
-  "opacity": "Opacity:",
+  "blur": "Blur",
+  "opacity": "Opacity",
   "setWallpaper": "Set wallpaper",
   "manageAccount": "Manage account",
   "noContactInformationProvided": "Server does not provide any valid contact information",
   "contactServerAdmin": "Contact server admin",
   "contactServerSecurity": "Contact server security",
   "supportPage": "Support page",
-  "serverInformation": "Server information:",
+  "serverInformation": "Server information",
   "name": "Name",
   "version": "Version",
   "website": "Website",
@@ -2464,7 +2464,7 @@
   },
   "deletePushRuleCanNotBeUndone": "If you delete this notification setting, this can not be undone.",
   "more": "More",
-  "shareKeysWith": "Share keys with...",
+  "shareKeysWith": "Share keys with",
   "shareKeysWithDescription": "Which devices should be trusted so that they can read along your messages in encrypted chats?",
   "allDevices": "All devices",
   "crossVerifiedDevicesIfEnabled": "Cross verified devices if enabled",
@@ -2602,9 +2602,9 @@
     }
   },
   "federationBaseUrl": "Federation Base URL",
-  "clientWellKnownInformation": "Client-Well-Known Information:",
+  "clientWellKnownInformation": "Client well-known information",
   "baseUrl": "Base URL",
-  "identityServer": "Identity Server:",
+  "identityServer": "Identity server",
   "versionWithNumber": "Version: {version}",
   "@versionWithNumber": {
     "type": "String",
@@ -4016,5 +4016,85 @@
   "unmute": "Unmute",
   "@unmute": {
     "description": "Label of the speaker button in the corner of a muted video in a chat, which turns its sound back on."
+  },
+  "settingsGeneral": "General",
+  "@settingsGeneral": {
+    "description": "Header of the group on the settings home page that holds the style, notification and chat settings."
+  },
+  "settingsStyleSummary": "Theme, colors, wallpaper and font size",
+  "@settingsStyleSummary": {
+    "description": "Supporting text of the style row on the settings home page."
+  },
+  "settingsNotificationsSummary": "Push rules and notified devices",
+  "@settingsNotificationsSummary": {
+    "description": "Supporting text of the notifications row on the settings home page."
+  },
+  "settingsChatSummary": "Messages, gestures and the chat list",
+  "@settingsChatSummary": {
+    "description": "Supporting text of the chat row on the settings home page."
+  },
+  "settingsChatBackupSummary": "Keeps messages across devices",
+  "@settingsChatBackupSummary": {
+    "description": "Supporting text of the chat backup switch on the settings home page."
+  },
+  "settingsManageAccountSummary": "Opens your homeserver's account page",
+  "@settingsManageAccountSummary": {
+    "description": "Supporting text of the manage account row on the settings home page, which opens a web page."
+  },
+  "settingsDevicesSummary": "Where your account is signed in",
+  "@settingsDevicesSummary": {
+    "description": "Supporting text of the devices row on the settings home page."
+  },
+  "settingsSecuritySummary": "Privacy, app lock and encryption keys",
+  "@settingsSecuritySummary": {
+    "description": "Supporting text of the security row on the settings home page."
+  },
+  "settingsAddAccountSummary": "Sign in to another account",
+  "@settingsAddAccountSummary": {
+    "description": "Supporting text of the add account row on the settings home page."
+  },
+  "settingsHomeserverSummary": "Server information and support contacts",
+  "@settingsHomeserverSummary": {
+    "description": "Supporting text of the homeserver row on the settings home page."
+  },
+  "settingsAboutSummary": "Version, source code and licenses",
+  "@settingsAboutSummary": {
+    "description": "Supporting text of the about row on the settings home page."
+  },
+  "settingsWriting": "Writing",
+  "@settingsWriting": {
+    "description": "Header of the group in chat settings about composing and sending messages."
+  },
+  "settingsGestures": "Gestures",
+  "@settingsGestures": {
+    "description": "Header of the group in chat settings about swipes and double taps."
+  },
+  "settingsChatList": "Chat list",
+  "@settingsChatList": {
+    "description": "Header of the group in chat settings about the list of chats."
+  },
+  "settingsWindows": "Windows",
+  "@settingsWindows": {
+    "description": "Header of the group in chat settings with the options of the Windows app: tray and startup."
+  },
+  "settingsTheme": "Theme",
+  "@settingsTheme": {
+    "description": "Header over the light, dark and system theme choice in style settings."
+  },
+  "settingsWallpaper": "Wallpaper",
+  "@settingsWallpaper": {
+    "description": "Header of the group in style settings with the chat wallpaper and its opacity and blur."
+  },
+  "settingsDangerZone": "Danger zone",
+  "@settingsDangerZone": {
+    "description": "Header of the group in security settings with the actions that cannot be undone: wiping the session and deleting the account."
+  },
+  "settingsOtherDevices": "Other devices",
+  "@settingsOtherDevices": {
+    "description": "Header of the list of the account's other sessions in device settings."
+  },
+  "settingsSupport": "Support",
+  "@settingsSupport": {
+    "description": "Header of the group in homeserver settings with the support page and contacts."
   }
 }

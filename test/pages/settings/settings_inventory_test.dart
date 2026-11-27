@@ -167,7 +167,7 @@ void main() {
     ]);
     // About reads the app version from the platform before its dialog
     // opens.
-    await tester.tap(find.text(l10n.about));
+    await tester.tap(find.text(l10n.about).last);
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 100)),
     );
