@@ -43,6 +43,15 @@ void main() {
     expect(await flagged(), isEmpty);
   });
 
+  test('underlines misspellings only, not repeated words', () async {
+    const text = 'I saw the the smple cat';
+    final spans = await service.fetchSpellCheckSuggestions(
+      const Locale('en', 'US'),
+      text,
+    );
+    expect([for (final span in spans!) span.range.textInside(text)], ['smple']);
+  });
+
   test('leaves correct text alone', () async {
     final spans = await service.fetchSpellCheckSuggestions(
       const Locale('en'),
