@@ -19,6 +19,7 @@ import 'package:fluffychat/pages/chat_list/chat_list_view.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_list.dart';
 import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
+import 'package:fluffychat/pages/chat_list/search_scope.dart';
 import 'package:fluffychat/pages/chat_list/title_bar_search.dart';
 import 'package:fluffychat/utils/android_direct_share.dart';
 import 'package:fluffychat/utils/android_share_targets.dart';
@@ -427,6 +428,16 @@ class ChatListController extends State<ChatList>
   }
 
   bool isSearchMode = false;
+
+  /// What the phone's search looks through, picked in its field's Search in
+  /// menu. Each search starts out looking through everything.
+  SearchScope searchScope = SearchScope.all;
+
+  void setSearchScope(SearchScope scope) {
+    if (scope == searchScope) return;
+    setState(() => searchScope = scope);
+  }
+
   Future<QueryPublicRoomsResponse>? publicRoomsResponse;
   String? searchServer;
   Timer? _coolDown;
@@ -546,9 +557,9 @@ class ChatListController extends State<ChatList>
   }
 
   /// Searches for [text] as it is typed. Clearing the text keeps search
-  /// open and focused, with every chat listed and no server results, as
-  /// Google Messages does; only [cancelSearch] (the close button, back or
-  /// Escape) ends it.
+  /// open and focused, with no server results, as Google Messages does:
+  /// the phone shows the recent people again, and a wide layout lists every
+  /// chat. Only [cancelSearch] (the close button, back or Escape) ends it.
   void onSearchEnter(String text, {bool globalSearch = true}) {
     _coolDown?.cancel();
     if (text.isEmpty) {
@@ -579,6 +590,9 @@ class ChatListController extends State<ChatList>
   void startSearch() {
     setState(() {
       isSearchMode = true;
+      // Set here rather than when search ends, so the field keeps showing
+      // the scope while it folds away.
+      searchScope = SearchScope.all;
     });
     searchFocusNode.requestFocus();
     _coolDown?.cancel();
@@ -682,17 +696,20 @@ class ChatListController extends State<ChatList>
 
   /// Built tiles, reused while nothing they show has changed: the view,
   /// merged contacts, the room and its space, whether it is the open chat,
-  /// and whether network badges are shown.
-  final Map<String, (int, int, Room, Room?, bool, bool, ChatListItem)> _tiles =
-      {};
+  /// whether network badges are shown, and the search text marked in the
+  /// name.
+  final Map<String, (int, int, Room, Room?, bool, bool, String?, ChatListItem)>
+  _tiles = {};
 
   /// The chat list tile for [room], shown below [space] when it has one.
   /// A room standing for a merged contact gets the contact's tile, with a
-  /// badge for each of its rooms' spaces found in [spaces].
+  /// badge for each of its rooms' spaces found in [spaces]. The search text
+  /// [highlight] is marked where the name contains it.
   ChatListItem chatListTile(
     Room room,
     Room? space, {
     Map<String, Room> spaces = const {},
+    String? highlight,
   }) {
     final contact = mergedContactFor(room);
     final active = contact == null
@@ -709,8 +726,9 @@ class ChatListController extends State<ChatList>
         identical(cached.$3, room) &&
         identical(cached.$4, space) &&
         cached.$5 == active &&
-        cached.$6 == badges) {
-      return cached.$7;
+        cached.$6 == badges &&
+        cached.$7 == highlight) {
+      return cached.$8;
     }
     final tile = ChatListItem(
       room,
@@ -726,6 +744,7 @@ class ChatListController extends State<ChatList>
           : toggleSelection(room),
       activeChat: active,
       selected: isSelected(room),
+      highlight: highlight,
     );
     _tiles[room.id] = (
       _viewGeneration,
@@ -734,6 +753,7 @@ class ChatListController extends State<ChatList>
       space,
       active,
       badges,
+      highlight,
       tile,
     );
     return tile;
@@ -908,6 +928,8 @@ class ChatListController extends State<ChatList>
     _unwatchMergedContacts();
     HardwareKeyboard.instance.removeHandler(_onKey);
     _firstClickTimer?.cancel();
+    // A search still waiting for typing to pause would run without a page.
+    _coolDown?.cancel();
     scrollController.removeListener(_onScroll);
     final titleBarSearch = this.titleBarSearch;
     if (titleBarSearch == null) {

@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:desktop_drop/desktop_drop.dart';
@@ -328,10 +329,28 @@ class ChatView extends StatelessWidget {
               floatingActionButton:
                   controller.showScrollDownButton &&
                       controller.selectedEvents.isEmpty
-                  ? Padding(
-                      padding: EdgeInsets.only(
-                        bottom: theme.appBarTheme.toolbarHeight ?? 56,
-                      ),
+                  // Sits on the top edge of the composer's area, which grows
+                  // with a reply or edit bar, staged attachments and more
+                  // lines of text. The Scaffold already holds the button
+                  // kFloatingActionButtonMargin above the bottom.
+                  ? ValueListenableBuilder(
+                      valueListenable: controller.inputBarHeight,
+                      builder: (context, inputBarHeight, button) =>
+                          AnimatedPadding(
+                            duration: FluffyThemes.animationDuration,
+                            curve: FluffyThemes.animationCurve,
+                            padding: EdgeInsets.only(
+                              bottom: max(
+                                0,
+                                (inputBarHeight ??
+                                        (theme.appBarTheme.toolbarHeight ??
+                                                56) +
+                                            kFloatingActionButtonMargin) -
+                                    kFloatingActionButtonMargin,
+                              ),
+                            ),
+                            child: button,
+                          ),
                       child: FloatingActionButton(
                         onPressed: controller.scrollDown,
                         heroTag: null,

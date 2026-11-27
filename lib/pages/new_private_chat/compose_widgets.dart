@@ -46,6 +46,36 @@ class RecipientField extends StatelessWidget {
         color: theme.colorScheme.onSurfaceVariant,
       ),
     );
+    if (controller.groupLocked) {
+      // A group chat picked from the suggestions is where the message goes
+      // and stays so: no field to type more people in, no chip to take it
+      // out. Back leaves the composer.
+      final chat = recipients.single;
+      return ConstrainedBox(
+        key: const ValueKey('compose-to-locked'),
+        constraints: const BoxConstraints(minHeight: 56),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+          child: Row(
+            spacing: 8,
+            children: [
+              label,
+              Avatar(mxContent: chat.avatar, name: chat.name, size: 28),
+              Flexible(
+                child: Text(
+                  chat.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final field = TextField(
       key: const ValueKey('compose-to'),
       controller: controller.controller,

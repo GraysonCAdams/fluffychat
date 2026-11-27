@@ -102,9 +102,11 @@ void main() {
     expect(list.searchFocusNode.hasFocus, isTrue);
     expect(find.byType(TextField), findsOneWidget);
     expect(find.byTooltip('Cancel'), findsOneWidget);
-    // With nothing typed every chat is listed again.
-    expect(find.text('Harrison Young'), findsOneWidget);
-    expect(find.text('Squad Goals'), findsOneWidget);
+    // With nothing typed the recent people show again, in place of the
+    // chats.
+    expect(find.text('Recent'), findsOneWidget);
+    expect(find.text('Harrison'), findsOneWidget);
+    expect(find.text('Squad Goals'), findsNothing);
 
     await finishFakeChatList(tester, client);
   });

@@ -46,7 +46,10 @@ class NewPrivateChatView extends StatelessWidget {
     final Widget body;
     if (conversation != null) {
       body = ComposeConversation(
-        key: ValueKey('compose-${conversation.room.id}'),
+        // A merged contact's history stays as the network changes.
+        key: ValueKey(
+          'compose-${conversation.contact?.id ?? conversation.room.id}',
+        ),
         chat: conversation,
         delivery: controller.widget.delivery,
       );

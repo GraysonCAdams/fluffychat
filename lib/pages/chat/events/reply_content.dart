@@ -5,8 +5,10 @@
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/events/sender_user_builder.dart';
+import 'package:fluffychat/pages/chat_list/message_preview.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/message_effects.dart';
+import 'package:fluffychat/widgets/mxc_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -51,6 +53,16 @@ class ReplyContent extends StatelessWidget {
             ? theme.colorScheme.tertiaryContainer
             : theme.colorScheme.tertiary);
 
+    final l10n = L10n.of(context);
+    final hidden = effectPreviewOf(displayEvent, l10n);
+    // Media reads as in the chat list ("Photo", "Video 0:12", a caption),
+    // and a photo, video or sticker shows a small thumbnail of itself,
+    // unless Invisible Ink hides it.
+    final media = hidden != null || !_hasMedia(displayEvent)
+        ? null
+        : mediaPreviewOf(displayEvent, l10n, '');
+    final showsThumbnail = media != null && _hasThumbnail(displayEvent);
+
     return Material(
       color: Colors.transparent,
       borderRadius: borderRadius,
@@ -66,6 +78,10 @@ class ReplyContent extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
+          if (showsThumbnail) ...[
+            _ReplyThumbnail(displayEvent),
+            const SizedBox(width: 8),
+          ],
           Flexible(
             child: Column(
               crossAxisAlignment: .start,
@@ -87,7 +103,8 @@ class ReplyContent extends StatelessWidget {
                   },
                 ),
                 Text(
-                  effectPreviewOf(displayEvent, L10n.of(context)) ??
+                  hidden ??
+                      media?.text ??
                       displayEvent
                           .calcLocalizedBody(
                             MatrixLocals(L10n.of(context)),
@@ -114,6 +131,89 @@ class ReplyContent extends StatelessWidget {
           ),
           const SizedBox(width: 6),
         ],
+      ),
+    );
+  }
+}
+
+/// Whether [event] is media the quote reads as the chat list does.
+bool _hasMedia(Event event) =>
+    !event.redacted &&
+    (event.type == EventTypes.Sticker ||
+        (event.type == EventTypes.Message &&
+            {
+              MessageTypes.Image,
+              MessageTypes.Video,
+              MessageTypes.Audio,
+              MessageTypes.File,
+              MessageTypes.Location,
+            }.contains(event.messageType)));
+
+/// Whether [event] is a photo, video or sticker, which a quote shows a
+/// thumbnail of.
+bool _hasThumbnail(Event event) =>
+    event.type == EventTypes.Sticker ||
+    {MessageTypes.Image, MessageTypes.Video}.contains(event.messageType);
+
+/// A 40dp square of the quoted photo, sticker or video poster frame, the
+/// video with a play badge. A video without a poster frame shows a plain
+/// tile: the video itself is never fetched for it.
+class _ReplyThumbnail extends StatelessWidget {
+  final Event event;
+
+  const _ReplyThumbnail(this.event);
+
+  static const double size = 40;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final video = event.messageType == MessageTypes.Video;
+    final placeholder = Container(
+      width: size,
+      height: size,
+      color: theme.colorScheme.surfaceContainerHighest,
+    );
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox.square(
+        dimension: size,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (video && !event.hasThumbnail)
+              placeholder
+            else
+              MxcImage(
+                // The bubble of the quoted message caches its image under
+                // the same key, so a quote of a message already on screen
+                // fetches nothing.
+                cacheKey: event.transactionId ?? event.eventId,
+                cacheName: event.room.id,
+                event: event,
+                isThumbnail: true,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                placeholder: (_) => placeholder,
+              ),
+            if (video)
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withAlpha(110),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.play_arrow_rounded,
+                    size: 18,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

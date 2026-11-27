@@ -219,7 +219,14 @@ class _FakeDelivery extends NewChatDelivery {
     void Function()? onUpdate,
   }) async => Timeline(
     room: chat.room,
-    chunk: TimelineChunk(events: history[chat.room.id] ?? []),
+    // A merged contact's chat is every network's messages in one, as
+    // MergedTimeline shows it.
+    chunk: TimelineChunk(
+      events: [
+        for (final room in chat.contact?.rooms ?? [chat.room])
+          ...?history[room.id],
+      ],
+    ),
   );
 }
 
@@ -324,13 +331,20 @@ void main() {
     bool startGroup = false,
     SharedDraft? share,
     bool appTheme = false,
+    bool pushed = false,
   }) async {
     tester.view.physicalSize = const Size(1200, 3000);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     final prefs = await SharedPreferences.getInstance();
     final router = GoRouter(
+      // Opened from the chat list, so Back has somewhere to go.
+      initialLocation: pushed ? '/home' : '/',
       routes: [
+        GoRoute(
+          path: '/home',
+          builder: (_, _) => const Scaffold(body: Text('chat list')),
+        ),
         GoRoute(
           path: '/',
           builder: (_, _) => NewPrivateChat(
@@ -373,6 +387,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    if (pushed) {
+      router.push('/');
+      await tester.pumpAndSettle();
+    }
   }
 
   final toField = find.byKey(const ValueKey('compose-to'));
@@ -823,6 +841,57 @@ void main() {
     expect(find.text('Quill Sms: Not on iMessage'), findsOneWidget);
   });
 
+  group('a group picked from the suggestions', () {
+    final lockedTo = find.byKey(const ValueKey('compose-to-locked'));
+
+    testWidgets('is locked in as the recipient, with the message field '
+        'focused', (tester) async {
+      addTripGroup();
+      await pump(tester);
+      await pick(tester, 'trip', 'Trip crew');
+      // The composer stays open on the group.
+      expect(find.text('chat !trip:x'), findsNothing);
+      expect(lockedTo, findsOneWidget);
+      expect(
+        find.descendant(of: lockedTo, matching: find.text('Trip crew')),
+        findsOneWidget,
+      );
+      // No chip field: nobody can be typed in or added, nor the group
+      // taken out.
+      expect(toField, findsNothing);
+      expect(find.byType(InputChip), findsNothing);
+      expect(find.text('trip plans'), findsOneWidget);
+      final message = tester.widget<TextField>(messageField);
+      expect(message.focusNode!.hasFocus, isTrue);
+      await tester.pump(const Duration(seconds: 11));
+    });
+
+    testWidgets('takes the message and opens the group', (tester) async {
+      addTripGroup();
+      await pump(tester);
+      await pick(tester, 'trip', 'Trip crew');
+      await sendMessage(tester, 'on my way');
+      expect(delivery.sent, ['!trip:x: on my way']);
+      expect(delivery.started, isEmpty);
+      expect(find.text('chat !trip:x'), findsOneWidget);
+      // The group's history looked its senders up in the database, whose
+      // transaction holds a ten-second timer in the test's fake time.
+      await tester.pump(const Duration(seconds: 11));
+    });
+
+    testWidgets('Back leaves the composer', (tester) async {
+      addTripGroup();
+      await pump(tester, pushed: true);
+      await pick(tester, 'trip', 'Trip crew');
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.text('chat list'), findsOneWidget);
+      expect(lockedTo, findsNothing);
+      expect(toField, findsNothing);
+      await tester.pump(const Duration(seconds: 11));
+    });
+  });
+
   group('network switcher', () {
     final networks = find.byKey(const ValueKey('compose-networks'));
     Finder network(String name) =>
@@ -912,6 +981,36 @@ void main() {
       expect(delivery.started, isEmpty);
       // A bubble looks its sender up in the database, whose transaction
       // holds a ten-second timer in the test's fake time.
+      await tester.pump(const Duration(seconds: 11));
+    });
+
+    testWidgets('a merged contact shows every network\'s messages; picking '
+        'a network changes only where the message goes', (tester) async {
+      addQuinnOnBoth();
+      setMergedContacts(client, {
+        'c_q': {
+          'rooms': ['!q-im:x', '!q-gm:x'],
+          'send_via': '!q-gm:x',
+          'updated': 1,
+        },
+      });
+      await pump(tester);
+      // The merged contact is suggested under its newest chat's name.
+      await pick(tester, 'quinn', 'Quinn Sms');
+      expect(networks, findsOneWidget);
+      expect(composerHint(tester), 'Google Messages');
+      expect(find.text('from sms'), findsOneWidget);
+      expect(find.text('from imessage'), findsOneWidget);
+
+      await tester.tap(network('iMessage'));
+      await tester.pumpAndSettle();
+      expect(composerHint(tester), 'iMessage');
+      expect(find.text('from sms'), findsOneWidget);
+      expect(find.text('from imessage'), findsOneWidget);
+
+      await sendMessage(tester, 'yo');
+      expect(delivery.sent, ['!q-im:x: yo']);
+      expect(delivery.started, isEmpty);
       await tester.pump(const Duration(seconds: 11));
     });
 

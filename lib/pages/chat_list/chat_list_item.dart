@@ -13,6 +13,7 @@ import 'package:fluffychat/pages/chat_list/message_preview.dart';
 import 'package:fluffychat/pages/chat_list/message_preview_cache.dart';
 import 'package:fluffychat/pages/chat_list/own_message_status.dart';
 import 'package:fluffychat/pages/chat_list/push_rule_state_cache.dart';
+import 'package:fluffychat/pages/chat_list/search_scope.dart';
 import 'package:fluffychat/pages/chat_list/unread_bubble.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
@@ -76,6 +77,9 @@ class ChatListItem extends StatefulWidget {
   final void Function() onTap;
   final String? filter;
 
+  /// Search text to mark in the name, bold in the primary colour.
+  final String? highlight;
+
   const ChatListItem(
     this.room, {
     this.activeChat = false,
@@ -84,6 +88,7 @@ class ChatListItem extends StatefulWidget {
     this.onLongPress,
     this.onForget,
     this.filter,
+    this.highlight,
     this.space,
     this.contact,
     this.networks = const [],
@@ -152,6 +157,9 @@ class _ChatListItemState extends State<ChatListItem> {
         contact?.displayName(MatrixLocals(L10n.of(context))) ??
         room.getLocalizedDisplayname(MatrixLocals(L10n.of(context)));
     final filter = widget.filter;
+    final highlight = widget.highlight?.trim().isEmpty ?? true
+        ? null
+        : widget.highlight;
     if (filter != null && !displayname.toLowerCase().contains(filter)) {
       return const SizedBox.shrink();
     }
@@ -338,8 +346,16 @@ class _ChatListItemState extends State<ChatListItem> {
               title: Row(
                 children: <Widget>[
                   Expanded(
-                    child: Text(
-                      displayname,
+                    child: Text.rich(
+                      highlight == null
+                          ? TextSpan(text: displayname)
+                          : TextSpan(
+                              children: highlightMatches(
+                                displayname,
+                                highlight,
+                                searchMatchStyle(theme),
+                              ),
+                            ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       softWrap: false,
