@@ -278,9 +278,16 @@ class Message extends StatelessWidget {
           ];
     final eventStateTextColor = theme.colorScheme.onSurfaceVariant;
     final showTime = event.status.isSent && (selected || timeRevealed);
-    // Sent, then read where the network says so, see [ReadStatusMark].
+    // Sending, failed, or (on the newest) sent and then read where the
+    // network says so: one mark that animates between them, see
+    // [ReadStatusMark].
     final showSentMark =
         ownMessage && showDeliveryStatus && event.status.isSent;
+    final showStatusMark =
+        ownMessage &&
+        (showSentMark ||
+            event.status == EventStatus.sending ||
+            event.status == EventStatus.error);
     // The line under the bubble: its time, network, edit mark and delivery
     // state, each only when there is something to say.
     final hasStatusLine =
@@ -326,13 +333,6 @@ class Message extends StatelessWidget {
             shadows: wallpaperTextShadow,
           ),
         ),
-        Text(' ', style: TextStyle(fontSize: 12)),
-        Icon(
-          Icons.error_outlined,
-          size: 16,
-          color: theme.colorScheme.error,
-          shadows: wallpaperTextShadow,
-        ),
       ],
       if (event.status == EventStatus.sending) ...[
         Text(
@@ -350,19 +350,13 @@ class Message extends StatelessWidget {
             shadows: wallpaperTextShadow,
           ),
         ),
-        Text(' ', style: TextStyle(fontSize: 12)),
-        SizedBox.square(
-          dimension: 12,
-          child: CircularProgressIndicator(strokeWidth: 1),
-        ),
       ],
-      if (showSentMark) ...[
+      if (showStatusMark) ...[
         Text(' ', style: TextStyle(fontSize: 12)),
         ReadStatusMark(
           event: event,
           timeline: timeline,
           color: eventStateTextColor,
-          shadows: wallpaperTextShadow,
         ),
       ],
     ];

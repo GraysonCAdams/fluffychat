@@ -7,7 +7,7 @@
 import 'package:collection/collection.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
-import 'package:fluffychat/pages/chat_list/own_message_status.dart';
+import 'package:fluffychat/pages/chat/status_mark.dart';
 import 'package:fluffychat/utils/room_status_extension.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -148,8 +148,11 @@ void main() {
   final faces = find.byWidgetPredicate(
     (widget) => widget is Avatar && widget.size == 16,
   );
-  final sentMark = find.byIcon(Icons.check_circle_outline);
-  final readMark = find.byType(TwoChecks);
+  Finder markIn(StatusMarkState state) => find.byWidgetPredicate(
+    (widget) => widget is StatusMark && widget.state == state,
+  );
+  final sentMark = markIn(StatusMarkState.sent);
+  final readMark = markIn(StatusMarkState.read);
 
   String timeOfDay(DateTime time) {
     final hour = time.hour % 12 == 0 ? 12 : time.hour % 12;
@@ -184,10 +187,10 @@ void main() {
       expect(sentMark, findsNothing);
       expect(faces, findsNothing);
       expect(find.byType(Avatar), findsNothing);
-      final checks = tester.widget<TwoChecks>(readMark);
+      // Read is told by shape, in the status line's own colour.
+      final mark = tester.widget<StatusMark>(readMark);
       final context = tester.element(readMark);
-      expect(checks.filled, isTrue);
-      expect(checks.color, Theme.of(context).colorScheme.primary);
+      expect(mark.color, Theme.of(context).colorScheme.onSurfaceVariant);
       // On the line right under the bubble.
       expect(
         tester.getTopLeft(readMark).dy,

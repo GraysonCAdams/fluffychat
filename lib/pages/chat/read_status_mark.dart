@@ -4,7 +4,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/l10n/l10n.dart';
-import 'package:fluffychat/pages/chat_list/own_message_status.dart';
+import 'package:fluffychat/pages/chat/reader_stack.dart';
+import 'package:fluffychat/pages/chat/status_mark.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/room_status_extension.dart';
@@ -15,12 +16,13 @@ import 'package:matrix/matrix.dart';
 /// The mark under the user's newest message that says it was sent and,
 /// where the network reports read receipts, who has read it.
 ///
-/// In a direct chat it is one mark: a circled check once sent, two filled
-/// checks in the primary colour once the other person's m.read receipt
-/// reaches the message, as the chat list shows them ([TwoChecks]). A tap on
-/// the two checks says when it was read. In a group
-/// the readers' faces sit left of the check, and a tap on them lists each
-/// reader with the time of their receipt.
+/// One [StatusMark] in the status line's own colour follows the message
+/// from sending (beside the "Sending" label) to sent, or to failed (beside
+/// "Could not be sent"). In a direct chat it turns read, two filled rings,
+/// once the other person's m.read receipt reaches the message, and a tap on
+/// it says when it was read. In a group the readers' faces stack left of
+/// the check ([ReaderStack]), and a tap on them lists each reader with the
+/// time of their receipt.
 ///
 /// Receipts come from [event]'s own room, so in a merged contact's chat
 /// they are those of the network the message went to. Networks that send
@@ -29,18 +31,13 @@ class ReadStatusMark extends StatefulWidget {
   final Event event;
   final Timeline timeline;
   final Color color;
-  final List<Shadow>? shadows;
 
   const ReadStatusMark({
     super.key,
     required this.event,
     required this.timeline,
     required this.color,
-    this.shadows,
   });
-
-  /// How many faces a group shows before a "+N".
-  static const int maxFaces = 3;
 
   @override
   State<ReadStatusMark> createState() => _ReadStatusMarkState();
@@ -76,81 +73,75 @@ class _ReadStatusMarkState extends State<ReadStatusMark> {
     return StreamBuilder(
       stream: _receiptUpdates,
       builder: (context, _) {
-        final room = widget.event.room;
-        final receipts = room.readReceiptsOf(widget.event, widget.timeline)
-          ..sort((a, b) => b.time.compareTo(a.time));
-        if (room.isGroupChat) return _group(context, receipts);
-        if (receipts.isEmpty) return _sent(context);
-        return _read(context, receipts.first);
-      },
-    );
-  }
-
-  Widget _sent(BuildContext context) => Tooltip(
-    message: L10n.of(context).sent,
-    child: Icon(
-      Icons.check_circle_outline,
-      size: 16,
-      color: widget.color,
-      shadows: widget.shadows,
-      semanticLabel: L10n.of(context).sent,
-    ),
-  );
-
-  Widget _read(BuildContext context, Receipt receipt) {
-    final theme = Theme.of(context);
-    return _Popover(
-      semanticLabel: L10n.of(context).messageRead,
-      menuChildren: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Text(
-            readTimeLabel(context, receipt.time),
-            style: theme.textTheme.bodyMedium,
+        final event = widget.event;
+        final room = event.room;
+        final l10n = L10n.of(context);
+        final receipts = event.status.isSent
+            ? (room.readReceiptsOf(event, widget.timeline)
+                ..sort((a, b) => b.time.compareTo(a.time)))
+            : <Receipt>[];
+        final group = room.isGroupChat;
+        final state = switch (event.status) {
+          EventStatus.error => StatusMarkState.failed,
+          EventStatus.sending => StatusMarkState.sending,
+          _ when !group && receipts.isNotEmpty => StatusMarkState.read,
+          _ => StatusMarkState.sent,
+        };
+        final label = switch (state) {
+          StatusMarkState.failed => l10n.couldNotBeSent,
+          StatusMarkState.sending => l10n.sending,
+          StatusMarkState.read => l10n.messageRead,
+          _ => l10n.sent,
+        };
+        // The mark keeps its place in the tree in every state, so a change
+        // of state animates it instead of building a new one.
+        final mark = _Popover(
+          semanticLabel: label,
+          enabled: state == StatusMarkState.read,
+          menuChildren: [
+            if (receipts.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                child: Text(
+                  readTimeLabel(context, receipts.first.time),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+          ],
+          child: Tooltip(
+            message: label,
+            child: StatusMark(state: state, color: widget.color),
           ),
-        ),
-      ],
-      child: TwoChecks(filled: true, color: theme.colorScheme.primary),
-    );
-  }
-
-  Widget _group(BuildContext context, List<Receipt> receipts) {
-    final extra = receipts.length - ReadStatusMark.maxFaces;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (receipts.isNotEmpty) ...[
-          _Popover(
-            semanticLabel: L10n.of(context).readByPeople(receipts.length),
-            menuChildren: [
-              for (final receipt in receipts) _readerRow(context, receipt),
-            ],
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 2,
-              children: [
-                for (final receipt in receipts.take(ReadStatusMark.maxFaces))
-                  Avatar(
-                    mxContent: receipt.user.avatarUrl,
-                    name: receipt.user.calcDisplayname(),
-                    size: 16,
-                  ),
-                if (extra > 0)
-                  Text(
-                    '+$extra',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: widget.color,
-                      shadows: widget.shadows,
-                    ),
-                  ),
+        );
+        if (!group) return mark;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _Popover(
+              semanticLabel: l10n.readByPeople(receipts.length),
+              enabled: receipts.isNotEmpty,
+              menuChildren: [
+                for (final receipt in receipts) _readerRow(context, receipt),
               ],
+              child: ReaderStack(
+                color: widget.color,
+                readers: [
+                  for (final receipt in receipts)
+                    StackedReader(
+                      id: receipt.user.id,
+                      name: receipt.user.calcDisplayname(),
+                      avatar: receipt.user.avatarUrl,
+                    ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 4),
-        ],
-        _sent(context),
-      ],
+            mark,
+          ],
+        );
+      },
     );
   }
 
@@ -195,16 +186,19 @@ String readTimeLabel(BuildContext context, DateTime time) {
 }
 
 /// [child] as a button that opens [menuChildren] in a small popover
-/// anchored to it; a tap outside or another tap on [child] closes it.
+/// anchored to it; a tap outside or another tap on [child] closes it. When
+/// not [enabled] it is [child] alone, in the same place in the tree.
 class _Popover extends StatelessWidget {
   final Widget child;
   final List<Widget> menuChildren;
   final String semanticLabel;
+  final bool enabled;
 
   const _Popover({
     required this.child,
     required this.menuChildren,
     required this.semanticLabel,
+    this.enabled = true,
   });
 
   @override
@@ -212,12 +206,14 @@ class _Popover extends StatelessWidget {
     return MenuAnchor(
       menuChildren: menuChildren,
       builder: (context, controller, _) => Semantics(
-        button: true,
+        button: enabled,
         label: semanticLabel,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () =>
-              controller.isOpen ? controller.close() : controller.open(),
+          onTap: !enabled
+              ? null
+              : () =>
+                    controller.isOpen ? controller.close() : controller.open(),
           child: child,
         ),
       ),
