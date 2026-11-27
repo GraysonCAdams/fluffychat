@@ -376,11 +376,14 @@ const double reactionChipOverlap = 8;
 /// alignment: left for another sender's message, right for the user's own.
 ///
 /// The row opens when [reactions] turns non-null and closes when it turns
-/// null: the space under the bubble grows or shrinks while the chips fade,
-/// revealed from the top. A row present when this widget is first built
-/// shows at once, so scrolling a message into view does not animate it. The
-/// bubble keeps the same place in the tree either way, so it is never
-/// rebuilt from scratch when reactions come or go.
+/// null: the space under the bubble grows or shrinks, revealed from the
+/// top, while the chips scale and fade in or out. The chips of a row that
+/// opens are new to its chip list too, which shows what it is first built
+/// with at once, so the row grows them in itself. A row present when this
+/// widget is first built shows at once, so opening a chat or scrolling a
+/// message into view does not animate it. The bubble keeps the same place
+/// in the tree either way, so it is never rebuilt from scratch when
+/// reactions come or go.
 class BubbleWithReactions extends StatefulWidget {
   final Widget bubble;
   final Widget? reactions;
@@ -409,6 +412,14 @@ class _BubbleWithReactionsState extends State<BubbleWithReactions>
   late final CurvedAnimation _reveal = CurvedAnimation(
     parent: _controller,
     curve: Curves.easeInOutCubicEmphasized,
+    reverseCurve: _exitCurve,
+  );
+
+  /// Scales and fades the chips with the same curves a chip added to an
+  /// open row uses.
+  late final CurvedAnimation _grow = CurvedAnimation(
+    parent: _controller,
+    curve: Easing.emphasizedDecelerate,
     reverseCurve: _exitCurve,
   );
 
@@ -448,6 +459,7 @@ class _BubbleWithReactionsState extends State<BubbleWithReactions>
   @override
   void dispose() {
     _reveal.dispose();
+    _grow.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -463,7 +475,10 @@ class _BubbleWithReactionsState extends State<BubbleWithReactions>
         widget.bubble,
         reactions == null
             ? const SizedBox.shrink()
-            : FadeTransition(opacity: _reveal, child: reactions),
+            : ScaleTransition(
+                scale: _grow,
+                child: FadeTransition(opacity: _grow, child: reactions),
+              ),
       ],
     );
   }

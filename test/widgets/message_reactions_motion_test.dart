@@ -4,6 +4,8 @@
 
 // ignore_for_file: implementation_imports, depend_on_referenced_packages
 
+import 'dart:math';
+
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
@@ -81,12 +83,22 @@ void main() {
   );
 
   /// Shows the message `$msg` and returns a function that rebuilds it the
-  /// way the chat screen does when the timeline reports a change.
-  Future<({Timeline timeline, void Function() rebuild})> pumpMessage(
+  /// way the chat screen does when the timeline reports a change, and one
+  /// that selects or unselects it.
+  Future<
+    ({
+      Timeline timeline,
+      void Function() rebuild,
+      void Function(bool selected) select,
+    })
+  >
+  pumpMessage(
     WidgetTester tester, {
     bool own = false,
     List<Event> reactions = const [],
     bool disableAnimations = false,
+    bool selected = false,
+    bool settle = true,
   }) async {
     final message = textEvent(
       '\$msg',
@@ -123,7 +135,7 @@ void main() {
                     message,
                     bigEmojis: const {},
                     onSelect: (_) {},
-                    selected: false,
+                    selected: selected,
                     longPressSelect: false,
                     onInfoTab: (_) {},
                     scrollToEventId: (_) {},
@@ -144,8 +156,23 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
-    return (timeline: timeline, rebuild: () => changes.value++);
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      // Frames a millisecond apart, until the localizations have loaded
+      // and the message is built.
+      for (var i = 0; i < 10 && find.byType(Message).evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 1));
+      }
+    }
+    return (
+      timeline: timeline,
+      rebuild: () => changes.value++,
+      select: (bool value) {
+        selected = value;
+        changes.value++;
+      },
+    );
   }
 
   double rowHeight(WidgetTester tester) =>
@@ -159,6 +186,18 @@ void main() {
       opacity *= fade.opacity.value;
     }
     return opacity;
+  }
+
+  /// How far [finder] is scaled by the transitions above it, 1 at full
+  /// size.
+  double scaleOf(WidgetTester tester, Finder finder) {
+    var scale = 1.0;
+    for (final transition in tester.widgetList<ScaleTransition>(
+      find.ancestor(of: finder, matching: find.byType(ScaleTransition)),
+    )) {
+      scale *= transition.scale.value;
+    }
+    return scale;
   }
 
   const partway = Duration(milliseconds: 100);
@@ -189,6 +228,10 @@ void main() {
       await tester.pump(partway);
       final midway = rowHeight(tester);
       expect(opacityOf(tester, find.text('❤️')), lessThan(1));
+      // The chip grows in with the row, as a chip added to an open row does.
+      final scale = scaleOf(tester, find.text('❤️'));
+      expect(scale, greaterThan(0));
+      expect(scale, lessThan(1));
       await tester.pumpAndSettle();
       final open = rowHeight(tester);
 
@@ -196,6 +239,7 @@ void main() {
       expect(midway, greaterThan(closed));
       expect(midway, lessThan(open));
       expect(opacityOf(tester, find.text('❤️')), 1);
+      expect(scaleOf(tester, find.text('❤️')), 1);
     });
   }
 
@@ -278,6 +322,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 60));
     final midway = rowHeight(tester);
+    expect(scaleOf(tester, find.text('❤️')), lessThan(1));
     await tester.pumpAndSettle();
     final closed = rowHeight(tester);
 
@@ -292,6 +337,7 @@ void main() {
   ) async {
     await pumpMessage(tester, reactions: [reaction('\$r1', '❤️')]);
     expect(opacityOf(tester, find.text('❤️')), 1);
+    expect(scaleOf(tester, find.text('❤️')), 1);
     expect(
       tester.getSize(find.byType(MessageReactions)).height,
       reactionChipHeight,
@@ -313,5 +359,100 @@ void main() {
       closed + reactionChipHeight - reactionChipOverlap,
     );
     expect(opacityOf(tester, find.text('❤️')), 1);
+    expect(scaleOf(tester, find.text('❤️')), 1);
+  });
+
+  group('selecting a message', () {
+    /// The detailed time a selected message shows under its bubble.
+    final time = find.textContaining('2026,');
+
+    double messageHeight(WidgetTester tester) =>
+        tester.getSize(find.byType(Message)).height;
+
+    /// The alpha of the row's selection tint, 0 when there is none.
+    double tintOf(WidgetTester tester) {
+      final theme = Theme.of(tester.element(find.byType(Message)));
+      return tester
+          .widgetList<Material>(
+            find.descendant(
+              of: find.byType(Message),
+              matching: find.byType(Material),
+            ),
+          )
+          .map((material) => material.color)
+          .where(
+            (color) =>
+                color != null &&
+                color.withAlpha(255) ==
+                    theme.colorScheme.secondaryContainer.withAlpha(255),
+          )
+          .map((color) => color!.a)
+          .fold(0.0, max);
+    }
+
+    testWidgets('opens the time line and fades the tint in, then out', (
+      tester,
+    ) async {
+      final shown = await pumpMessage(tester);
+      final closed = messageHeight(tester);
+      expect(time, findsNothing);
+      expect(tintOf(tester), 0);
+
+      shown.select(true);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      final opening = messageHeight(tester);
+      final tintMidway = tintOf(tester);
+      expect(opacityOf(tester, time), lessThan(1));
+      await tester.pumpAndSettle();
+      final open = messageHeight(tester);
+      final tint = tintOf(tester);
+
+      expect(open, greaterThan(closed));
+      expect(opening, greaterThan(closed));
+      expect(opening, lessThan(open));
+      expect(tintMidway, greaterThan(0));
+      expect(tintMidway, lessThan(tint));
+      expect(opacityOf(tester, time), 1);
+
+      shown.select(false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      final closing = messageHeight(tester);
+      expect(time, findsOneWidget);
+      expect(tintOf(tester), lessThan(tint));
+      expect(tintOf(tester), greaterThan(0));
+      await tester.pumpAndSettle();
+
+      expect(closing, lessThan(open));
+      expect(closing, greaterThan(closed));
+      expect(messageHeight(tester), closed);
+      expect(time, findsNothing);
+      expect(tintOf(tester), 0);
+    });
+
+    testWidgets('a message built selected shows its time and tint at once', (
+      tester,
+    ) async {
+      await pumpMessage(tester, selected: true, settle: false);
+      expect(opacityOf(tester, time), 1);
+      final height = messageHeight(tester);
+      expect(tintOf(tester), closeTo(128 / 255, 0.01));
+      await tester.pumpAndSettle();
+      expect(messageHeight(tester), height);
+      expect(tintOf(tester), closeTo(128 / 255, 0.01));
+    });
+
+    testWidgets('reduced motion selects without animating', (tester) async {
+      final shown = await pumpMessage(tester, disableAnimations: true);
+      shown.select(true);
+      await tester.pump();
+      final open = messageHeight(tester);
+      final tint = tintOf(tester);
+      await tester.pumpAndSettle();
+      expect(messageHeight(tester), open);
+      expect(tintOf(tester), tint);
+      expect(opacityOf(tester, time), 1);
+    });
   });
 }
