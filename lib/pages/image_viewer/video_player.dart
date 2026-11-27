@@ -19,14 +19,15 @@ import 'package:video_player/video_player.dart';
 import '../../../utils/error_reporter.dart';
 import '../../widgets/mxc_image.dart';
 
+/// A video in the image viewer, filling its height and looping.
 class EventVideoPlayer extends StatefulWidget {
   final Event event;
 
-  /// The size to play at inside a chat message. Without it the video fills
-  /// the height of the image viewer and loops.
-  final Size? inlineSize;
+  /// Where playback starts, for a video already partly watched in its chat
+  /// message. Without it the video starts at the beginning.
+  final Duration? startAt;
 
-  const EventVideoPlayer(this.event, {this.inlineSize, super.key});
+  const EventVideoPlayer(this.event, {this.startAt, super.key});
 
   @override
   EventVideoPlayerState createState() => EventVideoPlayerState();
@@ -47,52 +48,29 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
     }
 
     try {
-      final fileSize = widget.event.content
-          .tryGetMap<String, Object?>('info')
-          ?.tryGet<int>('size');
-      final videoFile = await widget.event.downloadAndDecryptAttachment(
-        onDownloadProgress: fileSize == null
-            ? null
-            : (progress) {
-                final progressPercentage = progress / fileSize;
-                setState(() {
-                  _downloadProgress = progressPercentage < 1
-                      ? progressPercentage
-                      : null;
-                });
-              },
+      final videoPlayerController = await videoControllerForEvent(
+        widget.event,
+        (progress) {
+          if (mounted) setState(() => _downloadProgress = progress);
+        },
       );
+      if (!mounted) {
+        videoPlayerController.dispose();
+        return;
+      }
 
       // Dispose the controllers if we already have them.
       _disposeControllers();
-      late VideoPlayerController videoPlayerController;
-
-      // Create the VideoPlayerController from the contents of videoFile.
-      if (kIsWeb) {
-        videoPlayerController = VideoPlayerController.networkUrl(
-          Uri.dataFromBytes(videoFile.bytes, mimeType: videoFile.mimeType),
-        );
-      } else {
-        final tempDir = await getTemporaryDirectory();
-        final fileNameStr =
-            widget.event.attachmentMxcUrl?.pathSegments.last ??
-            widget.event.body;
-        final fileName = Uri.encodeComponent(fileNameStr);
-        final file = File('${tempDir.path}/${fileName}_${videoFile.name}');
-        if (await file.exists() == false) {
-          await file.writeAsBytes(videoFile.bytes);
-        }
-        videoPlayerController = VideoPlayerController.file(file);
-      }
       _videoPlayerController = videoPlayerController;
 
-      await videoPlayerController.initialize();
+      final startAt = widget.startAt;
+      if (startAt != null) await videoPlayerController.seekTo(startAt);
 
       // Create a ChewieController on top.
       setState(() {
         _chewieController = videoChewieController(
           videoPlayerController,
-          looping: widget.inlineSize == null,
+          looping: true,
         );
       });
     } on IOException catch (e) {
@@ -140,9 +118,8 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
     final infoMap = widget.event.content.tryGetMap<String, Object?>('info');
     final videoWidth = infoMap?.tryGet<int>('w') ?? 400;
     final videoHeight = infoMap?.tryGet<int>('h') ?? 300;
-    final inlineSize = widget.inlineSize;
-    final height = inlineSize?.height ?? MediaQuery.sizeOf(context).height - 52;
-    final width = inlineSize?.width ?? videoWidth * (height / videoHeight);
+    final height = MediaQuery.sizeOf(context).height - 52;
+    final width = videoWidth * (height / videoHeight);
 
     final chewieController = _chewieController;
     return chewieController != null
@@ -150,11 +127,7 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
             child: SizedBox(
               width: width,
               height: height,
-              child: widget.inlineSize == null
-                  ? Chewie(controller: chewieController)
-                  : InlineVideoFrame(
-                      child: Chewie(controller: chewieController),
-                    ),
+              child: Chewie(controller: chewieController),
             ),
           )
         : Stack(
@@ -193,6 +166,45 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
   }
 }
 
+/// Downloads [event]'s video and returns an initialized player for it,
+/// reporting the download's progress from 0 to 1 to [onProgress] while the
+/// size is known and null once it is done. The chat message and the image
+/// viewer both play through it.
+Future<VideoPlayerController> videoControllerForEvent(
+  Event event,
+  void Function(double? progress) onProgress,
+) async {
+  final fileSize = event.content
+      .tryGetMap<String, Object?>('info')
+      ?.tryGet<int>('size');
+  final videoFile = await event.downloadAndDecryptAttachment(
+    onDownloadProgress: fileSize == null
+        ? null
+        : (progress) {
+            final fraction = progress / fileSize;
+            onProgress(fraction < 1 ? fraction : null);
+          },
+  );
+
+  final VideoPlayerController controller;
+  if (kIsWeb) {
+    controller = VideoPlayerController.networkUrl(
+      Uri.dataFromBytes(videoFile.bytes, mimeType: videoFile.mimeType),
+    );
+  } else {
+    final tempDir = await getTemporaryDirectory();
+    final fileNameStr = event.attachmentMxcUrl?.pathSegments.last ?? event.body;
+    final fileName = Uri.encodeComponent(fileNameStr);
+    final file = File('${tempDir.path}/${fileName}_${videoFile.name}');
+    if (await file.exists() == false) {
+      await file.writeAsBytes(videoFile.bytes);
+    }
+    controller = VideoPlayerController.file(file);
+  }
+  await controller.initialize();
+  return controller;
+}
+
 /// The playback controls on top of [controller], an initialized video:
 /// playing at once with its controls hidden until a tap, looping when
 /// [looping]. The image viewer and a video staged in the composer use it.
@@ -214,28 +226,6 @@ ChewieController videoChewieController(
       ? (context) => [_PlaybackSpeedButton(controller)]
       : null,
 );
-
-/// Hosts a video player inside a chat message.
-///
-/// The chat timeline scrolls under its app bar, so a message sees the app
-/// bar's height as top padding. Chewie's controls keep clear of that padding
-/// with a SafeArea, which squeezes their bar to nothing in a box the size of
-/// a message, so the padding is removed here.
-class InlineVideoFrame extends StatelessWidget {
-  final Widget child;
-
-  const InlineVideoFrame({required this.child, super.key});
-
-  @override
-  Widget build(BuildContext context) => MediaQuery.removePadding(
-    context: context,
-    removeTop: true,
-    removeBottom: true,
-    removeLeft: true,
-    removeRight: true,
-    child: child,
-  );
-}
 
 class _PlaybackSpeedButton extends StatelessWidget {
   final VideoPlayerController controller;
