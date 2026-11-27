@@ -245,15 +245,18 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 60));
       final opening = tester.getSize(reveal).width;
+      // Nothing in it takes up room yet, so it counts as offstage.
       final fade = tester.widget<SliverFadeTransition>(
-        find.byType(SliverFadeTransition),
+        find.byType(SliverFadeTransition, skipOffstage: false),
       );
       expect(fade.opacity.value, inExclusiveRange(0, 1));
 
       await tester.pumpAndSettle();
       final open = tester.getSize(reveal).width;
       expect(opening, inExclusiveRange(0, open));
-      expect(find.text('Chats'), findsOneWidget, reason: 'the section');
+      // Nothing typed yet: the recent people stand in for the chats, and
+      // these chats are all groups.
+      expect(find.byType(ChatListItem), findsNothing);
       expect(fade.opacity.value, 1);
       expect(
         tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,

@@ -19,7 +19,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
 /// The "Messages" section of the chat list search: messages from all chats
-/// that contain the text in [searchField].
+/// that contain the text in [searchField], or those of them [where] keeps.
 ///
 /// A sliver, meant to sit in the chat list's scroll view below the chats.
 /// It searches by itself whenever the field changes, so the page showing it
@@ -33,10 +33,19 @@ class MessageSearchResults extends StatefulWidget {
   /// Stand-in for the homeserver search and the local index, for tests.
   final List<MessageSearchSource>? sources;
 
+  /// Which of the messages found are listed, such as only media; all of
+  /// them when null.
+  final bool Function(MessageSearchHit hit)? where;
+
+  /// The section's heading; "Messages" when null.
+  final String? title;
+
   const MessageSearchResults({
     required this.client,
     required this.searchField,
     this.sources,
+    this.where,
+    this.title,
     super.key,
   });
 
@@ -108,10 +117,12 @@ class _MessageSearchResultsState extends State<MessageSearchResults> {
         final theme = Theme.of(context);
         // A hit can name a room the account has left since the message was
         // indexed. There is no chat to open for it.
+        final where = widget.where;
         final hits = [
           for (final hit in _search.hits)
-            if (widget.client.getRoomById(hit.roomId) case final room?)
-              (hit, room),
+            if (where == null || where(hit))
+              if (widget.client.getRoomById(hit.roomId) case final room?)
+                (hit, room),
         ];
         final String? status;
         if (hits.isNotEmpty || _search.isLoading) {
@@ -125,7 +136,7 @@ class _MessageSearchResultsState extends State<MessageSearchResults> {
           slivers: [
             SliverToBoxAdapter(
               child: SearchTitle(
-                title: l10n.messages,
+                title: widget.title ?? l10n.messages,
                 trailing: _search.isLoading
                     ? const SizedBox.square(
                         dimension: 16,

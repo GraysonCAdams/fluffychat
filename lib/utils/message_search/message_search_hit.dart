@@ -19,6 +19,10 @@ class MessageSearchHit {
   final String body;
   final DateTime timestamp;
 
+  /// The message's `msgtype`, such as `m.image`, as the homeserver reported
+  /// it. The local index does not store it, so its hits leave it null.
+  final String? msgtype;
+
   const MessageSearchHit({
     required this.eventId,
     required this.roomId,
@@ -27,6 +31,7 @@ class MessageSearchHit {
     required this.timestamp,
     this.senderName,
     this.senderAvatar,
+    this.msgtype,
   });
 
   /// The same message found by another engine adds what this hit lacks.
@@ -38,6 +43,7 @@ class MessageSearchHit {
     timestamp: timestamp,
     senderName: senderName ?? other.senderName,
     senderAvatar: senderAvatar ?? other.senderAvatar,
+    msgtype: msgtype ?? other.msgtype,
   );
 }
 

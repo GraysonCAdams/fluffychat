@@ -108,6 +108,7 @@ MessageSearchPage pageFromSearchResults(SearchResults response) {
         senderAvatar: profile?.avatarUrl,
         body: body,
         timestamp: event.originServerTs,
+        msgtype: event.content.tryGet<String>('msgtype'),
       ),
     );
   }
