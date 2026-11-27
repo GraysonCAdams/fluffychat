@@ -21,6 +21,7 @@ import 'package:fluffychat/widgets/chat_settings_popup_menu.dart';
 import 'package:fluffychat/widgets/chat_windows_host.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
+import 'package:fluffychat/widgets/terms_acceptance_views.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -28,7 +29,7 @@ import 'attachment_panel.dart';
 import 'chat_emoji_picker.dart';
 import 'chat_input_row.dart';
 
-enum _EventContextAction { info, report }
+enum _EventContextAction { info, report, block }
 
 class ChatView extends StatelessWidget {
   final ChatController controller;
@@ -155,6 +156,9 @@ class ChatView extends StatelessWidget {
                             case _EventContextAction.report:
                               controller.reportEventAction();
                               break;
+                            case _EventContextAction.block:
+                              controller.blockSenderAction();
+                              break;
                           }
                         },
                         itemBuilder: (context) => [
@@ -208,6 +212,21 @@ class ChatView extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 12),
                                   Text(L10n.of(context).reportMessage),
+                                ],
+                              ),
+                            ),
+                          if (controller.canBlockSelectedSender)
+                            PopupMenuItem(
+                              value: _EventContextAction.block,
+                              child: Row(
+                                mainAxisSize: .min,
+                                children: [
+                                  const Icon(
+                                    Icons.block_outlined,
+                                    color: Colors.red,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(L10n.of(context).blockUser),
                                 ],
                               ),
                             ),
@@ -510,7 +529,13 @@ class ChatView extends StatelessWidget {
                                             : Column(
                                                 mainAxisSize: .min,
                                                 children: [
-                                                  ChatComposer(controller),
+                                                  TermsComposerGate(
+                                                    client:
+                                                        controller.room.client,
+                                                    child: ChatComposer(
+                                                      controller,
+                                                    ),
+                                                  ),
                                                   ChatEmojiPicker(controller),
                                                   AttachmentPanel(controller),
                                                 ],
