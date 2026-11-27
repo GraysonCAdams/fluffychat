@@ -18,6 +18,7 @@ import 'package:fluffychat/widgets/settings_switch_list_tile.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'hidden_rail_spaces_tile.dart';
 import 'message_search_index_tile.dart';
 import 'settings_chat.dart';
 import 'settings_swipe_actions.dart';
@@ -178,6 +179,7 @@ class SettingsChatView extends StatelessWidget {
                   ),
                 ),
               ),
+              const HiddenRailSpacesTile(),
               ListTile(
                 title: Text(L10n.of(context).mergedContacts),
                 subtitle: Text(L10n.of(context).mergedContactsDescription),

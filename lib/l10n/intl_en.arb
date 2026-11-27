@@ -3381,7 +3381,7 @@
     },
     "newGroup": "New group",
     "@newGroup": {
-        "description": "Row at the top of the share page that switches it to picking people for a new group."
+        "description": "Row at the top of the share page and of the new chat page that starts picking people for a new group."
     },
     "groupMembersNotAdded": "Could not add {names}",
     "@groupMembersNotAdded": {
@@ -3929,5 +3929,26 @@
     "failedToSend": "Failed to send",
     "@failedToSend": {
         "description": "Spoken label of the error icon before the user's own newest message in the chat list when it could not be sent."
+        },
+    "pickTwoOrMorePeople": "Pick two or more people",
+    "@pickTwoOrMorePeople": {
+        "description": "Subtitle of the New group row at the top of the new chat page."
+        },
+    "notificationSettings": "Notification settings",
+    "appearance": "Appearance",
+    "networkSettings": "Network settings",
+    "muteAllChats": "Mute all chats",
+    "unmuteAllChats": "Unmute all chats",
+    "hideFromRail": "Hide from rail",
+    "@hideFromRail": {
+        "description": "Item in the menu of a network's tile on the chat list's rail that takes the tile off the rail."
+    },
+    "hiddenFromRail": "Hidden from the rail",
+    "@hiddenFromRail": {
+        "description": "Chat settings row listing the networks taken off the chat list's rail; opens a sheet to show them again."
+    },
+    "showOnRail": "Show",
+    "@showOnRail": {
+        "description": "Button beside a hidden network in the Hidden from the rail sheet that puts it back on the rail."
     }
 }

@@ -192,18 +192,18 @@ void main() {
           );
         }
 
-        // The avatar: 32 round, 8 left of the 138 of window buttons.
+        // The avatar: 28 round, 8 left of the 138 of window buttons.
         final avatar = tester.getRect(
           find.byKey(const Key('accounts_and_settings_buttons')),
         );
-        expect(avatar, Rect.fromLTWH(width - 146 - 32, 8, 32, 32));
+        expect(avatar, Rect.fromLTWH(width - 146 - 28, 10, 28, 28));
 
         // Search: 32 high, centred on the window, clear of both.
         final field = tester.getRect(find.byType(TitleBarSearchField));
         expect(field.height, 32);
         expect(field.top, 8);
         expect(field.center.dx, width / 2);
-        expect(field.width, width >= 1180 ? 520 : 252);
+        expect(field.width, width >= 1180 ? 520 : 260);
         expect(field.left, greaterThan(title.right + 16));
         expect(field.right, lessThanOrEqualTo(avatar.left - 16));
         expect(
@@ -220,7 +220,7 @@ void main() {
         if (field == 0) continue;
         final left = (width - field) / 2;
         expect(left, greaterThan(80), reason: 'at $width');
-        expect(left + field, lessThanOrEqualTo(width - 146 - 32 - 16));
+        expect(left + field, lessThanOrEqualTo(width - 146 - 28 - 16));
       }
     });
   });

@@ -4,9 +4,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/config/app_config.dart';
+import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/navi_rail_item.dart';
+import 'package:fluffychat/pages/chat_list/rail_menus.dart';
 import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
@@ -16,12 +19,19 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
+/// The rail beside the chat list: All chats (the app tile), one tile per
+/// space the user is in except those hidden from it (see
+/// [AppSettings.railHiddenSpaces]), and New space. A right click or long
+/// press on All chats or a space opens its menu (see `rail_menus.dart`),
+/// which acts through [controller].
 class SpacesNavigationRail extends StatelessWidget {
+  final ChatListController controller;
   final String? activeSpaceId;
   final void Function() onGoToChats;
   final void Function(String) onGoToSpaceId;
 
   const SpacesNavigationRail({
+    required this.controller,
     required this.activeSpaceId,
     required this.onGoToChats,
     required this.onGoToSpaceId,
@@ -40,8 +50,14 @@ class SpacesNavigationRail extends StatelessWidget {
           key: ValueKey(client.userID.toString()),
           client: client,
           builder: (context) {
+            final hidden = AppSettings.railHiddenSpaces.value.toSet();
             final allSpaces = client.rooms
-                .where((room) => room.isSpace && room.membership == .join)
+                .where(
+                  (room) =>
+                      room.isSpace &&
+                      room.membership == .join &&
+                      !hidden.contains(room.id),
+                )
                 .toList();
             // Each badge counts the unread chats it covers. Collecting the
             // unread ids once keeps that to one pass over the rooms instead
@@ -71,6 +87,11 @@ class SpacesNavigationRail extends StatelessWidget {
                           return NaviRailItem(
                             isSelected: activeSpaceId == null,
                             onTap: onGoToChats,
+                            onContextMenu: (position) => showAllChatsRailMenu(
+                              context,
+                              controller,
+                              position,
+                            ),
                             // All chats is Seam itself, so its tab is the app
                             // tile, sized, shaped and outlined like the network
                             // tiles below it.
@@ -131,6 +152,12 @@ class SpacesNavigationRail extends StatelessWidget {
                           toolTip: displayname,
                           isSelected: activeSpaceId == space.id,
                           onTap: () => onGoToSpaceId(allSpaces[i].id),
+                          onContextMenu: (position) => showSpaceRailMenu(
+                            context,
+                            controller,
+                            space,
+                            position,
+                          ),
                           unreadCount: unreadCount,
                           icon: Avatar(
                             mxContent: allSpaces[i].avatar,

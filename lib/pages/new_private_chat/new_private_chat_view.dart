@@ -20,7 +20,6 @@ import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
-import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 import 'package:pretty_qr_code/pretty_qr_code.dart';
@@ -198,6 +197,19 @@ class _StartList extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 8),
       children: [
+        // First, always: a group with people on the user's networks starts
+        // by adding them to the To field; an account with no network goes
+        // to the Matrix group page (see NewPrivateChatController.newGroup).
+        ListTile(
+          leading: CircleAvatar(
+            backgroundColor: theme.colorScheme.tertiaryContainer,
+            foregroundColor: theme.colorScheme.onTertiaryContainer,
+            child: const Icon(Icons.group_add_outlined),
+          ),
+          title: Text(L10n.of(context).newGroup),
+          subtitle: Text(L10n.of(context).pickTwoOrMorePeople),
+          onTap: controller.newGroup,
+        ),
         if (showIdentity) ...[
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18.0),
@@ -229,20 +241,6 @@ class _StartList extends StatelessWidget {
             ),
             title: Text(L10n.of(context).shareInviteLink),
             onTap: controller.inviteAction,
-          ),
-        // A group with people on the user's networks starts by adding a
-        // second person to the To field; a Matrix-only group has its own
-        // page for an account with no network, offered only once the
-        // bridges answered so it does not show while they load.
-        if (controller.noNetworks)
-          ListTile(
-            leading: CircleAvatar(
-              backgroundColor: theme.colorScheme.tertiaryContainer,
-              foregroundColor: theme.colorScheme.onTertiaryContainer,
-              child: const Icon(Icons.group_add_outlined),
-            ),
-            title: Text(L10n.of(context).createGroup),
-            onTap: () => context.go('/rooms/newgroup'),
           ),
         if (PlatformInfos.isMobile && showIdentity)
           ListTile(

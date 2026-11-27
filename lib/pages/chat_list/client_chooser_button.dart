@@ -18,7 +18,7 @@ import 'package:matrix/matrix.dart' hide Result;
 import '../../utils/fluffy_share.dart';
 import 'chat_list.dart';
 
-/// The own avatar, opening the account menu: accounts, new group, status,
+/// The own avatar, opening the account menu: accounts, status, snooze,
 /// settings and the like. Shown beside the chat list's search field, or in
 /// the Windows title bar (TitleBarAccountButton), which sits outside the
 /// app's pages; so the menu opens over the pages of [controller]'s
@@ -37,7 +37,7 @@ class ClientChooserButton extends StatefulWidget {
 
   const ClientChooserButton(
     this.controller, {
-    this.size = 42,
+    this.size = 32,
     this.onPressedWithoutList,
     super.key,
   });
@@ -158,16 +158,6 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
             : 1,
       );
     return <PopupMenuEntry<Object>>[
-      PopupMenuItem(
-        value: SettingsAction.newGroup,
-        child: Row(
-          children: [
-            const Icon(Icons.group_add_outlined),
-            const SizedBox(width: 18),
-            Text(L10n.of(context).createGroup),
-          ],
-        ),
-      ),
       if (features.isRelevant(MatrixFeature.status))
         PopupMenuItem(
           value: SettingsAction.setStatus,
@@ -179,16 +169,6 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
             ],
           ),
         ),
-      PopupMenuItem(
-        value: SettingsAction.markAllAsRead,
-        child: Row(
-          children: [
-            const Icon(Icons.mark_chat_read_outlined),
-            const SizedBox(width: 18),
-            Text(L10n.of(context).markAllAsRead),
-          ],
-        ),
-      ),
       PopupMenuItem(
         value: SettingsAction.snooze,
         child: Row(
@@ -339,11 +319,6 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
       controller.setActiveBundle(object);
     } else if (object is SettingsAction) {
       switch (object) {
-        case SettingsAction.newGroup:
-          // Picks people in the new chat page, which creates the group on
-          // their network.
-          context.go('/rooms/newprivatechat?group=1');
-          break;
         case SettingsAction.invite:
           FluffyShare.shareInviteLink(context);
           break;
@@ -356,9 +331,6 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
         case SettingsAction.setStatus:
           controller.setStatus();
           break;
-        case SettingsAction.markAllAsRead:
-          controller.markAllAsRead();
-          break;
         case SettingsAction.snooze:
           controller.toggleNotificationSnooze();
           break;
@@ -367,12 +339,4 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
   }
 }
 
-enum SettingsAction {
-  newGroup,
-  setStatus,
-  markAllAsRead,
-  snooze,
-  invite,
-  settings,
-  archive,
-}
+enum SettingsAction { setStatus, snooze, invite, settings, archive }

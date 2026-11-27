@@ -21,6 +21,10 @@ class NaviRailItem extends StatelessWidget {
   /// Unread chats to show on a badge, or null for no badge.
   final int? unreadCount;
 
+  /// Opens the tile's menu at a global position: where a right click was,
+  /// or beside the tile for a long press. Null for a tile with no menu.
+  final void Function(Offset position)? onContextMenu;
+
   const NaviRailItem({
     required this.toolTip,
     required this.isSelected,
@@ -28,6 +32,7 @@ class NaviRailItem extends StatelessWidget {
     required this.icon,
     this.selectedIcon,
     this.unreadCount,
+    this.onContextMenu,
     super.key,
   });
   @override
@@ -81,9 +86,30 @@ class NaviRailItem extends StatelessWidget {
                         : theme.colorScheme.surfaceContainerHighest,
                     child: Tooltip(
                       message: toolTip,
+                      // A long press on a tile with a menu opens the menu,
+                      // so on touch the name shows in the menu instead.
+                      triggerMode: onContextMenu == null
+                          ? null
+                          : TooltipTriggerMode.manual,
                       child: InkWell(
                         borderRadius: borderRadius,
                         onTap: onTap,
+                        onSecondaryTapUp: onContextMenu == null
+                            ? null
+                            : (details) =>
+                                  onContextMenu!(details.globalPosition),
+                        onLongPress: onContextMenu == null
+                            ? null
+                            : () {
+                                // Beside the tile, at its right edge.
+                                final box =
+                                    context.findRenderObject()! as RenderBox;
+                                onContextMenu!(
+                                  box.localToGlobal(
+                                    box.size.centerRight(Offset.zero),
+                                  ),
+                                );
+                              },
                         child: unreadCount == null
                             ? icon
                             : UnreadRoomsBadge(
