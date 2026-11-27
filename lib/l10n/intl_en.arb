@@ -3950,5 +3950,17 @@
     "showOnRail": "Show",
     "@showOnRail": {
         "description": "Button beside a hidden network in the Hidden from the rail sheet that puts it back on the rail."
+    },
+    "addToDictionary": "Add to dictionary",
+    "@addToDictionary": {
+        "description": "Item in the message input's right-click menu on Windows that adds the misspelled word under the pointer to the Windows spelling dictionary."
+    },
+    "ignoreSpelling": "Ignore",
+    "@ignoreSpelling": {
+        "description": "Item in the message input's right-click menu on Windows that stops flagging the misspelled word under the pointer until the app quits."
+    },
+    "noSpellingSuggestions": "(No spelling suggestions)",
+    "@noSpellingSuggestions": {
+        "description": "Greyed-out item in the message input's right-click menu on Windows when the misspelled word under the pointer has no suggested corrections."
     }
 }

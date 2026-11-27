@@ -7,6 +7,7 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
+import 'package:fluffychat/utils/composer_native_menu.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -14,7 +15,8 @@ import 'package:matrix/matrix.dart';
 
 /// Spell checking for the message input. Android and iOS use the platform's
 /// own service; Flutter has none on Windows, so there it asks the Windows
-/// Spell Checking API, which follows the languages set up in Windows.
+/// Spell Checking API, which follows the languages set up in Windows. Its
+/// suggestions appear in the native right-click menu (composer_native_menu.dart).
 SpellCheckConfiguration? messageSpellCheckConfiguration() {
   if (PlatformInfos.isAndroid || PlatformInfos.isIOS) {
     return const SpellCheckConfiguration();
@@ -28,7 +30,12 @@ SpellCheckConfiguration? messageSpellCheckConfiguration() {
   return null;
 }
 
-class WindowsSpellCheckService implements SpellCheckService {
+/// Where the message input's "Add to dictionary" and "Ignore" go.
+SpellCheckDictionary? messageSpellCheckDictionary() =>
+    PlatformInfos.isWindows ? WindowsSpellCheckService.instance : null;
+
+class WindowsSpellCheckService
+    implements SpellCheckService, SpellCheckDictionary {
   WindowsSpellCheckService._();
 
   static final instance = WindowsSpellCheckService._();
@@ -67,6 +74,8 @@ class WindowsSpellCheckService implements SpellCheckService {
   static const _factoryCreateSpellChecker = 5;
   static const _checkerCheck = 4;
   static const _checkerSuggest = 5;
+  static const _checkerAdd = 6;
+  static const _checkerIgnore = 7;
   static const _enumNext = 3;
   static const _errorStartIndex = 3;
   static const _errorLength = 4;
@@ -82,6 +91,30 @@ class WindowsSpellCheckService implements SpellCheckService {
   Pointer<Pointer<IntPtr>>? _factory;
   final _checkers = <String, Pointer<Pointer<IntPtr>>?>{};
 
+  /// The checker of the latest check, whose language the input is in.
+  Pointer<Pointer<IntPtr>>? _lastChecker;
+
+  /// Adds [word] to the Windows user dictionary of the input's language, so
+  /// every app stops flagging it.
+  @override
+  void add(String word) => _callWithWord(_checkerAdd, word);
+
+  /// Stops flagging [word] until the app quits.
+  @override
+  void ignore(String word) => _callWithWord(_checkerIgnore, word);
+
+  void _callWithWord(int slot, String word) {
+    final checker = _lastChecker;
+    if (checker == null) return;
+    final nativeWord = word.toNativeUtf16();
+    try {
+      final hr = _call1(checker, slot, nativeWord);
+      if (hr < 0) Logs().w('Windows spell checker refused a word: $hr');
+    } finally {
+      calloc.free(nativeWord);
+    }
+  }
+
   @override
   Future<List<SuggestionSpan>?> fetchSpellCheckSuggestions(
     Locale locale,
@@ -90,6 +123,7 @@ class WindowsSpellCheckService implements SpellCheckService {
     if (text.trim().isEmpty) return const [];
     final checker = _checkerFor(locale);
     if (checker == null) return null;
+    _lastChecker = checker;
 
     final spans = <SuggestionSpan>[];
     final nativeText = text.toNativeUtf16();

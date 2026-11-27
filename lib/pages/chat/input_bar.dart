@@ -9,11 +9,13 @@ import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
+import 'package:fluffychat/utils/composer_native_menu.dart';
 import 'package:fluffychat/utils/inserted_content_file.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/markdown_context_builder.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/media_adaptation.dart';
+import 'package:fluffychat/utils/native_context_menu.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/room_features.dart';
 import 'package:fluffychat/utils/spell_check.dart';
@@ -425,6 +427,22 @@ class InputBar extends StatelessWidget {
     return startText + afterText;
   }
 
+  /// On Windows, gives [field] the keys that open its native menu.
+  Widget _withNativeMenuShortcuts(
+    BuildContext context,
+    TextEditingController controller,
+    FocusNode focusNode,
+    Widget field,
+  ) {
+    if (!NativeContextMenu.isSupported) return field;
+    return NativeComposerMenuShortcuts(
+      focusNode: focusNode,
+      dictionary: messageSpellCheckDictionary(),
+      extraItems: () => markdownButtonItems(context, controller: controller),
+      child: field,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -434,96 +452,113 @@ class InputBar extends StatelessWidget {
       textEditingController: controller,
       optionsBuilder: getSuggestions,
       fieldViewBuilder: (context, controller, focusNode, _) => _InputTextScale(
-        child: TextField(
-          controller: controller,
-          focusNode: focusNode,
-          undoController: undoController,
-          spellCheckConfiguration: messageSpellCheckConfiguration(),
-          readOnly: readOnly,
-          onEditingComplete: () {
-            // To not lose focus on iOS:
-            // https://github.com/krille-chan/fluffychat/issues/2784
-          },
-          contextMenuBuilder: (c, e) => MarkdownContextBuilder(
-            editableTextState: e,
+        child: _withNativeMenuShortcuts(
+          context,
+          controller,
+          focusNode,
+          TextField(
             controller: controller,
-            onPasteImage: PlatformInfos.isIOS && onSubmitImage != null
-                ? () async {
-                    final scaffoldMessenger = ScaffoldMessenger.of(context);
-                    final l10n = L10n.of(context);
-                    final image = await Pasteboard.image;
-                    if (image == null) {
-                      scaffoldMessenger.showSnackBar(
-                        SnackBar(content: Text(l10n.noImageInClipboard)),
-                      );
-                      return;
-                    }
-                    onSubmitImage!(image);
-                  }
-                : null,
-          ),
-          contentInsertionConfiguration: ContentInsertionConfiguration(
-            onContentInserted: (KeyboardInsertedContent content) async {
-              final proceed = await showTrustUserInRoomDialog(context, room);
-              if (!proceed) return;
-              final data = content.data;
-              if (data == null) return;
-              final onInsertFile = this.onInsertFile;
-              if (onInsertFile != null) {
-                onInsertFile(
-                  insertedContentFile(data, content.uri, content.mimeType),
-                );
-                return;
-              }
-
-              final file = MatrixFile(
-                mimeType: content.mimeType,
-                bytes: data,
-                name: insertedContentFileName(content.uri, content.mimeType),
-              );
-              if (!context.mounted) return;
-              final scaffoldMessenger = ScaffoldMessenger.of(context);
-              final AdaptedMedia adapted;
-              try {
-                adapted = await adaptMediaForRoom(
-                  features: await RoomFeatures.load(room),
-                  file: file,
-                );
-              } on Exception catch (e) {
-                if (!context.mounted) return;
-                scaffoldMessenger.showSnackBar(
-                  SnackBar(content: Text(e.toLocalizedString(context))),
-                );
-                return;
-              }
-              room.sendFileEvent(
-                adapted.file,
-                shrinkImageMaxDimension: 1600,
-                extraContent: adapted.extraContent,
-              );
+            focusNode: focusNode,
+            undoController: undoController,
+            spellCheckConfiguration: messageSpellCheckConfiguration(),
+            readOnly: readOnly,
+            onEditingComplete: () {
+              // To not lose focus on iOS:
+              // https://github.com/krille-chan/fluffychat/issues/2784
             },
+            contextMenuBuilder: (c, e) => NativeContextMenu.isSupported
+                ? NativeComposerMenu(
+                    composerContext: context,
+                    editableTextState: e,
+                    dictionary: messageSpellCheckDictionary(),
+                    extraItems: () =>
+                        markdownButtonItems(context, controller: controller),
+                  )
+                : MarkdownContextBuilder(
+                    editableTextState: e,
+                    controller: controller,
+                    onPasteImage: PlatformInfos.isIOS && onSubmitImage != null
+                        ? () async {
+                            final scaffoldMessenger = ScaffoldMessenger.of(
+                              context,
+                            );
+                            final l10n = L10n.of(context);
+                            final image = await Pasteboard.image;
+                            if (image == null) {
+                              scaffoldMessenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(l10n.noImageInClipboard),
+                                ),
+                              );
+                              return;
+                            }
+                            onSubmitImage!(image);
+                          }
+                        : null,
+                  ),
+            contentInsertionConfiguration: ContentInsertionConfiguration(
+              onContentInserted: (KeyboardInsertedContent content) async {
+                final proceed = await showTrustUserInRoomDialog(context, room);
+                if (!proceed) return;
+                final data = content.data;
+                if (data == null) return;
+                final onInsertFile = this.onInsertFile;
+                if (onInsertFile != null) {
+                  onInsertFile(
+                    insertedContentFile(data, content.uri, content.mimeType),
+                  );
+                  return;
+                }
+
+                final file = MatrixFile(
+                  mimeType: content.mimeType,
+                  bytes: data,
+                  name: insertedContentFileName(content.uri, content.mimeType),
+                );
+                if (!context.mounted) return;
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+                final AdaptedMedia adapted;
+                try {
+                  adapted = await adaptMediaForRoom(
+                    features: await RoomFeatures.load(room),
+                    file: file,
+                  );
+                } on Exception catch (e) {
+                  if (!context.mounted) return;
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(content: Text(e.toLocalizedString(context))),
+                  );
+                  return;
+                }
+                room.sendFileEvent(
+                  adapted.file,
+                  shrinkImageMaxDimension: 1600,
+                  extraContent: adapted.extraContent,
+                );
+              },
+            ),
+            minLines: minLines,
+            maxLines: maxLines,
+            keyboardType: keyboardType,
+            textInputAction: textInputAction,
+            autofocus: autofocus!,
+            inputFormatters: [
+              LengthLimitingTextInputFormatter((maxPDUSize / 3).floor()),
+            ],
+            onSubmitted: (text) {
+              // fix for library for now
+              // it sets the types for the callback incorrectly
+              onSubmitted!(text);
+            },
+            maxLength: AppSettings.textMessageMaxLength.value,
+            decoration: decoration,
+            onChanged: (text) {
+              // fix for the library for now
+              // it sets the types for the callback incorrectly
+              onChanged!(text);
+            },
+            textCapitalization: TextCapitalization.sentences,
           ),
-          minLines: minLines,
-          maxLines: maxLines,
-          keyboardType: keyboardType,
-          textInputAction: textInputAction,
-          autofocus: autofocus!,
-          inputFormatters: [
-            LengthLimitingTextInputFormatter((maxPDUSize / 3).floor()),
-          ],
-          onSubmitted: (text) {
-            // fix for library for now
-            // it sets the types for the callback incorrectly
-            onSubmitted!(text);
-          },
-          maxLength: AppSettings.textMessageMaxLength.value,
-          decoration: decoration,
-          onChanged: (text) {
-            // fix for the library for now
-            // it sets the types for the callback incorrectly
-            onChanged!(text);
-          },
-          textCapitalization: TextCapitalization.sentences,
         ),
       ),
       optionsViewBuilder: (c, onSelected, s) {

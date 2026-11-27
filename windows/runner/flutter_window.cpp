@@ -25,11 +25,15 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  context_menu_channel_ = std::make_unique<ContextMenuChannel>(
+      flutter_controller_->engine()->messenger(),
+      flutter_controller_->view()->GetNativeWindow());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
   return true;
 }
 
 void FlutterWindow::OnDestroy() {
+  context_menu_channel_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }

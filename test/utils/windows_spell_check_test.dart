@@ -28,6 +28,21 @@ void main() {
     expect(flagged['smple'], contains('simple'));
   });
 
+  test('stops flagging an ignored word', () async {
+    // A made-up word, so ignoring it cannot hide a real misspelling.
+    const text = 'Hello qzxwvy';
+    Future<List<String>> flagged() async => [
+      for (final span in (await service.fetchSpellCheckSuggestions(
+        const Locale('en', 'US'),
+        text,
+      ))!)
+        span.range.textInside(text),
+    ];
+    expect(await flagged(), ['qzxwvy']);
+    service.ignore('qzxwvy');
+    expect(await flagged(), isEmpty);
+  });
+
   test('leaves correct text alone', () async {
     final spans = await service.fetchSpellCheckSuggestions(
       const Locale('en'),
