@@ -403,7 +403,7 @@ class MatrixState extends State<Matrix> {
           linux: LinuxInitializationSettings(
             defaultActionName: FluffyChatNotificationActions.open.name,
           ),
-          windows: ClientManager.windowsNotificationSettings,
+          windows: ClientManager.windowsNotificationSettings(),
           macOS: const DarwinInitializationSettings(),
           iOS: const DarwinInitializationSettings(),
           android: const AndroidInitializationSettings('notifications_icon'),

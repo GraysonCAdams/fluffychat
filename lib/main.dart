@@ -20,6 +20,7 @@ import 'package:fluffychat/utils/logcat_mirror.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/start_push_foreground_service.dart';
+import 'package:fluffychat/utils/windows_data_migration.dart';
 import 'package:fluffychat/utils/windows_shell.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -92,6 +93,10 @@ void main(List<String> args) => runZonedGuarded(() async {
   // To make sure that the parts of flutter needed are started up already, we need to ensure that the
   // widget bindings are initialized already.
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Seam keeps its data in a folder of its own on Windows; the first start
+  // copies what the shared one holds before anything opens it.
+  if (PlatformInfos.isWindows) await migrateFluffyChatWindowsData();
 
   final store = await AppSettings.init();
   Logs().i('Welcome to ${AppSettings.applicationName.value} <3');

@@ -34,8 +34,10 @@ class MergedNetwork {
 
   /// The bubble colour for this network: the user's pick, else the main
   /// colour of the network's logo, else null for a network with neither.
+  /// The bridge is found as for any chat, so a merged group's rooms, which
+  /// have no ghost to read it from, have their network's colour too.
   Color? get bubbleColor =>
-      NetworkColors.colorFor(NetworkColors.bridgeIdOf(room));
+      NetworkColors.colorFor(NetworkColors.bridgeIdOfRoom(room));
 
   Widget icon({double size = 20}) => Avatar(
     mxContent: space?.avatar,

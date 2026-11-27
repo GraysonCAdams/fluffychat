@@ -3,7 +3,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:fluffychat/config/app_config.dart';
@@ -15,9 +14,11 @@ import 'package:fluffychat/utils/init_with_restore.dart';
 import 'package:fluffychat/utils/last_event_keeper.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call_member.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/network_error_log.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/windows_toast_identity.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_vodozemac/flutter_vodozemac.dart' as vod;
@@ -170,23 +171,32 @@ abstract class ClientManager {
     );
     // Bridge bookkeeping in a limited sync must not replace a chat's preview.
     LastEventKeeper.attach(client);
+    // The network colour picks follow the account across devices.
+    NetworkColorSync.attach(client);
     // A failed sync says why in one line of the log.
     SyncErrorLog.attach(client);
     return client;
   }
 
-  static WindowsInitializationSettings get windowsNotificationSettings =>
-      WindowsInitializationSettings(
-        appName: AppSettings.applicationName.value,
-        appUserModelId: AppConfig.appId,
-        guid: AppConfig.windowsNotificationGuid,
-        // Windows reads the toast icon from the IconUri registered for the
-        // AUMID, which the plugin only writes when given an absolute path.
-        iconPath: PlatformInfos.isWindows
-            ? '${File(Platform.resolvedExecutable).parent.path}'
-                  r'\data\flutter_assets\assets\seam\seam_app_icon.png'
-            : null,
-      );
+  /// The toast identity on Windows: Seam's own AppUserModelID, with the name
+  /// and icon Windows shows in a toast's header. On Windows it also removes
+  /// the registrations Seam made under its earlier IDs.
+  static WindowsInitializationSettings windowsNotificationSettings() {
+    if (PlatformInfos.isWindows) {
+      // ignore: discarded_futures
+      retireOldToastIdentities();
+    }
+    return WindowsInitializationSettings(
+      appName: AppSettings.applicationName.value,
+      appUserModelId: AppConfig.seamApplicationId,
+      guid: AppConfig.windowsNotificationGuid,
+      // Windows reads the toast icon from the IconUri registered for the
+      // AUMID, which the plugin only writes when given an absolute path. The
+      // registry keeps that path, so it points at a copy outside the
+      // install folder.
+      iconPath: PlatformInfos.isWindows ? windowsToastIcon() : null,
+    );
+  }
 
   static Future<void> sendInitNotification(String title, String body) async {
     final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
@@ -198,7 +208,7 @@ abstract class ClientManager {
         linux: LinuxInitializationSettings(
           defaultActionName: FluffyChatNotificationActions.open.name,
         ),
-        windows: windowsNotificationSettings,
+        windows: windowsNotificationSettings(),
         macOS: const DarwinInitializationSettings(),
       ),
     );

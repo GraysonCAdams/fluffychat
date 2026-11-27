@@ -9,7 +9,7 @@ import 'package:collection/collection.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/fallback_avatar_image.dart';
-import 'package:fluffychat/utils/group_collage_image.dart';
+import 'package:fluffychat/utils/group_members_collage.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
@@ -369,30 +369,8 @@ class CarAppBridge {
 
   /// The member collage of [room], or null when fewer than two members can
   /// be loaded.
-  static Future<Uint8List?> _collage(Client client, Room room) async {
-    await GroupAvatar.loadMembers(
-      room,
-    ).timeout(const Duration(seconds: 4), onTimeout: () {});
-    final users = (await Future.wait(
-      GroupAvatar.memberIds(room, max: 4).map((id) => _user(room, id)),
-    )).nonNulls.toList();
-    if (users.length < 2) return null;
-    final key =
-        'collage:${room.id}:${users.map((u) => '${u.id}${u.avatarUrl}').join()}';
-    if (_iconCache.containsKey(key)) return _iconCache[key];
-    final members = await Future.wait(
-      users.map(
-        (user) async => (
-          name: user.calcDisplayname(),
-          image: await client.tryDownloadNotificationAvatar(user.avatarUrl),
-        ),
-      ),
-    );
-    return _iconCache[key] = await renderGroupCollage(
-      members,
-      size: notificationAvatarDimension,
-    );
-  }
+  static Future<Uint8List?> _collage(Client client, Room room) =>
+      groupMembersCollage(client, room);
 
   /// The rooms of [conversationId] in [client]: a merged contact's rooms, or
   /// the one room.

@@ -408,329 +408,363 @@ class Message extends StatelessWidget {
         threadChildren.isEmpty &&
         !displayReadMarker;
 
-    return Center(
-      child: SwipeToReply(
-        key: ValueKey(event.transactionId ?? event.eventId),
-        rightToLeft: AppSettings.swipeRightToLeftToReply.value,
-        onReply: onSwipe,
-        child: Container(
-          constraints: const BoxConstraints(
-            maxWidth: FluffyThemes.maxTimelineWidth,
-          ),
-          padding: EdgeInsets.only(
-            left: 8.0,
-            right: 8.0,
-            top: rowPaddingTop,
-            bottom: replayOwnsBottom ? 0 : rowPaddingBottom,
-          ),
-          child: Column(
-            mainAxisSize: .min,
-            crossAxisAlignment: ownMessage ? .end : .start,
-            children: <Widget>[
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned(
-                    top: -highlightInsetTop,
-                    bottom: replayOwnsBottom
-                        ? rowPaddingBottom - highlightInsetBottom
-                        : -highlightInsetBottom,
-                    left: -highlightInsetX,
-                    right: -highlightInsetX,
-                    child: InkWell(
-                      hoverColor: longPressSelect ? Colors.transparent : null,
-                      enableFeedback: !selected,
-                      onTap: longPressSelect ? null : () => onSelect(event),
-                      borderRadius: BorderRadius.circular(
-                        AppConfig.borderRadius / 2,
-                      ),
-                      child: Material(
+    // Whether the row has keyboard focus, which rings the bubble.
+    return _RowFocus(
+      builder: (rowFocused) => Center(
+        child: SwipeToReply(
+          key: ValueKey(event.transactionId ?? event.eventId),
+          rightToLeft: AppSettings.swipeRightToLeftToReply.value,
+          onReply: onSwipe,
+          child: Container(
+            constraints: const BoxConstraints(
+              maxWidth: FluffyThemes.maxTimelineWidth,
+            ),
+            padding: EdgeInsets.only(
+              left: 8.0,
+              right: 8.0,
+              top: rowPaddingTop,
+              bottom: replayOwnsBottom ? 0 : rowPaddingBottom,
+            ),
+            child: Column(
+              mainAxisSize: .min,
+              crossAxisAlignment: ownMessage ? .end : .start,
+              children: <Widget>[
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      top: -highlightInsetTop,
+                      bottom: replayOwnsBottom
+                          ? rowPaddingBottom - highlightInsetBottom
+                          : -highlightInsetBottom,
+                      left: -highlightInsetX,
+                      right: -highlightInsetX,
+                      // The row takes taps and keyboard focus, but paints
+                      // nothing under the pointer or for focus: a pointer
+                      // over the row leaves it as it is, and focus shows as a
+                      // ring around the bubble.
+                      child: InkWell(
+                        hoverColor: Colors.transparent,
+                        focusColor: Colors.transparent,
+                        onFocusChange: (focused) => rowFocused.value = focused,
+                        enableFeedback: !selected,
+                        onTap: longPressSelect ? null : () => onSelect(event),
                         borderRadius: BorderRadius.circular(
                           AppConfig.borderRadius / 2,
                         ),
-                        color: selected
-                            ? theme.colorScheme.secondaryContainer.withAlpha(
-                                128,
-                              )
-                            : Colors.transparent,
+                        child: Material(
+                          borderRadius: BorderRadius.circular(
+                            AppConfig.borderRadius / 2,
+                          ),
+                          color: selected
+                              ? theme.colorScheme.secondaryContainer.withAlpha(
+                                  128,
+                                )
+                              : Colors.transparent,
+                        ),
                       ),
                     ),
-                  ),
-                  Row(
-                    crossAxisAlignment: .start,
-                    mainAxisAlignment: rowMainAxisAlignment,
-                    children: [
-                      if (longPressSelect && !event.redacted)
-                        SizedBox(
-                          height: avatarSize,
-                          width: avatarSize,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            tooltip: L10n.of(context).select,
-                            icon: Icon(
-                              selected
-                                  ? Icons.check_circle
-                                  : Icons.circle_outlined,
-                            ),
-                            onPressed: () => onSelect(event),
-                          ),
-                        ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: .start,
-                          mainAxisSize: .min,
-                          children: [
-                            if (showSender && firstOfRun)
-                              Padding(
-                                padding: EdgeInsets.only(
-                                  left: bubbleIndent,
-                                  bottom: 4,
-                                ),
-                                child: Row(
-                                  children: [
-                                    if (sender.powerLevel.role !=
-                                        PowerLevelRole.user)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          right: 2.0,
-                                        ),
-                                        child: Icon(
-                                          sender.powerLevel.role ==
-                                                  PowerLevelRole.moderator
-                                              ? Icons.add_moderator_outlined
-                                              : Icons.admin_panel_settings,
-                                          size: 12,
-                                          color: eventStateTextColor,
-                                        ),
-                                      ),
-                                    Flexible(
-                                      child: SenderUserBuilder(
-                                        event: event,
-                                        builder: (context, fetchedUser) => Text(
-                                          fetchedUser?.calcDisplayname() ??
-                                              sender.calcDisplayname(),
-                                          style: TextStyle(
-                                            color: eventStateTextColor,
-                                            fontSize: 12,
-                                            shadows: wallpaperTextShadow,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                    Row(
+                      crossAxisAlignment: .start,
+                      mainAxisAlignment: rowMainAxisAlignment,
+                      children: [
+                        if (longPressSelect && !event.redacted)
+                          SizedBox(
+                            height: avatarSize,
+                            width: avatarSize,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              tooltip: L10n.of(context).select,
+                              icon: Icon(
+                                selected
+                                    ? Icons.check_circle
+                                    : Icons.circle_outlined,
                               ),
-                            Row(
-                              crossAxisAlignment: .end,
-                              children: [
-                                if (showSender)
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: SizedBox(
-                                      width: senderAvatarSize,
-                                      child: lastOfRun
-                                          ? SenderUserBuilder(
-                                              event: event,
-                                              builder: (context, fetchedUser) {
-                                                final user =
-                                                    fetchedUser ?? sender;
-                                                return Avatar(
-                                                  mxContent: user.avatarUrl,
-                                                  name: user.calcDisplayname(),
-                                                  onTap: () =>
-                                                      showMemberActionsPopupMenu(
-                                                        context: context,
-                                                        user: user,
-                                                        onMention: onMention,
-                                                      ),
-                                                  size: senderAvatarSize,
-                                                );
-                                              },
-                                            )
-                                          : null,
-                                    ),
+                              onPressed: () => onSelect(event),
+                            ),
+                          ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: .start,
+                            mainAxisSize: .min,
+                            children: [
+                              if (showSender && firstOfRun)
+                                Padding(
+                                  padding: EdgeInsets.only(
+                                    left: bubbleIndent,
+                                    bottom: 4,
                                   ),
-                                Expanded(
-                                  child: Container(
-                                    alignment: alignment,
-                                    // Reactions sit on the bubble's bottom corner
-                                    // away from the sender's side, as a chip that
-                                    // overlaps the bubble edge.
-                                    child: BubbleWithReactions(
-                                      reactionsAtEnd: !ownMessage,
-                                      reactions: hasReactions
-                                          ? MessageReactions(event, timeline)
-                                          : null,
-                                      bubble: GestureDetector(
-                                        onDoubleTap:
-                                            AppSettings
-                                                    .doubleTapToReact
-                                                    .value &&
-                                                event
-                                                    .room
-                                                    .canSendDefaultMessages
-                                            ? () {
-                                                HapticFeedback.lightImpact();
-                                                final emoji = AppSettings
-                                                    .doubleTapReaction
-                                                    .value;
-                                                final existingReaction = event
-                                                    .aggregatedEvents(
-                                                      timeline,
-                                                      RelationshipTypes
-                                                          .reaction,
-                                                    )
-                                                    .firstWhereOrNull(
-                                                      (e) =>
-                                                          e.senderId ==
-                                                              event
-                                                                  .room
-                                                                  .client
-                                                                  .userID &&
-                                                          e.content
-                                                                  .tryGetMap<
-                                                                    String,
-                                                                    Object?
-                                                                  >(
-                                                                    'm.relates_to',
-                                                                  )
-                                                                  ?.tryGet<
-                                                                    String
-                                                                  >('key') ==
-                                                              emoji,
-                                                    );
-                                                if (existingReaction != null) {
-                                                  existingReaction
-                                                      .redactEvent();
-                                                } else {
-                                                  event
-                                                      .roomFor(
-                                                        SendAction.reaction,
-                                                      )
-                                                      .sendReaction(
-                                                        event.eventId,
-                                                        emoji,
-                                                      );
-                                                }
-                                              }
-                                            : null,
-                                        onTap:
-                                            longPressSelect ||
-                                                onToggleTime == null
-                                            ? null
-                                            : () => onToggleTime!(event),
-                                        onLongPress: longPressSelect
-                                            ? null
-                                            : () {
-                                                HapticFeedback.heavyImpact();
-                                                onSelect(event);
-                                              },
-                                        onSecondaryTapUp: onContextMenu == null
-                                            ? null
-                                            : (details) => onContextMenu!(
-                                                event,
-                                                details.globalPosition,
-                                              ),
-                                        // A message sent with an effect
-                                        // performs it from here.
-                                        child: MessageEffectBubble(
-                                          key: ValueKey(
-                                            'effect-${event.transactionId ?? event.eventId}',
+                                  child: Row(
+                                    children: [
+                                      if (sender.powerLevel.role !=
+                                          PowerLevelRole.user)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            right: 2.0,
                                           ),
+                                          child: Icon(
+                                            sender.powerLevel.role ==
+                                                    PowerLevelRole.moderator
+                                                ? Icons.add_moderator_outlined
+                                                : Icons.admin_panel_settings,
+                                            size: 12,
+                                            color: eventStateTextColor,
+                                          ),
+                                        ),
+                                      Flexible(
+                                        child: SenderUserBuilder(
                                           event: event,
-                                          ownMessage: ownMessage,
-                                          bubbleColor: noBubble
-                                              ? Colors.transparent
-                                              : networkColor ?? color,
-                                          onBubbleColor: textColor,
-                                          borderRadius: borderRadius,
-                                          child: _AnimateIn(
-                                            key: ValueKey(
-                                              event.transactionId ??
-                                                  event.eventId,
-                                            ),
-                                            animateIn:
-                                                animateIn &&
-                                                !MessageEffectBubble.ownsEntrance(
-                                                  event,
+                                          builder: (context, fetchedUser) =>
+                                              Text(
+                                                fetchedUser
+                                                        ?.calcDisplayname() ??
+                                                    sender.calcDisplayname(),
+                                                style: TextStyle(
+                                                  color: eventStateTextColor,
+                                                  fontSize: 12,
+                                                  shadows: wallpaperTextShadow,
                                                 ),
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                color: noBubble
-                                                    ? Colors.transparent
-                                                    : color,
-                                                borderRadius: borderRadius,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                              clipBehavior: Clip.antiAlias,
-                                              child: BubbleBackground(
-                                                // One flat colour for a network bubble,
-                                                // not the theme's gradient.
-                                                colors: networkColor == null
-                                                    ? colors
-                                                    : [
-                                                        networkColor,
-                                                        networkColor,
-                                                      ],
-                                                ignore:
-                                                    noBubble ||
-                                                    !ownMessage ||
-                                                    MediaQuery.highContrastOf(
-                                                      context,
-                                                    ),
-                                                scrollController:
-                                                    scrollController,
-                                                child: BubbleHighlight(
-                                                  active: highlightMarker,
-                                                  overContent: noBubble,
-                                                  child: Container(
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            AppConfig
-                                                                .borderRadius,
-                                                          ),
-                                                    ),
-                                                    constraints:
-                                                        const BoxConstraints(
-                                                          maxWidth: 325,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              Row(
+                                crossAxisAlignment: .end,
+                                children: [
+                                  if (showSender)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: SizedBox(
+                                        width: senderAvatarSize,
+                                        child: lastOfRun
+                                            ? SenderUserBuilder(
+                                                event: event,
+                                                builder: (context, fetchedUser) {
+                                                  final user =
+                                                      fetchedUser ?? sender;
+                                                  return Avatar(
+                                                    mxContent: user.avatarUrl,
+                                                    name: user
+                                                        .calcDisplayname(),
+                                                    onTap: () =>
+                                                        showMemberActionsPopupMenu(
+                                                          context: context,
+                                                          user: user,
+                                                          onMention: onMention,
                                                         ),
-                                                    child: Column(
-                                                      mainAxisSize: .min,
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: <Widget>[
-                                                        if (event.inReplyToEventId(
-                                                              includingFallback:
-                                                                  false,
-                                                            ) !=
-                                                            null)
-                                                          ReplyEventBuilder(
-                                                            event: event,
-                                                            timeline: timeline,
-                                                            builder:
-                                                                (
-                                                                  context,
-                                                                  foundReplyEvent,
-                                                                ) {
+                                                    size: senderAvatarSize,
+                                                  );
+                                                },
+                                              )
+                                            : null,
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: Container(
+                                      alignment: alignment,
+                                      // Reactions sit on the bubble's bottom corner
+                                      // away from the sender's side, as a chip that
+                                      // overlaps the bubble edge.
+                                      child: BubbleWithReactions(
+                                        reactionsAtEnd: !ownMessage,
+                                        reactions: hasReactions
+                                            ? MessageReactions(event, timeline)
+                                            : null,
+                                        bubble: GestureDetector(
+                                          onDoubleTap:
+                                              AppSettings
+                                                      .doubleTapToReact
+                                                      .value &&
+                                                  event
+                                                      .room
+                                                      .canSendDefaultMessages
+                                              ? () {
+                                                  HapticFeedback.lightImpact();
+                                                  final emoji = AppSettings
+                                                      .doubleTapReaction
+                                                      .value;
+                                                  final existingReaction = event
+                                                      .aggregatedEvents(
+                                                        timeline,
+                                                        RelationshipTypes
+                                                            .reaction,
+                                                      )
+                                                      .firstWhereOrNull(
+                                                        (e) =>
+                                                            e.senderId ==
+                                                                event
+                                                                    .room
+                                                                    .client
+                                                                    .userID &&
+                                                            e.content
+                                                                    .tryGetMap<
+                                                                      String,
+                                                                      Object?
+                                                                    >(
+                                                                      'm.relates_to',
+                                                                    )
+                                                                    ?.tryGet<
+                                                                      String
+                                                                    >('key') ==
+                                                                emoji,
+                                                      );
+                                                  if (existingReaction !=
+                                                      null) {
+                                                    existingReaction
+                                                        .redactEvent();
+                                                  } else {
+                                                    event
+                                                        .roomFor(
+                                                          SendAction.reaction,
+                                                        )
+                                                        .sendReaction(
+                                                          event.eventId,
+                                                          emoji,
+                                                        );
+                                                  }
+                                                }
+                                              : null,
+                                          onTap:
+                                              longPressSelect ||
+                                                  onToggleTime == null
+                                              ? null
+                                              : () => onToggleTime!(event),
+                                          onLongPress: longPressSelect
+                                              ? null
+                                              : () {
+                                                  HapticFeedback.heavyImpact();
+                                                  onSelect(event);
+                                                },
+                                          onSecondaryTapUp:
+                                              onContextMenu == null
+                                              ? null
+                                              : (details) => onContextMenu!(
+                                                  event,
+                                                  details.globalPosition,
+                                                ),
+                                          // A message sent with an effect
+                                          // performs it from here.
+                                          child: MessageEffectBubble(
+                                            key: ValueKey(
+                                              'effect-${event.transactionId ?? event.eventId}',
+                                            ),
+                                            event: event,
+                                            ownMessage: ownMessage,
+                                            bubbleColor: noBubble
+                                                ? Colors.transparent
+                                                : networkColor ?? color,
+                                            onBubbleColor: textColor,
+                                            borderRadius: borderRadius,
+                                            child: _AnimateIn(
+                                              key: ValueKey(
+                                                event.transactionId ??
+                                                    event.eventId,
+                                              ),
+                                              animateIn:
+                                                  animateIn &&
+                                                  !MessageEffectBubble.ownsEntrance(
+                                                    event,
+                                                  ),
+                                              child: ValueListenableBuilder(
+                                                valueListenable: rowFocused,
+                                                builder:
+                                                    (
+                                                      context,
+                                                      focused,
+                                                      child,
+                                                    ) => DecoratedBox(
+                                                      key: const ValueKey(
+                                                        'message_focus_ring',
+                                                      ),
+                                                      position:
+                                                          DecorationPosition
+                                                              .foreground,
+                                                      decoration: BoxDecoration(
+                                                        border: focused
+                                                            ? Border.all(
+                                                                color: theme
+                                                                    .colorScheme
+                                                                    .primary,
+                                                                width: 2,
+                                                              )
+                                                            : null,
+                                                        borderRadius:
+                                                            borderRadius,
+                                                      ),
+                                                      child: child,
+                                                    ),
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    color: noBubble
+                                                        ? Colors.transparent
+                                                        : color,
+                                                    borderRadius: borderRadius,
+                                                  ),
+                                                  clipBehavior: Clip.antiAlias,
+                                                  child: BubbleBackground(
+                                                    // One flat colour for a network bubble,
+                                                    // not the theme's gradient.
+                                                    colors: networkColor == null
+                                                        ? colors
+                                                        : [
+                                                            networkColor,
+                                                            networkColor,
+                                                          ],
+                                                    ignore:
+                                                        noBubble ||
+                                                        !ownMessage ||
+                                                        MediaQuery.highContrastOf(
+                                                          context,
+                                                        ),
+                                                    scrollController:
+                                                        scrollController,
+                                                    child: BubbleHighlight(
+                                                      active: highlightMarker,
+                                                      overContent: noBubble,
+                                                      child: Container(
+                                                        decoration: BoxDecoration(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                AppConfig
+                                                                    .borderRadius,
+                                                              ),
+                                                        ),
+                                                        constraints:
+                                                            const BoxConstraints(
+                                                              maxWidth: 325,
+                                                            ),
+                                                        child: Column(
+                                                          mainAxisSize: .min,
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: <Widget>[
+                                                            if (event.inReplyToEventId(
+                                                                  includingFallback:
+                                                                      false,
+                                                                ) !=
+                                                                null)
+                                                              ReplyEventBuilder(
+                                                                event: event,
+                                                                timeline:
+                                                                    timeline,
+                                                                builder: (context, foundReplyEvent) {
                                                                   final replyEvent =
                                                                       foundReplyEvent ??
                                                                       Event(
                                                                         eventId:
-                                                                            event.inReplyToEventId() ??
-                                                                            '\$fake_event_id',
+                                                                            event.inReplyToEventId() ?? '\$fake_event_id',
                                                                         content: {
-                                                                          'msgtype':
-                                                                              'm.text',
-                                                                          'body':
-                                                                              '...',
+                                                                          'msgtype': 'm.text',
+                                                                          'body': '...',
                                                                         },
                                                                         senderId:
                                                                             event.senderId,
-                                                                        type:
-                                                                            'm.room.message',
+                                                                        type: 'm.room.message',
                                                                         room: event
                                                                             .room,
                                                                         status:
@@ -776,19 +810,27 @@ class Message extends StatelessWidget {
                                                                     ),
                                                                   );
                                                                 },
-                                                          ),
-                                                        MessageContent(
-                                                          displayEvent,
-                                                          textColor: textColor,
-                                                          linkColor: linkColor,
-                                                          onInfoTab: onInfoTab,
-                                                          borderRadius:
-                                                              borderRadius,
-                                                          timeline: timeline,
-                                                          selected: selected,
-                                                          bigEmojis: bigEmojis,
+                                                              ),
+                                                            MessageContent(
+                                                              displayEvent,
+                                                              textColor:
+                                                                  textColor,
+                                                              linkColor:
+                                                                  linkColor,
+                                                              onInfoTab:
+                                                                  onInfoTab,
+                                                              borderRadius:
+                                                                  borderRadius,
+                                                              timeline:
+                                                                  timeline,
+                                                              selected:
+                                                                  selected,
+                                                              bigEmojis:
+                                                                  bigEmojis,
+                                                            ),
+                                                          ],
                                                         ),
-                                                      ],
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
@@ -799,325 +841,312 @@ class Message extends StatelessWidget {
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            // Under an effect message the Replay link
-                            // carries the status line, right under the
-                            // bubble, as iMessage puts Replay there.
-                            if (effectOf(event) != null)
-                              MessageEffectReplayLink(
-                                event: event,
-                                ownMessage: ownMessage,
-                                indent: bubbleIndent,
-                                time: shownTime,
-                                status: statusItems,
-                                statusLine: hasStatusLine ? statusLine : null,
-                                timeStyle: timeStyle,
-                                shadows: wallpaperTextShadow,
-                                bottomPadding: replayOwnsBottom
-                                    ? rowPaddingBottom
-                                    : 0,
-                              )
-                            else if (hasStatusLine)
-                              statusLine,
-                            if (showSeenBy)
-                              SeenByRow(
-                                event: event,
-                                timeline: timeline,
-                                label: true,
+                                ],
                               ),
-                            Padding(
-                              padding: EdgeInsets.only(left: bubbleIndent),
-                              child: Align(
-                                alignment: ownMessage
-                                    ? Alignment.bottomRight
-                                    : Alignment.bottomLeft,
-                                child: AnimatedSize(
-                                  duration: FluffyThemes.animationDuration,
-                                  curve: FluffyThemes.animationCurve,
-                                  child: showReactionPicker
-                                      ? Padding(
-                                          padding: const EdgeInsets.all(4.0),
-                                          child: Material(
-                                            elevation: 4,
-                                            borderRadius: BorderRadius.circular(
-                                              AppConfig.borderRadius,
-                                            ),
-                                            shadowColor: theme
-                                                .colorScheme
-                                                .surface
-                                                .withAlpha(128),
-                                            child: SingleChildScrollView(
-                                              scrollDirection: Axis.horizontal,
-                                              child: Row(
-                                                mainAxisSize: .min,
-                                                children: [
-                                                  ...AppConfig.defaultReactions.map(
-                                                    (emoji) => IconButton(
-                                                      padding: EdgeInsets.zero,
-                                                      icon: Center(
-                                                        child: Opacity(
-                                                          opacity:
-                                                              sentReactions
-                                                                  .contains(
-                                                                    emoji,
-                                                                  )
-                                                              ? 0.33
-                                                              : 1,
-                                                          child: Text(
-                                                            emoji,
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontSize: 20,
-                                                                ),
-                                                            textAlign: TextAlign
-                                                                .center,
+                              // Under an effect message the Replay link
+                              // carries the status line, right under the
+                              // bubble, as iMessage puts Replay there.
+                              if (effectOf(event) != null)
+                                MessageEffectReplayLink(
+                                  event: event,
+                                  ownMessage: ownMessage,
+                                  indent: bubbleIndent,
+                                  time: shownTime,
+                                  status: statusItems,
+                                  statusLine: hasStatusLine ? statusLine : null,
+                                  timeStyle: timeStyle,
+                                  shadows: wallpaperTextShadow,
+                                  bottomPadding: replayOwnsBottom
+                                      ? rowPaddingBottom
+                                      : 0,
+                                )
+                              else if (hasStatusLine)
+                                statusLine,
+                              if (showSeenBy)
+                                SeenByRow(
+                                  event: event,
+                                  timeline: timeline,
+                                  label: true,
+                                ),
+                              Padding(
+                                padding: EdgeInsets.only(left: bubbleIndent),
+                                child: Align(
+                                  alignment: ownMessage
+                                      ? Alignment.bottomRight
+                                      : Alignment.bottomLeft,
+                                  child: AnimatedSize(
+                                    duration: FluffyThemes.animationDuration,
+                                    curve: FluffyThemes.animationCurve,
+                                    child: showReactionPicker
+                                        ? Padding(
+                                            padding: const EdgeInsets.all(4.0),
+                                            child: Material(
+                                              elevation: 4,
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    AppConfig.borderRadius,
+                                                  ),
+                                              shadowColor: theme
+                                                  .colorScheme
+                                                  .surface
+                                                  .withAlpha(128),
+                                              child: SingleChildScrollView(
+                                                scrollDirection:
+                                                    Axis.horizontal,
+                                                child: Row(
+                                                  mainAxisSize: .min,
+                                                  children: [
+                                                    ...AppConfig.defaultReactions.map(
+                                                      (emoji) => IconButton(
+                                                        padding:
+                                                            EdgeInsets.zero,
+                                                        icon: Center(
+                                                          child: Opacity(
+                                                            opacity:
+                                                                sentReactions
+                                                                    .contains(
+                                                                      emoji,
+                                                                    )
+                                                                ? 0.33
+                                                                : 1,
+                                                            child: Text(
+                                                              emoji,
+                                                              style:
+                                                                  const TextStyle(
+                                                                    fontSize:
+                                                                        20,
+                                                                  ),
+                                                              textAlign:
+                                                                  TextAlign
+                                                                      .center,
+                                                            ),
                                                           ),
                                                         ),
+                                                        onPressed:
+                                                            sentReactions
+                                                                .contains(emoji)
+                                                            ? null
+                                                            : () {
+                                                                onSelect(event);
+                                                                event
+                                                                    .roomFor(
+                                                                      SendAction
+                                                                          .reaction,
+                                                                    )
+                                                                    .sendReaction(
+                                                                      event
+                                                                          .eventId,
+                                                                      emoji,
+                                                                    );
+                                                              },
                                                       ),
-                                                      onPressed:
-                                                          sentReactions
-                                                              .contains(emoji)
-                                                          ? null
-                                                          : () {
-                                                              onSelect(event);
-                                                              event
-                                                                  .roomFor(
-                                                                    SendAction
-                                                                        .reaction,
-                                                                  )
-                                                                  .sendReaction(
-                                                                    event
-                                                                        .eventId,
-                                                                    emoji,
-                                                                  );
-                                                            },
                                                     ),
-                                                  ),
-                                                  IconButton(
-                                                    icon: const Icon(
-                                                      Icons
-                                                          .add_reaction_outlined,
-                                                    ),
-                                                    tooltip: L10n.of(
-                                                      context,
-                                                    ).customReaction,
-                                                    onPressed: () async {
-                                                      final emoji = await showAdaptiveBottomSheet<String>(
-                                                        context: context,
-                                                        builder: (context) => Scaffold(
-                                                          appBar: AppBar(
-                                                            title: Text(
-                                                              L10n.of(
-                                                                context,
-                                                              ).customReaction,
+                                                    IconButton(
+                                                      icon: const Icon(
+                                                        Icons
+                                                            .add_reaction_outlined,
+                                                      ),
+                                                      tooltip: L10n.of(context)
+                                                          .customReaction,
+                                                      onPressed: () async {
+                                                        final emoji = await showAdaptiveBottomSheet<String>(
+                                                          context: context,
+                                                          builder: (context) => Scaffold(
+                                                            appBar: AppBar(
+                                                              title: Text(
+                                                                L10n.of(
+                                                                  context,
+                                                                ).customReaction,
+                                                              ),
+                                                              leading: CloseButton(
+                                                                onPressed: () =>
+                                                                    Navigator.of(
+                                                                      context,
+                                                                    ).pop(null),
+                                                              ),
                                                             ),
-                                                            leading: CloseButton(
-                                                              onPressed: () =>
-                                                                  Navigator.of(
-                                                                    context,
-                                                                  ).pop(null),
-                                                            ),
-                                                          ),
-                                                          body: SizedBox(
-                                                            height:
-                                                                double.infinity,
-                                                            child: DefaultTabController(
-                                                              length: 2,
-                                                              child: Column(
-                                                                children: [
-                                                                  TabBar(
-                                                                    tabs: [
-                                                                      Tab(
-                                                                        text: L10n.of(
-                                                                          context,
-                                                                        ).emojis,
-                                                                      ),
-                                                                      Tab(
-                                                                        text: L10n.of(
-                                                                          context,
-                                                                        ).stickers,
-                                                                      ),
-                                                                    ],
-                                                                  ),
-                                                                  Expanded(
-                                                                    child: TabBarView(
-                                                                      children: [
-                                                                        EmojiPicker(
-                                                                          onEmojiSelected:
-                                                                              (
-                                                                                _,
-                                                                                emoji,
-                                                                              ) =>
-                                                                                  Navigator.of(
-                                                                                    context,
-                                                                                  ).pop(
-                                                                                    emoji.emoji,
-                                                                                  ),
-                                                                          config: Config(
-                                                                            locale: Localizations.localeOf(
-                                                                              context,
-                                                                            ),
-                                                                            emojiViewConfig: const EmojiViewConfig(
-                                                                              backgroundColor: Colors.transparent,
-                                                                            ),
-                                                                            bottomActionBarConfig: const BottomActionBarConfig(
-                                                                              enabled: false,
-                                                                            ),
-                                                                            categoryViewConfig: CategoryViewConfig(
-                                                                              initCategory: Category.SMILEYS,
-                                                                              backspaceColor: theme.colorScheme.primary,
-                                                                              iconColor: theme.colorScheme.primary.withAlpha(
-                                                                                128,
-                                                                              ),
-                                                                              iconColorSelected: theme.colorScheme.primary,
-                                                                              indicatorColor: theme.colorScheme.primary,
-                                                                              backgroundColor: theme.colorScheme.surface,
-                                                                            ),
-                                                                            skinToneConfig: SkinToneConfig(
-                                                                              dialogBackgroundColor: Color.lerp(
-                                                                                theme.colorScheme.surface,
-                                                                                theme.colorScheme.primaryContainer,
-                                                                                0.75,
-                                                                              )!,
-                                                                              indicatorColor: theme.colorScheme.onSurface,
-                                                                            ),
-                                                                          ),
+                                                            body: SizedBox(
+                                                              height: double
+                                                                  .infinity,
+                                                              child: DefaultTabController(
+                                                                length: 2,
+                                                                child: Column(
+                                                                  children: [
+                                                                    TabBar(
+                                                                      tabs: [
+                                                                        Tab(
+                                                                          text: L10n.of(
+                                                                            context,
+                                                                          ).emojis,
                                                                         ),
-                                                                        StickerPickerDialog(
-                                                                          room:
-                                                                              event.room,
-                                                                          usage:
-                                                                              ImagePackUsage.emoticon,
-                                                                          onSelected:
-                                                                              (
-                                                                                sticker,
-                                                                              ) =>
-                                                                                  Navigator.of(
-                                                                                    context,
-                                                                                  ).pop(
-                                                                                    sticker.url.toString(),
-                                                                                  ),
+                                                                        Tab(
+                                                                          text: L10n.of(
+                                                                            context,
+                                                                          ).stickers,
                                                                         ),
                                                                       ],
                                                                     ),
-                                                                  ),
-                                                                ],
+                                                                    Expanded(
+                                                                      child: TabBarView(
+                                                                        children: [
+                                                                          EmojiPicker(
+                                                                            onEmojiSelected: (
+                                                                              _,
+                                                                              emoji,
+                                                                            ) => Navigator.of(context).pop(emoji.emoji),
+                                                                            config: Config(
+                                                                              locale: Localizations.localeOf(
+                                                                                context,
+                                                                              ),
+                                                                              emojiViewConfig: const EmojiViewConfig(
+                                                                                backgroundColor: Colors.transparent,
+                                                                              ),
+                                                                              bottomActionBarConfig: const BottomActionBarConfig(
+                                                                                enabled: false,
+                                                                              ),
+                                                                              categoryViewConfig: CategoryViewConfig(
+                                                                                initCategory: Category.SMILEYS,
+                                                                                backspaceColor: theme.colorScheme.primary,
+                                                                                iconColor: theme.colorScheme.primary.withAlpha(128),
+                                                                                iconColorSelected: theme.colorScheme.primary,
+                                                                                indicatorColor: theme.colorScheme.primary,
+                                                                                backgroundColor: theme.colorScheme.surface,
+                                                                              ),
+                                                                              skinToneConfig: SkinToneConfig(
+                                                                                dialogBackgroundColor: Color.lerp(theme.colorScheme.surface, theme.colorScheme.primaryContainer, 0.75)!,
+                                                                                indicatorColor: theme.colorScheme.onSurface,
+                                                                              ),
+                                                                            ),
+                                                                          ),
+                                                                          StickerPickerDialog(
+                                                                            room:
+                                                                                event.room,
+                                                                            usage:
+                                                                                ImagePackUsage.emoticon,
+                                                                            onSelected: (sticker) => Navigator.of(
+                                                                              context,
+                                                                            ).pop(sticker.url.toString()),
+                                                                          ),
+                                                                        ],
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
                                                               ),
                                                             ),
                                                           ),
-                                                        ),
-                                                      );
-                                                      if (emoji == null) {
-                                                        return;
-                                                      }
-                                                      if (sentReactions
-                                                          .contains(emoji)) {
-                                                        return;
-                                                      }
-                                                      onSelect(event);
+                                                        );
+                                                        if (emoji == null) {
+                                                          return;
+                                                        }
+                                                        if (sentReactions
+                                                            .contains(emoji)) {
+                                                          return;
+                                                        }
+                                                        onSelect(event);
 
-                                                      await event
-                                                          .roomFor(
-                                                            SendAction.reaction,
-                                                          )
-                                                          .sendReaction(
-                                                            event.eventId,
-                                                            emoji,
-                                                          );
-                                                    },
-                                                  ),
-                                                ],
+                                                        await event
+                                                            .roomFor(
+                                                              SendAction
+                                                                  .reaction,
+                                                            )
+                                                            .sendReaction(
+                                                              event.eventId,
+                                                              emoji,
+                                                            );
+                                                      },
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        )
-                                      : const SizedBox.shrink(),
+                                          )
+                                        : const SizedBox.shrink(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                if (enterThread != null)
+                  AnimatedSize(
+                    duration: FluffyThemes.animationDuration,
+                    curve: FluffyThemes.animationCurve,
+                    alignment: Alignment.bottomCenter,
+                    child: threadChildren.isEmpty
+                        ? const SizedBox.shrink()
+                        : Padding(
+                            padding: const EdgeInsets.only(
+                              top: 2.0,
+                              bottom: 8.0,
+                              left: avatarSize + 8,
+                            ),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                maxWidth: FluffyThemes.columnWidth * 1.5,
+                              ),
+                              child: TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  foregroundColor:
+                                      theme.colorScheme.onSecondaryContainer,
+                                  backgroundColor:
+                                      theme.colorScheme.secondaryContainer,
+                                ),
+                                onPressed: () => enterThread(event.eventId),
+                                icon: const Icon(Icons.message),
+                                label: Text(
+                                  '${L10n.of(context).countReplies(threadChildren.length)} | ${L10n.of(context).senderMessage(threadChildren.first.senderId == event.room.client.userID ? L10n.of(context).you : threadChildren.first.senderFromMemoryOrFallback.calcDisplayname(), threadChildren.first.calcLocalizedBody(MatrixLocals(L10n.of(context))))}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ),
-                          ],
+                          ),
+                  ),
+                if (displayReadMarker)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Divider(
+                          color: theme.colorScheme.surfaceContainerHighest,
+                        ),
+                      ),
+                      Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 16.0,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(
+                            AppConfig.borderRadius / 3,
+                          ),
+                          color: theme.colorScheme.surface.withAlpha(128),
+                        ),
+                        child: Text(
+                          L10n.of(context).readUpToHere,
+                          style: TextStyle(fontSize: 11),
+                        ),
+                      ),
+                      Expanded(
+                        child: Divider(
+                          color: theme.colorScheme.surfaceContainerHighest,
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
-              if (enterThread != null)
-                AnimatedSize(
-                  duration: FluffyThemes.animationDuration,
-                  curve: FluffyThemes.animationCurve,
-                  alignment: Alignment.bottomCenter,
-                  child: threadChildren.isEmpty
-                      ? const SizedBox.shrink()
-                      : Padding(
-                          padding: const EdgeInsets.only(
-                            top: 2.0,
-                            bottom: 8.0,
-                            left: avatarSize + 8,
-                          ),
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              maxWidth: FluffyThemes.columnWidth * 1.5,
-                            ),
-                            child: TextButton.icon(
-                              style: TextButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                foregroundColor:
-                                    theme.colorScheme.onSecondaryContainer,
-                                backgroundColor:
-                                    theme.colorScheme.secondaryContainer,
-                              ),
-                              onPressed: () => enterThread(event.eventId),
-                              icon: const Icon(Icons.message),
-                              label: Text(
-                                '${L10n.of(context).countReplies(threadChildren.length)} | ${L10n.of(context).senderMessage(threadChildren.first.senderId == event.room.client.userID ? L10n.of(context).you : threadChildren.first.senderFromMemoryOrFallback.calcDisplayname(), threadChildren.first.calcLocalizedBody(MatrixLocals(L10n.of(context))))}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        ),
-                ),
-              if (displayReadMarker)
-                Row(
-                  children: [
-                    Expanded(
-                      child: Divider(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                      ),
-                    ),
-                    Container(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 16.0,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(
-                          AppConfig.borderRadius / 3,
-                        ),
-                        color: theme.colorScheme.surface.withAlpha(128),
-                      ),
-                      child: Text(
-                        L10n.of(context).readUpToHere,
-                        style: TextStyle(fontSize: 11),
-                      ),
-                    ),
-                    Expanded(
-                      child: Divider(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                      ),
-                    ),
-                  ],
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1332,4 +1361,28 @@ class BubbleHighlightState extends State<BubbleHighlight>
     },
     child: widget.child,
   );
+}
+
+/// Keeps whether a message's row has keyboard focus, for [builder] to ring
+/// the bubble with while it does.
+class _RowFocus extends StatefulWidget {
+  final Widget Function(ValueNotifier<bool> focused) builder;
+
+  const _RowFocus({required this.builder});
+
+  @override
+  State<_RowFocus> createState() => _RowFocusState();
+}
+
+class _RowFocusState extends State<_RowFocus> {
+  final _focused = ValueNotifier(false);
+
+  @override
+  void dispose() {
+    _focused.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(_focused);
 }

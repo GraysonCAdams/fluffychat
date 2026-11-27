@@ -7,19 +7,24 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:collection/collection.dart';
+import 'package:crypto/crypto.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/client_download_content_extension.dart';
+import 'package:fluffychat/utils/group_members_collage.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
+import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/push_helper.dart';
 import 'package:fluffychat/utils/string_color.dart';
+import 'package:fluffychat/utils/windows_toast_identity.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/fluffy_chat_app.dart';
+import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/incoming_call_dialog.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter/foundation.dart';
@@ -125,11 +130,26 @@ extension LocalNotificationsExtension on MatrixState {
       event.room.id,
       event.eventId,
     ).toString();
+    // The picture the chat list shows for the chat: a merged contact's
+    // picture is its send-via room's, a group without one shows its members.
+    final avatarRoom =
+        MergedContact.ofRoom(client, roomId)?.sendViaRoom ?? event.room;
+    final windowsCollage =
+        PlatformInfos.isWindows && GroupAvatar.shows(avatarRoom)
+        ? await _windowsCollageFile(avatarRoom, size)
+        : null;
+    final windowsAvatarUrl = avatarRoom.avatar;
     final windowsAvatar = !PlatformInfos.isWindows
         ? null
-        : avatarUrl != null
-        ? await _windowsAvatarFile(avatarUrl, size, thumbnailMethod)
-        : await _windowsFallbackAvatarFile(title, size);
+        : windowsCollage ??
+              (windowsAvatarUrl != null
+                  ? await _windowsAvatarFile(
+                      windowsAvatarUrl,
+                      size,
+                      thumbnailMethod,
+                    )
+                  : null) ??
+              await _windowsFallbackAvatarFile(title, size);
     final isMessage = {
       EventTypes.Message,
       EventTypes.Encrypted,
@@ -173,7 +193,10 @@ extension LocalNotificationsExtension on MatrixState {
                 windowsAvatar ?? _windowsAppLogo,
                 altText: title,
                 placement: WindowsImagePlacement.appLogoOverride,
-                crop: windowsAvatar == null ? null : WindowsImageCrop.circle,
+                // The collage is round faces on a clear square already.
+                crop: windowsAvatar == null || windowsCollage != null
+                    ? null
+                    : WindowsImageCrop.circle,
               ),
           ],
           inputs: [
@@ -291,11 +314,31 @@ extension LocalNotificationsExtension on MatrixState {
     }
   }
 
+  /// The members' collage of a group without a picture, cached as a file
+  /// for the toast like the other avatars.
+  Future<Uri?> _windowsCollageFile(Room room, int size) async {
+    try {
+      final bytes = await groupMembersCollage(client, room, size: size);
+      if (bytes == null) return null;
+      final file = File(
+        '${(await getTemporaryDirectory()).path}'
+        '${Platform.pathSeparator}notification_avatars'
+        '${Platform.pathSeparator}collage_'
+        '${sha256.convert(bytes).toString().substring(0, 16)}.png',
+      );
+      if (!file.existsSync()) {
+        await file.create(recursive: true);
+        await file.writeAsBytes(bytes);
+      }
+      return file.uri;
+    } catch (e, s) {
+      Logs().w('Unable to draw a group avatar for a notification', e, s);
+      return null;
+    }
+  }
+
   /// Shown if neither the chat's avatar nor a drawn fallback is available.
-  static Uri get _windowsAppLogo => Uri.file(
-    '${File(Platform.resolvedExecutable).parent.path}'
-    r'\data\flutter_assets\assets\seam\seam_app_icon.png',
-  );
+  static Uri get _windowsAppLogo => Uri.file(windowsToastIcon());
 
   /// Windows toasts of unpackaged apps can only show local image files, so
   /// the room avatar is cached as one under the temp directory.

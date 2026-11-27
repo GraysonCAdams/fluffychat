@@ -76,4 +76,54 @@ void main() {
 
     await finishFakeChatList(tester, client);
   });
+  testWidgets('a pin\'s state layer leaves room around avatar and name', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 2.625;
+    tester.view.physicalSize = const Size(1080, 2410);
+    tester.view.padding = const FakeViewPadding(top: 170);
+    addTearDown(tester.view.reset);
+    for (var i = 0; i < 6; i++) {
+      addFakeChat(
+        client,
+        '!p$i:x',
+        'Pin $i',
+        partner: '@p$i:x',
+        lastMessageTime: DateTime(2026, 1, 10 - i),
+      ).pin();
+    }
+    await pumpFakeChatList(tester, client);
+
+    final ink = find.byKey(const ValueKey('pinned_chat_ink')).first;
+    final area = tester.getRect(ink);
+    final avatar = tester.getRect(
+      find.descendant(
+        of: ink,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is SelectableAvatar && widget.size == 76,
+        ),
+      ),
+    );
+    final name = tester.getRect(
+      find.descendant(of: ink, matching: find.text('Pin 0')),
+    );
+    expect(area.width, 100);
+    expect(avatar.left - area.left, 12);
+    expect(area.right - avatar.right, 12);
+    expect(avatar.top - area.top, 8);
+    expect(area.bottom - name.bottom, 6);
+    final shape = tester.widget<InkWell>(ink).customBorder;
+    expect(
+      shape,
+      const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(16)),
+      ),
+    );
+    // The whole area takes taps, out to its corners.
+    await tester.tapAt(area.topLeft + const Offset(4, 4));
+    await tester.pumpAndSettle();
+    expect(find.text('opened !p0:x'), findsOneWidget);
+
+    await finishFakeChatList(tester, client);
+  });
 }
