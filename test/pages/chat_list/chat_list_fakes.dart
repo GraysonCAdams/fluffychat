@@ -104,12 +104,18 @@ class FakeChatListRoom extends Room {
   @override
   Future<void> markUnread(bool unread) async => calls.add('unread:$unread');
 
+  /// The events [setReadMarker] was asked to move the read marker to.
+  final readMarkers = <String?>[];
+
   @override
   Future<void> setReadMarker(
     String? eventId, {
     String? mRead,
     bool? public,
-  }) async => calls.add('read');
+  }) async {
+    readMarkers.add(eventId);
+    calls.add('read');
+  }
 
   @override
   Future<void> leave({bool waitForSync = false}) async => calls.add('leave');
