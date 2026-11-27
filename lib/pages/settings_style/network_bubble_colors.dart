@@ -8,6 +8,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/widgets/avatar.dart';
+import 'package:fluffychat/widgets/settings_list.dart';
 import 'package:fluffychat/widgets/settings_switch_list_tile.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -56,7 +57,6 @@ class _NetworkBubbleColorsState extends State<NetworkBubbleColors> {
           },
           child: Material(
             color: shown ?? theme.colorScheme.surfaceContainerHighest,
-            elevation: 3,
             shape: CircleBorder(
               side: color == null
                   ? BorderSide(color: theme.colorScheme.outline, width: 2)
@@ -89,65 +89,85 @@ class _NetworkBubbleColorsState extends State<NetworkBubbleColors> {
     if (networks.isEmpty) return const SizedBox.shrink();
     final perNetwork = AppSettings.networkBubbleColors.value;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Divider(color: theme.dividerColor),
-        ListTile(
-          title: Text(
-            l10n.networkBubbleColorsTitle,
-            style: TextStyle(
-              color: theme.colorScheme.secondary,
-              fontWeight: FontWeight.bold,
+        SettingsSectionHeader(l10n.networkBubbleColorsTitle),
+        SettingsGroup(
+          children: [
+            SettingsSwitchListTile.adaptive(
+              title: l10n.chatListNetworkBadges,
+              subtitle: l10n.chatListNetworkBadgesDescription,
+              setting: AppSettings.chatListNetworkBadges,
             ),
-          ),
-        ),
-        SettingsSwitchListTile.adaptive(
-          title: l10n.chatListNetworkBadges,
-          subtitle: l10n.chatListNetworkBadgesDescription,
-          setting: AppSettings.chatListNetworkBadges,
-        ),
-        SettingsSwitchListTile.adaptive(
-          title: l10n.networkBubbleColors,
-          subtitle: l10n.networkBubbleColorsDescription,
-          setting: AppSettings.networkBubbleColors,
-          onChanged: (_) => setState(() {}),
-        ),
-        if (perNetwork)
-          for (final MapEntry(key: bridgeId, value: (name, space))
-              in networks.entries) ...[
-            ListTile(
-              dense: true,
-              leading: Avatar(
-                mxContent: space?.avatar,
-                name: name,
-                size: 28,
-                borderRadius: BorderRadius.circular(7),
-              ),
-              title: Text(name),
+            SettingsSwitchListTile.adaptive(
+              title: l10n.networkBubbleColors,
+              subtitle: l10n.networkBubbleColorsDescription,
+              setting: AppSettings.networkBubbleColors,
+              onChanged: (_) => setState(() {}),
             ),
-            SizedBox(
-              height: _swatchSize + 16,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                children: [
-                  _swatch(
-                    bridgeId,
-                    null,
-                    selected: NetworkColors.pickedFor(bridgeId) == null,
+            if (perNetwork)
+              for (final MapEntry(key: bridgeId, value: (name, space))
+                  in networks.entries)
+                // A network's name over its row of swatches.
+                SettingsGroupItem(
+                  padding: const EdgeInsets.only(top: 12, bottom: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: SettingsMetrics.rowInset,
+                        ),
+                        child: Row(
+                          spacing: SettingsMetrics.iconGap,
+                          children: [
+                            Avatar(
+                              mxContent: space?.avatar,
+                              name: name,
+                              size: 24,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            Expanded(
+                              child: Text(
+                                name,
+                                style: theme.textTheme.bodyLarge,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        height: _swatchSize + 16,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: SettingsMetrics.rowInset - 6,
+                          ),
+                          children: [
+                            _swatch(
+                              bridgeId,
+                              null,
+                              selected:
+                                  NetworkColors.pickedFor(bridgeId) == null,
+                            ),
+                            for (final color in Colors.primaries)
+                              _swatch(
+                                bridgeId,
+                                Color(color.toARGB32()),
+                                selected:
+                                    NetworkColors.pickedFor(
+                                      bridgeId,
+                                    )?.toARGB32() ==
+                                    color.toARGB32(),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  for (final color in Colors.primaries)
-                    _swatch(
-                      bridgeId,
-                      Color(color.toARGB32()),
-                      selected:
-                          NetworkColors.pickedFor(bridgeId)?.toARGB32() ==
-                          color.toARGB32(),
-                    ),
-                ],
-              ),
-            ),
+                ),
           ],
+        ),
       ],
     );
   }

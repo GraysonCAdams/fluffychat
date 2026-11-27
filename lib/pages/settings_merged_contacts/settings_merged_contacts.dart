@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/config/setting_keys.dart';
-import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
@@ -11,10 +10,10 @@ import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
 import 'package:fluffychat/widgets/avatar.dart';
-import 'package:fluffychat/widgets/layouts/max_width_body.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/merged_contacts/manage_merged_contact_sheet.dart';
 import 'package:fluffychat/widgets/merged_contacts/merge_suggestion_card.dart';
+import 'package:fluffychat/widgets/settings_list.dart';
 import 'package:fluffychat/widgets/settings_switch_list_tile.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -60,39 +59,25 @@ class _SettingsMergedContactsState extends State<SettingsMergedContacts> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final theme = Theme.of(context);
     final client = Matrix.of(context).client;
     final store = MergedContactsStore.forClient(client);
     final service = MergeSuggestionService.forClient(client);
     final locals = MatrixLocals(l10n);
     final region = AppSettings.mergedContactsPhoneRegion.value;
-    Widget header(String text) => ListTile(
-      title: Text(
-        text,
-        style: TextStyle(
-          color: theme.colorScheme.secondary,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.mergedContacts),
-        automaticallyImplyLeading: !FluffyThemes.isColumnMode(context),
-        centerTitle: FluffyThemes.isColumnMode(context),
-      ),
-      body: MaxWidthBody(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return SettingsPage(
+      title: l10n.mergedContacts,
+      nested: true,
+      children: [
+        SettingsCaption(l10n.mergedContactsDescription),
+        SettingsGroup(
           children: [
-            ListTile(subtitle: Text(l10n.mergedContactsDescription)),
             SettingsSwitchListTile.adaptive(
               title: l10n.suggestMerges,
               subtitle: l10n.suggestMergesDescription,
               setting: AppSettings.mergedContactSuggestions,
               onChanged: (_) => service.schedule(immediately: true),
             ),
-            ListTile(
+            SettingsTile(
               title: Text(l10n.phoneNumberRegion),
               subtitle: Text(switch (region) {
                 '' => l10n.phoneRegionAutomatic,
@@ -101,64 +86,69 @@ class _SettingsMergedContactsState extends State<SettingsMergedContacts> {
               }),
               onTap: _pickRegion,
             ),
-            const Divider(),
-            header(l10n.mergeSuggestions),
-            ValueListenableBuilder(
-              valueListenable: service.suggestions,
-              builder: (context, suggestions, _) => suggestions.isEmpty
-                  ? ListTile(subtitle: Text(l10n.noMergeSuggestions))
-                  : Column(
-                      children: [
-                        for (final suggestion in suggestions)
-                          MergeSuggestionCard(
-                            key: ValueKey(suggestion.roomIds.join()),
-                            client: client,
-                            suggestion: suggestion,
-                          ),
-                      ],
-                    ),
-            ),
-            const Divider(),
-            header(l10n.mergedContacts),
-            ValueListenableBuilder(
-              valueListenable: store.revision,
-              builder: (context, _, _) {
-                final spaces = spacesByChild(client);
-                final contacts = [
-                  for (final entry in store.contacts)
-                    ?MergedContact.resolve(client, entry),
-                ];
-                if (contacts.isEmpty) {
-                  return ListTile(subtitle: Text(l10n.noMergedContacts));
-                }
-                return Column(
-                  children: [
-                    for (final contact in contacts)
-                      ListTile(
-                        leading: Avatar(
-                          mxContent: contact.avatar,
-                          name: contact.displayName(locals),
-                        ),
-                        title: Text(contact.displayName(locals)),
-                        subtitle: Text(
-                          contact.rooms
-                              .map(
-                                (room) =>
-                                    networkName(room, spaces[room.id], locals),
-                              )
-                              .join(', '),
-                        ),
-                        trailing: const Icon(Icons.chevron_right_outlined),
-                        onTap: () =>
-                            showManageMergedContactSheet(context, contact.id),
-                      ),
-                  ],
-                );
-              },
-            ),
           ],
         ),
-      ),
+        SettingsSectionHeader(l10n.mergeSuggestions),
+        ValueListenableBuilder(
+          valueListenable: service.suggestions,
+          builder: (context, suggestions, _) => suggestions.isEmpty
+              ? SettingsCaption(l10n.noMergeSuggestions)
+              // The cards bring a 12 dp margin of their own.
+              : Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: SettingsMetrics.pageMargin - 12,
+                  ),
+                  child: Column(
+                    children: [
+                      for (final suggestion in suggestions)
+                        MergeSuggestionCard(
+                          key: ValueKey(suggestion.roomIds.join()),
+                          client: client,
+                          suggestion: suggestion,
+                        ),
+                    ],
+                  ),
+                ),
+        ),
+        SettingsSectionHeader(l10n.mergedContacts),
+        ValueListenableBuilder(
+          valueListenable: store.revision,
+          builder: (context, _, _) {
+            final spaces = spacesByChild(client);
+            final contacts = [
+              for (final entry in store.contacts)
+                ?MergedContact.resolve(client, entry),
+            ];
+            if (contacts.isEmpty) {
+              return SettingsCaption(l10n.noMergedContacts);
+            }
+            return SettingsGroup(
+              children: [
+                for (final contact in contacts)
+                  SettingsTile(
+                    leading: Avatar(
+                      mxContent: contact.avatar,
+                      name: contact.displayName(locals),
+                      size: 40,
+                    ),
+                    title: Text(contact.displayName(locals)),
+                    subtitle: Text(
+                      contact.rooms
+                          .map(
+                            (room) =>
+                                networkName(room, spaces[room.id], locals),
+                          )
+                          .join(', '),
+                    ),
+                    trailing: SettingsTile.chevron,
+                    onTap: () =>
+                        showManageMergedContactSheet(context, contact.id),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 }

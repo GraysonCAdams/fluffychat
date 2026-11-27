@@ -2,12 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
-import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_swipe.dart';
-import 'package:fluffychat/widgets/layouts/max_width_body.dart';
+import 'package:fluffychat/widgets/settings_list.dart';
 import 'package:fluffychat/widgets/settings_switch_list_tile.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -88,6 +86,7 @@ class _SettingsSwipeActionsState extends State<SettingsSwipeActions> {
     final scheme = theme.colorScheme;
     final l10n = L10n.of(context);
     final enabled = AppSettings.chatListSwipe.value;
+    final previewColor = SettingsMetrics.rowColor(theme);
     final right = ChatSwipeAction.right;
     final left = ChatSwipeAction.left;
 
@@ -96,7 +95,7 @@ class _SettingsSwipeActionsState extends State<SettingsSwipeActions> {
       ChatSwipeAction action,
       String title,
       IconData icon,
-    ) => ListTile(
+    ) => SettingsTile(
       enabled: enabled,
       leading: Icon(icon),
       title: Text(title),
@@ -108,87 +107,73 @@ class _SettingsSwipeActionsState extends State<SettingsSwipeActions> {
       onTap: () => _pick(setting, title),
     );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.swipeActions),
-        automaticallyImplyLeading: !FluffyThemes.isColumnMode(context),
-        centerTitle: FluffyThemes.isColumnMode(context),
-      ),
-      body: ListTileTheme(
-        iconColor: theme.textTheme.bodyLarge!.color,
-        child: MaxWidthBody(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SettingsSwitchListTile.adaptive(
-                title: l10n.swipeOnChats,
-                subtitle: l10n.swipeOnChatsDescription,
-                setting: AppSettings.chatListSwipe,
-                onChanged: (_) => setState(() => swipeActionsChanged.value++),
-              ),
-              if (enabled)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(
-                      AppConfig.borderRadius + 6,
-                    ),
-                    child: ColoredBox(
-                      color: scheme.surfaceContainer,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Column(
-                          children: [
-                            _SwipePreview(
-                              action: right,
-                              title: l10n.swipeRight,
-                              toRight: true,
-                            ),
-                            _SwipePreview(
-                              action: left,
-                              title: l10n.swipeLeft,
-                              toRight: false,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ListTile(
-                title: Text(
-                  l10n.swipeActionsHeading,
-                  style: TextStyle(
-                    color: scheme.secondary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              directionTile(
-                AppSettings.chatListSwipeRight,
-                right,
-                l10n.swipeRight,
-                Icons.swipe_right_outlined,
-              ),
-              directionTile(
-                AppSettings.chatListSwipeLeft,
-                left,
-                l10n.swipeLeft,
-                Icons.swipe_left_outlined,
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: Text(
-                  l10n.swipeActionsFootnote,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
-          ),
+    return SettingsPage(
+      title: l10n.swipeActions,
+      nested: true,
+      children: [
+        SettingsGroup(
+          children: [
+            SettingsSwitchListTile.adaptive(
+              title: l10n.swipeOnChats,
+              subtitle: l10n.swipeOnChatsDescription,
+              setting: AppSettings.chatListSwipe,
+              onChanged: (_) => setState(() => swipeActionsChanged.value++),
+            ),
+          ],
         ),
-      ),
+        if (enabled)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              SettingsMetrics.pageMargin,
+              16,
+              SettingsMetrics.pageMargin,
+              0,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(SettingsMetrics.groupRadius),
+              child: ColoredBox(
+                color: previewColor,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(
+                    children: [
+                      _SwipePreview(
+                        action: right,
+                        title: l10n.swipeRight,
+                        toRight: true,
+                        background: previewColor,
+                      ),
+                      _SwipePreview(
+                        action: left,
+                        title: l10n.swipeLeft,
+                        toRight: false,
+                        background: previewColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        SettingsSectionHeader(l10n.swipeActionsHeading),
+        SettingsGroup(
+          children: [
+            directionTile(
+              AppSettings.chatListSwipeRight,
+              right,
+              l10n.swipeRight,
+              Icons.swipe_right_outlined,
+            ),
+            directionTile(
+              AppSettings.chatListSwipeLeft,
+              left,
+              l10n.swipeLeft,
+              Icons.swipe_left_outlined,
+            ),
+          ],
+        ),
+        SettingsCaption(l10n.swipeActionsFootnote),
+      ],
     );
   }
 }
@@ -200,10 +185,15 @@ class _SwipePreview extends StatelessWidget {
   final String title;
   final bool toRight;
 
+  /// The colour of the card the preview sits on, which the row slides
+  /// over.
+  final Color background;
+
   const _SwipePreview({
     required this.action,
     required this.title,
     required this.toRight,
+    required this.background,
   });
 
   @override
@@ -242,7 +232,7 @@ class _SwipePreview extends StatelessWidget {
               () {},
             ),
             armed: true,
-            background: scheme.surfaceContainer,
+            background: background,
             child: row,
           );
         },
