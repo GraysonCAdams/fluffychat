@@ -10,6 +10,7 @@ import 'dart:ui';
 import 'package:collection/collection.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/client_manager.dart';
+import 'package:fluffychat/utils/logcat_mirror.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/push_helper.dart';
@@ -62,6 +63,8 @@ Future<void> waitForPushIsolateDone() async {
 Future<void> notificationTapBackground(
   NotificationResponse notificationResponse,
 ) async {
+  // An isolate of its own, so its log lines need their own mirror.
+  LogcatMirror.install();
   final sendPort = IsolateNameServer.lookupPortByName(
     AppConfig.mainIsolatePortName,
   );

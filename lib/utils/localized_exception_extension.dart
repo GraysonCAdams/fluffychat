@@ -8,6 +8,7 @@ import 'dart:math';
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/media_adaptation.dart';
+import 'package:fluffychat/utils/network_error_log.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart';
@@ -109,6 +110,7 @@ extension LocalizedExceptionExtension on Object {
         this is SocketException ||
         this is SyncConnectionException ||
         this is ClientException) {
+      logNetworkErrorShown(this);
       return L10n.of(context).noConnectionToTheServer;
     }
     if (this is FormatException &&

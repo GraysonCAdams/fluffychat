@@ -15,6 +15,7 @@ import 'package:fluffychat/utils/init_with_restore.dart';
 import 'package:fluffychat/utils/last_event_keeper.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call_member.dart';
+import 'package:fluffychat/utils/network_error_log.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:flutter/foundation.dart';
@@ -146,7 +147,8 @@ abstract class ClientManager {
       // The level only gates printing: Logs() still records every event in
       // outputEvents for the in-app log viewer. Printing formats and writes
       // each line synchronously on the UI isolate, so release and profile
-      // builds print warnings and errors only.
+      // builds print warnings and errors only. On Android, LogcatMirror
+      // writes info and above to logcat as "Seam" as well.
       logLevel: kReleaseMode || kProfileMode ? Level.warning : Level.verbose,
       database: await flutterMatrixSdkDatabaseBuilder(clientName),
       supportedLoginTypes: {
@@ -168,6 +170,8 @@ abstract class ClientManager {
     );
     // Bridge bookkeeping in a limited sync must not replace a chat's preview.
     LastEventKeeper.attach(client);
+    // A failed sync says why in one line of the log.
+    SyncErrorLog.attach(client);
     return client;
   }
 
