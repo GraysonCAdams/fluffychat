@@ -3822,5 +3822,25 @@
                 "type": "String"
             }
         }
+    },
+    "messageRead": "Read",
+    "@messageRead": {
+        "description": "Spoken label of the status icon before the user's own newest message in the chat list once everyone in the chat has read it."
+    },
+    "readByCount": "Read by {count} of {total}",
+    "@readByCount": {
+        "description": "Spoken label of the status icon before the user's own newest message in a group in the chat list, when some members have read it.",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            },
+            "total": {
+                "type": "int"
+            }
+        }
+    },
+    "failedToSend": "Failed to send",
+    "@failedToSend": {
+        "description": "Spoken label of the error icon before the user's own newest message in the chat list when it could not be sent."
     }
 }

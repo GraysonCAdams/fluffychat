@@ -9,6 +9,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/active_call_indicator.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/message_preview_cache.dart';
+import 'package:fluffychat/pages/chat_list/own_message_status.dart';
 import 'package:fluffychat/pages/chat_list/push_rule_state_cache.dart';
 import 'package:fluffychat/pages/chat_list/unread_bubble.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
@@ -408,18 +409,6 @@ class _ChatListItemState extends State<ChatListItem> {
                           padding: const EdgeInsets.only(right: 4.0),
                           child: ActiveCallIndicator(room: room),
                         ),
-                      if (typingText.isEmpty &&
-                          ownMessage &&
-                          lastEvent?.status.isSending == true) ...[
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                      ],
                       AnimatedSize(
                         clipBehavior: Clip.hardEdge,
                         duration: FluffyThemes.animationDuration,
@@ -511,24 +500,49 @@ class _ChatListItemState extends State<ChatListItem> {
                                       body,
                                     );
                                   }
-                                  return Text(
-                                    room.membership == Membership.invite
-                                        ? room
-                                                  .getState(
-                                                    EventTypes.RoomMember,
-                                                    room.client.userID!,
-                                                  )
-                                                  ?.content
-                                                  .tryGet<String>('reason') ??
-                                              (isDirectChat
-                                                  ? L10n.of(
-                                                      context,
-                                                    ).newChatRequest
-                                                  : L10n.of(
-                                                      context,
-                                                    ).inviteGroupChat)
-                                        : body?.trim().replaceAll('\n', ' ') ??
-                                              L10n.of(context).noMessagesYet,
+                                  final text =
+                                      room.membership == Membership.invite
+                                      ? room
+                                                .getState(
+                                                  EventTypes.RoomMember,
+                                                  room.client.userID!,
+                                                )
+                                                ?.content
+                                                .tryGet<String>('reason') ??
+                                            (isDirectChat
+                                                ? L10n.of(
+                                                    context,
+                                                  ).newChatRequest
+                                                : L10n.of(
+                                                    context,
+                                                  ).inviteGroupChat)
+                                      : body?.trim().replaceAll('\n', ' ') ??
+                                            L10n.of(context).noMessagesYet;
+                                  // The user's own message shows how far it
+                                  // has got before "You:".
+                                  final ownStatus =
+                                      lastEvent != null &&
+                                      body != null &&
+                                      room.membership != Membership.invite &&
+                                      ownMessage;
+                                  final textColor = isUnread
+                                      ? theme.colorScheme.onSurface
+                                      : null;
+                                  return Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        if (ownStatus)
+                                          WidgetSpan(
+                                            alignment:
+                                                PlaceholderAlignment.middle,
+                                            child: OwnMessageStatusIcon(
+                                              lastEvent,
+                                              color: textColor,
+                                            ),
+                                          ),
+                                        TextSpan(text: text),
+                                      ],
+                                    ),
                                     softWrap: false,
                                     maxLines: notificationCount >= 1 ? 2 : 1,
                                     overflow: TextOverflow.ellipsis,
@@ -539,9 +553,7 @@ class _ChatListItemState extends State<ChatListItem> {
                                       fontWeight: isUnread
                                           ? FontWeight.w600
                                           : null,
-                                      color: isUnread
-                                          ? theme.colorScheme.onSurface
-                                          : null,
+                                      color: textColor,
                                     ),
                                   );
                                 },
