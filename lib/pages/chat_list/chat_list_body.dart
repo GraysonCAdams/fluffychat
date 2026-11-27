@@ -803,7 +803,8 @@ class _PinnedRowState extends State<_PinnedRow> {
 }
 
 /// A pinned chat in the row above the list: a large avatar with the chat's
-/// name under it, and a dot before the name while it has unread messages.
+/// name under it, in bold with its newest message in a bubble over the
+/// avatar while it has unread messages.
 class _PinnedChat extends StatelessWidget {
   final Room room;
   final Room? space;
@@ -864,6 +865,8 @@ class _PinnedChat extends StatelessWidget {
     final name =
         contact?.displayName(locals) ?? room.getLocalizedDisplayname(locals);
     final unread = contact?.isUnread ?? room.countsAsUnread;
+    final notificationCount =
+        contact?.notificationCount ?? room.notificationCount;
     final space = this.space;
     final selected = controller.isSelected(room);
     final lastEvent = contact?.lastEvent ?? room.lastEvent;
@@ -1009,33 +1012,26 @@ class _PinnedChat extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (unread)
-                          Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.only(right: 4),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        Flexible(
-                          child: Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontWeight: unread ? FontWeight.w700 : null,
-                              color: unread
-                                  ? theme.colorScheme.onSurface
-                                  : null,
-                            ),
-                          ),
+                    // An unread pin shows in its bold name and its bubble,
+                    // so the name sits centred under the avatar with nothing
+                    // before it. A screen reader hears it as the chat list
+                    // tiles' unread count says it.
+                    Semantics(
+                      label: !unread
+                          ? null
+                          : notificationCount > 0
+                          ? '${L10n.of(context).unread}: $notificationCount'
+                          : L10n.of(context).unread,
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: unread ? FontWeight.w700 : null,
+                          color: unread ? theme.colorScheme.onSurface : null,
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),

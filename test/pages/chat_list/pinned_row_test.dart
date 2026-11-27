@@ -7,7 +7,8 @@
 import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/widgets.dart' show Container, Rect, ReorderableList;
+import 'package:flutter/widgets.dart'
+    show Container, FontWeight, Rect, ReorderableList, Text;
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../utils/merged_contacts/fake_rooms.dart' show setMergedContacts;
@@ -299,6 +300,58 @@ void main() {
     expect(tailRect.center.dx, speech.center.dx);
     // The row is 4 taller than before for the raised bubbles.
     expect(tester.getSize(find.byType(ReorderableList)).height, 150);
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('unread pins say so in bold and a bubble, without a dot', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    chat('Ada', 3, unread: 3).pin();
+    chat('Bea', 2).pin();
+    chat('Cy', 1);
+    await pumpFakeChatList(tester, client);
+
+    // No dot before the names.
+    expect(
+      find.descendant(
+        of: find.byType(ReorderableList),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.constraints?.maxWidth == 8 &&
+              widget.constraints?.maxHeight == 8,
+        ),
+      ),
+      findsNothing,
+    );
+    FontWeight? weight(String name) =>
+        tester.widget<Text>(find.text(name)).style?.fontWeight;
+    expect(weight('Ada'), FontWeight.w700);
+    expect(weight('Bea'), isNot(FontWeight.w700));
+    // Only the unread pin shows its newest message.
+    expect(find.text('hello from Ada'), findsOneWidget);
+    expect(find.text('hello from Bea'), findsNothing);
+    // A screen reader hears what the dot showed.
+    expect(find.bySemanticsLabel(RegExp(r'Unread: 3')), findsOneWidget);
+    semantics.dispose();
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('a pin name sits centred under its avatar', (tester) async {
+    chat('Ada', 3, unread: 1).pin();
+    chat('Bea', 2).pin();
+    chat('Cy', 1);
+    await pumpFakeChatList(tester, client);
+
+    final avatars =
+        pinnedAvatars()
+            .evaluate()
+            .map((e) => tester.getCenter(find.byWidget(e.widget)).dx)
+            .toList()
+          ..sort();
+    expect(tester.getCenter(find.text('Ada')).dx, avatars[0]);
+    expect(tester.getCenter(find.text('Bea')).dx, avatars[1]);
     await finishFakeChatList(tester, client);
   });
 
