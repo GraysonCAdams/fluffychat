@@ -44,16 +44,32 @@ abstract class AppConfig {
       !kIsWeb &&
       defaultTargetPlatform == TargetPlatform.android;
 
+  /// The app group the iOS app shares with its notification service and
+  /// share extensions: the database directory and the keychain item holding
+  /// the database key live there. Must match the three entitlements files in
+  /// ios/ and NotificationService.swift.
+  static const String seamAppGroupId = 'group.$seamApplicationId';
+
+  /// Whether this build carries Seam's own identifiers and store defaults:
+  /// the Play release, and every iOS and macOS build, which are bundled as
+  /// [seamApplicationId] in all build modes (ios/ and macos/ Xcode projects).
+  static bool get usesSeamIdentity =>
+      isPlayRelease ||
+      (!kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.iOS ||
+              defaultTargetPlatform == TargetPlatform.macOS));
+
   /// The pusher app id the push gateway sees, before the device id is added.
   static String get pushNotificationsAppId =>
-      isPlayRelease ? seamApplicationId : 'chat.fluffy.fluffychat';
+      usesSeamIdentity ? seamApplicationId : 'chat.fluffy.fluffychat';
 
   /// URL schemes for deep links and the SSO redirect. On Android these must
-  /// match the appUrlScheme and appSsoUrlScheme manifest placeholders.
+  /// match the appUrlScheme and appSsoUrlScheme manifest placeholders, on iOS
+  /// the CFBundleURLSchemes in ios/Runner/Info.plist.
   static String get appOpenUrlScheme =>
-      isPlayRelease ? seamApplicationId : 'im.fluffychat';
+      usesSeamIdentity ? seamApplicationId : 'im.fluffychat';
   static String get appSsoUrlScheme =>
-      isPlayRelease ? '$seamApplicationId.auth' : 'im.fluffychat.auth';
+      usesSeamIdentity ? '$seamApplicationId.auth' : 'im.fluffychat.auth';
   static String get deepLinkPrefix => '$appOpenUrlScheme://chat/';
   // Identifies Seam's notification activation callback on Windows, a CLSID
   // that names Seam's executable alone; FluffyChat's installs use another.

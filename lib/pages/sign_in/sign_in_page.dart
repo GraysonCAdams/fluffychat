@@ -79,7 +79,7 @@ class SignInPage extends StatelessWidget {
                       context,
                     ),
                     prefixIcon: const Icon(Icons.search_outlined),
-                    hintText: AppConfig.isPlayRelease
+                    hintText: AppConfig.usesSeamIdentity
                         ? L10n.of(context).enterYourHomeserver
                         : L10n.of(context).searchOrEnterHomeserverAddress,
                   ),

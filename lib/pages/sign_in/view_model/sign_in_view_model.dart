@@ -57,11 +57,11 @@ class SignInViewModel extends ValueNotifier<SignInState> {
   Future<void> refreshPublicHomeservers() async {
     notifyListeners();
     value.publicHomeservers = AsyncSnapshot.waiting();
-    // The Play build recommends no server: it neither fetches the public
+    // A build with Seam's identity recommends no server: it neither fetches the public
     // list nor preselects matrix.org. The user types their own homeserver,
     // which _filterHomeservers offers as a choice, and a server they signed
     // in to before is offered again.
-    if (AppConfig.isPlayRelease) {
+    if (AppConfig.usesSeamIdentity) {
       final remembered = AppSettings.store.getString(
         AppSettings.defaultHomeserver.key,
       );
