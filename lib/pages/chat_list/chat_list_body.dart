@@ -583,8 +583,9 @@ class _PinnedRow extends StatefulWidget {
   static const double height = 140;
 
   /// The space above the pins: 8 below the header and the bubbles' share
-  /// above their avatars, less the 4 a pin is padded with.
-  static const double _top = 8 + _PinnedChat.bubbleOverhang - 4;
+  /// above their avatars, less the space a pin keeps above its avatar.
+  static const double _top =
+      8 + _PinnedChat.bubbleOverhang - _PinnedChat._paddingTop;
 
   final List<Room> rooms;
   final Map<String, Room> spaces;
@@ -848,7 +849,7 @@ class _PinnedRowState extends State<_PinnedRow> {
                               2 *
                               (_PinnedRow.height / 2 -
                                   _PinnedRow._top -
-                                  4 -
+                                  _PinnedChat._paddingTop -
                                   _PinnedChat._avatarSize / 2),
                         ),
                         decoration: BoxDecoration(
@@ -918,6 +919,25 @@ class _PinnedChat extends StatelessWidget {
 
   static const double _avatarSize = 76;
 
+  /// The pin's hover, press, focus and tap area around its avatar and name:
+  /// 12 beside the avatar ([_width]), 8 above it and 6 below the name,
+  /// whose line already has room under its letters.
+  static const double _paddingTop = 8;
+  static const EdgeInsets _padding = EdgeInsets.only(
+    top: _paddingTop,
+    bottom: 6,
+  );
+
+  /// The area's width, which fits the narrowest slot a pin gets, 108 (see
+  /// `_PinnedRowState._itemWidth` and its shift). The name may use all but
+  /// 4 on either side of it.
+  static const double _width = _avatarSize + 2 * 12;
+
+  /// The state layer's corners.
+  static const _shape = RoundedRectangleBorder(
+    borderRadius: BorderRadius.all(Radius.circular(16)),
+  );
+
   /// How far a preview bubble stands above its avatar; the rest of it lies
   /// over the top of the avatar.
   static const double bubbleOverhang = 19;
@@ -982,149 +1002,163 @@ class _PinnedChat extends StatelessWidget {
           onLongPress: () => controller.toggleSelection(room),
           child: Listener(
             onPointerDown: (event) => _startDrag(context, event),
+            // A preview bubble may stand over the top of this area; it is
+            // drawn above the state layer, which it does not clip.
             child: InkWell(
-              borderRadius: BorderRadius.circular(AppConfig.borderRadius),
+              key: const ValueKey('pinned_chat_ink'),
+              customBorder: _shape,
               onTap: () => controller.onListedChatTap(room),
               onSecondaryTap: () => controller.toggleSelection(room),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        SelectableAvatar(
-                          selected: selected,
-                          size: _avatarSize,
-                          // A group without a picture shows its members.
-                          child: GroupAvatar.shows(contact?.sendViaRoom ?? room)
-                              ? GroupAvatar(
-                                  room: contact?.sendViaRoom ?? room,
-                                  name: name,
-                                  size: _avatarSize,
-                                )
-                              : Avatar(
-                                  mxContent: contact?.avatar ?? room.avatar,
-                                  name: name,
-                                  size: _avatarSize,
-                                  presenceUserId: (contact?.sendViaRoom ?? room)
-                                      .directChatMatrixID,
-                                ),
-                        ),
-                        // An unread pin shows its newest message in a small speech
-                        // bubble over the top of the avatar, its tail pointing
-                        // down at it.
-                        if (preview != null)
-                          Positioned(
-                            top: -bubbleOverhang,
-                            left: -10,
-                            right: -10,
-                            child: Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
+                padding: _padding,
+                child: SizedBox(
+                  width: _width,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          SelectableAvatar(
+                            selected: selected,
+                            size: _avatarSize,
+                            // A group without a picture shows its members.
+                            child:
+                                GroupAvatar.shows(contact?.sendViaRoom ?? room)
+                                ? GroupAvatar(
+                                    room: contact?.sendViaRoom ?? room,
+                                    name: name,
+                                    size: _avatarSize,
+                                  )
+                                : Avatar(
+                                    mxContent: contact?.avatar ?? room.avatar,
+                                    name: name,
+                                    size: _avatarSize,
+                                    presenceUserId:
+                                        (contact?.sendViaRoom ?? room)
+                                            .directChatMatrixID,
+                                  ),
+                          ),
+                          // An unread pin shows its newest message in a small speech
+                          // bubble over the top of the avatar, its tail pointing
+                          // down at it.
+                          if (preview != null)
+                            Positioned(
+                              top: -bubbleOverhang,
+                              left: -10,
+                              right: -10,
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: theme
+                                            .colorScheme
+                                            .surfaceContainerHighest,
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: theme.colorScheme.shadow
+                                                .withAlpha(60),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 1),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Text(
+                                        preview,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color:
+                                                  theme.colorScheme.onSurface,
+                                              height: 1.15,
+                                            ),
+                                      ),
                                     ),
-                                    decoration: BoxDecoration(
+                                    _BubbleTail(
                                       color: theme
                                           .colorScheme
                                           .surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(12),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: theme.colorScheme.shadow
-                                              .withAlpha(60),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 1),
-                                        ),
-                                      ],
                                     ),
-                                    child: Text(
-                                      preview,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                            color: theme.colorScheme.onSurface,
-                                            height: 1.15,
-                                          ),
-                                    ),
-                                  ),
-                                  _BubbleTail(
-                                    color: theme
-                                        .colorScheme
-                                        .surfaceContainerHighest,
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        // A selected chat shows only the check, without badges.
-                        if (selected ||
-                            !AppSettings.chatListNetworkBadges.value)
-                          const SizedBox.shrink()
-                        else if (contact != null && contact.spansNetworks)
-                          Positioned(
-                            right: -2,
-                            bottom: -2,
-                            child: MergedBadge(
-                              contact: contact,
-                              size: 24,
-                              outlineColor: theme.colorScheme.surface,
-                            ),
-                          )
-                        else if (space != null)
-                          Positioned(
-                            right: -2,
-                            bottom: -2,
-                            child: Avatar(
-                              shapeBorder: RoundedSuperellipseBorder(
-                                side: BorderSide(
-                                  width: 2,
-                                  color: theme.colorScheme.surface,
+                          // A selected chat shows only the check, without badges.
+                          if (selected ||
+                              !AppSettings.chatListNetworkBadges.value)
+                            const SizedBox.shrink()
+                          else if (contact != null && contact.spansNetworks)
+                            Positioned(
+                              right: -2,
+                              bottom: -2,
+                              child: MergedBadge(
+                                contact: contact,
+                                size: 24,
+                                outlineColor: theme.colorScheme.surface,
+                              ),
+                            )
+                          else if (space != null)
+                            Positioned(
+                              right: -2,
+                              bottom: -2,
+                              child: Avatar(
+                                shapeBorder: RoundedSuperellipseBorder(
+                                  side: BorderSide(
+                                    width: 2,
+                                    color: theme.colorScheme.surface,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    AppConfig.spaceBorderRadius * 0.5,
+                                  ),
                                 ),
                                 borderRadius: BorderRadius.circular(
                                   AppConfig.spaceBorderRadius * 0.5,
                                 ),
+                                mxContent: space.avatar,
+                                size: 24,
+                                name: space.getLocalizedDisplayname(locals),
                               ),
-                              borderRadius: BorderRadius.circular(
-                                AppConfig.spaceBorderRadius * 0.5,
-                              ),
-                              mxContent: space.avatar,
-                              size: 24,
-                              name: space.getLocalizedDisplayname(locals),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // An unread pin shows in its bold name and its bubble,
+                      // so the name sits centred under the avatar with nothing
+                      // before it. A screen reader hears it as the chat list
+                      // tiles' unread count says it.
+                      Semantics(
+                        label: !unread
+                            ? null
+                            : notificationCount > 0
+                            ? '${L10n.of(context).unread}: $notificationCount'
+                            : L10n.of(context).unread,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: unread ? FontWeight.w700 : null,
+                              color: unread
+                                  ? theme.colorScheme.onSurface
+                                  : null,
                             ),
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    // An unread pin shows in its bold name and its bubble,
-                    // so the name sits centred under the avatar with nothing
-                    // before it. A screen reader hears it as the chat list
-                    // tiles' unread count says it.
-                    Semantics(
-                      label: !unread
-                          ? null
-                          : notificationCount > 0
-                          ? '${L10n.of(context).unread}: $notificationCount'
-                          : L10n.of(context).unread,
-                      child: Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: unread ? FontWeight.w700 : null,
-                          color: unread ? theme.colorScheme.onSurface : null,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
