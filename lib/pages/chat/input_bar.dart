@@ -108,7 +108,17 @@ class InputBar extends StatelessWidget {
       r'(?:\s|^):(?:([\p{L}\p{N}_-]+)~)?([\p{L}\p{N}_-]+)$',
       unicode: true,
     ).firstMatch(searchText);
-    if (emojiMatch != null) {
+    // Emoji search is off unless the user turned it on. It needs two
+    // characters, one a letter, after the colon, as in Slack and Discord,
+    // and leaves an emoticon such as :D or :-P alone (see emoticons.dart),
+    // as it does anything in Markdown code.
+    final emojiWord = emojiMatch?[0]?.trimLeft();
+    if (emojiMatch != null &&
+        AppSettings.emojiSuggestions.value &&
+        emojiMatch[2]!.length >= 2 &&
+        RegExp(r'\p{L}', unicode: true).hasMatch(emojiMatch[2]!) &&
+        !isEmoticon(emojiWord!) &&
+        !inMarkdownCode(searchText, searchText.length - emojiWord.length)) {
       final packSearch = emojiMatch[1];
       final emoteSearch = emojiMatch[2]!.toLowerCase();
       final emotePacks = room.getImagePacks(ImagePackUsage.emoticon);

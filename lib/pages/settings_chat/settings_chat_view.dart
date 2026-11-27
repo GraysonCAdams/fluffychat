@@ -92,6 +92,11 @@ class SettingsChatView extends StatelessWidget {
               subtitle: l10n.convertEmoticonsDescription,
               setting: AppSettings.convertEmoticons,
             ),
+            SettingsSwitchListTile.adaptive(
+              title: l10n.emojiSuggestionsSetting,
+              subtitle: l10n.emojiSuggestionsSettingDescription,
+              setting: AppSettings.emojiSuggestions,
+            ),
           ],
         ),
         SettingsSectionHeader(l10n.settingsGestures),

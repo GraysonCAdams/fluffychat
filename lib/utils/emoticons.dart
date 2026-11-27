@@ -44,9 +44,16 @@ const emoticons = <String, String>{
   'o/': '👋',
 };
 
+/// Whether [token] is one of the [emoticons], in any letter case, such as
+/// `:d` for `:D`.
+bool isEmoticon(String token) {
+  final lower = token.toLowerCase();
+  return emoticons.keys.any((emoticon) => emoticon.toLowerCase() == lower);
+}
+
 /// Whether [offset] in [text] lies inside Markdown code: an inline code
 /// span or a fenced block, which keep what is typed in them as it is.
-bool _inCode(String text, int offset) {
+bool inMarkdownCode(String text, int offset) {
   final before = text.substring(0, offset);
   final fences = '```'.allMatches(before).length;
   if (fences.isOdd) return true;
@@ -64,7 +71,7 @@ bool _inCode(String text, int offset) {
     start--;
   }
   final emoji = emoticons[text.substring(start, end)];
-  if (emoji == null || _inCode(text, start)) return null;
+  if (emoji == null || inMarkdownCode(text, start)) return null;
   return (start: start, emoji: emoji);
 }
 
