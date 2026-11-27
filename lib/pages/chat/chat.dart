@@ -851,6 +851,9 @@ class ChatController extends State<ChatPageWithRoom>
 
     scrollController.addListener(_updateScrollController);
     inputFocus.addListener(_inputFocusListener);
+    _ownSends = widget.room.client.onTimelineEvent.stream
+        .where(_isOwnLocalEcho)
+        .listen((_) => _revealOwnSend());
 
     _loadDraft();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1204,6 +1207,7 @@ class ChatController extends State<ChatPageWithRoom>
 
   @override
   void dispose() {
+    _ownSends?.cancel();
     timeline?.cancelSubscriptions();
     timeline = null;
     _storeInputTimeoutTimer?.cancel();
@@ -2094,6 +2098,39 @@ class ChatController extends State<ChatPageWithRoom>
       preferPosition: AutoScrollPosition.middle,
     );
     _updateScrollController();
+  }
+
+  /// Watches for the local echo of every message this device sends into
+  /// the chat, whichever way it went out (composer, attachment, sticker,
+  /// voice, location, poll, resend), so [_revealOwnSend] can bring it into
+  /// view. Messages from anyone else, or from the user's other devices,
+  /// leave the reading position alone.
+  StreamSubscription<Event>? _ownSends;
+
+  bool _isOwnLocalEcho(Event event) =>
+      event.status.isSending &&
+      event.senderId == widget.room.client.userID &&
+      (event.roomId == widget.room.id ||
+          (mergedContact?.rooms.any((room) => room.id == event.roomId) ??
+              false));
+
+  /// Scrolls to the newest message after the user sent one, loading the
+  /// newest messages first when the chat was showing a stretch of older
+  /// history.
+  Future<void> _revealOwnSend() async {
+    if (!mounted || timeline == null) return;
+    if (timeline?.allowNewEvent == false) {
+      await scrollDown();
+      return;
+    }
+    if (!scrollController.hasClients || scrollController.position.pixels <= 0) {
+      return;
+    }
+    await scrollController.animateTo(
+      0,
+      duration: FluffyThemes.animationDuration,
+      curve: FluffyThemes.animationCurve,
+    );
   }
 
   Future<void> scrollDown() async {
