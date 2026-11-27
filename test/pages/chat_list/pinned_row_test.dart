@@ -7,7 +7,7 @@
 import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/widgets.dart' show ReorderableList;
+import 'package:flutter/widgets.dart' show Container, Rect, ReorderableList;
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../utils/merged_contacts/fake_rooms.dart' show setMergedContacts;
@@ -67,7 +67,7 @@ void main() {
 
   /// Presses the pin named [name], holds it still when [hold] is set, and
   /// moves it [dx] sideways before letting go, where [dx] is in units of a
-  /// 104dp slot and scaled to the slots the row has laid out.
+  /// 112dp slot and scaled to the slots the row has laid out.
   Future<void> drag(
     WidgetTester tester,
     String name,
@@ -79,7 +79,7 @@ void main() {
       tester.getCenter(find.text(name)),
       kind: kind,
     );
-    final scaled = dx * pinSlot(tester) / 104;
+    final scaled = dx * pinSlot(tester) / 112;
     if (hold) await tester.pump(const Duration(milliseconds: 600));
     for (var i = 0; i < 10; i++) {
       await gesture.moveBy(Offset(scaled / 10, 0));
@@ -248,6 +248,57 @@ void main() {
     expect(find.byType(ChatListSelectionBar), findsOneWidget);
     expect(find.byType(SelectedChatMark), findsOneWidget);
     expect(ada.calls, isEmpty);
+    await finishFakeChatList(tester, client);
+  });
+
+  /// The speech bubble of the unread pin whose preview is [text].
+  Rect bubble(WidgetTester tester, String text) => tester.getRect(
+    find
+        .ancestor(
+          of: find.text(text),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Container && widget.decoration != null,
+          ),
+        )
+        .first,
+  );
+
+  testWidgets('pins that overflow sit 112 apart, bubbles 16 apart', (
+    tester,
+  ) async {
+    for (var day = 30; day > 20; day--) {
+      chat('Pin$day', day, unread: 1).pin();
+    }
+    await pumpFakeChatList(tester, client);
+
+    expect(pinSlot(tester), 112);
+    // Long previews fill each bubble to its widest.
+    final first = bubble(tester, 'hello from Pin30');
+    final second = bubble(tester, 'hello from Pin29');
+    expect(first.width, 96);
+    expect(second.left - first.right, 16);
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('the bubble sits 19 above the avatar, a tail under it', (
+    tester,
+  ) async {
+    chat('Ada', 3, unread: 1).pin();
+    chat('Bea', 2);
+    await pumpFakeChatList(tester, client);
+
+    final avatar = tester.getRect(pinnedAvatars().first);
+    final speech = bubble(tester, 'hello from Ada');
+    expect(speech.top - avatar.top, -19);
+    final tail = find.byWidgetPredicate(
+      (widget) => widget.runtimeType.toString() == '_BubbleTail',
+    );
+    expect(tail, findsOneWidget);
+    final tailRect = tester.getRect(tail);
+    expect(tailRect.top, speech.bottom);
+    expect(tailRect.center.dx, speech.center.dx);
+    // The row is 4 taller than before for the raised bubbles.
+    expect(tester.getSize(find.byType(ReorderableList)).height, 150);
     await finishFakeChatList(tester, client);
   });
 
