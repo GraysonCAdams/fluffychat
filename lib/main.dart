@@ -35,6 +35,7 @@ import 'package:video_player_media_kit/video_player_media_kit.dart';
 import 'config/setting_keys.dart';
 import 'utils/background_push.dart';
 import 'widgets/fluffy_chat_app.dart';
+import 'widgets/seam_startup.dart';
 
 ReceivePort? mainIsolateReceivePort;
 
@@ -143,7 +144,9 @@ void main(List<String> args) => runZonedGuarded(() async {
   await startGui(clients, store, args: args);
 }, ErrorReporter.onFlutterError);
 
-/// Fetch the pincode for the applock and start the flutter engine.
+/// Start the flutter engine: the app once the pincode for the applock is
+/// fetched and the first client's rooms are loaded, with the start screen
+/// ([SeamStartup]) in front if that takes a moment.
 Future<void> startGui(
   List<Client> clients,
   SharedPreferences store, {
@@ -151,24 +154,6 @@ Future<void> startGui(
 }) async {
   // Started first so the platform round trip overlaps the awaits below.
   final dynamicPrimaryColorFuture = loadDynamicPrimaryColor();
-
-  // Fetch the pin for the applock if existing for mobile applications.
-  String? pin;
-  var useBiometrics = false;
-  if (PlatformInfos.supportsAppLock) {
-    try {
-      pin = await const FlutterSecureStorage().read(
-        key: 'chat.fluffy.app_lock',
-      );
-      useBiometrics =
-          (await const FlutterSecureStorage().read(
-            key: 'chat.fluffy.use_biometrics',
-          )) ==
-          'true';
-    } catch (e, s) {
-      Logs().d('Unable to read PIN from Secure storage', e, s);
-    }
-  }
 
   if (PlatformInfos.isLinux || PlatformInfos.isWindows) {
     JustAudioMediaKit.ensureInitialized();
@@ -186,21 +171,41 @@ Future<void> startGui(
     ChatWindows.instance.backend = createChatWindowBackend();
   }
 
-  // Preload first client
-  final firstClient = clients.firstOrNull;
-  await firstClient?.roomsLoading;
-  await firstClient?.accountDataLoading;
+  Future<Widget> loadApp() async {
+    // Fetch the pin for the applock if existing for mobile applications.
+    String? pin;
+    var useBiometrics = false;
+    if (PlatformInfos.supportsAppLock) {
+      try {
+        pin = await const FlutterSecureStorage().read(
+          key: 'chat.fluffy.app_lock',
+        );
+        useBiometrics =
+            (await const FlutterSecureStorage().read(
+              key: 'chat.fluffy.use_biometrics',
+            )) ==
+            'true';
+      } catch (e, s) {
+        Logs().d('Unable to read PIN from Secure storage', e, s);
+      }
+    }
 
-  final dynamicPrimaryColor = await dynamicPrimaryColorFuture;
+    // Preload first client
+    final firstClient = clients.firstOrNull;
+    await firstClient?.roomsLoading;
+    await firstClient?.accountDataLoading;
 
-  runApp(
-    FluffyChatApp(
+    final dynamicPrimaryColor = await dynamicPrimaryColorFuture;
+
+    return FluffyChatApp(
       clients: clients,
       appLockSettings: (pincode: pin, useBiometrics: useBiometrics),
       store: store,
       dynamicPrimaryColor: dynamicPrimaryColor,
-    ),
-  );
+    );
+  }
+
+  await SeamStartup.run(loadApp());
 }
 
 /// Watches the lifecycle changes to start the application when it
