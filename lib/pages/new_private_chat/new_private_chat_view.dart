@@ -14,8 +14,10 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/phone_number.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
+import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
+import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
 import 'package:go_router/go_router.dart';
@@ -230,8 +232,9 @@ class _StartList extends StatelessWidget {
           ),
         // A group with people on the user's networks starts by adding a
         // second person to the To field; a Matrix-only group has its own
-        // page for an account with no network.
-        if (controller.bridges.isEmpty)
+        // page for an account with no network, offered only once the
+        // bridges answered so it does not show while they load.
+        if (controller.noNetworks)
           ListTile(
             leading: CircleAvatar(
               backgroundColor: theme.colorScheme.tertiaryContainer,
@@ -405,8 +408,9 @@ class _Suggestions extends StatelessWidget {
 }
 
 /// One person in New Chat's or Add people's results: their chat, or
-/// someone the user's networks or phone contacts know, with the networks
-/// that reach them as grey icons at the end.
+/// someone the user's networks or phone contacts know, with the logos of
+/// the networks that reach them at the end. A group chat without a picture
+/// shows its members, as in the chat list.
 ///
 /// A person already picked shows a tick, and one who cannot join the
 /// people picked so far is greyed out with [blockedReason] as the second
@@ -440,6 +444,10 @@ class NewChatPersonTile extends StatelessWidget {
         ? formatPhoneForDisplay(phone)
         : person.email;
     final reason = blockedReason;
+    final chat = person.chat;
+    final room = chat is ExistingChat && chat.contact == null
+        ? chat.room
+        : null;
     return ListTile(
       enabled: reason == null,
       selected: picked,
@@ -453,6 +461,8 @@ class NewChatPersonTile extends StatelessWidget {
                     : Icons.dialpad_outlined,
               ),
             )
+          : room != null && GroupAvatar.shows(room)
+          ? GroupAvatar(room: room, name: person.name)
           : Avatar(name: person.name, mxContent: person.avatar),
       title: Text(person.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: reason != null
@@ -464,7 +474,7 @@ class NewChatPersonTile extends StatelessWidget {
           ? const Icon(Icons.check_circle)
           : person.networks.isEmpty
           ? null
-          : MonochromeNetworkIcons.icons(
+          : NetworkLogos.icons(
               icons: [
                 for (final network in person.networks)
                   (icon: network.icon, name: network.name),

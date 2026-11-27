@@ -119,6 +119,10 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// The user's bridges, once their `whoami` answered.
   List<BridgeInfo> get bridges => sources.bridges;
 
+  /// Whether the user has no network: the bridges answered with none.
+  /// False while they are still being asked.
+  bool get noNetworks => sources.bridgesLoaded && sources.bridges.isEmpty;
+
   /// The people in the To field, in the order they were added.
   final List<NewChatPerson<ExistingChat>> recipients = [];
 
