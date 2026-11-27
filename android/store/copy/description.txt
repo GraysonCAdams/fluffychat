@@ -14,14 +14,13 @@ Search your chats and contacts in one place. With your permission Seam lists the
 
 Made for everyday messaging
 
-- Attach photos and videos from a gallery inside the composer, sent as the original files
+- Attach photos and videos through the system photo picker, with no access to your whole library
 - Voice messages, with transcripts made on your device
 - Reactions, replies, threads, polls, stickers and GIFs
 - Pin chats and drag them into your own order
 - Schedule messages to send later
 - Snooze notifications or mark everything as read
 - Conversation notifications, chat bubbles and direct share
-- Voice and video calls
 
 Private by design
 

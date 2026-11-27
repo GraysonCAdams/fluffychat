@@ -18,8 +18,8 @@ These are the owner's calls, and two of them cannot be undone after the first up
   changes the privacy policy and the data safety form.
 - **Data safety posture and target audience.** `play-declarations.md` recommends "collected, not
   shared" and 18+, and gives the alternatives.
-- **Features Play may question, kept on purpose** (see "Kept features that need a declaration"
-  below). None was removed; each needs a declaration or a ruling.
+- **Features Play may question** (see "Kept features that need a declaration" below). Each
+  needs a declaration or a ruling.
 
 ## 1. Developer account
 
@@ -88,9 +88,9 @@ as of this commit.
 3. The Play app is `dev.threeonetwo.seam` and installs beside the owner's everyday build
    (`chat.fluffy.fluffychat.fork`); neither replaces the other.
 4. Check on a test device: sign in with SSO on a homeserver (the redirect uses the release scheme
-   `dev.threeonetwo.seam.auth`), push through a UnifiedPush distributor such as ntfy, the
-   gallery with the media permission granted, refused and limited (the "Choose photos and videos"
-   button opens the system Photo Picker), and contacts in New Chat.
+   `dev.threeonetwo.seam.auth`), push through a UnifiedPush distributor such as ntfy, attaching
+   photos and videos from the composer's Gallery button (it opens the system Photo Picker, which
+   asks for no permission), and contacts in New Chat.
 5. Then a closed test if the account needs one (step 1), then production.
 
 ## 6. Store listing and App content
@@ -114,14 +114,13 @@ as of this commit.
 
 ## Kept features that need a declaration
 
-The owner's rule is that no feature is removed for Play. These stay, and each is a declaration or
-a decision:
+These stay in the Play build, and each is a declaration or a decision. Seam has no voice or video
+calls and attaches media only through the system Photo Picker, so Play's foreground service,
+full-screen intent and photo and video permission declarations do not apply to it.
 
 | Feature | What Play asks | Status |
 |---|---|---|
-| In-app gallery in the composer (`photo_manager`) | `READ_MEDIA_IMAGES` / `READ_MEDIA_VIDEO` need a photo and video permissions declaration; Play allows them only when the system picker is not enough, and the policy does not name messaging apps. **The highest rejection risk on the list.** | Kept in every build. When the permission is refused or limited, the gallery offers the system Photo Picker ("Choose photos and videos"), so attaching media never depends on it. Declaration text is in `play-declarations.md`. If Play rejects it, the decision is the owner's: drop the permissions from the release build and use only the picker there. |
 | Contacts in New Chat (`READ_CONTACTS`) | From 2027-01-27 broad contacts access is restricted to apps whose core function needs it; others must use the Contact Picker. | Kept. The request row now says contacts stay on the device and are matched there. Before 2027-01-27, argue the core use or move to the Contact Picker. |
-| Calls (`flutter_callkit_incoming`) | Foreground service types `phoneCall`, `microphone`, `camera`, and the full-screen intent permission. | Kept. Declare all three types and "Receiving phone or video calls" for full-screen intents (`play-declarations.md`). |
 | Conversation shortcuts to Google (`core-google-shortcuts`) | Not a Play form; a privacy question. | Left out of the release build only (`android/app/build.gradle.kts`): shortcuts, share targets and bubbles use androidx.core's ShortcutManagerCompat and do not need it. Debug and profile builds keep it. |
 | Bridge features for the owner's own server | Not a Play form. The network ids `imessage`, `gmessages`, `telegram`, `linkedin`, `xbox` are compiled in (`lib/utils/bridge_provisioning.dart`, `lib/utils/new_chat/new_chat_people.dart`, `lib/utils/merged_contacts/network_colors.dart`), with iMessage first in the network picker. | Kept. The provisioning calls go through `/_matrix/client/unstable/net.graysons.bridge/`, a proxy that exists only on the owner's homeserver, so for anyone else New Chat's network lookup and the start-chat-on-a-network flow find no bridges and do nothing. None of it appears in the listing. |
 
@@ -173,38 +172,34 @@ published and need the same treatment before any other store.
 
 ## Permissions in the release build
 
-From the merged manifest of a release bundle built on 2026-11-25
-(`build/app/intermediates/merged_manifests/release/processReleaseManifest/AndroidManifest.xml`).
+From the manifest inside the signed release bundle built on 2026-11-27 (versionCode 3581, read
+with `aapt2 dump xmltree` from `base/manifest/AndroidManifest.xml`).
 Package `dev.threeonetwo.seam`, label Seam. No `AD_ID`, SMS, call log, accessibility,
-`QUERY_ALL_PACKAGES`, `MANAGE_EXTERNAL_STORAGE`, exact alarm or background location permission.
+`QUERY_ALL_PACKAGES`, `MANAGE_EXTERNAL_STORAGE`, exact alarm or background location permission,
+no `READ_MEDIA_*` or storage permission, no `USE_FULL_SCREEN_INTENT`, and no foreground service
+type other than `shortService`.
 
 | Permission | From | Why | Play form |
 |---|---|---|---|
 | `INTERNET`, `ACCESS_NETWORK_STATE` | app, plugins | Talking to the homeserver; connectivity checks | none |
 | `VIBRATE`, `WAKE_LOCK` | app | Notification vibration; finishing work after a push | none |
-| `RECORD_AUDIO` | app | Voice messages and calls | none (runtime) |
-| `CAMERA` | app | Photos and videos to send, video calls, QR codes | none (runtime) |
+| `RECORD_AUDIO` | app | Voice messages | none (runtime) |
+| `CAMERA` | app | Taking a photo or video to send, QR codes | none (runtime) |
 | `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` | app | Sharing a location once, on the user's action | none; no background location |
 | `READ_CONTACTS` | app | Contacts in New Chat, matched on the device | data safety; contacts policy from 2027-01-27 |
-| `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, `READ_MEDIA_VISUAL_USER_SELECTED` | app | The composer's in-app gallery | **photo and video permissions declaration** |
-| `READ_EXTERNAL_STORAGE` (max SDK 32), `WRITE_EXTERNAL_STORAGE` (max SDK 28) | app, capped by plugins | The same on older Android | none |
-| `BLUETOOTH` (max SDK 30), `MODIFY_AUDIO_SETTINGS` | app | Call audio routing | none |
 | `USE_BIOMETRIC`, `USE_FINGERPRINT` | app, plugin | Unlocking the app lock | none |
 | `POST_NOTIFICATIONS` | plugins | Notifications | none (runtime) |
 | `FOREGROUND_SERVICE` | app | `flutter_foreground_task` service, type `shortService` only | none (short service is not a declared type) |
-| `FOREGROUND_SERVICE_PHONE_CALL`, `_MICROPHONE`, `_CAMERA` | `flutter_callkit_incoming` | Its call services (`phoneCall|microphone|camera`, and `phoneCall`) keep a call running in the background | **foreground service declaration** for all three types, with a video |
-| `USE_FULL_SCREEN_INTENT` | `flutter_callkit_incoming` | Incoming call screen | **full-screen intent declaration**: receiving calls |
-| `MANAGE_OWN_CALLS`, `DISABLE_KEYGUARD`, `TURN_SCREEN_ON`, `ACCESS_NOTIFICATION_POLICY` | `flutter_callkit_incoming` | Showing and answering calls over the lock screen | none |
 | `RECEIVE_BOOT_COMPLETED` | plugins | Restoring scheduled notifications after a reboot | none |
-| `dev.threeonetwo.seam.PERMISSION_CALL`, `dev.threeonetwo.seam.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | callkit, androidx | Signature permissions private to the app | none |
+| `dev.threeonetwo.seam.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | androidx | Signature permission private to the app | none |
 | Launcher badge permissions (Samsung, HTC, Sony, Huawei, Oppo, Apex and others) | badge plugin | Unread count on the launcher icon | none |
 
 Removed from the manifest because nothing starts them: `light_compressor_v2`'s
 `CompressionForegroundService` with `FOREGROUND_SERVICE_DATA_SYNC` (the app never asks it for
 background compression) and `geolocator`'s `GeolocatorLocationService` (the app takes one-shot
 positions), and the `camera`, `microphone` and `mediaProjection` types on the
-`flutter_foreground_task` service (only ever started as `shortService`; screen sharing in calls is
-hidden on phones). `core-google-shortcuts` and its `shortcut_listener_impl` are absent from the
+`flutter_foreground_task` service (only ever started as `shortService`).
+`core-google-shortcuts` and its `shortcut_listener_impl` are absent from the
 release build and present in debug and profile, as intended.
 
 ## Legal review: what a public binary needed
@@ -230,7 +225,7 @@ From the legal report (sections 3.3, 4, 5 and 9). "Done" means done in this repo
 | Source link in the listing | Done: in `copy/description.txt`, enforced by `check.js` |
 | A tag per published build | Human step (step 4) |
 | Upstream release workflows that publish under upstream's identity | Done: `release.yaml` and `main_deploy.yaml` removed |
-| Play declarations: contacts, photos and videos, foreground services | Human step (step 6), text in `play-declarations.md` |
+| Play declarations: contacts | Human step (step 6), text in `play-declarations.md` |
 | Listing free of other companies' brands (spectrum a or b) | Done: `check.js` enforces it |
 | Dependency licence check | Human step: `dart run license_checker check-licenses -c licenses.yaml --problematic` before each release |
 | Decide free or paid before the first release | Owner decision (section 0) |
