@@ -3929,5 +3929,43 @@
     "failedToSend": "Failed to send",
     "@failedToSend": {
         "description": "Spoken label of the error icon before the user's own newest message in the chat list when it could not be sent."
+    },
+    "searchInTitle": "Search in",
+    "@searchInTitle": {
+        "description": "Heading of the menu that picks what the chat list search looks through (all, chats, people, messages, media or links), and the tooltip of the button that opens it."
+    },
+    "searchInSelected": "Search in: {scope}",
+    "@searchInSelected": {
+        "description": "Spoken label and tooltip of the chip in the chat list search field that shows what the search is narrowed to, such as People.",
+        "placeholders": {
+            "scope": {
+                "type": "String"
+            }
+        }
+    },
+    "searchScopeMedia": "Media",
+    "@searchScopeMedia": {
+        "description": "Choice in the chat list search's Search in menu: only messages with pictures, videos, audio or files."
+    },
+    "searchScopeLinks": "Links",
+    "@searchScopeLinks": {
+        "description": "Choice in the chat list search's Search in menu: only messages with a web link."
+    },
+    "searchRecent": "Recent",
+    "@searchRecent": {
+        "description": "Heading over the people recently chatted with, shown when the chat list search opens and nothing is typed yet."
+    },
+    "searchHintAll": "Search chats, people, messages",
+    "@searchHintAll": {
+        "description": "Hint in the chat list search field while it searches everything."
+    },
+    "searchHintChats": "Search chats",
+    "searchHintPeople": "Search people",
+    "searchHintMessages": "Search messages",
+    "searchHintMedia": "Search media",
+    "searchHintLinks": "Search links",
+    "searchUserDirectory": "User directory",
+    "@searchUserDirectory": {
+        "description": "Heading of the people found in the server's user directory while the chat list search is narrowed to people, below the people the user already chats with."
     }
 }

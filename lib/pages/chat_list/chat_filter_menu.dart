@@ -87,7 +87,7 @@ Future<void> showChatFilterMenu(
     // that follows the longest row between 112 and 280.
     constraints: const BoxConstraints(minWidth: 112, maxWidth: 280),
     items: [
-      _item(
+      chatMenuItem(
         value: 'filter:${ActiveFilter.allChats.name}',
         leading: const Icon(Icons.forum_outlined),
         label: l10n.allChats,
@@ -98,7 +98,7 @@ Future<void> showChatFilterMenu(
         (ActiveFilter.groups, Icons.group_outlined),
         (ActiveFilter.messages, Icons.person_outlined),
       ])
-        _item(
+        chatMenuItem(
           value: 'filter:${kind.name}',
           leading: Icon(icon),
           label: kind.toLocalizedString(anchor),
@@ -108,7 +108,7 @@ Future<void> showChatFilterMenu(
         const PopupMenuDivider(),
         heading(l10n.networks),
         for (final space in networks)
-          _item(
+          chatMenuItem(
             value: 'network:${space.id}',
             leading: _networkAvatar(space, locals),
             label: space.getLocalizedDisplayname(locals),
@@ -119,7 +119,7 @@ Future<void> showChatFilterMenu(
         const PopupMenuDivider(),
         heading(l10n.chatFilterTags),
         for (final tag in tags)
-          _item(
+          chatMenuItem(
             value: 'tag:$tag',
             leading: const Icon(Icons.label_outlined),
             label: tag.replaceFirst('u.', ''),
@@ -157,7 +157,10 @@ Future<void> showChatFilterMenu(
   }
 }
 
-PopupMenuItem<String> _item({
+/// A row of the chat list's menus: [leading] in a 24 box, [label], and a
+/// check at the end while [checked], on Material's 48 high rows with 12 of
+/// side padding.
+PopupMenuItem<String> chatMenuItem({
   required String value,
   required Widget leading,
   required String label,

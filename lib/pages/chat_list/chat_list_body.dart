@@ -21,6 +21,7 @@ import 'package:fluffychat/pages/chat_list/message_search_results.dart';
 import 'package:fluffychat/pages/chat_list/pinned_order.dart';
 import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
 import 'package:fluffychat/pages/chat_list/scroll_to_top_button.dart';
+import 'package:fluffychat/pages/chat_list/search_scope.dart';
 import 'package:fluffychat/pages/chat_list/search_title.dart';
 import 'package:fluffychat/pages/chat_list/space_view.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
@@ -140,6 +141,14 @@ class ChatListViewBody extends StatelessWidget {
     final explore = MatrixFeatures.forClient(
       client,
     ).isRelevant(MatrixFeature.explore);
+    final phone = !FluffyThemes.isColumnMode(context);
+    // Only the phone's search field offers the Search in menu.
+    final scope = controller.isSearchMode && phone
+        ? controller.searchScope
+        : SearchScope.all;
+    // Before anything is typed, the phone's search shows the people the
+    // user chats with most recently in place of the chats.
+    final recentOnly = controller.isSearchMode && phone && filter.isEmpty;
     final header = activeSpaceRoom == null || controller.selectionMode
         ? controller.header
         : RoomUpdatesBuilder(
@@ -209,21 +218,31 @@ class ChatListViewBody extends StatelessWidget {
                 // Rooms the search hides are left out here instead of being
                 // built as empty tiles, so the list only builds what it shows.
                 final matrixLocals = MatrixLocals(L10n.of(context));
-                final shownRooms = filter.isEmpty
-                    ? List.of(rooms)
+                final shownRooms = recentOnly || !scope.showsChats
+                    ? <Room>[]
                     : rooms
                           .where(
-                            (room) => controller.listedChatMatches(
-                              room,
-                              filter,
-                              matrixLocals,
-                            ),
+                            (room) =>
+                                (filter.isEmpty ||
+                                    controller.listedChatMatches(
+                                      room,
+                                      filter,
+                                      matrixLocals,
+                                    )) &&
+                                (scope != SearchScope.people ||
+                                    searchChatIsPerson(controller, room)),
                           )
                           .toList();
+                final recentPeople = recentOnly
+                    ? rooms
+                          .where((room) => searchChatIsPerson(controller, room))
+                          .take(_RecentPeople.maxCount)
+                          .toList()
+                    : const <Room>[];
                 // Pinned chats sit in a row of large avatars above the list,
                 // and are left out of the list itself. A search shows them as
                 // normal rows so results stay in one place.
-                final pinnedRooms = filter.isEmpty
+                final pinnedRooms = filter.isEmpty && !recentOnly
                     ? rooms.where(controller.listedChatIsPinned).toList()
                     : const <Room>[];
                 if (pinnedRooms.isNotEmpty) {
@@ -246,10 +265,21 @@ class ChatListViewBody extends StatelessWidget {
 
                 return SliverMainAxisGroup(
                   slivers: [
+                    if (recentPeople.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: _RecentPeople(
+                          controller: controller,
+                          rooms: recentPeople,
+                        ),
+                      ),
                     if (controller.isSearchMode &&
                         (shownRooms.isNotEmpty || pinnedRooms.isNotEmpty))
                       SliverToBoxAdapter(
-                        child: SearchTitle(title: L10n.of(context).chats),
+                        child: SearchTitle(
+                          title: scope == SearchScope.people
+                              ? L10n.of(context).chatListPeople
+                              : L10n.of(context).chats,
+                        ),
                       ),
                     if (client.prevBatch != null &&
                         rooms.isEmpty &&
@@ -330,6 +360,9 @@ class ChatListViewBody extends StatelessWidget {
                               room,
                               spaceDelegateCandidates[room.id],
                               spaces: spaceDelegateCandidates,
+                              highlight: controller.isSearchMode
+                                  ? filter
+                                  : null,
                             );
                             return ValueListenableBuilder(
                               key: ValueKey(room.id),
@@ -368,37 +401,58 @@ class ChatListViewBody extends StatelessWidget {
             // which are found at once, so they go below them instead of
             // pushing them down when they arrive.
             if (controller.isSearchMode) ...[
-              if (explore) ...[
+              if (explore && scope.showsDirectory) ...[
                 _SearchSection(
                   key: ValueKey(('people', filter)),
-                  title: L10n.of(context).chatListPeople,
+                  // Under the people the user chats with, which People
+                  // heads in that scope.
+                  title: scope == SearchScope.people
+                      ? L10n.of(context).searchUserDirectory
+                      : L10n.of(context).chatListPeople,
                   rows: [
                     for (final profile
                         in userSearchResult?.results ?? <Profile>[])
-                      _UserResultTile(client: client, profile: profile),
+                      _UserResultTile(
+                        client: client,
+                        profile: profile,
+                        highlight: filter,
+                      ),
                   ],
                 ),
               ],
-              _SearchSection(
-                key: ValueKey(('rooms', filter)),
-                title: L10n.of(context).publicRooms,
-                rows: [
-                  for (final chunk in publicRooms ?? <PublishedRoomsChunk>[])
-                    _PublicRoomResultTile(chunk: chunk),
-                ],
-              ),
-              _SearchSection(
-                key: ValueKey(('spaces', filter)),
-                title: L10n.of(context).publicSpaces,
-                rows: [
-                  for (final chunk in publicSpaces ?? <PublishedRoomsChunk>[])
-                    _PublicRoomResultTile(chunk: chunk, space: true),
-                ],
-              ),
-              MessageSearchResults(
-                client: client,
-                searchField: controller.searchController,
-              ),
+              if (scope.showsPublicRooms) ...[
+                _SearchSection(
+                  key: ValueKey(('rooms', filter)),
+                  title: L10n.of(context).publicRooms,
+                  rows: [
+                    for (final chunk in publicRooms ?? <PublishedRoomsChunk>[])
+                      _PublicRoomResultTile(chunk: chunk, highlight: filter),
+                  ],
+                ),
+                _SearchSection(
+                  key: ValueKey(('spaces', filter)),
+                  title: L10n.of(context).publicSpaces,
+                  rows: [
+                    for (final chunk in publicSpaces ?? <PublishedRoomsChunk>[])
+                      _PublicRoomResultTile(
+                        chunk: chunk,
+                        space: true,
+                        highlight: filter,
+                      ),
+                  ],
+                ),
+              ],
+              if (scope.showsMessages)
+                MessageSearchResults(
+                  client: client,
+                  searchField: controller.searchController,
+                  where: scope == SearchScope.all ? null : scope.keepsHit,
+                  title: switch (scope) {
+                    SearchScope.media => L10n.of(context).searchScopeMedia,
+                    SearchScope.links => L10n.of(context).searchScopeLinks,
+                    _ => null,
+                  },
+                ),
             ],
           ],
         ),
@@ -1333,7 +1387,8 @@ class _RenderBelowHeader extends RenderBox
 /// results and the chats replace each other without a cut. The old content
 /// is gone at once, which keeps the two from showing through each other;
 /// the new content fades in over 250 ms (medium 1) in Material's emphasized
-/// decelerate easing.
+/// decelerate easing, or at once with animations turned off in the system
+/// settings.
 class _SearchFade extends StatefulWidget {
   final bool searching;
   final List<Widget> slivers;
@@ -1360,7 +1415,12 @@ class _SearchFadeState extends State<_SearchFade>
   @override
   void didUpdateWidget(_SearchFade oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.searching != oldWidget.searching) _fade.forward(from: 0);
+    if (widget.searching == oldWidget.searching) return;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _fade.value = 1;
+    } else {
+      _fade.forward(from: 0);
+    }
   }
 
   @override
@@ -1422,18 +1482,20 @@ class _SearchSectionState extends State<_SearchSection> {
 
 /// A row of the search results: a Material two line list item on the
 /// list's 16 insets, with the avatar the chat rows use so the names line up
-/// with theirs, the title in body large and the supporting text in body
-/// medium.
+/// with theirs, the title in body large with the search text [highlight]
+/// marked in it, and the supporting text in body medium.
 class _SearchResultTile extends StatelessWidget {
   final Widget leading;
   final String title;
   final String? subtitle;
+  final String highlight;
   final VoidCallback onTap;
 
   const _SearchResultTile({
     required this.leading,
     required this.title,
     required this.onTap,
+    required this.highlight,
     this.subtitle,
   });
 
@@ -1444,7 +1506,13 @@ class _SearchResultTile extends StatelessWidget {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       leading: leading,
-      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      title: Text.rich(
+        TextSpan(
+          children: highlightMatches(title, highlight, searchMatchStyle(theme)),
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       titleTextStyle: theme.textTheme.bodyLarge?.copyWith(
         color: theme.colorScheme.onSurface,
       ),
@@ -1463,8 +1531,13 @@ class _SearchResultTile extends StatelessWidget {
 class _UserResultTile extends StatelessWidget {
   final Client client;
   final Profile profile;
+  final String highlight;
 
-  const _UserResultTile({required this.client, required this.profile});
+  const _UserResultTile({
+    required this.client,
+    required this.profile,
+    required this.highlight,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1476,6 +1549,7 @@ class _UserResultTile extends StatelessWidget {
       leading: Avatar(mxContent: profile.avatarUrl, name: name, client: client),
       title: name,
       subtitle: MatrixFeatures.forClient(client).userLabel(profile.userId),
+      highlight: highlight,
       onTap: () => UserDialog.show(context: context, profile: profile),
     );
   }
@@ -1485,8 +1559,13 @@ class _UserResultTile extends StatelessWidget {
 class _PublicRoomResultTile extends StatelessWidget {
   final PublishedRoomsChunk chunk;
   final bool space;
+  final String highlight;
 
-  const _PublicRoomResultTile({required this.chunk, this.space = false});
+  const _PublicRoomResultTile({
+    required this.chunk,
+    required this.highlight,
+    this.space = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1502,6 +1581,7 @@ class _PublicRoomResultTile extends StatelessWidget {
       ),
       title: name,
       subtitle: l10n.countParticipants(chunk.numJoinedMembers),
+      highlight: highlight,
       onTap: () => showAdaptiveDialog(
         context: context,
         barrierDismissible: true,
@@ -1510,6 +1590,90 @@ class _PublicRoomResultTile extends StatelessWidget {
           chunk: chunk,
         ),
       ),
+    );
+  }
+}
+
+/// The people the user chats with most recently, as a row of avatars with
+/// their first names under a Recent heading. The phone's search shows it
+/// before anything is typed; a tap opens the chat.
+class _RecentPeople extends StatelessWidget {
+  final ChatListController controller;
+  final List<Room> rooms;
+
+  const _RecentPeople({required this.controller, required this.rooms});
+
+  static const maxCount = 12;
+
+  /// The first word of [name] when it is a word, such as "Drew" for
+  /// "Drew Andersen"; a name such as a phone number is kept whole.
+  static String _firstName(String name) {
+    final first = name.trim().split(RegExp(r'\s+')).first;
+    return first.contains(RegExp(r'\p{L}', unicode: true)) ? first : name;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final locals = MatrixLocals(L10n.of(context));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SearchTitle(title: L10n.of(context).searchRecent),
+        SizedBox(
+          height: 88,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            children: [
+              for (final room in rooms)
+                Builder(
+                  builder: (context) {
+                    final name =
+                        controller
+                            .mergedContactFor(room)
+                            ?.displayName(locals) ??
+                        room.getLocalizedDisplayname(locals);
+                    return Semantics(
+                      button: true,
+                      label: name,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        excludeFromSemantics: true,
+                        onTap: () => controller.onListedChatTap(room),
+                        child: ExcludeSemantics(
+                          child: SizedBox(
+                            width: 72,
+                            child: Column(
+                              children: [
+                                const SizedBox(height: 4),
+                                Avatar(
+                                  mxContent: room.avatar,
+                                  name: name,
+                                  size: 56,
+                                  client: room.client,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _firstName(name),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

@@ -4,12 +4,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' show lerpDouble;
 
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_filter_menu.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/client_chooser_button.dart';
+import 'package:fluffychat/pages/chat_list/search_scope.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/sync_status_localization.dart';
 import 'package:material_ui/material_ui.dart';
@@ -85,14 +88,20 @@ class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(56);
 }
 
-/// The phone header's content: the filter dropdown as its title (see
-/// [ChatFilterButton]) with a search button and the account button, or the
-/// search field while searching. The field opens out of the
-/// search button: its pill grows leftwards from the end of the bar in
-/// Material's emphasized decelerate easing over 400 ms (medium 4), and
-/// folds back in emphasized accelerate over 200 ms (short 4). The title is
-/// all but gone before the field fades in, and the two overlap only in the
-/// fast first part of the motion, so they do not show through each other.
+/// The phone header's content. At rest: the filter dropdown as its title
+/// (see [ChatFilterButton]), a search button and the account button. While
+/// searching: a pill search field from the start of the bar to the search
+/// icon, which stays where it was and becomes the end of the field, with
+/// the Search in button at the field's start (see [SearchScopeButton]), and
+/// a close button in the account button's place.
+///
+/// Opening takes 400 ms (medium 4) in Material's emphasized decelerate
+/// easing: the field appears behind the search icon and grows leftwards to
+/// the start of the bar, the title fades out and drifts 12 towards the
+/// start in the first 30% of it, and the account button shrinks, turns a
+/// quarter and fades while the close button turns in. Closing runs the same
+/// motion back in 250 ms (medium 1), emphasized accelerate. With animations
+/// turned off in the system settings, both happen at once.
 class _PhoneTitle extends StatefulWidget {
   final ChatListController controller;
   final bool searching;
@@ -107,6 +116,9 @@ class _PhoneTitle extends StatefulWidget {
   /// The part of the field that is revealed while it opens.
   static const revealKey = ValueKey('chat_list_search_reveal');
 
+  /// The pill behind the search field.
+  static const pillKey = ValueKey('chat_list_search_pill');
+
   @override
   State<_PhoneTitle> createState() => _PhoneTitleState();
 }
@@ -116,24 +128,37 @@ class _PhoneTitleState extends State<_PhoneTitle>
   late final AnimationController _open = AnimationController(
     vsync: this,
     duration: Durations.medium4,
-    reverseDuration: Durations.short4,
+    reverseDuration: Durations.medium1,
     value: widget.searching ? 1 : 0,
   );
 
-  late final Animation<double> _width = CurvedAnimation(
+  late final Animation<double> _grow = CurvedAnimation(
     parent: _open,
     curve: Easing.emphasizedDecelerate,
     reverseCurve: Easing.emphasizedAccelerate,
   );
 
-  static const _titleFade = Interval(0, 0.2);
-  static const _fieldFade = Interval(0.1, 0.45);
+  /// The parts that come and go, by the share of the motion's time they
+  /// take. The field's fill shows at once behind the search icon; what the
+  /// field holds fades in once the pill has grown clear of the icon.
+  static const _titleOut = Interval(0, 0.3, curve: Easing.standard);
+  static const _fillIn = Interval(0, 0.1);
+  static const _contentIn = Interval(0.15, 0.5);
+  static const _accountOut = Interval(0, 0.5, curve: Easing.standard);
+  static const _closeIn = Interval(0.3, 1, curve: Easing.standard);
+
+  /// The width of an icon button, and the gap between the search button
+  /// and the account button.
+  static const _slot = 48.0;
+  static const _gap = 4.0;
 
   @override
   void didUpdateWidget(_PhoneTitle oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.searching == oldWidget.searching) return;
-    if (widget.searching) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _open.value = widget.searching ? 1 : 0;
+    } else if (widget.searching) {
       _open.forward();
     } else {
       _open.reverse();
@@ -148,71 +173,263 @@ class _PhoneTitleState extends State<_PhoneTitle>
 
   @override
   Widget build(BuildContext context) {
-    final title = Row(
-      children: [
-        Expanded(
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: ChatFilterButton(controller: widget.controller),
-          ),
-        ),
-        IconButton(
-          tooltip: L10n.of(context).search,
-          onPressed: widget.controller.startSearch,
-          icon: const Icon(Icons.search_outlined),
-        ),
-        const SizedBox(width: 4),
-        ClientChooserButton(widget.controller),
-      ],
+    final controller = widget.controller;
+    final l10n = L10n.of(context);
+    final colors = Theme.of(context).colorScheme;
+    final towardsStart = Directionality.of(context) == TextDirection.rtl
+        ? 1
+        : -1;
+    final title = ChatFilterButton(controller: controller);
+    final account = Center(child: ClientChooserButton(controller));
+    // Buttons sit centred in their slots rather than filling them: given the
+    // slot's tight 48, an icon button would draw its state layer 48 across
+    // instead of Material's 40 circle.
+    final close = Center(
+      child: IconButton(
+        tooltip: l10n.cancel,
+        icon: const Icon(Icons.close_outlined),
+        onPressed: controller.cancelSearch,
+      ),
     );
-    final field = _SearchField(widget.controller, widget.globalSearch);
-    return AnimatedBuilder(
-      animation: _open,
-      builder: (context, _) {
-        final value = _open.value;
-        return SizedBox(
-          width: double.infinity,
-          child: Stack(
-            alignment: AlignmentDirectional.centerEnd,
-            children: [
-              if (value < 1)
-                IgnorePointer(
-                  key: const ValueKey('title'),
-                  ignoring: widget.searching,
-                  child: Opacity(
-                    opacity: 1 - _titleFade.transform(value),
-                    child: title,
-                  ),
-                ),
-              // One field for the whole animation, so its focus, text and
-              // keyboard carry through it. The keys keep the field's element
-              // when the title before it leaves the stack as the animation
-              // ends: unkeyed, the field would be matched to the title's
-              // slot and rebuilt, and the rebuilt field drops the keyboard.
-              if (value > 0 || widget.searching)
-                IgnorePointer(
-                  key: const ValueKey('field'),
-                  ignoring: !widget.searching,
-                  child: ClipRect(
-                    child: Align(
-                      key: _PhoneTitle.revealKey,
-                      alignment: AlignmentDirectional.centerEnd,
-                      widthFactor: _width.value,
-                      child: Opacity(
-                        opacity: _fieldFade.transform(value),
-                        child: field,
+    final field = _PhoneSearchField(controller, widget.globalSearch);
+    // The search icon's distance from the end of the bar, which is where
+    // the field ends.
+    const fieldEnd = _slot + _gap;
+    return SizedBox(
+      height: _slot,
+      width: double.infinity,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final fullWidth = constraints.maxWidth - fieldEnd;
+          return AnimatedBuilder(
+            animation: _open,
+            builder: (context, _) {
+              final searching = widget.searching;
+              final value = _open.value;
+              final titleOut = _titleOut.transform(value);
+              final accountOut = _accountOut.transform(value);
+              final closeIn = _closeIn.transform(value);
+              // Every child is keyed, so each keeps its element while the
+              // others come and go. The field in particular is one element
+              // for the whole animation, so its focus, text and keyboard
+              // carry through it: rebuilt, it would drop the keyboard.
+              return Stack(
+                children: [
+                  if (value < 1)
+                    PositionedDirectional(
+                      key: const ValueKey('title'),
+                      start: 0,
+                      end: fieldEnd + _slot,
+                      top: 0,
+                      bottom: 0,
+                      child: IgnorePointer(
+                        ignoring: searching,
+                        child: Opacity(
+                          opacity: 1 - titleOut,
+                          child: Transform.translate(
+                            offset: Offset(towardsStart * 12 * titleOut, 0),
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: title,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
+                  if (value > 0 || searching)
+                    PositionedDirectional(
+                      key: const ValueKey('field'),
+                      end: fieldEnd,
+                      top: 0,
+                      bottom: 0,
+                      width: lerpDouble(_slot, fullWidth, _grow.value),
+                      child: IgnorePointer(
+                        ignoring: !searching,
+                        // The pill is the Material the field's buttons
+                        // draw their ink on.
+                        child: Material(
+                          key: _PhoneTitle.pillKey,
+                          animationDuration: Duration.zero,
+                          color: colors.surfaceContainerHigh.withValues(
+                            alpha: _fillIn.transform(value),
+                          ),
+                          shape: const StadiumBorder(),
+                          child: ClipRect(
+                            key: _PhoneTitle.revealKey,
+                            // Laid out at its full width from the start and
+                            // revealed from the end, so nothing in it moves
+                            // while the pill grows.
+                            child: OverflowBox(
+                              alignment: AlignmentDirectional.centerEnd,
+                              minWidth: fullWidth,
+                              maxWidth: fullWidth,
+                              child: Opacity(
+                                opacity: _contentIn.transform(value),
+                                child: field,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  PositionedDirectional(
+                    key: const ValueKey('search'),
+                    end: fieldEnd,
+                    top: 0,
+                    bottom: 0,
+                    width: _slot,
+                    child: searching
+                        // The end of the field, which is already focused.
+                        ? ExcludeSemantics(
+                            child: Center(
+                              child: Icon(
+                                Icons.search_outlined,
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          )
+                        : Center(
+                            child: IconButton(
+                              tooltip: l10n.search,
+                              onPressed: controller.startSearch,
+                              icon: const Icon(Icons.search_outlined),
+                            ),
+                          ),
                   ),
-                ),
-            ],
-          ),
-        );
-      },
+                  if (value < 1)
+                    PositionedDirectional(
+                      key: const ValueKey('account'),
+                      end: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: _slot,
+                      child: IgnorePointer(
+                        ignoring: searching,
+                        child: Opacity(
+                          opacity: 1 - accountOut,
+                          child: Transform.rotate(
+                            angle: accountOut * math.pi / 2,
+                            child: Transform.scale(
+                              scale: 1 - accountOut / 2,
+                              child: account,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (value > 0 || searching)
+                    PositionedDirectional(
+                      key: const ValueKey('close'),
+                      end: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: _slot,
+                      child: IgnorePointer(
+                        ignoring: !searching,
+                        child: Opacity(
+                          opacity: closeIn,
+                          child: Transform.rotate(
+                            angle: (closeIn - 1) * math.pi / 2,
+                            child: Transform.scale(
+                              scale: 0.5 + closeIn / 2,
+                              child: close,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
 
+/// The phone's search field, in the pill of [_PhoneTitle]: the Search in
+/// button or chip at its start, the text, and room at its end for the
+/// search icon, which [_PhoneTitle] places there.
+class _PhoneSearchField extends StatelessWidget {
+  final ChatListController controller;
+  final bool globalSearch;
+
+  const _PhoneSearchField(this.controller, this.globalSearch);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final onField = theme.colorScheme.onSurfaceVariant;
+    return Row(
+      children: [
+        SearchScopeButton(controller: controller),
+        Expanded(
+          child: TextField(
+            textAlignVertical: TextAlignVertical.center,
+            controller: controller.searchController,
+            focusNode: controller.searchFocusNode,
+            // The field only exists once search starts.
+            autofocus: true,
+            textInputAction: TextInputAction.search,
+            onChanged: (text) =>
+                controller.onSearchEnter(text, globalSearch: globalSearch),
+            style: theme.textTheme.bodyLarge,
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: const EdgeInsetsDirectional.only(start: 4),
+              border: InputBorder.none,
+              hintText: controller.searchScope.hint(L10n.of(context)),
+              hintStyle: theme.textTheme.bodyLarge!.copyWith(color: onField),
+            ),
+          ),
+        ),
+        if (globalSearch) ?_searchProgressOrServer(context, controller),
+        const SizedBox(width: 48),
+      ],
+    );
+  }
+}
+
+/// The end of a search field while it searches the server: progress while
+/// the server answers, then the server whose public rooms are listed, which
+/// a tap changes. The server only matters while public rooms are searched
+/// at all, so without them there is nothing after the progress.
+Widget? _searchProgressOrServer(
+  BuildContext context,
+  ChatListController controller,
+) {
+  if (controller.isSearching) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 12),
+      child: SizedBox.square(
+        dimension: 24,
+        child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+      ),
+    );
+  }
+  final explore = MatrixFeatures.forClient(
+    Matrix.of(context).client,
+  ).isRelevant(MatrixFeature.explore);
+  if (!explore) return null;
+  final theme = Theme.of(context);
+  return TextButton.icon(
+    onPressed: controller.setServer,
+    style: TextButton.styleFrom(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(99)),
+      // The theme's label style, so the text keeps the app font.
+      textStyle: theme.textTheme.labelLarge?.copyWith(fontSize: 12),
+    ),
+    icon: const Icon(Icons.edit_outlined, size: 16),
+    label: Text(
+      controller.searchServer ?? Matrix.of(context).client.homeserver!.host,
+      maxLines: 2,
+    ),
+  );
+}
+
+/// The search field of the wide layout, which is always shown: a search
+/// button at its start that turns into a close button while searching.
 class _SearchField extends StatelessWidget {
   final ChatListController controller;
   final bool globalSearch;
@@ -223,18 +440,11 @@ class _SearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final onField = theme.colorScheme.onSurfaceVariant;
-    // The server switch picks whose public rooms the search lists, which
-    // only matters while public rooms are searched at all.
-    final explore = MatrixFeatures.forClient(
-      Matrix.of(context).client,
-    ).isRelevant(MatrixFeature.explore);
     return TextField(
       // Centres the text in the shortened field.
       textAlignVertical: TextAlignVertical.center,
       controller: controller.searchController,
       focusNode: controller.searchFocusNode,
-      // On a phone the field only appears once search starts.
-      autofocus: !FluffyThemes.isColumnMode(context),
       textInputAction: TextInputAction.search,
       onChanged: (text) =>
           controller.onSearchEnter(text, globalSearch: globalSearch),
@@ -265,39 +475,7 @@ class _SearchField extends StatelessWidget {
                 icon: Icon(Icons.search_outlined, color: onField),
               ),
         suffixIcon: controller.isSearchMode && globalSearch
-            ? controller.isSearching
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(
-                        vertical: 10.0,
-                        horizontal: 12,
-                      ),
-                      child: SizedBox.square(
-                        dimension: 24,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                        ),
-                      ),
-                    )
-                  : !explore
-                  ? null
-                  : TextButton.icon(
-                      onPressed: controller.setServer,
-                      style: TextButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                        // The theme's label style, so the text keeps the app font.
-                        textStyle: theme.textTheme.labelLarge?.copyWith(
-                          fontSize: 12,
-                        ),
-                      ),
-                      icon: const Icon(Icons.edit_outlined, size: 16),
-                      label: Text(
-                        controller.searchServer ??
-                            Matrix.of(context).client.homeserver!.host,
-                        maxLines: 2,
-                      ),
-                    )
+            ? _searchProgressOrServer(context, controller)
             : null,
       ),
     );
