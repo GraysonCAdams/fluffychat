@@ -78,9 +78,9 @@ void main() {
     await searchAndScroll(tester, 'chat', by: 2000);
     expect(list(tester).scrollController.offset, greaterThan(1500));
 
-    // The bar is 72 high below the status bar, the field 48 high in it.
+    // The bar is 64 high below the status bar, the field 48 high in it.
     final field = tester.getRect(pill);
-    expect(field.top, statusBar + (72 - 48) / 2);
+    expect(field.top, statusBar + (64 - 48) / 2);
     expect(pill.hitTestable(), findsOneWidget);
     final bar = find
         .descendant(
@@ -89,7 +89,7 @@ void main() {
         )
         .first;
     expect(tester.getRect(bar).top, 0);
-    expect(tester.getRect(bar).bottom, statusBar + 72);
+    expect(tester.getRect(bar).bottom, statusBar + 64);
     final colors = Theme.of(tester.element(bar)).colorScheme;
     final color = tester.widget<Material>(bar).color!;
     expect(color, colors.surfaceContainer);
@@ -141,7 +141,7 @@ void main() {
     // The chat sits on screen where it is in the list, below the header.
     expect(row.hitTestable(), findsOneWidget);
     final rowRect = tester.getRect(row);
-    expect(rowRect.top, greaterThan(statusBar + 72));
+    expect(rowRect.top, greaterThan(statusBar + 64));
     expect(rowRect.bottom, lessThan(800));
     expect(controller.scrollController.offset, greaterThan(0));
 

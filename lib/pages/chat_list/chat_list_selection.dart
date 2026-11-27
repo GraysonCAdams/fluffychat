@@ -6,6 +6,7 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/pages/chat_list/push_rule_state_cache.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
@@ -92,7 +93,7 @@ class ChatListSelectionBar extends StatelessWidget {
     final chats = controller.selectedChats;
     return SliverAppBar(
       // The height of the search header it takes the place of.
-      toolbarHeight: 72,
+      toolbarHeight: chatListHeaderHeight(context),
       pinned: true,
       scrolledUnderElevation: 0,
       backgroundColor: theme.colorScheme.surfaceContainer,

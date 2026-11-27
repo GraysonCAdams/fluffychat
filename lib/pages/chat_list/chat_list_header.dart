@@ -31,6 +31,12 @@ WidgetStateColor chatListBarColor(ColorScheme colors) =>
           : colors.surface,
     );
 
+/// The height of the chat list's bar below the status bar: Material's small
+/// top app bar on a phone, which keeps the pinned row close under the
+/// title, and a taller bar beside the chats in a wide layout.
+double chatListHeaderHeight(BuildContext context) =>
+    FluffyThemes.isColumnMode(context) ? 72 : 64;
+
 class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
   final ChatListController controller;
   final bool globalSearch;
@@ -52,7 +58,7 @@ class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
 
     return SliverAppBar(
       floating: true,
-      toolbarHeight: 72,
+      toolbarHeight: chatListHeaderHeight(context),
       pinned: isColumnMode || phoneSearch,
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
