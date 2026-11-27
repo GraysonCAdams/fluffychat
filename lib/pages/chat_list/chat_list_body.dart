@@ -968,9 +968,9 @@ class _PinnedChat extends StatelessWidget {
                         selected: selected,
                         size: _avatarSize,
                         // A group without a picture shows its members.
-                        child: contact == null && GroupAvatar.shows(room)
+                        child: GroupAvatar.shows(contact?.sendViaRoom ?? room)
                             ? GroupAvatar(
-                                room: room,
+                                room: contact?.sendViaRoom ?? room,
                                 name: name,
                                 size: _avatarSize,
                               )
@@ -1025,7 +1025,7 @@ class _PinnedChat extends StatelessWidget {
                       // A selected chat shows only the check, without badges.
                       if (selected || !AppSettings.chatListNetworkBadges.value)
                         const SizedBox.shrink()
-                      else if (contact != null)
+                      else if (contact != null && contact.spansNetworks)
                         Positioned(
                           right: -2,
                           bottom: -2,

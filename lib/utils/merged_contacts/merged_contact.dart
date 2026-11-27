@@ -127,6 +127,11 @@ class MergedContact {
     for (final room in rooms) spaceOf[room.id],
   ];
 
+  /// Whether the rooms are on more than one network. A contact the app made
+  /// for same-people groups is on one bridge, so the chat list badges it
+  /// as that network rather than as a merged contact.
+  bool get spansNetworks => !entry.automatic;
+
   /// The ID of every member room, for checks like "is this chat open".
   Iterable<String> get roomIds => rooms.map((room) => room.id);
 }

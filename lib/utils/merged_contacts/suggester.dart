@@ -182,15 +182,16 @@ List<MergeSuggestion> suggestMerges(
         keyCounts[key] = (keyCounts[key] ?? 0) + 1;
       }
     }
-    final shared = [
-      for (final MapEntry(:key, :value) in keyCounts.entries)
-        if (value > 1) key,
-    ]..sort((a, b) {
-      final aName = a.type == IdentifierType.name ? 1 : 0;
-      final bName = b.type == IdentifierType.name ? 1 : 0;
-      if (aName != bName) return aName - bName;
-      return a.value.compareTo(b.value);
-    });
+    final shared =
+        [
+          for (final MapEntry(:key, :value) in keyCounts.entries)
+            if (value > 1) key,
+        ]..sort((a, b) {
+          final aName = a.type == IdentifierType.name ? 1 : 0;
+          final bName = b.type == IdentifierType.name ? 1 : 0;
+          if (aName != bName) return aName - bName;
+          return a.value.compareTo(b.value);
+        });
     final identifier = shared.first;
 
     final contactIds = {
