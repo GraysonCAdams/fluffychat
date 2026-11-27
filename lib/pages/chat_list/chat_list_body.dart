@@ -157,7 +157,13 @@ class ChatListViewBody extends StatelessWidget {
         // Keyed so the back to top button can follow the bar's height on
         // screen (see _BelowHeader).
         if (header != null)
-          KeyedSubtree(key: controller.headerKey, child: header),
+          KeyedSubtree(key: controller.headerKey, child: header)
+        else
+          // Under the Windows title bar, which pads the app's top: the
+          // chats start below it.
+          SliverToBoxAdapter(
+            child: SizedBox(height: MediaQuery.paddingOf(context).top),
+          ),
         _SearchFade(
           searching: controller.isSearchMode,
           slivers: [
@@ -446,8 +452,10 @@ class _UnreadBelowChip extends StatelessWidget {
         }
         final listed = controller.listedRooms.value;
         final bottom = scroll.offset + scroll.position.viewportDimension;
-        // Under a title bar the list has no header.
-        final header = controller.titleBarSearch == null ? _headerHeight : 0.0;
+        // Under a title bar the list has no header, only room for the bar.
+        final header = controller.titleBarSearch == null
+            ? _headerHeight
+            : MediaQuery.paddingOf(context).top;
         var top = header + (listed.pins ? _pinsHeight : 0);
         var below = 0;
         double? firstTop;

@@ -46,10 +46,16 @@ class ChatListView extends StatelessWidget {
               duration: FluffyThemes.animationDuration,
               curve: FluffyThemes.animationCurve,
               child: FluffyThemes.isColumnMode(context)
-                  ? SpacesNavigationRail(
-                      activeSpaceId: controller.activeSpaceId,
-                      onGoToChats: controller.clearActiveSpace,
-                      onGoToSpaceId: controller.setActiveSpace,
+                  // Under the Windows title bar, which starts after the
+                  // rail, the rail runs from the top of the window.
+                  ? MediaQuery.removePadding(
+                      context: context,
+                      removeTop: controller.titleBarSearch != null,
+                      child: SpacesNavigationRail(
+                        activeSpaceId: controller.activeSpaceId,
+                        onGoToChats: controller.clearActiveSpace,
+                        onGoToSpaceId: controller.setActiveSpace,
+                      ),
                     )
                   : SizedBox(
                       width: 0,

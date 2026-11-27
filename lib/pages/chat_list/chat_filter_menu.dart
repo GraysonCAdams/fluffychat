@@ -206,10 +206,16 @@ class ChatFilterButton extends StatelessWidget {
   /// The widest the button grows; a longer label is cut short.
   final double maxWidth;
 
+  /// What the button reads while nothing is filtered, in place of "All
+  /// chats": the desktop title says "Chats". A screen reader still hears
+  /// "All chats".
+  final String? unfilteredText;
+
   const ChatFilterButton({
     required this.controller,
     this.style,
     this.maxWidth = 240,
+    this.unfilteredText,
     super.key,
   });
 
@@ -217,6 +223,10 @@ class ChatFilterButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final label = chatFilterLabel(context, controller);
+    final unfiltered =
+        controller.activeFilter == ActiveFilter.allChats &&
+        label == L10n.of(context).allChats;
+    final text = unfiltered ? unfilteredText ?? label : label;
     final textStyle = style ?? theme.textTheme.titleLarge;
     // One node: this label, with the InkWell's tap and focus.
     return Semantics(
@@ -236,7 +246,7 @@ class ChatFilterButton extends StatelessWidget {
                 children: [
                   Flexible(
                     child: Text(
-                      label,
+                      text,
                       style: textStyle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
