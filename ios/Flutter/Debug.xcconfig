@@ -1,2 +1,5 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"
+// iOS 26 and later simulators run on Apple silicon only, and webcrypto does
+// not link for the x86_64 simulator.
+EXCLUDED_ARCHS[sdk=iphonesimulator*] = x86_64
