@@ -26,6 +26,10 @@ abstract class AppConfig {
   static const double columnWidth = 360.0;
 
   static const String appId = 'im.fluffychat.app';
+  // Seam's own id, in the dev.threeonetwo namespace, as its release build is
+  // named on Android. On Windows it is the AppUserModelID Seam's toasts are
+  // posted and registered under.
+  static const String seamApplicationId = 'dev.threeonetwo.seam';
   static const String appOpenUrlScheme = 'im.fluffychat';
   static const String appSsoUrlScheme = 'im.fluffychat.auth';
   // Identifies the notification activation callback on Windows. Never change!
