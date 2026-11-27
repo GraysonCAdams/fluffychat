@@ -17,8 +17,14 @@ import 'package:matrix/matrix.dart';
 /// own service; Flutter has none on Windows, so there it asks the Windows
 /// Spell Checking API, which follows the languages set up in Windows. Its
 /// suggestions appear in the native right-click menu (composer_native_menu.dart).
+///
+/// Android has no native correction popup for a Flutter text field (the
+/// embedding only reads the spell checker's results), so the keyboard's
+/// suggestion strip offers the corrections there: tapping a misspelled word
+/// places the caret in it without Flutter's own suggestions toolbar.
 SpellCheckConfiguration? messageSpellCheckConfiguration() {
-  if (PlatformInfos.isAndroid || PlatformInfos.isIOS) {
+  if (PlatformInfos.isAndroid) return androidSpellCheckConfiguration();
+  if (PlatformInfos.isIOS) {
     return const SpellCheckConfiguration();
   }
   if (PlatformInfos.isWindows) {
@@ -29,6 +35,18 @@ SpellCheckConfiguration? messageSpellCheckConfiguration() {
   }
   return null;
 }
+
+/// Android's configuration, with [service] standing in for the system spell
+/// checker in tests.
+@visibleForTesting
+SpellCheckConfiguration androidSpellCheckConfiguration({
+  SpellCheckService? service,
+}) => SpellCheckConfiguration(
+  spellCheckService: service,
+  // Flutter's toolbar opens with nothing in it; the next tap or long press
+  // closes it as usual.
+  spellCheckSuggestionsToolbarBuilder: (_, _) => const SizedBox.shrink(),
+);
 
 /// Where the message input's "Add to dictionary" and "Ignore" go.
 SpellCheckDictionary? messageSpellCheckDictionary() =>
