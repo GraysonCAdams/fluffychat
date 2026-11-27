@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:flutter/widgets.dart';
 import 'package:matrix/matrix.dart';
 
@@ -41,23 +42,26 @@ extension RoomStatusExtension on Room {
     return typingText;
   }
 
-  List<User> getSeenByUsers(Timeline timeline, {String? eventId}) {
-    if (timeline.events.isEmpty) return [];
-    eventId ??= timeline.events.first.eventId;
-
-    final lastReceipts = <User>{};
-    String? senderId;
-    // now we iterate the timeline events until we hit the first rendered event
-    for (final event in timeline.events) {
-      lastReceipts.addAll(event.receipts.map((r) => r.user));
-      if (event.eventId == eventId) {
-        senderId = event.senderId;
-        break;
+  /// The read receipts of the members who have read [event]: those whose
+  /// receipt is on [event] or on a later event of this room in [timeline],
+  /// one per member, without the user's own, the sender's or the bridge
+  /// bot's.
+  ///
+  /// Only this room's events count, so in a merged contact's timeline a
+  /// receipt on another network's room never marks [event] as read.
+  List<Receipt> readReceiptsOf(Event event, Timeline timeline) {
+    final receipts = <String, Receipt>{};
+    for (final later in timeline.events) {
+      if (later.room.id == id) {
+        for (final receipt in later.receipts) {
+          receipts.putIfAbsent(receipt.user.id, () => receipt);
+        }
       }
+      if (later.eventId == event.eventId) break;
     }
-    lastReceipts.removeWhere(
-      (user) => user.id == client.userID || user.id == senderId,
-    );
-    return lastReceipts.toList();
+    receipts.remove(client.userID);
+    receipts.remove(event.senderId);
+    receipts.remove(RoomBridge.fromState(this)?.bot);
+    return receipts.values.toList();
   }
 }

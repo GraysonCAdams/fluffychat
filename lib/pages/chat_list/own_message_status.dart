@@ -167,11 +167,11 @@ class _OwnMessageStatusIconState extends State<OwnMessageStatusIcon> {
       ),
       OwnMessageState.readBySome => (
         l10n.readByCount(status.readers, status.others),
-        _TwoChecks(filled: false, color: color),
+        TwoChecks(filled: false, color: color),
       ),
       OwnMessageState.read => (
         l10n.messageRead,
-        _TwoChecks(filled: true, color: theme.colorScheme.primary),
+        TwoChecks(filled: true, color: theme.colorScheme.primary),
       ),
     };
     return Padding(
@@ -182,12 +182,13 @@ class _OwnMessageStatusIconState extends State<OwnMessageStatusIcon> {
 }
 
 /// Two circled checks, the front one over the back one with a ring of the
-/// background between them.
-class _TwoChecks extends StatelessWidget {
+/// background between them. Filled in the primary colour they are the read
+/// mark, here and under the user's newest message in a chat.
+class TwoChecks extends StatelessWidget {
   final bool filled;
   final Color? color;
 
-  const _TwoChecks({required this.filled, required this.color});
+  const TwoChecks({super.key, required this.filled, required this.color});
 
   @override
   Widget build(BuildContext context) {

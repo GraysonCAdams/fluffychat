@@ -22,7 +22,6 @@ import 'package:fluffychat/utils/merged_contacts/routed_event.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/widgets/avatar.dart';
-import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/member_actions_popup_menu_button.dart';
 import 'package:flutter/services.dart';
@@ -30,7 +29,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
 import '../../../config/app_config.dart';
-import '../seen_by_row.dart';
+import '../read_status_mark.dart';
 import '../sticker_picker_dialog.dart';
 import 'message_content.dart';
 import 'message_reactions.dart';
@@ -94,8 +93,8 @@ class Message extends StatelessWidget {
   /// hide its time.
   final void Function(Event)? onToggleTime;
 
-  /// Marks the user's newest message as sent once the server has it. In a
-  /// group it also shows who has read it, see [SeenByRow].
+  /// Marks the user's newest message as sent once the server has it, and
+  /// as read once its readers' receipts reach it, see [ReadStatusMark].
   final bool showDeliveryStatus;
 
   const Message(
@@ -279,12 +278,9 @@ class Message extends StatelessWidget {
           ];
     final eventStateTextColor = theme.colorScheme.onSurfaceVariant;
     final showTime = event.status.isSent && (selected || timeRevealed);
+    // Sent, then read where the network says so, see [ReadStatusMark].
     final showSentMark =
         ownMessage && showDeliveryStatus && event.status.isSent;
-    // In a group, the faces of who has read the user's newest message, under
-    // it.
-    final showSeenBy =
-        ownMessage && showDeliveryStatus && event.room.isGroupChat;
     // The line under the bubble: its time, network, edit mark and delivery
     // state, each only when there is something to say.
     final hasStatusLine =
@@ -362,15 +358,11 @@ class Message extends StatelessWidget {
       ],
       if (showSentMark) ...[
         Text(' ', style: TextStyle(fontSize: 12)),
-        Tooltip(
-          message: L10n.of(context).sent,
-          child: Icon(
-            Icons.check_circle_outline,
-            size: 16,
-            color: eventStateTextColor,
-            shadows: wallpaperTextShadow,
-            semanticLabel: L10n.of(context).sent,
-          ),
+        ReadStatusMark(
+          event: event,
+          timeline: timeline,
+          color: eventStateTextColor,
+          shadows: wallpaperTextShadow,
         ),
       ],
     ];
@@ -403,7 +395,6 @@ class Message extends StatelessWidget {
     // there are the link's.
     final replayOwnsBottom =
         effectOf(event) != null &&
-        !showSeenBy &&
         !showReactionPicker &&
         threadChildren.isEmpty &&
         !displayReadMarker;
@@ -862,12 +853,6 @@ class Message extends StatelessWidget {
                                 )
                               else if (hasStatusLine)
                                 statusLine,
-                              if (showSeenBy)
-                                SeenByRow(
-                                  event: event,
-                                  timeline: timeline,
-                                  label: true,
-                                ),
                               Padding(
                                 padding: EdgeInsets.only(left: bubbleIndent),
                                 child: Align(
