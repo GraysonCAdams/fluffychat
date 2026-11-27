@@ -28,6 +28,7 @@ import 'material.dart';
 import 'material_localizations.dart';
 import 'motion.dart';
 import 'popup_menu_theme.dart';
+import 'scrollbar.dart';
 import 'text_theme.dart';
 import 'theme.dart';
 import 'tooltip.dart';
@@ -673,6 +674,31 @@ class _CheckedPopupMenuItemState<T> extends PopupMenuItemState<T, CheckedPopupMe
   }
 }
 
+// FluffyChat: the parts of the app's window that something outside the app
+// covers, which menus keep clear of as they keep clear of the safe area.
+/// The edges of the window that are covered by something outside the app,
+/// such as the Windows taskbar over a window that runs underneath it.
+///
+/// Popup menus and [MenuAnchor] menus stay this far inside the window, on
+/// top of the view padding and their usual 8 pixel margin. Unlike view
+/// padding, it does not move the app's own layout.
+class MenuObscuredInsets extends InheritedWidget {
+  /// Creates a widget that keeps the menus below it clear of [insets].
+  const MenuObscuredInsets({super.key, required this.insets, required super.child});
+
+  /// How far each edge of the window is covered.
+  final EdgeInsets insets;
+
+  /// The insets of the closest [MenuObscuredInsets] above [context], or
+  /// [EdgeInsets.zero].
+  static EdgeInsets of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<MenuObscuredInsets>()?.insets ??
+      EdgeInsets.zero;
+
+  @override
+  bool updateShouldNotify(MenuObscuredInsets oldWidget) => insets != oldWidget.insets;
+}
+
 class _PopupMenu<T> extends StatefulWidget {
   const _PopupMenu({
     required this.itemKeys,
@@ -694,6 +720,7 @@ class _PopupMenu<T> extends StatefulWidget {
 
 class _PopupMenuState<T> extends State<_PopupMenu<T>> {
   List<CurvedAnimation> _opacities = const <CurvedAnimation>[];
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -732,6 +759,7 @@ class _PopupMenuState<T> extends State<_PopupMenu<T>> {
     for (final CurvedAnimation opacity in _opacities) {
       opacity.dispose();
     }
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -779,9 +807,21 @@ class _PopupMenuState<T> extends State<_PopupMenu<T>> {
           namesRoute: true,
           explicitChildNodes: true,
           label: widget.semanticLabel,
-          child: SingleChildScrollView(
-            padding: widget.route.menuPadding ?? popupMenuTheme.menuPadding ?? defaults.menuPadding,
-            child: ListBody(children: children),
+          // FluffyChat: a menu too tall for the window scrolls with its
+          // scrollbar always showing, as Material 3 menus do, in place of the
+          // platform's scrollbar that only shows while scrolling.
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+            child: Scrollbar(
+              controller: _scrollController,
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                padding:
+                    widget.route.menuPadding ?? popupMenuTheme.menuPadding ?? defaults.menuPadding,
+                child: ListBody(children: children),
+              ),
+            ),
           ),
         ),
       ),
@@ -920,7 +960,13 @@ class _PopupMenuRouteLayout extends SingleChildLayoutDelegate {
     if (y < screen.top + _kMenuScreenPadding + padding.top) {
       y = _kMenuScreenPadding + padding.top;
     } else if (y + childSize.height > screen.bottom - _kMenuScreenPadding - padding.bottom) {
-      y = screen.bottom - childSize.height - _kMenuScreenPadding - padding.bottom;
+      // FluffyChat: a menu that does not fit below the point it opens from
+      // opens above it when it fits there, as Material 3 menus reposition;
+      // otherwise it moves up just far enough to fit.
+      final double above = y - childSize.height;
+      y = above >= screen.top + _kMenuScreenPadding + padding.top
+          ? above
+          : screen.bottom - childSize.height - _kMenuScreenPadding - padding.bottom;
     }
 
     return Offset(x, y);
@@ -1065,7 +1111,8 @@ class _PopupMenuRoute<T> extends PopupRoute<T> {
               itemSizes,
               selectedItemIndex,
               Directionality.of(context),
-              mediaQuery.padding,
+              // FluffyChat: and clear of what covers the window.
+              mediaQuery.padding + MenuObscuredInsets.of(context),
               _avoidBounds(mediaQuery),
             ),
             child: capturedThemes.wrap(menu),

@@ -36,6 +36,7 @@ import 'menu_button_theme.dart';
 import 'menu_style.dart';
 import 'menu_theme.dart';
 import 'motion.dart';
+import 'popup_menu.dart';
 import 'radio.dart';
 import 'scrollbar.dart';
 import 'text_button.dart';
@@ -3982,7 +3983,10 @@ class _Submenu extends StatelessWidget {
                 parentOrientation: anchor._parent?._orientation ?? Axis.horizontal,
                 reservedPadding: reservedPadding,
                 heightFactor: heightAnimation.value,
-                mediaQueryData: mediaQuery,
+                // FluffyChat: clear of what covers the window too.
+                mediaQueryData: mediaQuery.copyWith(
+                  padding: mediaQuery.padding + MenuObscuredInsets.of(context),
+                ),
               ),
               child: menuPanel,
             );

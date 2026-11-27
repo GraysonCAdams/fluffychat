@@ -60,6 +60,18 @@ abstract class FluffyThemes {
     );
   }
 
+  /// The colour of every menu: a step lighter than anything it opens over
+  /// in dark mode (the chat pane, the received bubbles in
+  /// surfaceContainerHigh), and white in light mode, where its shadow
+  /// lifts it off the pane. No outline.
+  static Color menuColor(ColorScheme colorScheme) =>
+      colorScheme.brightness == Brightness.dark
+      ? colorScheme.surfaceContainerHighest
+      : colorScheme.surfaceContainerLowest;
+
+  /// Material 3 elevation level 2, the level of menus.
+  static const double menuElevation = 3;
+
   static ThemeData buildTheme(
     BuildContext context,
     Brightness brightness, [
@@ -93,16 +105,30 @@ abstract class FluffyThemes {
         builders: {TargetPlatform.android: _SolidSlidePageTransitionsBuilder()},
       ),
       // Menus hang below the button that opened them rather than covering
-      // it. Without room underneath, a menu shifts up to stay on screen.
+      // it. Without room underneath, a menu opens above where it fits there
+      // and otherwise shifts up to stay on screen.
       popupMenuTheme: PopupMenuThemeData(
         position: PopupMenuPosition.under,
         // Rounded like the app's bubbles and dialogs.
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppConfig.borderRadius),
         ),
-        color: colorScheme.surfaceContainer,
+        color: menuColor(colorScheme),
         surfaceTintColor: Colors.transparent,
-        elevation: 3,
+        elevation: menuElevation,
+      ),
+      // MenuAnchor menus look the same.
+      menuTheme: MenuThemeData(
+        style: MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(menuColor(colorScheme)),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          elevation: const WidgetStatePropertyAll(menuElevation),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppConfig.borderRadius),
+            ),
+          ),
+        ),
       ),
       textSelectionTheme: TextSelectionThemeData(
         selectionColor: colorScheme.onSurface.withAlpha(128),

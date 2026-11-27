@@ -14,5 +14,16 @@ above it. The patch makes each menu open as one eased motion:
 - `lib/src/dropdown.dart`: the panel grows on `Easing.emphasizedDecelerate`
   from the start, and the remaining items fade in together while it grows.
 
+Menus also follow the Material 3 menu guidelines on fitting the window:
+
+- `lib/src/popup_menu.dart`: `MenuObscuredInsets` names the edges of the
+  window that something outside the app covers (the Windows taskbar over a
+  window that runs under it), and popup menus stay that far inside, on top
+  of the view padding and their 8 pixel margin. A popup menu that does not
+  fit below the point it opens from opens above it when it fits there. A
+  menu too tall for the window scrolls with its scrollbar always showing.
+- `lib/src/menu_anchor.dart`: `MenuAnchor` menus keep clear of
+  `MenuObscuredInsets` too.
+
 Every patched spot is marked `FluffyChat:`. To move to a newer `material_ui`,
 copy its `lib/` over this one and reapply those hunks.
