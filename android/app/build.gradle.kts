@@ -43,12 +43,18 @@ configurations.matching { it.name.contains("release", ignoreCase = true) }.confi
     exclude(group = "androidx.core", module = "core-google-shortcuts")
 }
 
-// Release builds are signed with the Play upload key, which never enters
-// the repo. Its path and passwords come from android/key.properties
-// (gitignored, like every *.jks and *.keystore) or, for any value that file
-// does not set, from SEAM_UPLOAD_* environment variables. A storeFile path
-// is resolved against android/app. android/store/STORE-LAUNCH.md covers
-// creating the key.
+// Release builds are signed with one of Seam's two keys, neither of which
+// ever enters the repo:
+// - The Play upload key signs bundles for Play. Its path and passwords come
+//   from android/key.properties (gitignored, like every *.jks and
+//   *.keystore) or, for any value that file does not set, from SEAM_UPLOAD_*
+//   environment variables. A storeFile path is resolved against android/app.
+// - The app signing key, the one Play signs the installed APKs with, signs
+//   release APKs that install over the Play build on a phone. It comes from
+//   SEAM_APP_SIGNING_KEYSTORE (a PKCS12 file, key alias seam) and
+//   SEAM_APP_SIGNING_PASSWORD.
+// tools/release/README.md has the build loop; android/store/STORE-LAUNCH.md
+// covers creating the upload key.
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
@@ -57,6 +63,8 @@ if (keystorePropertiesFile.exists()) {
 fun uploadKeyValue(property: String, env: String): String? =
     keystoreProperties.getProperty(property) ?: System.getenv(env)
 val uploadStoreFile = uploadKeyValue("storeFile", "SEAM_UPLOAD_STORE_FILE")
+val appSigningStoreFile = System.getenv("SEAM_APP_SIGNING_KEYSTORE")
+val appSigningPassword = System.getenv("SEAM_APP_SIGNING_PASSWORD")
 
 android {
     namespace = "chat.fluffy.fluffychat"
@@ -71,7 +79,15 @@ android {
     }
 
     signingConfigs {
-        if (uploadStoreFile != null) {
+        if (appSigningStoreFile != null) {
+            create("release") {
+                storeFile = file(appSigningStoreFile)
+                storeType = "pkcs12"
+                storePassword = appSigningPassword
+                keyAlias = "seam"
+                keyPassword = appSigningPassword
+            }
+        } else if (uploadStoreFile != null) {
             create("release") {
                 storeFile = file(uploadStoreFile)
                 storePassword = uploadKeyValue("storePassword", "SEAM_UPLOAD_STORE_PASSWORD")
@@ -135,16 +151,38 @@ androidComponents {
     }
 }
 
-// A release build without the upload key would come out unsigned, which
-// Play refuses, so stop before building one.
-if (uploadStoreFile == null &&
-    gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
-) {
-    throw GradleException(
-        "Release builds need the upload key: create android/key.properties " +
-            "or set SEAM_UPLOAD_STORE_FILE and the other SEAM_UPLOAD_* " +
-            "variables (android/store/STORE-LAUNCH.md).",
-    )
+// Which key a release task may use. Only release tasks are checked, so
+// debug, profile and tooling tasks build with no key at all.
+val requestedTasks = gradle.startParameter.taskNames
+val bundlesRelease = requestedTasks.any { it.contains("bundleRelease", ignoreCase = true) }
+val buildsRelease = bundlesRelease ||
+    requestedTasks.any { it.contains("Release", ignoreCase = true) }
+// An unsigned release APK is what F-Droid builds (it then applies Seam's own
+// signature from the published APK), so it is allowed when asked for.
+val unsignedReleaseAllowed = System.getenv("SEAM_UNSIGNED_RELEASE") == "true"
+if (buildsRelease) {
+    val releaseKeyError = when {
+        appSigningStoreFile != null && uploadStoreFile != null ->
+            "Both signing keys are configured. Bundles take the upload key " +
+                "(android/key.properties or SEAM_UPLOAD_*), phone APKs the app " +
+                "signing key (SEAM_APP_SIGNING_*); set one."
+        appSigningStoreFile != null && appSigningPassword == null ->
+            "SEAM_APP_SIGNING_KEYSTORE is set without SEAM_APP_SIGNING_PASSWORD."
+        bundlesRelease && appSigningStoreFile != null ->
+            "Bundles for Play are signed with the upload key, not the app " +
+                "signing key: unset SEAM_APP_SIGNING_KEYSTORE and set the upload key."
+        bundlesRelease && uploadStoreFile == null ->
+            "Release bundles need the upload key: create android/key.properties " +
+                "or set SEAM_UPLOAD_STORE_FILE and the other SEAM_UPLOAD_* " +
+                "variables (android/store/STORE-LAUNCH.md)."
+        appSigningStoreFile == null && uploadStoreFile == null && !unsignedReleaseAllowed ->
+            "Release builds need a signing key: SEAM_APP_SIGNING_KEYSTORE and " +
+                "SEAM_APP_SIGNING_PASSWORD for an APK that installs over the Play " +
+                "build, or the upload key (tools/release/README.md). For an " +
+                "unsigned APK, as F-Droid builds, set SEAM_UNSIGNED_RELEASE=true."
+        else -> null
+    }
+    if (releaseKeyError != null) throw GradleException(releaseKeyError)
 }
 
 kotlin {

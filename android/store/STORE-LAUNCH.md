@@ -58,9 +58,12 @@ or holds that key.
    or with environment variables, which fill any value the file leaves out:
    `SEAM_UPLOAD_STORE_FILE`, `SEAM_UPLOAD_STORE_PASSWORD`, `SEAM_UPLOAD_KEY_ALIAS`,
    `SEAM_UPLOAD_KEY_PASSWORD`. A relative `storeFile` is resolved against `android/app`.
-   `android/app/build.gradle.kts` stops any release build that has no upload key, so an unsigned
-   bundle never gets as far as the console.
-4. On the first upload, accept Play App Signing with a Google-generated app signing key.
+   `android/app/build.gradle.kts` stops a release bundle that has no upload key, so an unsigned
+   bundle never gets as far as the console. Release APKs for a phone are signed with the app
+   signing key instead (`tools/release/README.md`).
+4. Play App Signing uses Seam's own app signing key (`op://Production/seam-signing`, PKCS12,
+   alias `seam`), uploaded through the console's PEPK flow, so APKs signed with it install over
+   the Play build.
 
 ## 4. Build the bundle
 
@@ -162,7 +165,7 @@ keeps upgrading in place, logged in, with its pushers and notification settings.
 | Push app id (pusher) | `dev.threeonetwo.seam.<device>` | `chat.fluffy.fluffychat.<device>` |
 | Notification channel id | `fluffychat_push` (internal, never shown) | the same |
 | Sign-in server list | none: the user types a homeserver | public list, matrix.org preselected |
-| Signing | upload key (step 3) | debug key |
+| Signing | upload key for bundles (step 3), app signing key for phone APKs (`tools/release/`) | debug key |
 
 The Gradle side is `android/app/build.gradle.kts` (the variant API sets the debug and profile id;
 manifest placeholders carry the schemes); the Dart side is `AppConfig.isPlayRelease` in
