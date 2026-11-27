@@ -4,7 +4,8 @@
 
 // ignore_for_file: depend_on_referenced_packages
 
-import 'dart:typed_data';
+
+import 'package:cross_file/cross_file.dart';
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
@@ -169,5 +170,52 @@ void main() {
     await receive(tester);
     expect(chat.scrollController.position.pixels, greaterThan(0));
     expect(chat.showScrollDownButton, isTrue);
+  });
+
+  group('the jump-to-bottom button', () {
+    /// The button's bottom edge against the top of the area the composer
+    /// takes, which carries the composer's own margin above it.
+    void expectAboveComposer(WidgetTester tester, ChatController chat) {
+      final button = tester.getRect(find.byType(FloatingActionButton));
+      final composer = tester.getRect(find.byKey(chat.inputBarKey));
+      expect(button.bottom, closeTo(composer.top, 0.5));
+    }
+
+    Future<void> grow(WidgetTester tester) async {
+      // The composer reports its new height after a frame, and the button
+      // moves up over the animation after that.
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 200));
+      }
+    }
+
+    testWidgets('sits above the composer', (tester) async {
+      final chat = await open(tester);
+      await grow(tester);
+      expectAboveComposer(tester, chat);
+    });
+
+    testWidgets('moves up with a reply bar', (tester) async {
+      final chat = await open(tester);
+      chat.replyAction(replyTo: chat.timeline!.events.first);
+      await grow(tester);
+      expectAboveComposer(tester, chat);
+    });
+
+    testWidgets('moves up with several lines of text', (tester) async {
+      final chat = await open(tester);
+      chat.sendController.text = 'One\nTwo\nThree\nFour';
+      await grow(tester);
+      expectAboveComposer(tester, chat);
+    });
+
+    testWidgets('moves up with a staged attachment', (tester) async {
+      final chat = await open(tester);
+      chat.addPendingAttachments([
+        XFile.fromData(Uint8List(16), name: 'Lease.pdf'),
+      ]);
+      await grow(tester);
+      expectAboveComposer(tester, chat);
+    });
   });
 }
