@@ -597,6 +597,34 @@ void main() {
       semantics.dispose();
     });
 
+    testWidgets('lights a slim pill around its label, in a full touch target', (
+      tester,
+    ) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.confetti));
+      await tester.pump(const Duration(seconds: 6));
+      final pill = find.byKey(const ValueKey('message_effect_replay_pill'));
+      final target = tester.getRect(replayLink);
+      final shape = tester.getRect(pill);
+      expect(target.height, greaterThanOrEqualTo(48));
+      expect(target.width, greaterThanOrEqualTo(48));
+      expect(shape.height, lessThanOrEqualTo(28));
+      // The pill sits in the middle of the touch target, around the label.
+      expect((shape.center.dy - target.center.dy).abs(), lessThan(1));
+      expect(shape.contains(tester.getCenter(find.text('Replay'))), isTrue);
+      Color? pillColor() =>
+          (tester.widget<DecoratedBox>(pill).decoration as ShapeDecoration)
+              .color;
+      expect(pillColor()?.a ?? 0, 0);
+      // Pressed, the pill lights up, and nothing outside it does.
+      final press = await tester.startGesture(
+        target.topLeft + const Offset(2, 2),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(pillColor()!.a, greaterThan(0));
+      await press.up();
+      await tester.pump(const Duration(seconds: 6));
+    });
+
     testWidgets('a tap plays a screen effect again', (tester) async {
       await pumpMessage(tester, effectEvent(MessageEffect.confetti));
       await tester.pump();
