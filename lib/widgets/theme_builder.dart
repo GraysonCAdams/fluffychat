@@ -20,12 +20,16 @@ class ThemeBuilder extends StatefulWidget {
   final String themeModeSettingsKey;
   final String primaryColorSettingsKey;
 
+  /// Set to true when the user picked the system's dynamic colour. Without
+  /// it, and with no colour of their own, the app uses Seam Cobalt.
+  final String useSystemColorSettingsKey;
+
   /// The preferences main() has already loaded, so the saved theme mode and
   /// color are known for the very first frame.
   final SharedPreferences store;
 
   /// The system's dynamic primary color, resolved before runApp by
-  /// loadDynamicPrimaryColor(). Used when the user has not picked a color.
+  /// loadDynamicPrimaryColor(). Used when the user picked the system color.
   final Color? dynamicPrimaryColor;
 
   const ThemeBuilder({
@@ -34,6 +38,7 @@ class ThemeBuilder extends StatefulWidget {
     this.dynamicPrimaryColor,
     this.themeModeSettingsKey = 'theme_mode',
     this.primaryColorSettingsKey = 'primary_color',
+    this.useSystemColorSettingsKey = 'primary_color_from_system',
     super.key,
   });
 
@@ -44,10 +49,15 @@ class ThemeBuilder extends StatefulWidget {
 class ThemeController extends State<ThemeBuilder> {
   ThemeMode? _themeMode;
   Color? _primaryColor;
+  bool _useSystemColor = false;
 
   ThemeMode get themeMode => _themeMode ?? ThemeMode.system;
 
+  /// The color the user picked, or null for the default or the system color.
   Color? get primaryColor => _primaryColor;
+
+  /// Whether the user picked the system's dynamic color.
+  bool get useSystemColor => _useSystemColor;
 
   static ThemeController of(BuildContext context) =>
       Provider.of<ThemeController>(context, listen: false);
@@ -65,6 +75,9 @@ class ThemeController extends State<ThemeBuilder> {
       (value) => value.name == rawThemeMode,
     );
     _primaryColor = rawColor == null ? null : Color(rawColor);
+    _useSystemColor =
+        rawColor == null &&
+        (preferences.getBool(widget.useSystemColorSettingsKey) ?? false);
   }
 
   Future<void> setThemeMode(ThemeMode newThemeMode) async {
@@ -75,18 +88,22 @@ class ThemeController extends State<ThemeBuilder> {
     });
   }
 
+  /// Picks [newPrimaryColor], or the system's dynamic color when it is null.
   Future<void> setPrimaryColor(Color? newPrimaryColor) async {
     final preferences = widget.store;
     if (newPrimaryColor == null) {
       await preferences.remove(widget.primaryColorSettingsKey);
+      await preferences.setBool(widget.useSystemColorSettingsKey, true);
     } else {
       await preferences.setInt(
         widget.primaryColorSettingsKey,
         newPrimaryColor.hexValue,
       );
+      await preferences.remove(widget.useSystemColorSettingsKey);
     }
     setState(() {
       _primaryColor = newPrimaryColor;
+      _useSystemColor = newPrimaryColor == null;
     });
   }
 
@@ -103,7 +120,8 @@ class ThemeController extends State<ThemeBuilder> {
       child: widget.builder(
         context,
         themeMode,
-        primaryColor ?? widget.dynamicPrimaryColor,
+        // Null falls back to AppSettings.colorSchemeSeedInt in buildTheme.
+        primaryColor ?? (_useSystemColor ? widget.dynamicPrimaryColor : null),
       ),
     );
   }

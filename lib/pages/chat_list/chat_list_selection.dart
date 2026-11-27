@@ -360,6 +360,27 @@ Future<void> setSelectedRead(
   controller.clearSelection();
 }
 
+/// Makes every selected chat low priority when [lowPriority], else takes
+/// them out of it, then ends the selection. Returns the rooms it changed.
+Future<List<Room>> setSelectedLowPriority(
+  ChatListController controller,
+  List<SelectedChat> chats,
+  bool lowPriority,
+) async {
+  final rooms = [
+    for (final chat in chats)
+      for (final room in chat.rooms)
+        if (room.isLowPriority != lowPriority) room,
+  ];
+  await showFutureLoadingDialog(
+    context: controller.context,
+    future: () =>
+        Future.wait(rooms.map((room) => room.setLowPriority(lowPriority))),
+  );
+  controller.clearSelection();
+  return rooms;
+}
+
 /// Asks, then leaves every room of the selected chats (declining the
 /// invites among them) and ends the selection.
 Future<void> leaveSelected(
@@ -472,15 +493,11 @@ Future<void> _onMore(
       );
       controller.clearSelection();
     case _MoreAction.lowPriority:
-      final set = !chats.every((chat) => chat.isLowPriority);
-      await showFutureLoadingDialog(
-        context: context,
-        future: () => Future.wait([
-          for (final room in rooms)
-            if (room.isLowPriority != set) room.setLowPriority(set),
-        ]),
+      await setSelectedLowPriority(
+        controller,
+        chats,
+        !chats.every((chat) => chat.isLowPriority),
       );
-      controller.clearSelection();
     case _MoreAction.addTag:
       final existingTags = List.of(controller.roomTags.keys);
       existingTags.removeWhere(room.tags.containsKey);

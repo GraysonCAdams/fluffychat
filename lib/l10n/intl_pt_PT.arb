@@ -761,18 +761,6 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} convidou-te para o FluffyChat.\n1. Instala o FluffyChat: https://fluffychat.im\n2. Regista-te ou inicia sessão.\n3. Abre a ligação de convite: {link}",
-    "@inviteText": {
-        "type": "String",
-        "placeholders": {
-            "username": {
-                "type": "String"
-            },
-            "link": {
-                "type": "String"
-            }
-        }
-    },
     "isTyping": "está a escrever…",
     "@isTyping": {
         "type": "String",
@@ -918,7 +906,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "Nova mensagem no FluffyChat",
+    "newMessageInFluffyChat": "Nova mensagem no Seam",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}
@@ -953,7 +941,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "noGoogleServicesWarning": "Parece que não tens nenhuns serviços da Google no seu telemóvel. É uma boa decisão para a sua privacidade! Para receber notificações instantâneas no FluffyChat, recomendamos que uses https://microg.org/ ou https://unifiedpush.org/.",
+    "noGoogleServicesWarning": "Parece que não tens nenhuns serviços da Google no seu telemóvel. É uma boa decisão para a sua privacidade! Para receber notificações instantâneas no Seam, recomendamos que uses https://microg.org/ ou https://unifiedpush.org/.",
     "@noGoogleServicesWarning": {
         "type": "String",
         "placeholders": {}

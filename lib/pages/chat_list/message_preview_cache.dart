@@ -6,11 +6,14 @@
 import 'dart:collection';
 
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat_list/message_preview.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/message_effects.dart';
 import 'package:matrix/matrix.dart';
 
-/// Remembers the localized preview body of the last event of a chat.
+/// Remembers the preview of the last event of a chat: its localized body,
+/// or for media and a lone link an icon and a short text (see
+/// [mediaPreviewOf]).
 ///
 /// Building that body parses the message as Markdown and HTML, which is far
 /// too slow to repeat for every chat list tile on every rebuild while the
@@ -24,7 +27,7 @@ abstract final class MessagePreviewCache {
 
   // A LinkedHashMap iterates in insertion order. A hit is moved to the end,
   // so the first entry is always the least recently used one.
-  static final LinkedHashMap<Object, String> _cache = LinkedHashMap();
+  static final LinkedHashMap<Object, MessagePreview> _cache = LinkedHashMap();
 
   static String? _memberName(Room room, String? userId) {
     if (userId == null) return null;
@@ -34,21 +37,27 @@ abstract final class MessagePreviewCache {
         .displayName;
   }
 
-  static String localizedBody(
+  static MessagePreview preview(
     Event event,
     L10n l10n,
     MatrixLocals previewLocals,
   ) {
-    // An effect that hides the message hides it here too.
-    String compute() =>
-        effectPreviewOf(event, l10n) ??
+    MessagePreview compute() {
+      // An effect that hides the message hides it here too.
+      final hidden = effectPreviewOf(event, l10n);
+      if (hidden != null) return MessagePreview(hidden);
+      final body = withoutLinkMarkers(
+        event,
         event.calcLocalizedBody(
           previewLocals,
           hideReply: true,
           hideEdit: true,
           plaintextBody: true,
           removeMarkdown: true,
-        );
+        ),
+      );
+      return mediaPreviewOf(event, l10n, body) ?? MessagePreview(body);
+    }
 
     // A message that could not be decrypted keeps its event id and type
     // while its content can change between decryption attempts, so the key

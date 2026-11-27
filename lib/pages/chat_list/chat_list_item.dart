@@ -8,6 +8,8 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/active_call_indicator.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_swipe.dart';
+import 'package:fluffychat/pages/chat_list/message_preview.dart';
 import 'package:fluffychat/pages/chat_list/message_preview_cache.dart';
 import 'package:fluffychat/pages/chat_list/push_rule_state_cache.dart';
 import 'package:fluffychat/pages/chat_list/unread_bubble.dart';
@@ -485,50 +487,70 @@ class _ChatListItemState extends State<ChatListItem> {
                                 ),
                                 future: _sender(lastEvent, needLastEventSender),
                                 builder: (context, snapshot) {
+                                  final l10n = L10n.of(context);
                                   // An invite shows its reason instead of the
                                   // last message, so the body is not needed.
-                                  var body =
+                                  final preview =
                                       lastEvent == null ||
                                           room.membership == Membership.invite
                                       ? null
-                                      : MessagePreviewCache.localizedBody(
+                                      : MessagePreviewCache.preview(
                                           lastEvent,
-                                          L10n.of(context),
+                                          l10n,
                                           previewLocals,
                                         );
-                                  if (lastEvent != null &&
-                                      body != null &&
-                                      (!isDirectChat ||
-                                          directChatMatrixId !=
-                                              lastEvent.senderId)) {
-                                    body = L10n.of(context).senderMessage(
-                                      lastEvent.senderId == room.client.userID
-                                          ? L10n.of(context).you
-                                          : snapshot.data?.calcDisplayname() ??
-                                                lastEvent
-                                                    .senderFromMemoryOrFallback
-                                                    .calcDisplayname(),
-                                      body,
+                                  final sender =
+                                      lastEvent == null ||
+                                          preview == null ||
+                                          (isDirectChat &&
+                                              directChatMatrixId ==
+                                                  lastEvent.senderId)
+                                      ? null
+                                      : lastEvent.senderId == room.client.userID
+                                      ? l10n.you
+                                      : snapshot.data?.calcDisplayname() ??
+                                            lastEvent.senderFromMemoryOrFallback
+                                                .calcDisplayname();
+                                  final textColor = isUnread
+                                      ? theme.colorScheme.onSurface
+                                      : null;
+                                  String plain(MessagePreview preview) {
+                                    final text = preview.text.trim().replaceAll(
+                                      '\n',
+                                      ' ',
                                     );
+                                    return sender == null
+                                        ? text
+                                        : l10n.senderMessage(sender, text);
                                   }
-                                  return Text(
+
+                                  return Text.rich(
                                     room.membership == Membership.invite
-                                        ? room
-                                                  .getState(
-                                                    EventTypes.RoomMember,
-                                                    room.client.userID!,
-                                                  )
-                                                  ?.content
-                                                  .tryGet<String>('reason') ??
-                                              (isDirectChat
-                                                  ? L10n.of(
-                                                      context,
-                                                    ).newChatRequest
-                                                  : L10n.of(
-                                                      context,
-                                                    ).inviteGroupChat)
-                                        : body?.trim().replaceAll('\n', ' ') ??
-                                              L10n.of(context).noMessagesYet,
+                                        ? TextSpan(
+                                            text:
+                                                room
+                                                    .getState(
+                                                      EventTypes.RoomMember,
+                                                      room.client.userID!,
+                                                    )
+                                                    ?.content
+                                                    .tryGet<String>('reason') ??
+                                                (isDirectChat
+                                                    ? l10n.newChatRequest
+                                                    : l10n.inviteGroupChat),
+                                          )
+                                        : preview == null
+                                        ? TextSpan(text: l10n.noMessagesYet)
+                                        // Media and a lone link show an icon
+                                        // before a word or the address.
+                                        : preview.icon != null
+                                        ? messagePreviewSpan(
+                                            l10n,
+                                            preview,
+                                            sender: sender,
+                                            color: textColor,
+                                          )
+                                        : TextSpan(text: plain(preview)),
                                     softWrap: false,
                                     maxLines: notificationCount >= 1 ? 2 : 1,
                                     overflow: TextOverflow.ellipsis,
@@ -539,9 +561,7 @@ class _ChatListItemState extends State<ChatListItem> {
                                       fontWeight: isUnread
                                           ? FontWeight.w600
                                           : null,
-                                      color: isUnread
-                                          ? theme.colorScheme.onSurface
-                                          : null,
+                                      color: textColor,
                                     ),
                                   );
                                 },
@@ -582,13 +602,19 @@ class _ChatListItemState extends State<ChatListItem> {
   /// long press stay its actions. It reads as selected while picked in the
   /// selection mode. The archive's delete button and the copy code button
   /// ([hasOwnActions]) are actions of their own, so a tile that has one is
-  /// left unmerged.
+  /// left unmerged. A swipeable row's actions (see [ChatListSwipe]) are
+  /// custom actions of the tile.
   Widget _mergeSemantics(
     Widget child, {
     bool hasOwnActions = false,
     bool selected = false,
   }) {
-    final tile = Semantics(selected: selected, child: child);
+    final swipeActions = ChatListSwipeSemantics.of(context);
+    final tile = Semantics(
+      selected: selected,
+      customSemanticsActions: swipeActions.isEmpty ? null : swipeActions,
+      child: child,
+    );
     return widget.onForget == null && !hasOwnActions
         ? MergeSemantics(child: tile)
         : tile;

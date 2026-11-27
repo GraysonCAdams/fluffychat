@@ -515,18 +515,6 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} uzaicināja pievienoties FluffyChat.\n1. Jāapmeklē fluffychat.im un jāuzstāda lietotne \n2. Jāizveido konts vai jāpiesakās \n3. Jāatver uzaicinājuma saite: \n {link}",
-    "@inviteText": {
-        "type": "String",
-        "placeholders": {
-            "username": {
-                "type": "String"
-            },
-            "link": {
-                "type": "String"
-            }
-        }
-    },
     "shareLocation": "Kopīgot atrašanās vietu",
     "@shareLocation": {
         "type": "String",
@@ -840,7 +828,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "💬 Jauna ziņa FluffyChat",
+    "newMessageInFluffyChat": "💬 Jauna ziņa Seam",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}
@@ -2455,7 +2443,7 @@
     "theProcessWasCanceled": "Darbība tika atcelta.",
     "signIn": "Pieteikties",
     "createNewAccount": "Izveidot jaunu kontu",
-    "signUpGreeting": "FluffyChat ir decentralizēta. Jāatlasa serveris, kurā ir vēlēšanās izveidot savu kontu, un aiziet!",
+    "signUpGreeting": "Seam ir decentralizēta. Jāatlasa serveris, kurā ir vēlēšanās izveidot savu kontu, un aiziet!",
     "signInGreeting": "Jau ir Matrix konts? Laipni lūdzam atpakaļ! Jāatlasa savs mājasserveris un jāpiesakās.",
     "reset": "Atiestatīt",
     "createNewTag": "Izveidot jaunu birku",
@@ -2690,7 +2678,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newPassphraseDescription": "FluffyChat izmanto pilnīgu šifrēšanu. Lai nezaudētu savas ziņas, lūgums izvēlēties drošu paroles vārdkopu, lai aizsargātu savu kripto identitāti un šifrēto ziņu rezerves kopiju.",
+    "newPassphraseDescription": "Seam izmanto pilnīgu šifrēšanu. Lai nezaudētu savas ziņas, lūgums izvēlēties drošu paroles vārdkopu, lai aizsargātu savu kripto identitāti un šifrēto ziņu rezerves kopiju.",
     "@newPassphraseDescription": {
         "type": "String",
         "placeholders": {}

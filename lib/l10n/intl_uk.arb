@@ -534,18 +534,6 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} запрошує вас у FluffyChat. \n1. Перейдіть на fluffychat.im й установіть застосунок \n2. Зареєструйтесь або ввійдіть \n3. Відкрийте запрошувальне посилання:\n {link}",
-    "@inviteText": {
-        "type": "String",
-        "placeholders": {
-            "username": {
-                "type": "String"
-            },
-            "link": {
-                "type": "String"
-            }
-        }
-    },
     "isTyping": "пише",
     "@isTyping": {
         "type": "String",
@@ -661,7 +649,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "💬 Нове повідомлення у FluffyChat",
+    "newMessageInFluffyChat": "💬 Нове повідомлення у Seam",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}
@@ -2471,7 +2459,7 @@
     "baseUrl": "Основний URL",
     "signIn": "Увійти",
     "createNewAccount": "Створити новий обліковий запис",
-    "signUpGreeting": "FluffyChat децентралізований! Виберіть сервер, на якому ви хочете створити свій обліковий запис, і почнімо!",
+    "signUpGreeting": "Seam децентралізований! Виберіть сервер, на якому ви хочете створити свій обліковий запис, і почнімо!",
     "signInGreeting": "Ви вже маєте обліковий запис у Matrix? Ласкаво просимо! Виберіть свій домашній сервер і ввійдіть.",
     "theProcessWasCanceled": "Процес скасовано.",
     "join": "Приєднатись",

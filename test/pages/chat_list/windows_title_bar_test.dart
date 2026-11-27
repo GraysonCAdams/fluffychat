@@ -8,6 +8,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_filter_menu.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/title_bar_search.dart';
 import 'package:fluffychat/utils/windows_shell_ffi.dart';
@@ -226,6 +227,8 @@ void main() {
     expect(find.byType(FilterChip), findsNothing);
     // Only the 48 of title bar above the first chat's row.
     expect(tester.getTopLeft(find.text('Squad Goals')).dy, lessThan(48 + 48));
+    // The list starts right after the 80 rail, with no divider between.
+    expect(tester.getTopLeft(find.byType(ChatListItem).first).dx, 80);
     await finish(tester);
   });
 

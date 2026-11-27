@@ -6,7 +6,9 @@
 import 'dart:ui';
 
 abstract class AppConfig {
-  static const Color primaryColor = Color(0xFF261386);
+  /// Seam Cobalt, the brand colour (brand/BRAND.md) and the default seed of
+  /// the colour scheme.
+  static const Color primaryColor = Color(0xFF1A5AD7);
 
   static const Color chatColor = primaryColor;
   static const double messageFontSize = 16.0;
@@ -23,12 +25,6 @@ abstract class AppConfig {
   static const double spaceBorderRadius = 11.0;
   static const double columnWidth = 360.0;
 
-  static const String enablePushTutorial =
-      'https://ko-fi.com/post/How-can-I-get-Push-Notifications-without-Google-N7Q825URG6?fromEditor=true';
-  static const String encryptionTutorial =
-      'https://ko-fi.com/post/How-to-use-end-to-end-encryption-in-FluffyChat-A5O725WDR5';
-  static const String howDoIGetStickersTutorial =
-      'https://ko-fi.com/post/How-to-add-a-sticker-pack-to-FluffyChat-N4N01OXATI';
   static const String appId = 'im.fluffychat.app';
   static const String appOpenUrlScheme = 'im.fluffychat';
   static const String appSsoUrlScheme = 'im.fluffychat.auth';

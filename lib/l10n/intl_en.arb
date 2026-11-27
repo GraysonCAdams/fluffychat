@@ -3822,6 +3822,76 @@
                 "type": "String"
             }
         }
+    },
+    "previewGif": "GIF",
+    "@previewGif": {
+        "description": "Chat list preview of a message that is an animated GIF, after a GIF icon."
+    },
+    "previewSticker": "Sticker",
+    "@previewSticker": {
+        "description": "Chat list preview of a sticker, after a sticker icon."
+    },
+    "previewWithDuration": "{type} {duration}",
+    "@previewWithDuration": {
+        "description": "Chat list preview of a video or voice message with its length, like 'Video 0:48'; type is 'Video' or 'Voice message', duration a clock.",
+        "placeholders": {
+            "type": {
+                "type": "String"
+            },
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "swipeActions": "Swipe actions",
+    "swipeOnChats": "Swipe on chats",
+    "swipeOnChatsDescription": "Swipe a chat in the list to act on it without opening it",
+    "swipeActionsHeading": "Actions",
+    "@swipeActionsHeading": {
+        "description": "Heading over the Swipe right and Swipe left rows in the Swipe actions settings."
+    },
+    "swipeRight": "Swipe right",
+    "swipeLeft": "Swipe left",
+    "swipeActionsSummary": "Right: {right}. Left: {left}",
+    "@swipeActionsSummary": {
+        "description": "Subtitle of the Swipe actions row in chat settings: the action each swipe direction is set to.",
+        "placeholders": {
+            "right": {
+                "type": "String"
+            },
+            "left": {
+                "type": "String"
+            }
+        }
+    },
+    "swipeActionsFootnote": "Each action is also in the long-press and right-click menus. Swiping is off while chats are selected, and works with touch only, not a mouse.",
+    "swipeMarkReadOrUnread": "Mark as read or unread",
+    "lowPriority": "Low priority",
+    "swipePinOrUnpin": "Pin or unpin",
+    "swipeMuteOrUnmute": "Mute or unmute",
+    "swipeLeaveDescription": "Asks first. Others see that you left",
+    "swipeNone": "None",
+    "swipeOff": "Off",
+    "@swipeOff": {
+        "description": "Subtitle of the Swipe actions row in chat settings while swiping on chats is turned off."
+    },
+    "chatMovedToLowPriority": "{chat} moved to low priority",
+    "@chatMovedToLowPriority": {
+        "description": "Snackbar, with an Undo button, after a chat list swipe made a chat low priority.",
+        "placeholders": {
+            "chat": {
+                "type": "String"
+            }
+        }
+    },
+    "chatNoLongerLowPriority": "{chat} is no longer low priority",
+    "@chatNoLongerLowPriority": {
+        "description": "Snackbar, with an Undo button, after a chat list swipe took a chat out of low priority.",
+        "placeholders": {
+            "chat": {
+                "type": "String"
+            }
+        }
         },
     "allChats": "All chats",
     "@allChats": {

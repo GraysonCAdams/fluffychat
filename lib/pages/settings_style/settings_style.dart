@@ -23,10 +23,13 @@ class SettingsStyle extends StatefulWidget {
 }
 
 class SettingsStyleController extends State<SettingsStyle> {
+  /// Picks [color], or the system's dynamic color when it is null.
   void setChatColor(Color? color) {
-    AppSettings.colorSchemeSeedInt.setItem(
-      color?.toARGB32() ?? AppSettings.colorSchemeSeedInt.defaultValue,
-    );
+    if (color == null) {
+      AppSettings.store.remove(AppSettings.colorSchemeSeedInt.key);
+    } else {
+      AppSettings.colorSchemeSeedInt.setItem(color.toARGB32());
+    }
     ThemeController.of(context).setPrimaryColor(color);
   }
 
@@ -114,7 +117,14 @@ class SettingsStyleController extends State<SettingsStyle> {
   );
 
   ThemeMode get currentTheme => ThemeController.of(context).themeMode;
-  Color? get currentColor => ThemeController.of(context).primaryColor;
+
+  /// The picked color, null when the system color is in use.
+  Color? get currentColor {
+    final themeController = ThemeController.of(context);
+    if (themeController.useSystemColor) return null;
+    return themeController.primaryColor ??
+        Color(AppSettings.colorSchemeSeedInt.value);
+  }
 
   void switchTheme(ThemeMode? newTheme) {
     if (newTheme == null) return;

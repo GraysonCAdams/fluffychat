@@ -86,7 +86,8 @@ class SettingsStyleView extends StatelessWidget {
                     Theme.of(context).brightness == Brightness.light
                     ? light?.primary
                     : dark?.primary;
-                final colors = [null, AppConfig.chatColor, ...Colors.primaries];
+                // Seam Cobalt (the default) first, then the system color.
+                final colors = [AppConfig.chatColor, null, ...Colors.primaries];
                 if (systemColor == null) {
                   colors.remove(null);
                 }
