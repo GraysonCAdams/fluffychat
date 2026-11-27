@@ -3,7 +3,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/navigation_rail.dart';
@@ -58,11 +57,6 @@ class ChatListView extends StatelessWidget {
                     ),
             ),
           ),
-          if (FluffyThemes.isColumnMode(context) ||
-              AppSettings.displayNavigationRail.value)
-            if (FluffyThemes.isColumnMode(context))
-              Container(width: 1, color: Theme.of(context).dividerColor),
-
           Expanded(
             child: GestureDetector(
               onTap: FocusManager.instance.primaryFocus?.unfocus,
