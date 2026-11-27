@@ -10,6 +10,7 @@ import 'package:fluffychat/pages/chat/effects/played_message_effects.dart';
 import 'package:fluffychat/pages/chat/effects/screen_effect_host.dart';
 import 'package:fluffychat/utils/effect_haptics.dart';
 import 'package:fluffychat/utils/message_effects.dart';
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -19,6 +20,9 @@ import 'package:matrix/matrix.dart';
 /// swells and shakes it, gentle lets it grow in slowly, invisible ink
 /// covers it until touched. A screen effect leaves the bubble alone and
 /// plays on the [ScreenEffectHost] above it.
+///
+/// While a bubble effect moves the bubble, the bubble is drawn in the
+/// overlay over the conversation, so it covers the messages around it.
 ///
 /// Each play is felt too, on phones with haptics (see [EffectHaptics]).
 /// Under reduced motion nothing moves and nothing is felt; a line under the
@@ -149,9 +153,26 @@ class EffectBubbleState extends State<EffectBubble>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(vsync: this)
     ..addStatusListener((status) {
-      if (status == AnimationStatus.completed) setState(() => _moving = false);
+      if (status != AnimationStatus.completed) return;
+      setState(() => _moving = false);
+      _lift.hide();
     });
   final _inkKey = GlobalKey<InvisibleInkState>();
+
+  /// While the bubble moves it is drawn in the overlay above the
+  /// conversation, so that, grown or out of place, it covers the messages
+  /// around it instead of passing under the ones drawn after it. Its own
+  /// place keeps its room, empty, and the lifted bubble follows that place
+  /// as the conversation scrolls or shakes.
+  final _lift = _LiftController();
+  final _place = LayerLink();
+
+  /// The bubble itself, which moves between its place and the overlay.
+  final _content = GlobalKey();
+
+  /// The bubble's size at rest, the room its place keeps while it is
+  /// lifted.
+  Size? _restSize;
 
   /// Whether the bubble is being moved by its effect, or is about to be.
   late bool _moving = widget.autoPlay && _duration != null;
@@ -248,6 +269,11 @@ class EffectBubbleState extends State<EffectBubble>
       return;
     }
     _landed = false;
+    final box = context.findRenderObject();
+    if (box is RenderBox && box.hasSize && Overlay.maybeOf(context) != null) {
+      _restSize = Size.copy(box.size);
+      _lift.show();
+    }
     setState(() => _moving = true);
     _controller
       ..duration = duration
@@ -347,19 +373,18 @@ class EffectBubbleState extends State<EffectBubble>
         opacity = math.min(1, v / 0.15);
       default:
     }
-    return Opacity(
-      opacity: opacity,
-      child: Transform.translate(
-        offset: offset,
-        child: Transform.rotate(
-          angle: angle,
-          child: Transform.scale(
-            scale: scale,
-            alignment: widget.ownMessage
-                ? Alignment.bottomRight
-                : Alignment.bottomLeft,
-            child: child,
-          ),
+    // The fade goes inside the transforms, so a touch finds the bubble
+    // where it is drawn, not only where it rests.
+    return Transform.translate(
+      offset: offset,
+      child: Transform.rotate(
+        angle: angle,
+        child: Transform.scale(
+          scale: scale,
+          alignment: widget.ownMessage
+              ? Alignment.bottomRight
+              : Alignment.bottomLeft,
+          child: Opacity(opacity: opacity, child: child),
         ),
       ),
     );
@@ -386,12 +411,31 @@ class EffectBubbleState extends State<EffectBubble>
       );
     } else if (_duration != null) {
       // The transforms stay in the tree between plays, so the bubble
-      // under them keeps its state when a play starts or ends.
-      bubble = AnimatedBuilder(
+      // under them keeps its state when a play starts or ends, and the
+      // key carries that state into the overlay and back.
+      final moved = AnimatedBuilder(
+        key: _content,
         animation: _controller,
         builder: (context, child) =>
             _moved(child!, active: _moving && !reduced),
         child: bubble,
+      );
+      final restSize = _restSize;
+      final lifted = _lift.isShowing && restSize != null;
+      bubble = OverlayPortal(
+        controller: _lift.portal,
+        overlayChildBuilder: (context) => restSize == null
+            ? const SizedBox.shrink()
+            : _LiftedBubble(
+                place: _place,
+                size: restSize,
+                clipTo: ScreenEffectHost.maybeOf(this.context),
+                child: moved,
+              ),
+        child: CompositedTransformTarget(
+          link: _place,
+          child: lifted ? SizedBox.fromSize(size: restSize) : moved,
+        ),
       );
     }
     if (!reduced) return bubble;
@@ -416,6 +460,120 @@ class EffectBubbleState extends State<EffectBubble>
       ],
     );
   }
+}
+
+/// Shows and hides a bubble's place in the overlay.
+class _LiftController {
+  final portal = OverlayPortalController();
+
+  bool get isShowing => portal.isShowing;
+
+  void show() {
+    if (!portal.isShowing) portal.show();
+  }
+
+  void hide() {
+    if (portal.isShowing) portal.hide();
+  }
+}
+
+/// A moving bubble drawn in the overlay over its [place], at its resting
+/// [size], and cut to the area of [clipTo] (the conversation) as the
+/// conversation itself would cut it.
+class _LiftedBubble extends StatelessWidget {
+  final LayerLink place;
+  final Size size;
+  final ScreenEffectHostState? clipTo;
+  final Widget child;
+
+  const _LiftedBubble({
+    required this.place,
+    required this.size,
+    required this.clipTo,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) => ClipRect(
+    clipper: _HostClipper(clipTo, context),
+    child: Align(
+      alignment: Alignment.topLeft,
+      child: CompositedTransformFollower(
+        link: place,
+        showWhenUnlinked: false,
+        child: _HitWhereDrawn(size: size, child: child),
+      ),
+    ),
+  );
+}
+
+/// Lays [child] out at [size], and passes it every touch, so a bubble
+/// grown or thrown past its resting box can still be touched where it is
+/// drawn.
+class _HitWhereDrawn extends SingleChildRenderObjectWidget {
+  final Size size;
+
+  const _HitWhereDrawn({required this.size, required super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderHitWhereDrawn(size);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderHitWhereDrawn renderObject,
+  ) {
+    renderObject.fixedSize = size;
+  }
+}
+
+class _RenderHitWhereDrawn extends RenderProxyBox {
+  _RenderHitWhereDrawn(this._fixedSize);
+
+  Size _fixedSize;
+
+  set fixedSize(Size value) {
+    if (value == _fixedSize) return;
+    _fixedSize = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void performLayout() {
+    child?.layout(BoxConstraints.tight(_fixedSize));
+    size = constraints.constrain(_fixedSize);
+  }
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) =>
+      hitTestChildren(result, position: position);
+}
+
+/// The area of the conversation, in the overlay's coordinates.
+class _HostClipper extends CustomClipper<Rect> {
+  final ScreenEffectHostState? host;
+  final BuildContext overlay;
+
+  _HostClipper(this.host, this.overlay);
+
+  @override
+  Rect getClip(Size size) {
+    final whole = Offset.zero & size;
+    final hostBox = host?.mounted == true
+        ? host!.context.findRenderObject()
+        : null;
+    final overlayBox = overlay.findRenderObject();
+    if (hostBox is! RenderBox || overlayBox is! RenderBox) return whole;
+    if (!hostBox.hasSize || !overlayBox.attached) return whole;
+    final topLeft = overlayBox.globalToLocal(
+      hostBox.localToGlobal(Offset.zero),
+    );
+    return topLeft & hostBox.size;
+  }
+
+  @override
+  bool shouldReclip(_HostClipper oldClipper) => true;
 }
 
 /// The hook between a message in the timeline and its effect: wraps the

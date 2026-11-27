@@ -25,6 +25,7 @@ import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -857,6 +858,70 @@ void main() {
         await tester.pump();
         expect(host(tester).plays, before + 3);
         await tester.pump(const Duration(seconds: 6));
+      });
+    }
+
+    for (final effect in [
+      MessageEffect.loud,
+      MessageEffect.slam,
+      MessageEffect.gentle,
+    ]) {
+      testWidgets('a replayed ${effect.name} bubble draws above the messages '
+          'around it while it moves', (tester) async {
+        // Grayson's case: three effect messages in a row, the middle one
+        // replayed.
+        await pumpConversation(tester, [
+          effectEvent(
+            MessageEffect.echo,
+            id: '\$first',
+            body: 'Test test test',
+          ),
+          effectEvent(effect, id: '\$middle', body: 'Testy'),
+          effectEvent(MessageEffect.echo, id: '\$last', body: 'Test'),
+        ]);
+        // A slam that played by itself rings over the conversation from
+        // where it landed; let that end.
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pump();
+        expect(host(tester).playing, isNull);
+        final testy = find.text('Testy', findRichText: true);
+        final lifted = find.ancestor(
+          of: testy,
+          matching: find.byType(CompositedTransformFollower),
+        );
+        expect(lifted, findsNothing);
+        final row = find.ancestor(of: testy, matching: find.byType(Message));
+        final rest = tester.getRect(row);
+        final restText = tester.getRect(testy);
+        replayMessageEffect(tester.widget<Message>(row).event);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        // Lifted over the conversation, in its own place, which keeps its
+        // room.
+        expect(lifted, findsOneWidget);
+        expect(tester.getRect(row), rest);
+        // Before a slam lands and before a gentle bubble grows, the
+        // bubble is out of place; a loud one is swelling.
+        expect(tester.getRect(testy), isNot(restText));
+        // A probe over the grown bubble finds the bubble's own text first.
+        final probe = tester.getCenter(testy);
+        final result = HitTestResult();
+        tester.binding.hitTestInView(result, probe, tester.view.viewId);
+        final first = result.path
+            .map((entry) => entry.target)
+            .whereType<RenderParagraph>()
+            .first;
+        expect(first.text.toPlainText(), 'Testy');
+        await tester.pump(const Duration(seconds: 3));
+        // The slam's ring over the conversation, from where it landed.
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pump();
+        expect(host(tester).playing, isNull);
+        // Back in place, drawn once.
+        expect(lifted, findsNothing);
+        expect(testy, findsOneWidget);
+        expect(tester.getRect(testy), restText);
+        await settleLookups(tester);
       });
     }
 
