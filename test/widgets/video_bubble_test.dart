@@ -245,8 +245,16 @@ void main() {
     await pumpBubble(tester, videoEvent(w: 1920, h: 1080));
     final box = tester.getRect(bubble());
     await tester.tapAt(box.bottomRight - const Offset(24, 24));
+    // The viewer is a page of its own, built on the frame after the push.
+    await tester.pump();
     await tester.pump();
     expect(find.byType(ImageViewer), findsOneWidget);
     expect(loads, 0);
+    // Let the viewer's download request to the fake server and the
+    // database finish in real time.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pump(const Duration(milliseconds: 10));
   });
 }

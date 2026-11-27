@@ -91,14 +91,7 @@ class MessageContent extends StatelessWidget {
               borderRadius: borderRadius,
               timeline: timeline,
               textColor: textColor,
-              onTap: () => showDialog(
-                context: context,
-                builder: (_) => ImageViewer(
-                  event,
-                  timeline: timeline,
-                  outerContext: context,
-                ),
-              ),
+              onTap: () => showImageViewer(context, event, timeline: timeline),
             );
           case CuteEventContent.eventType:
             return CuteContent(event);

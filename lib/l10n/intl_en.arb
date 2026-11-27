@@ -4016,5 +4016,9 @@
   "unmute": "Unmute",
   "@unmute": {
     "description": "Label of the speaker button in the corner of a muted video in a chat, which turns its sound back on."
+  },
+  "showInChat": "Show in chat",
+  "@showInChat": {
+    "description": "Menu item in the full screen media viewer that closes it and scrolls the chat to the message holding the picture or video shown."
   }
 }

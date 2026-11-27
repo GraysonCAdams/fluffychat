@@ -239,14 +239,11 @@ class _EventVideoPlayerState extends State<EventVideoPlayer> {
       await controller.pause();
     }
     if (!mounted) return;
-    await showDialog(
-      context: context,
-      builder: (_) => ImageViewer(
-        event,
-        timeline: widget.timeline,
-        outerContext: context,
-        videoStartPosition: _finished ? null : position,
-      ),
+    await showImageViewer(
+      context,
+      event,
+      timeline: widget.timeline,
+      videoStartPosition: _finished ? null : position,
     );
   }
 
