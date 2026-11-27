@@ -12,6 +12,7 @@ import 'package:cross_file/cross_file.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_body.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
@@ -613,6 +614,10 @@ class ChatListController extends State<ChatList>
 
   final ScrollController scrollController = ScrollController();
 
+  /// The content of the phone's header, kept through the rebuild of the bar
+  /// that pins it while searching.
+  final GlobalKey phoneTitleKey = GlobalKey(debugLabel: 'phone title');
+
   /// Marks the bar at the top of the list, so what sits below it can find
   /// how much of it is on screen.
   final GlobalKey headerKey = GlobalKey(debugLabel: 'chat list header');
@@ -844,6 +849,84 @@ class ChatListController extends State<ChatList>
         widget.activeSpace != oldWidget.activeSpace) {
       setActiveSpace(widget.activeSpace!);
     }
+  }
+
+  /// The chat a phone's search opened, as the path of its page, while that
+  /// page covers the list.
+  List<String>? _openedFromSearch;
+
+  /// Whether the search closes at once rather than folding away, as it does
+  /// behind a chat opened from it. Read by the header and the list while
+  /// they rebuild for the closed search.
+  bool get closesSearchInstantly => _closesSearchInstantly;
+  bool _closesSearchInstantly = false;
+
+  /// A chat opened from the phone's search closes the search behind it:
+  /// going back lands on the normal list, scrolled to that chat, without
+  /// the field or the keyboard. The search closes as the list is uncovered,
+  /// in the frame before it shows. Beside the chat in a wide window the
+  /// list stays as it was.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final current = ModalRoute.of(context)?.isCurrent ?? true;
+    if (!current) {
+      final path = GoRouter.of(
+        context,
+      ).routerDelegate.currentConfiguration.uri.pathSegments;
+      // Only a page of its own: a menu or dialog over the list, such as
+      // the Search in menu, leaves the location as it was.
+      if (isSearchMode &&
+          !FluffyThemes.isColumnMode(context) &&
+          path.length >= 2) {
+        _openedFromSearch = path;
+      }
+      return;
+    }
+    final opened = _openedFromSearch;
+    _openedFromSearch = null;
+    if (opened == null || !isSearchMode) return;
+    searchScope = SearchScope.all;
+    _closesSearchInstantly = true;
+    cancelSearch();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _closesSearchInstantly = false;
+      // After the frame's other callbacks, one of which hands the rows of
+      // the normal list to listedRooms.
+      scheduleMicrotask(() => _scrollToOpened(opened));
+    });
+  }
+
+  /// Scrolls the list so that the chat at [path] (`rooms/<id>` or
+  /// `rooms/contact/<id>`) is a third of the way down the screen, or to the
+  /// top when it is pinned or not listed.
+  void _scrollToOpened(List<String> path) {
+    if (!mounted || !scrollController.hasClients) return;
+    final client = Matrix.of(context).client;
+    final contactId = path.length >= 3 && path[1] == 'contact' ? path[2] : null;
+    final roomId = contactId == null && path.length >= 2 ? path[1] : null;
+    bool opened(Room room) {
+      final contact = mergedContactFor(room);
+      if (contactId != null) return contact?.id == contactId;
+      return room.id == roomId ||
+          (contact?.rooms.any((room) => room.id == roomId) ?? false);
+    }
+
+    var target = 0.0;
+    final room = roomId == null ? null : client.getRoomById(roomId);
+    final pinned = room != null && listedChatIsPinned(room);
+    if (!pinned) {
+      for (final row in listedRowPositions(context, this)) {
+        if (!opened(row.room)) continue;
+        final position = scrollController.position;
+        target = (row.top - position.viewportDimension / 3).clamp(
+          0.0,
+          position.maxScrollExtent,
+        );
+        break;
+      }
+    }
+    scrollController.jumpTo(target);
   }
 
   @override

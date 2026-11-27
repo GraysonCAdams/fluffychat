@@ -148,7 +148,7 @@ class ChatListViewBody extends StatelessWidget {
     // Before anything is typed, the phone's search shows the people the
     // user chats with most recently in place of the chats.
     final recentOnly = controller.isSearchMode && phone && filter.isEmpty;
-        // Inside a space too: its name is the title (see chatFilterLabel).
+    // Inside a space too: its name is the title (see chatFilterLabel).
     final header = controller.header;
     final scrollView = CustomScrollView(
       // A different account starts from fresh tile state.
@@ -167,6 +167,7 @@ class ChatListViewBody extends StatelessWidget {
           ),
         _SearchFade(
           searching: controller.isSearchMode,
+          instant: controller.closesSearchInstantly,
           slivers: [
             SliverList(
               delegate: SliverChildListDelegate([
@@ -466,21 +467,45 @@ class ChatListViewBody extends StatelessWidget {
   }
 }
 
+/// Where each chat the list shows below the pins starts in the scroll view
+/// and how tall its row is, estimated from the two row heights the list
+/// uses, plus the copy code button where a row shows one. Close enough to
+/// count rows and to bring a chat on screen; the list only measures rows
+/// once they are built.
+Iterable<({Room room, double top, double height})> listedRowPositions(
+  BuildContext context,
+  ChatListController controller,
+) sync* {
+  const rowHeight = 68.0;
+  const unreadRowHeight = 89.0;
+  const headerHeight = 72.0;
+  final listed = controller.listedRooms.value;
+  // Under a title bar the list has no header, only room for the bar.
+  final header = controller.titleBarSearch == null
+      ? headerHeight
+      : MediaQuery.paddingOf(context).top;
+  var top = header + (listed.pins ? _PinnedRow.height : 0);
+  for (final room in listed.rooms) {
+    final contact = controller.mergedContactFor(room);
+    final height =
+        ((contact?.notificationCount ?? room.notificationCount) >= 1
+            ? unreadRowHeight
+            : rowHeight) +
+        controller.extraRowHeight(room);
+    yield (room: room, top: top, height: height);
+    top += height;
+  }
+}
+
 /// A chip at the bottom of the chat list that counts the unread chats below
 /// the visible rows and scrolls to the next one when tapped. Row positions
-/// are estimated from the two row heights the list uses, plus the copy code
-/// button where a row shows one, which is close enough to count rows and to
-/// land the next unread chat on screen. It comes and goes with
+/// are estimated (see [listedRowPositions]), which is close enough to count
+/// rows and to land the next unread chat on screen. It comes and goes with
 /// [FloatingControlTransition].
 class _UnreadBelowChip extends StatelessWidget {
   final ChatListController controller;
 
   const _UnreadBelowChip(this.controller);
-
-  static const double _rowHeight = 68;
-  static const double _unreadRowHeight = 89;
-  static const double _headerHeight = 72;
-  static const double _pinsHeight = _PinnedRow.height;
 
   @override
   Widget build(BuildContext context) {
@@ -496,28 +521,19 @@ class _UnreadBelowChip extends StatelessWidget {
         if (!scroll.hasClients || !scroll.position.hasViewportDimension) {
           return const FloatingControlTransition(visible: false, child: null);
         }
-        final listed = controller.listedRooms.value;
         final bottom = scroll.offset + scroll.position.viewportDimension;
-        // Under a title bar the list has no header, only room for the bar.
-        final header = controller.titleBarSearch == null
-            ? _headerHeight
-            : MediaQuery.paddingOf(context).top;
-        var top = header + (listed.pins ? _pinsHeight : 0);
         var below = 0;
         double? firstTop;
-        for (final room in listed.rooms) {
+        for (final (:room, :top, :height) in listedRowPositions(
+          context,
+          controller,
+        )) {
           final contact = controller.mergedContactFor(room);
           final unread = contact?.isUnread ?? room.countsAsUnread;
-          final height =
-              ((contact?.notificationCount ?? room.notificationCount) >= 1
-                  ? _unreadRowHeight
-                  : _rowHeight) +
-              controller.extraRowHeight(room);
           if (unread && top + height / 2 > bottom) {
             below++;
             firstTop ??= top;
           }
-          top += height;
         }
         final target = firstTop;
         if (below == 0 || target == null) {
@@ -1269,12 +1285,17 @@ class _RenderBelowHeader extends RenderBox
 /// is gone at once, which keeps the two from showing through each other;
 /// the new content fades in over 250 ms (medium 1) in Material's emphasized
 /// decelerate easing, or at once with animations turned off in the system
-/// settings.
+/// settings and when [instant] asks for it.
 class _SearchFade extends StatefulWidget {
   final bool searching;
+  final bool instant;
   final List<Widget> slivers;
 
-  const _SearchFade({required this.searching, required this.slivers});
+  const _SearchFade({
+    required this.searching,
+    required this.instant,
+    required this.slivers,
+  });
 
   @override
   State<_SearchFade> createState() => _SearchFadeState();
@@ -1297,7 +1318,7 @@ class _SearchFadeState extends State<_SearchFade>
   void didUpdateWidget(_SearchFade oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.searching == oldWidget.searching) return;
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (MediaQuery.disableAnimationsOf(context) || widget.instant) {
       _fade.value = 1;
     } else {
       _fade.forward(from: 0);
