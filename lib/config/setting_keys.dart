@@ -77,13 +77,15 @@ enum AppSettings<T> {
   // AppConfig-mirrored settings
   applicationName<String>('chat.fluffy.application_name', 'Seam'),
   defaultHomeserver<String>('chat.fluffy.default_homeserver', 'matrix.org'),
-  // colorSchemeSeed stored as ARGB int
-  colorSchemeSeedInt<int>('chat.fluffy.color_scheme_seed', 0xFF5625BA),
+  // colorSchemeSeed stored as ARGB int. The default is Seam Cobalt
+  // (AppConfig.primaryColor).
+  colorSchemeSeedInt<int>('chat.fluffy.color_scheme_seed', 0xFF1A5AD7),
   emojiSuggestionLocale<String>('emoji_suggestion_locale', ''),
   enableSoftLogout<bool>('chat.fluffy.enable_soft_logout', true),
   enableMatrixNativeOIDC<bool>('chat.fluffy.enable_matrix_native_oidc', true),
   presetHomeserver<String>('chat.fluffy.preset_homeserver', ''),
   welcomeText<String>('chat.fluffy.welcome_text', ''),
+
   website<String>('chat.fluffy.website_url', 'https://fluffychat.im'),
   logoUrl<String>(
     'chat.fluffy.logo_url',
@@ -143,6 +145,9 @@ enum AppSettings<T> {
 
   const AppSettings(this.key, this._defaultValue);
 
+  /// FluffyChat's purple, the default [colorSchemeSeedInt] before Seam Cobalt.
+  static const int legacyColorSchemeSeed = 0xFF5625BA;
+
   static SharedPreferences get store => _store!;
   static SharedPreferences? _store;
 
@@ -177,6 +182,15 @@ enum AppSettings<T> {
       if (fontSizeFactor != null) {
         await store.setDouble(AppSettings.fontSizeFactor.key, fontSizeFactor);
       }
+    }
+
+    // Picking the system colour used to store the default seed, FluffyChat
+    // purple. Treat that as unset so the user gets Seam Cobalt.
+    if (Result(
+          () => store.getInt(AppSettings.colorSchemeSeedInt.key),
+        ).asValue?.value ==
+        legacyColorSchemeSeed) {
+      await store.remove(AppSettings.colorSchemeSeedInt.key);
     }
 
     if (store.getBool(AppSettings.sendOnEnter.key) == null) {

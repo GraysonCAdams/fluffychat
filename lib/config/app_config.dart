@@ -6,7 +6,9 @@
 import 'dart:ui';
 
 abstract class AppConfig {
-  static const Color primaryColor = Color(0xFF261386);
+  /// Seam Cobalt, the brand colour (brand/BRAND.md) and the default seed of
+  /// the colour scheme.
+  static const Color primaryColor = Color(0xFF1A5AD7);
 
   static const Color chatColor = primaryColor;
   static const double messageFontSize = 16.0;
