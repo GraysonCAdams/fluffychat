@@ -17,6 +17,7 @@ import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_view.dart';
+import 'package:fluffychat/pages/chat_list/chat_peek.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_actions.dart';
 import 'package:fluffychat/pages/chat_list/merged_contact_list.dart';
 import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
@@ -300,9 +301,10 @@ class ChatListController extends State<ChatList>
       mergedContactFor(room)?.matchesSearch(filter, locals) ??
       room.getLocalizedDisplayname(locals).toLowerCase().contains(filter);
 
-  /// The chats picked by a long press, by [selectionKey]. While any are
-  /// picked, the selection bar replaces the header and a tap on a chat
-  /// picks or drops it instead of opening it.
+  /// The chats picked by a long press on a row's avatar or a pinned chat,
+  /// by [selectionKey]. While any are picked, the selection bar replaces
+  /// the header and a tap on a chat picks or drops it instead of opening
+  /// it.
   final Set<String> _selection = {};
 
   bool get selectionMode => _selection.isNotEmpty;
@@ -747,6 +749,17 @@ class ChatListController extends State<ChatList>
       onLongPress: (context, [position]) => position != null && !selectionMode
           ? showChatContextMenu(this, room, position)
           : toggleSelection(room),
+      // A finger's long press on the row peeks at the chat, unless chats
+      // are being selected, when it picks this one too.
+      onPeek: (context, pointer, position) => selectionMode
+          ? toggleSelection(room)
+          : showChatPeek(
+              this,
+              room,
+              context,
+              pointer: pointer,
+              pointerPosition: position,
+            ),
       activeChat: active,
       selected: isSelected(room),
       highlight: highlight,

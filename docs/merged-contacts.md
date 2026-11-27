@@ -352,8 +352,16 @@ pass.
   chat list" in style settings (`AppSettings.chatListNetworkBadges`, on by
   default) hides both, in the main chat list and its pinned row only.
 - Search matches the contact name and each member room's name.
-- Long press (or right-click) selects chats, as in Google Messages
-  (`lib/pages/chat_list/chat_list_selection.dart`). In the pinned row,
+- A long press on a row's avatar selects chats, as in Google Messages
+  (`lib/pages/chat_list/chat_list_selection.dart`); so does a mouse's long
+  press on the row. A tap on the avatar opens the chat. A finger's long
+  press elsewhere on the row peeks instead (`lib/pages/chat_list/chat_peek.dart`):
+  the list blurs and the chat's recent messages show in a card, read-only
+  and without moving the read marker, over the chat's menu, the
+  right-click menu's entries with icons. A tap on the card opens the chat;
+  the finger can slide onto an entry and lift to pick it. A right-click
+  opens the menu itself. While chats are selected, a long press anywhere on
+  a row picks it. In the pinned row,
   moving the finger after the hold lifts the chat to drag it and undoes the
   hold's selection; a mouse drags at once. The selection bar replaces the
   search header: close, count, then pin, mute, mark read or

@@ -101,7 +101,7 @@ void main() {
       finishFakeChatList(tester, client);
 
   Future<void> openMore(WidgetTester tester, String name) async {
-    await tester.longPress(find.text(name));
+    await tester.longPress(chatRowAvatar(name));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
@@ -260,7 +260,7 @@ void main() {
 
     testWidgets('leaves the entry out for several chats', (tester) async {
       await pumpChatList(tester);
-      await tester.longPress(find.text('Squad Goals'));
+      await tester.longPress(chatRowAvatar('Squad Goals'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Harrison Young'));
       await tester.pumpAndSettle();
