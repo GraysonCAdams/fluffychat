@@ -9,6 +9,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/active_call_indicator.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_swipe.dart';
+import 'package:fluffychat/pages/chat_list/chat_peek.dart';
 import 'package:fluffychat/pages/chat_list/message_preview.dart';
 import 'package:fluffychat/pages/chat_list/message_preview_cache.dart';
 import 'package:fluffychat/pages/chat_list/own_message_status.dart';
@@ -25,6 +26,7 @@ import 'package:fluffychat/utils/room_unread.dart';
 import 'package:fluffychat/widgets/hover_builder.dart';
 import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
 import 'package:fluffychat/widgets/typing_animation.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -69,10 +71,18 @@ class ChatListItem extends StatefulWidget {
   /// is highlighted and a check stands in for the avatar.
   final bool selected;
 
-  /// Called on a long press, a tap on the avatar, and a right-click, which
-  /// passes its [globalPosition]. [context] is the tile's.
+  /// Called on a long press of the avatar, a long press of the row that
+  /// does not open its peek (see [onPeek]), and a right-click, which passes
+  /// its [globalPosition]. [context] is the tile's.
   final void Function(BuildContext context, [Offset? globalPosition])?
   onLongPress;
+
+  /// Called instead of [onLongPress] when a finger or stylus holds the row
+  /// outside its avatar, with the tile's [context], the [pointer] still
+  /// down and its global [position]. A mouse's long press and a screen
+  /// reader's still call [onLongPress].
+  final void Function(BuildContext context, int pointer, Offset position)?
+  onPeek;
   final void Function()? onForget;
   final void Function() onTap;
   final String? filter;
@@ -86,6 +96,7 @@ class ChatListItem extends StatefulWidget {
     this.selected = false,
     required this.onTap,
     this.onLongPress,
+    this.onPeek,
     this.onForget,
     this.filter,
     this.highlight,
@@ -142,6 +153,52 @@ class _ChatListItemState extends State<ChatListItem> {
       _senderFuture = event.fetchSenderUser();
     }
     return _senderFuture;
+  }
+
+  /// The finger or stylus on the row, while one is down. A long press with
+  /// it opens the peek.
+  int? _touchPointer;
+  Offset _touchPosition = Offset.zero;
+
+  void _pointerDown(PointerDownEvent event) {
+    _touchPointer =
+        event.kind == PointerDeviceKind.mouse ||
+            event.kind == PointerDeviceKind.trackpad
+        ? null
+        : event.pointer;
+    _touchPosition = event.position;
+  }
+
+  void _pointerMove(PointerMoveEvent event) {
+    if (event.pointer == _touchPointer) _touchPosition = event.position;
+    ChatPeekGesture.move(event);
+  }
+
+  void _pointerUp(PointerUpEvent event) {
+    if (event.pointer == _touchPointer) _touchPointer = null;
+    ChatPeekGesture.up(event);
+  }
+
+  void _pointerCancel(PointerCancelEvent event) {
+    if (event.pointer == _touchPointer) _touchPointer = null;
+    ChatPeekGesture.cancel(event);
+  }
+
+  void _longPress(BuildContext context) {
+    final pointer = _touchPointer;
+    final onPeek = widget.onPeek;
+    if (pointer != null && onPeek != null) {
+      onPeek(context, pointer, _touchPosition);
+    } else {
+      widget.onLongPress?.call(context);
+    }
+  }
+
+  /// A long press of the avatar selects the chat however the row's own
+  /// long press is taken.
+  void _avatarLongPress(BuildContext context) {
+    Feedback.forLongPress(context);
+    widget.onLongPress?.call(context);
   }
 
   @override
@@ -230,114 +287,117 @@ class _ChatListItemState extends State<ChatListItem> {
               // With the tile's own 8dp margin the avatar starts 16dp from the
               // edge, as in Google Messages.
               contentPadding: const EdgeInsets.only(left: 8, right: 8),
-              onLongPress: () => onLongPress?.call(context),
+              onLongPress: () => _longPress(context),
               // The avatars show a picture or initials of the chat named in
-              // the title and of its space, plus a presence dot, and their
-              // only action selects the chat like the tile's long press.
-              // Left in the tree each would become a separate screen reader
-              // stop that announces bare initials.
+              // the title and of its space, plus a presence dot. A tap on
+              // them opens the chat as the row's does, and a long press
+              // selects it. Left in the tree each would become a separate
+              // screen reader stop that announces bare initials.
               leading: ExcludeSemantics(
-                child: HoverBuilder(
-                  builder: (context, hovered) => AnimatedScale(
-                    duration: FluffyThemes.animationDuration,
-                    curve: FluffyThemes.animationCurve,
-                    scale: hovered ? 1.1 : 1.0,
-                    child: SizedBox(
-                      width: Avatar.defaultSize,
-                      height: Avatar.defaultSize,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          // The chat itself gets the full-size avatar; the
-                          // space it belongs to (for bridges, the network) is
-                          // a small badge in the corner, outlined in the
-                          // tile's background so it reads as separate. A
-                          // group without a picture shows its members. A
-                          // selected chat shows a check instead of both.
-                          SelectableAvatar(
-                            selected: selected,
-                            size: Avatar.defaultSize,
-                            child:
-                                GroupAvatar.shows(contact?.sendViaRoom ?? room)
-                                ? GroupAvatar(
-                                    room: contact?.sendViaRoom ?? room,
-                                    name: displayname,
-                                    outlineColor:
-                                        backgroundColor ??
-                                        theme.colorScheme.surface,
-                                    onTap: () => onLongPress?.call(context),
+                child: GestureDetector(
+                  onTap: widget.onTap,
+                  onLongPress: () => _avatarLongPress(context),
+                  child: HoverBuilder(
+                    builder: (context, hovered) => AnimatedScale(
+                      duration: FluffyThemes.animationDuration,
+                      curve: FluffyThemes.animationCurve,
+                      scale: hovered ? 1.1 : 1.0,
+                      child: SizedBox(
+                        width: Avatar.defaultSize,
+                        height: Avatar.defaultSize,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            // The chat itself gets the full-size avatar; the
+                            // space it belongs to (for bridges, the network) is
+                            // a small badge in the corner, outlined in the
+                            // tile's background so it reads as separate. A
+                            // group without a picture shows its members. A
+                            // selected chat shows a check instead of both.
+                            SelectableAvatar(
+                              selected: selected,
+                              size: Avatar.defaultSize,
+                              child:
+                                  GroupAvatar.shows(
+                                    contact?.sendViaRoom ?? room,
                                   )
-                                : Avatar(
-                                    shapeBorder: room.isSpace
-                                        ? RoundedSuperellipseBorder(
-                                            side: BorderSide(
-                                              width: 1,
-                                              color: theme.dividerColor,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
+                                  ? GroupAvatar(
+                                      room: contact?.sendViaRoom ?? room,
+                                      name: displayname,
+                                      outlineColor:
+                                          backgroundColor ??
+                                          theme.colorScheme.surface,
+                                    )
+                                  : Avatar(
+                                      shapeBorder: room.isSpace
+                                          ? RoundedSuperellipseBorder(
+                                              side: BorderSide(
+                                                width: 1,
+                                                color: theme.dividerColor,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    AppConfig.spaceBorderRadius,
+                                                  ),
+                                            )
+                                          : null,
+                                      borderRadius: room.isSpace
+                                          ? BorderRadius.circular(
                                               AppConfig.spaceBorderRadius,
-                                            ),
-                                          )
-                                        : null,
-                                    borderRadius: room.isSpace
-                                        ? BorderRadius.circular(
-                                            AppConfig.spaceBorderRadius,
-                                          )
-                                        : null,
-                                    mxContent: contact?.avatar ?? room.avatar,
-                                    size: Avatar.defaultSize,
-                                    name: displayname,
-                                    presenceUserId:
-                                        contact
-                                            ?.sendViaRoom
-                                            .directChatMatrixID ??
-                                        room.directChatMatrixID,
-                                    presenceBackgroundColor: backgroundColor,
-                                    onTap: () => onLongPress?.call(context),
-                                  ),
-                          ),
-                          if (selected ||
-                              !AppSettings.chatListNetworkBadges.value)
-                            const SizedBox.shrink()
-                          else if (contact != null && contact.spansNetworks)
-                            Positioned(
-                              right: -4,
-                              bottom: -4,
-                              child: MergedBadge(
-                                contact: contact,
-                                size: Avatar.defaultSize * 0.42,
-                                outlineColor:
-                                    backgroundColor ??
-                                    theme.colorScheme.surface,
-                                onTap: () => onLongPress?.call(context),
-                              ),
-                            )
-                          else if (space != null)
-                            Positioned(
-                              right: -4,
-                              bottom: -4,
-                              child: Avatar(
-                                shapeBorder: RoundedSuperellipseBorder(
-                                  side: BorderSide(
-                                    width: 2,
-                                    color:
-                                        backgroundColor ??
-                                        theme.colorScheme.surface,
+                                            )
+                                          : null,
+                                      mxContent: contact?.avatar ?? room.avatar,
+                                      size: Avatar.defaultSize,
+                                      name: displayname,
+                                      presenceUserId:
+                                          contact
+                                              ?.sendViaRoom
+                                              .directChatMatrixID ??
+                                          room.directChatMatrixID,
+                                      presenceBackgroundColor: backgroundColor,
+                                    ),
+                            ),
+                            if (selected ||
+                                !AppSettings.chatListNetworkBadges.value)
+                              const SizedBox.shrink()
+                            else if (contact != null && contact.spansNetworks)
+                              Positioned(
+                                right: -4,
+                                bottom: -4,
+                                child: MergedBadge(
+                                  contact: contact,
+                                  size: Avatar.defaultSize * 0.42,
+                                  outlineColor:
+                                      backgroundColor ??
+                                      theme.colorScheme.surface,
+                                ),
+                              )
+                            else if (space != null)
+                              Positioned(
+                                right: -4,
+                                bottom: -4,
+                                child: Avatar(
+                                  shapeBorder: RoundedSuperellipseBorder(
+                                    side: BorderSide(
+                                      width: 2,
+                                      color:
+                                          backgroundColor ??
+                                          theme.colorScheme.surface,
+                                    ),
+                                    borderRadius: BorderRadius.circular(
+                                      AppConfig.spaceBorderRadius * 0.5,
+                                    ),
                                   ),
                                   borderRadius: BorderRadius.circular(
                                     AppConfig.spaceBorderRadius * 0.5,
                                   ),
+                                  mxContent: space.avatar,
+                                  size: Avatar.defaultSize * 0.42,
+                                  name: space.getLocalizedDisplayname(),
                                 ),
-                                borderRadius: BorderRadius.circular(
-                                  AppConfig.spaceBorderRadius * 0.5,
-                                ),
-                                mxContent: space.avatar,
-                                size: Avatar.defaultSize * 0.42,
-                                name: space.getLocalizedDisplayname(),
-                                onTap: () => onLongPress?.call(context),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -621,7 +681,16 @@ class _ChatListItemState extends State<ChatListItem> {
     return GestureDetector(
       onSecondaryTapUp: (details) =>
           onLongPress?.call(context, details.globalPosition),
-      child: tile,
+      // Raw pointer events, outside the gesture arena: the row learns what
+      // touches it, and hands the moves of the finger that opened a peek on
+      // to the peek.
+      child: Listener(
+        onPointerDown: _pointerDown,
+        onPointerMove: _pointerMove,
+        onPointerUp: _pointerUp,
+        onPointerCancel: _pointerCancel,
+        child: tile,
+      ),
     );
   }
 

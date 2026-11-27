@@ -361,7 +361,7 @@ void main() {
     await pumpWindow(tester, 1280);
     final before = tester.getTopLeft(find.text('Squad Goals')).dy;
     expect(find.byType(StartChatFab), findsOneWidget);
-    await tester.longPress(find.text('Squad Goals'));
+    await tester.longPress(chatRowAvatar('Squad Goals'));
     await tester.pumpAndSettle();
 
     expect(find.byType(ChatListSelectionBar), findsNothing);

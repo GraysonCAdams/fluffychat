@@ -7,6 +7,8 @@
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
@@ -16,6 +18,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
+// The SDK does not export the chunk type a timeline is made from.
+// ignore: implementation_imports
+import 'package:matrix/src/models/timeline_chunk.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -108,6 +113,77 @@ class FakeChatListRoom extends Room {
 
   @override
   Future<void> leave({bool waitForSync = false}) async => calls.add('leave');
+
+  /// The messages [getTimeline] returns, oldest first, instead of the
+  /// database's, when set.
+  List<Event>? timelineEvents;
+
+  @override
+  Future<Timeline> getTimeline({
+    void Function(int index)? onChange,
+    void Function(int index)? onRemove,
+    void Function(int insertID)? onInsert,
+    void Function()? onNewEvent,
+    void Function()? onUpdate,
+    String? eventContextId,
+    int? limit = Room.defaultHistoryCount,
+  }) async {
+    final events = timelineEvents;
+    if (events == null) {
+      return super.getTimeline(
+        onChange: onChange,
+        onRemove: onRemove,
+        onInsert: onInsert,
+        onNewEvent: onNewEvent,
+        onUpdate: onUpdate,
+        eventContextId: eventContextId,
+        limit: limit,
+      );
+    }
+    calls.add('timeline');
+    // A timeline lists the newest first.
+    return Timeline(
+      room: this,
+      chunk: TimelineChunk(events: events.reversed.toList()),
+      onUpdate: onUpdate,
+    );
+  }
+
+  /// Gives the chat [bodies] as its messages, oldest first, a minute apart
+  /// and alternating between [partner] and the user, ending at [end].
+  void setMessages(
+    List<String> bodies, {
+    String partner = '@someone:x',
+    DateTime? end,
+  }) {
+    final last = end ?? DateTime(2026);
+    // Members known, so the bubbles do not read them from the database.
+    for (final user in [partner, '@me:x']) {
+      if (getState(EventTypes.RoomMember, user) != null) continue;
+      setState(
+        StrippedStateEvent(
+          type: EventTypes.RoomMember,
+          content: {'membership': 'join'},
+          senderId: user,
+          stateKey: user,
+        ),
+      );
+    }
+    timelineEvents = [
+      for (var i = 0; i < bodies.length; i++)
+        Event(
+          content: {'msgtype': 'm.text', 'body': bodies[i]},
+          type: EventTypes.Message,
+          eventId: '\$$id-$i',
+          senderId: i.isEven ? partner : '@me:x',
+          originServerTs: last.subtract(
+            Duration(minutes: bodies.length - 1 - i),
+          ),
+          room: this,
+        ),
+    ];
+    lastEvent = timelineEvents!.last;
+  }
 
   /// Pins the room as a sync would, with [order] on the favourite tag when
   /// given.
@@ -375,3 +451,14 @@ Future<void> finishFakeChatList(WidgetTester tester, Client client) async {
   MatrixFeatures.disposeFor(client);
   await tester.pump(const Duration(seconds: 5));
 }
+
+/// The avatar of the chat row that shows [name]. A long press on it
+/// selects the chat; a long press elsewhere on the row peeks at it.
+Finder chatRowAvatar(String name) => find
+    .descendant(
+      of: find
+          .ancestor(of: find.text(name), matching: find.byType(ChatListItem))
+          .first,
+      matching: find.byType(SelectableAvatar),
+    )
+    .first;

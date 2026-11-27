@@ -72,7 +72,20 @@ enum _MoreAction {
   lowPriority,
   addTag,
   removeTag,
-  block,
+  block;
+
+  IconData get icon => switch (this) {
+    openInNewWindow => Icons.open_in_new,
+    mergeWith || mergeSelected => Icons.call_merge,
+    manage => Icons.manage_accounts_outlined,
+    unmerge => Icons.call_split,
+    goToSpace => Icons.workspaces_outlined,
+    addToSpace => Icons.add_circle_outline,
+    lowPriority => Icons.low_priority,
+    addTag => Icons.label_outline,
+    removeTag => Icons.label_off_outlined,
+    block => Icons.block,
+  };
 }
 
 /// The chat list's app bar while chats are selected on a phone or without
@@ -241,31 +254,83 @@ List<Widget> _selectionActions(
   ];
 }
 
+/// One entry of a single chat's menu: the right-click menu and the peek's
+/// (see `showChatPeek`) list the same entries in the same order.
+class ChatMenuEntry {
+  final String label;
+  final IconData icon;
+  final Future<void> Function() onSelected;
+
+  /// Drawn in the error colour: leaving the chat or declining its invite.
+  final bool destructive;
+
+  const ChatMenuEntry(
+    this.label,
+    this.icon,
+    this.onSelected, {
+    this.destructive = false,
+  });
+}
+
+/// The selection bar's actions for [room] alone, without selecting it:
+/// opening it in a new window first, as in the bar's overflow menu, then
+/// pin, mute and read, the overflow entries, and leaving it last.
+List<ChatMenuEntry> chatMenuEntries(ChatListController controller, Room room) {
+  final l10n = L10n.of(controller.context);
+  final chats = [SelectedChat(room, controller.mergedContactFor(room))];
+  final chat = chats.single;
+  final more = _moreActions(controller, chats);
+  ChatMenuEntry moreEntry(_MoreAction action, String label) => ChatMenuEntry(
+    label,
+    action.icon,
+    () => _onMore(controller, chats, action),
+  );
+  return [
+    for (final (action, label) in more)
+      if (action == _MoreAction.openInNewWindow) moreEntry(action, label),
+    if (chat.isJoined && !chat.isLowPriority)
+      ChatMenuEntry(
+        chat.isPinned ? l10n.unpin : l10n.pin,
+        chat.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+        () => setSelectedPinned(controller, chats, !chat.isPinned),
+      ),
+    if (chat.isJoined)
+      ChatMenuEntry(
+        chat.isMuted ? l10n.unmuteChat : l10n.muteChat,
+        chat.isMuted
+            ? Icons.notifications_outlined
+            : Icons.notifications_off_outlined,
+        () => setSelectedMuted(controller, chats, !chat.isMuted),
+      ),
+    if (chat.isJoined)
+      ChatMenuEntry(
+        chat.isUnread ? l10n.markAsRead : l10n.markAsUnread,
+        chat.isUnread
+            ? Icons.mark_email_read_outlined
+            : Icons.mark_email_unread_outlined,
+        () => setSelectedRead(controller, chats, chat.isUnread),
+      ),
+    for (final (action, label) in more)
+      if (action != _MoreAction.openInNewWindow) moreEntry(action, label),
+    ChatMenuEntry(
+      room.membership == .invite ? l10n.delete : l10n.leave,
+      Icons.delete_outlined,
+      () => leaveSelected(controller, chats),
+      destructive: true,
+    ),
+  ];
+}
+
 /// The menu a right-click on [room]'s row opens at [position]: the
-/// selection bar's actions for that one chat, without selecting it. Opening
-/// it in a new window comes first, as in the bar's overflow menu.
+/// entries of [chatMenuEntries].
 Future<void> showChatContextMenu(
   ChatListController controller,
   Room room,
   Offset position,
 ) async {
   final context = controller.context;
-  final l10n = L10n.of(context);
-  final chats = [SelectedChat(room, controller.mergedContactFor(room))];
-  final chat = chats.single;
-  final more = _moreActions(controller, chats);
   final overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
-  final leavesInvite = room.membership == .invite;
-
-  PopupMenuItem<Future<void> Function()> item(
-    String label,
-    Future<void> Function() action, {
-    Color? color,
-  }) => PopupMenuItem(
-    value: action,
-    child: Text(label, style: TextStyle(color: color)),
-  );
-
+  final error = Theme.of(context).colorScheme.error;
   final choice = await showMenu<Future<void> Function()>(
     context: context,
     position: RelativeRect.fromRect(
@@ -273,32 +338,14 @@ Future<void> showChatContextMenu(
       Offset.zero & overlay.size,
     ),
     items: [
-      for (final (action, label) in more)
-        if (action == _MoreAction.openInNewWindow)
-          item(label, () => _onMore(controller, chats, action)),
-      if (chat.isJoined && !chat.isLowPriority)
-        item(
-          chat.isPinned ? l10n.unpin : l10n.pin,
-          () => setSelectedPinned(controller, chats, !chat.isPinned),
+      for (final entry in chatMenuEntries(controller, room))
+        PopupMenuItem(
+          value: entry.onSelected,
+          child: Text(
+            entry.label,
+            style: TextStyle(color: entry.destructive ? error : null),
+          ),
         ),
-      if (chat.isJoined)
-        item(
-          chat.isMuted ? l10n.unmuteChat : l10n.muteChat,
-          () => setSelectedMuted(controller, chats, !chat.isMuted),
-        ),
-      if (chat.isJoined)
-        item(
-          chat.isUnread ? l10n.markAsRead : l10n.markAsUnread,
-          () => setSelectedRead(controller, chats, chat.isUnread),
-        ),
-      for (final (action, label) in more)
-        if (action != _MoreAction.openInNewWindow)
-          item(label, () => _onMore(controller, chats, action)),
-      item(
-        leavesInvite ? l10n.delete : l10n.leave,
-        () => leaveSelected(controller, chats),
-        color: Theme.of(context).colorScheme.error,
-      ),
     ],
   );
   await choice?.call();

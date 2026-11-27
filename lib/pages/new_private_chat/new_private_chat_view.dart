@@ -20,6 +20,7 @@ import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
+import 'package:fluffychat/widgets/read_only_conversation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 import 'package:pretty_qr_code/pretty_qr_code.dart';
@@ -58,13 +59,13 @@ class NewPrivateChatView extends StatelessWidget {
           ? _RecentPeople(controller)
           : _StartList(controller);
     } else if (controller.unreachable) {
-      body = ComposeEmptyHistory(
+      body = ConversationEmptyHistory(
         text: controller.failedNetworks.isEmpty
             ? l10n.noNetworkCanReach
             : l10n.networkCheckFailedTitle,
       );
     } else {
-      body = ComposeEmptyHistory(
+      body = ConversationEmptyHistory(
         text: controller.group.isGroup
             ? l10n.composeNewGroupHint
             : l10n.composeNewChatHint,

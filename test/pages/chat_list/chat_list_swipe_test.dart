@@ -214,7 +214,7 @@ void main() {
 
   testWidgets('rows do not swipe while chats are selected', (tester) async {
     await pump(tester);
-    await tester.longPress(find.text('Squad Goals'));
+    await tester.longPress(chatRowAvatar('Squad Goals'));
     await tester.pumpAndSettle();
     await swipe(tester, 'Harrison Young', 300);
     await swipe(tester, 'Sam Lee', -300);

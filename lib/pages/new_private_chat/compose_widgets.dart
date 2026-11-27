@@ -7,18 +7,15 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat_input_row.dart';
 import 'package:fluffychat/pages/chat/composer_attachments.dart';
-import 'package:fluffychat/pages/chat/events/message.dart';
 import 'package:fluffychat/pages/chat/network_switcher_chips.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
-import 'package:fluffychat/utils/date_time_extension.dart';
-import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
 import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
 import 'package:fluffychat/utils/new_chat/new_group.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
+import 'package:fluffychat/widgets/read_only_conversation.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:matrix/matrix.dart';
 
 /// The compose screen's To field: "To:", the people picked as removable
 /// chips, and the text field that searches for more, all in one wrapping
@@ -423,9 +420,13 @@ class _GroupNameDialogState extends State<_GroupNameDialog> {
 /// The messages of a chat the user already has, read-only and newest at
 /// the bottom, drawn with the chat's own bubbles: what the compose screen
 /// shows above the composer for the people in its To field.
-class ComposeConversation extends StatefulWidget {
+class ComposeConversation extends StatelessWidget {
   final ExistingChat chat;
   final NewChatDelivery delivery;
+
+  /// Fewer messages than this in the cache asks the server for more once,
+  /// so a short screen of history is not left half empty.
+  static const int _fillCount = 20;
 
   const ComposeConversation({
     required this.chat,
@@ -434,159 +435,12 @@ class ComposeConversation extends StatefulWidget {
   });
 
   @override
-  State<ComposeConversation> createState() => _ComposeConversationState();
-}
-
-class _ComposeConversationState extends State<ComposeConversation> {
-  final ScrollController _scrollController = ScrollController();
-  Timeline? _timeline;
-  bool _failed = false;
-
-  /// Fewer messages than this in the cache asks the server for more once,
-  /// so a short screen of history is not left half empty.
-  static const int _fillCount = 20;
-
-  @override
-  void initState() {
-    super.initState();
-    _open();
-  }
-
-  Future<void> _open() async {
-    try {
-      final timeline = await widget.delivery.openTimeline(
-        widget.chat,
-        onUpdate: _update,
-      );
-      if (!mounted) {
-        timeline.cancelSubscriptions();
-        return;
-      }
-      setState(() => _timeline = timeline);
-      if (timeline.events.filterByVisibleInGui().length < _fillCount &&
-          timeline.canRequestHistory) {
-        await timeline.requestHistory();
-      }
-    } catch (e, s) {
-      Logs().w('Unable to read the chat for the compose screen', e, s);
-      if (mounted) setState(() => _failed = true);
-    }
-  }
-
-  void _update() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void dispose() {
-    _timeline?.cancelSubscriptions();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final timeline = _timeline;
-    if (timeline == null) {
-      return _failed
-          ? const SizedBox.shrink()
-          : const Center(child: CircularProgressIndicator.adaptive());
-    }
-    final events = timeline.events.filterByVisibleInGui();
-    if (events.isEmpty) {
-      return ComposeEmptyHistory(text: L10n.of(context).noMessagesYet);
-    }
-    final colors = [theme.secondaryBubbleColor, theme.bubbleColor];
-    final now = DateTime.now();
-    return ListView.builder(
-      key: const ValueKey('compose-history'),
-      controller: _scrollController,
-      reverse: true,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: events.length,
-      itemBuilder: (context, i) {
-        final event = events[i];
-        final nextEvent = i + 1 < events.length ? events[i + 1] : null;
-        final previousEvent = i > 0 ? events[i - 1] : null;
-        // A separator names the time wherever the conversation paused for
-        // an hour or crossed midnight, as in the chat.
-        final displayDate =
-            nextEvent == null ||
-            !event.originServerTs.sameDay(nextEvent.originServerTs) ||
-            event.originServerTs.difference(nextEvent.originServerTs).abs() >=
-                const Duration(hours: 1);
-        final time = event.originServerTs;
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (displayDate)
-              Padding(
-                padding: const EdgeInsets.only(top: 22, bottom: 8),
-                child: Center(
-                  child: Text(
-                    time.sameDay(now)
-                        ? time.localizedTimeOfDay(context)
-                        : '${time.localizedDate(context)} • '
-                              '${time.localizedTimeOfDay(context)}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ),
-            // Read-only: the history only shows what the first message
-            // joins, so nothing in a bubble reacts to a tap.
-            IgnorePointer(
-              child: Message(
-                event,
-                nextEvent: nextEvent,
-                previousEvent: previousEvent,
-                bigEmojis: const {},
-                onSelect: (_) {},
-                onInfoTab: (_) {},
-                scrollToEventId: (_) {},
-                onSwipe: () {},
-                onMention: () {},
-                onEdit: () {},
-                enterThread: null,
-                singleSelected: false,
-                hideReactionPicker: true,
-                timeline: timeline,
-                scrollController: _scrollController,
-                colors: colors,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-/// The quiet line in the middle of an empty conversation.
-class ComposeEmptyHistory extends StatelessWidget {
-  final String text;
-
-  const ComposeEmptyHistory({required this.text, super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ReadOnlyConversation(
+    open: (onUpdate) => delivery.openTimeline(chat, onUpdate: onUpdate),
+    fillCount: _fillCount,
+    listKey: const ValueKey('compose-history'),
+    failureLog: 'Unable to read the chat for the compose screen',
+  );
 }
 
 /// The compose screen's composer, drawn as the chat's: a pill with the

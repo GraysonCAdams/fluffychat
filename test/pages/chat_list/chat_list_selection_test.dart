@@ -90,7 +90,7 @@ void main() {
   }
 
   Future<void> select(WidgetTester tester, List<String> names) async {
-    await tester.longPress(find.text(names.first));
+    await tester.longPress(chatRowAvatar(names.first));
     await tester.pumpAndSettle();
     for (final name in names.skip(1)) {
       await tester.tap(find.text(name));
@@ -104,7 +104,7 @@ void main() {
     await pumpChatList(tester);
     expect(find.byType(ChatListSelectionBar), findsNothing);
 
-    await tester.longPress(find.text('Harrison Young'));
+    await tester.longPress(chatRowAvatar('Harrison Young'));
     await tester.pumpAndSettle();
     expect(find.byType(ChatListSelectionBar), findsOneWidget);
     expect(find.byTooltip('Clear selection'), findsOneWidget);
@@ -125,7 +125,7 @@ void main() {
     tester,
   ) async {
     await pumpChatList(tester);
-    await tester.longPress(find.text('Harrison Young'));
+    await tester.longPress(chatRowAvatar('Harrison Young'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Squad Goals'));
@@ -297,7 +297,7 @@ void main() {
           stateKey: '',
         ),
       );
-      await tester.longPress(find.text('Squad Goals').first);
+      await tester.longPress(chatRowAvatar('Squad Goals'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Squad Goals').last);
       await tester.pumpAndSettle();
