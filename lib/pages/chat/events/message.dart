@@ -13,7 +13,6 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/effects/message_effect_bubble.dart';
 import 'package:fluffychat/pages/chat/effects/message_effect_replay_link.dart';
-import 'package:fluffychat/pages/chat/typing_run.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/file_description.dart';
@@ -542,30 +541,24 @@ class Message extends StatelessWidget {
                                       child: SizedBox(
                                         width: senderAvatarSize,
                                         child: lastOfRun
-                                            ? RunAvatarSlot(
-                                                room: event.room,
-                                                senderId: event.senderId,
-                                                isNewest: previousEvent == null,
-                                                child: SenderUserBuilder(
-                                                  event: event,
-                                                  builder: (context, fetchedUser) {
-                                                    final user =
-                                                        fetchedUser ?? sender;
-                                                    return Avatar(
-                                                      mxContent: user.avatarUrl,
-                                                      name: user
-                                                          .calcDisplayname(),
-                                                      onTap: () =>
-                                                          showMemberActionsPopupMenu(
-                                                            context: context,
-                                                            user: user,
-                                                            onMention:
-                                                                onMention,
-                                                          ),
-                                                      size: senderAvatarSize,
-                                                    );
-                                                  },
-                                                ),
+                                            ? SenderUserBuilder(
+                                                event: event,
+                                                builder: (context, fetchedUser) {
+                                                  final user =
+                                                      fetchedUser ?? sender;
+                                                  return Avatar(
+                                                    mxContent: user.avatarUrl,
+                                                    name: user
+                                                        .calcDisplayname(),
+                                                    onTap: () =>
+                                                        showMemberActionsPopupMenu(
+                                                          context: context,
+                                                          user: user,
+                                                          onMention: onMention,
+                                                        ),
+                                                    size: senderAvatarSize,
+                                                  );
+                                                },
                                               )
                                             : null,
                                       ),
@@ -759,34 +752,29 @@ class Message extends StatelessWidget {
                                                                 event: event,
                                                                 timeline:
                                                                     timeline,
-                                                                builder:
-                                                                    (
-                                                                      context,
-                                                                      foundReplyEvent,
-                                                                    ) {
-                                                                      final replyEvent =
-                                                                          foundReplyEvent ??
-                                                                          Event(
-                                                                            eventId:
-                                                                                event.inReplyToEventId() ??
-                                                                                '\$fake_event_id',
-                                                                            content: {
-                                                                              'msgtype': 'm.text',
-                                                                              'body': '...',
-                                                                            },
-                                                                            senderId:
-                                                                                event.senderId,
-                                                                            type:
-                                                                                'm.room.message',
-                                                                            room:
-                                                                                event.room,
-                                                                            status:
-                                                                                EventStatus.sent,
-                                                                            originServerTs:
-                                                                                DateTime.now(),
-                                                                          );
-                                                                      return Padding(
-                                                                        padding: const EdgeInsets.only(
+                                                                builder: (context, foundReplyEvent) {
+                                                                  final replyEvent =
+                                                                      foundReplyEvent ??
+                                                                      Event(
+                                                                        eventId:
+                                                                            event.inReplyToEventId() ?? '\$fake_event_id',
+                                                                        content: {
+                                                                          'msgtype': 'm.text',
+                                                                          'body': '...',
+                                                                        },
+                                                                        senderId:
+                                                                            event.senderId,
+                                                                        type: 'm.room.message',
+                                                                        room: event
+                                                                            .room,
+                                                                        status:
+                                                                            EventStatus.sent,
+                                                                        originServerTs:
+                                                                            DateTime.now(),
+                                                                      );
+                                                                  return Padding(
+                                                                    padding:
+                                                                        const EdgeInsets.only(
                                                                           left:
                                                                               16,
                                                                           right:
@@ -794,29 +782,34 @@ class Message extends StatelessWidget {
                                                                           top:
                                                                               8,
                                                                         ),
-                                                                        child: Material(
-                                                                          color:
-                                                                              Colors.transparent,
-                                                                          borderRadius:
-                                                                              ReplyContent.borderRadius,
-                                                                          child: InkWell(
-                                                                            borderRadius:
-                                                                                ReplyContent.borderRadius,
-                                                                            onTap: () => scrollToEventId(
-                                                                              replyEvent.eventId,
-                                                                            ),
-                                                                            child: AbsorbPointer(
-                                                                              child: ReplyContent(
-                                                                                replyEvent,
-                                                                                ownMessage: ownMessage,
-                                                                                foregroundColor: onNetworkColor,
-                                                                                timeline: timeline,
-                                                                              ),
-                                                                            ),
+                                                                    child: Material(
+                                                                      color: Colors
+                                                                          .transparent,
+                                                                      borderRadius:
+                                                                          ReplyContent
+                                                                              .borderRadius,
+                                                                      child: InkWell(
+                                                                        borderRadius:
+                                                                            ReplyContent.borderRadius,
+                                                                        onTap: () => scrollToEventId(
+                                                                          replyEvent
+                                                                              .eventId,
+                                                                        ),
+                                                                        child: AbsorbPointer(
+                                                                          child: ReplyContent(
+                                                                            replyEvent,
+                                                                            ownMessage:
+                                                                                ownMessage,
+                                                                            foregroundColor:
+                                                                                onNetworkColor,
+                                                                            timeline:
+                                                                                timeline,
                                                                           ),
                                                                         ),
-                                                                      );
-                                                                    },
+                                                                      ),
+                                                                    ),
+                                                                  );
+                                                                },
                                                               ),
                                                             MessageContent(
                                                               displayEvent,
@@ -953,9 +946,8 @@ class Message extends StatelessWidget {
                                                         Icons
                                                             .add_reaction_outlined,
                                                       ),
-                                                      tooltip: L10n.of(
-                                                        context,
-                                                      ).customReaction,
+                                                      tooltip: L10n.of(context)
+                                                          .customReaction,
                                                       onPressed: () async {
                                                         final emoji = await showAdaptiveBottomSheet<String>(
                                                           context: context,
@@ -998,16 +990,10 @@ class Message extends StatelessWidget {
                                                                       child: TabBarView(
                                                                         children: [
                                                                           EmojiPicker(
-                                                                            onEmojiSelected:
-                                                                                (
-                                                                                  _,
-                                                                                  emoji,
-                                                                                ) =>
-                                                                                    Navigator.of(
-                                                                                      context,
-                                                                                    ).pop(
-                                                                                      emoji.emoji,
-                                                                                    ),
+                                                                            onEmojiSelected: (
+                                                                              _,
+                                                                              emoji,
+                                                                            ) => Navigator.of(context).pop(emoji.emoji),
                                                                             config: Config(
                                                                               locale: Localizations.localeOf(
                                                                                 context,
@@ -1021,19 +1007,13 @@ class Message extends StatelessWidget {
                                                                               categoryViewConfig: CategoryViewConfig(
                                                                                 initCategory: Category.SMILEYS,
                                                                                 backspaceColor: theme.colorScheme.primary,
-                                                                                iconColor: theme.colorScheme.primary.withAlpha(
-                                                                                  128,
-                                                                                ),
+                                                                                iconColor: theme.colorScheme.primary.withAlpha(128),
                                                                                 iconColorSelected: theme.colorScheme.primary,
                                                                                 indicatorColor: theme.colorScheme.primary,
                                                                                 backgroundColor: theme.colorScheme.surface,
                                                                               ),
                                                                               skinToneConfig: SkinToneConfig(
-                                                                                dialogBackgroundColor: Color.lerp(
-                                                                                  theme.colorScheme.surface,
-                                                                                  theme.colorScheme.primaryContainer,
-                                                                                  0.75,
-                                                                                )!,
+                                                                                dialogBackgroundColor: Color.lerp(theme.colorScheme.surface, theme.colorScheme.primaryContainer, 0.75)!,
                                                                                 indicatorColor: theme.colorScheme.onSurface,
                                                                               ),
                                                                             ),
@@ -1043,15 +1023,9 @@ class Message extends StatelessWidget {
                                                                                 event.room,
                                                                             usage:
                                                                                 ImagePackUsage.emoticon,
-                                                                            onSelected:
-                                                                                (
-                                                                                  sticker,
-                                                                                ) =>
-                                                                                    Navigator.of(
-                                                                                      context,
-                                                                                    ).pop(
-                                                                                      sticker.url.toString(),
-                                                                                    ),
+                                                                            onSelected: (sticker) => Navigator.of(
+                                                                              context,
+                                                                            ).pop(sticker.url.toString()),
                                                                           ),
                                                                         ],
                                                                       ),
