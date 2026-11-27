@@ -15,6 +15,7 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_filter_menu.dart';
 import 'package:fluffychat/pages/chat_list/title_bar_search.dart';
+import 'package:fluffychat/utils/windows_startup_entry.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart' hide Result;
@@ -438,7 +439,7 @@ abstract final class WindowsDesktop {
   static const startHiddenArgument = '--hidden';
 
   static const _runKey = r'Software\Microsoft\Windows\CurrentVersion\Run';
-  static const _runValueName = 'FluffyChat';
+  static const _runValueName = seamRunValueName;
   static const _trayIcon = 'assets/seam/tray_icon.ico';
 
   static final _advapi32 = DynamicLibrary.open('advapi32.dll');
@@ -478,6 +479,8 @@ abstract final class WindowsDesktop {
       windowManager.addListener(_WindowEvents());
       await windowManager.setPreventClose(true);
       await _initTray(l10n);
+      // ignore: discarded_futures
+      retireOldRunEntry(Platform.resolvedExecutable);
       setLaunchAtStartup(AppSettings.launchAtStartup.value);
     } catch (e, s) {
       Logs().w('Unable to set up the desktop window', e, s);

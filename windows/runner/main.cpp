@@ -15,10 +15,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   // Only one instance may open the database. A second launch, for example
   // from the Start menu while the app sits in the tray, brings the running
-  // window to the front instead. The name is FluffyChat's, not Seam's toast
-  // identity (AppConfig.seamApplicationId): an installed FluffyChat opens the
-  // same database folder, so the two must keep each other out.
-  ::CreateMutexW(nullptr, TRUE, L"Local\\im.fluffychat.app");
+  // window to the front instead. The name is AppConfig.seamApplicationId, so
+  // it does not clash with an installed FluffyChat, which keeps its own data.
+  ::CreateMutexW(nullptr, TRUE, L"Local\\dev.threeonetwo.seam");
   if (::GetLastError() == ERROR_ALREADY_EXISTS) {
     HWND running = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"Seam");
     if (running) {
