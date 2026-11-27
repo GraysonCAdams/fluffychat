@@ -86,16 +86,20 @@ enum AppSettings<T> {
   presetHomeserver<String>('chat.fluffy.preset_homeserver', ''),
   welcomeText<String>('chat.fluffy.welcome_text', ''),
 
+  /// The client_uri this app registers with a homeserver for OIDC sign-in.
+  /// The mobile redirect scheme (AppConfig.appSsoUrlScheme, im.fluffychat.auth)
+  /// must be this host in reverse, so it stays fluffychat.im until the scheme
+  /// changes too. The app does not link to it.
   website<String>('chat.fluffy.website_url', 'https://fluffychat.im'),
-  logoUrl<String>(
-    'chat.fluffy.logo_url',
-    'https://fluffychat.im/assets/favicon.png',
-  ),
-  privacyPolicy<String>(
-    'chat.fluffy.privacy_policy_url',
-    'https://fluffychat.im/privacy',
-  ),
-  tos<String>('chat.fluffy.tos_url', 'https://fluffychat.im/tos'),
+
+  /// Sent with the OIDC registration when set, and must then be on the host
+  /// of [website] (the Matrix SDK enforces it). Settings and sign-in also
+  /// link to [privacyPolicy] when it is set. Seam has no logo, privacy policy
+  /// or terms on that host, so all three are empty unless a deployment
+  /// configures them.
+  logoUrl<String>('chat.fluffy.logo_url', ''),
+  privacyPolicy<String>('chat.fluffy.privacy_policy_url', ''),
+  tos<String>('chat.fluffy.tos_url', ''),
   sendTimelineEventTimeout<int>('chat.fluffy.send_timeline_event_timeout', 15),
   webNotificationSound<bool>('chat.fluffy.web_notification_sound', true),
   chatFilter<String>('chat.fluffy.chat_filter', 'allChats'),

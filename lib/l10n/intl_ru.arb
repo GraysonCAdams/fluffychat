@@ -814,18 +814,6 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} пригласил(а) вас в FluffyChat. \n1. Посетите https://fluffychat.im и установите приложение \n2. Зарегистрируйтесь или войдите \n3. Откройте ссылку приглашения: \n {link}",
-    "@inviteText": {
-        "type": "String",
-        "placeholders": {
-            "username": {
-                "type": "String"
-            },
-            "link": {
-                "type": "String"
-            }
-        }
-    },
     "isTyping": "печатает…",
     "@isTyping": {
         "type": "String",
@@ -962,7 +950,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "💬 Новое сообщение во FluffyChat",
+    "newMessageInFluffyChat": "💬 Новое сообщение в Seam",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}
@@ -997,7 +985,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "noGoogleServicesWarning": "Похоже, у вас нет служб Google на вашем телефоне. Это хорошее решение для вашей конфиденциальности! Для получения push-уведомлений во FluffyChat мы рекомендуем использовать ntfy. С ntfy или другим провайдером единых уведомлений вы можете получать push-уведомления безопасным способом передачи данных. Скачать ntfy можно из F-Droid или из Play Маркета.",
+    "noGoogleServicesWarning": "Похоже, у вас нет служб Google на вашем телефоне. Это хорошее решение для вашей конфиденциальности! Для получения push-уведомлений в Seam мы рекомендуем использовать ntfy. С ntfy или другим провайдером единых уведомлений вы можете получать push-уведомления безопасным способом передачи данных. Скачать ntfy можно из F-Droid или из Play Маркета.",
     "@noGoogleServicesWarning": {
         "type": "String",
         "placeholders": {}
@@ -2415,7 +2403,7 @@
     "logs": "Архивные записи",
     "advancedConfigs": "Расширенные Настройки",
     "advancedConfigurations": "Расширенные конфигурации",
-    "signUpGreeting": "FluffyChat децентрализорован! Выберите сервер, где вы хотите сделать свой аккаунт и заходите!",
+    "signUpGreeting": "Seam децентрализорован! Выберите сервер, где вы хотите сделать свой аккаунт и заходите!",
     "signInGreeting": "У вас есть уже аккаунт в Matrix? Добро пожаловать! Выберите свой сервер и войдите.",
     "join": "Присоединиться",
     "countFiles": "{count} файлов",
@@ -2655,7 +2643,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newPassphraseDescription": "FluffyChat защищает ваши сообщения сквозным шифрованием. Чтобы не потерять ваши сообщения, пожалуйста, придумайте сильную кодовую фразу, чтобы защитить вашу крипто-идентичность и легко восстанавливать зашифрованные сообщения.",
+    "newPassphraseDescription": "Seam защищает ваши сообщения сквозным шифрованием. Чтобы не потерять ваши сообщения, пожалуйста, придумайте сильную кодовую фразу, чтобы защитить вашу крипто-идентичность и легко восстанавливать зашифрованные сообщения.",
     "@newPassphraseDescription": {
         "type": "String",
         "placeholders": {}

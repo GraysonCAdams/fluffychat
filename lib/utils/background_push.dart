@@ -327,10 +327,7 @@ class BackgroundPush {
     await loadLocale();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (PlatformInfos.isAndroid) {
-        onFcmError?.call(
-          l10n!.noGoogleServicesWarning,
-          link: Uri.parse(AppConfig.enablePushTutorial),
-        );
+        onFcmError?.call(l10n!.noGoogleServicesWarning);
         return;
       }
       onFcmError?.call(l10n!.oopsPushError);

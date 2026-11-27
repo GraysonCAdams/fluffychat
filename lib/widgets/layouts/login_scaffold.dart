@@ -121,17 +121,19 @@ class _PrivacyButtons extends StatelessWidget {
           mainAxisAlignment: mainAxisAlignment,
           children: [
             TextButton(
-              onPressed: () => launchUrlString(AppSettings.website.value),
+              onPressed: () => launchUrlString(AppConfig.sourceCodeUrl),
               child: Text(L10n.of(context).website, style: shadowTextStyle),
             ),
             TextButton(
               onPressed: () => launchUrlString(AppConfig.supportUrl),
               child: Text(L10n.of(context).help, style: shadowTextStyle),
             ),
-            TextButton(
-              onPressed: () => launchUrlString(AppSettings.privacyPolicy.value),
-              child: Text(L10n.of(context).privacy, style: shadowTextStyle),
-            ),
+            if (AppSettings.privacyPolicy.value.isNotEmpty)
+              TextButton(
+                onPressed: () =>
+                    launchUrlString(AppSettings.privacyPolicy.value),
+                child: Text(L10n.of(context).privacy, style: shadowTextStyle),
+              ),
             TextButton(
               onPressed: () => PlatformInfos.showDialog(context),
               child: Text(L10n.of(context).about, style: shadowTextStyle),
