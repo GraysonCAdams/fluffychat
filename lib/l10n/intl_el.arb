@@ -552,10 +552,6 @@
             }
         }
     },
-    "@videoCall": {
-        "type": "String",
-        "placeholders": {}
-    },
     "@noMatrixServer": {
         "type": "String",
         "placeholders": {

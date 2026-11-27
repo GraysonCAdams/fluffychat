@@ -516,6 +516,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username} vás pozval na Seam.\n1. Nainštalujte si Seam: https://seam.312.dev\n2. Zaregistrujte sa alebo sa prihláste\n3. Otvorte odkaz na pozvánku: {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "píše…",
     "@isTyping": {
         "type": "String",

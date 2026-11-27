@@ -648,6 +648,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username} bjöd in dig till Seam.\n1. Besök seam.312.dev och installera appen\n2. Registrera dig eller logga in\n3. Öppna inbjudningslänk:\n {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "skriver…",
     "@isTyping": {
         "type": "String",

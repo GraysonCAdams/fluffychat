@@ -697,6 +697,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username}があなたをSeamに招待しました。\n1. Seamをインストール:　seam.312.dev \n2. アカウントの作成、またはサインインを行う\n3. 招待リンクを開く\n {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "が入力しています…",
     "@isTyping": {
         "type": "String",
@@ -2196,18 +2208,6 @@
     "disableBiometrics": "生体認証を無効にする",
     "unlockWithBiometrics": "生体認証でロック解除",
     "loadingMessages": "メッセージを読み込み中...",
-    "noDevicesFound": "デバイスが見つかりません",
-    "incomingCall": "着信",
-    "videoCall": "ビデオ通話",
-    "voiceCall": "音声通話",
-    "missedCall": "不在着信",
-    "callBack": "かけ直す",
-    "startCall": "通話開始",
-    "selectCamera": "カメラを選択",
-    "selectMicrophone": "マイクを選択",
-    "selectSpeaker": "スピーカーを選択",
-    "raiseHand": "挙手する",
-    "videoCallsBetaWarning": "ビデオ通話はベータ版の機能です。不具合や予期しない動作を生じる可能性があります。フィードバックをお待ちしております。",
     "eraser": "消しゴム",
     "@eraser": {
         "type": "String",

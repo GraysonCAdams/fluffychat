@@ -3,7 +3,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-
 import 'package:collection/collection.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
@@ -13,7 +12,6 @@ import 'package:fluffychat/utils/custom_image_resizer.dart';
 import 'package:fluffychat/utils/init_with_restore.dart';
 import 'package:fluffychat/utils/last_event_keeper.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
-import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call_member.dart';
 import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/network_error_log.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
@@ -138,8 +136,6 @@ abstract class ClientManager {
       importantStateEvents: <String>{
         // To make room emotes work
         'im.ponies.room_emotes',
-        // To display call state in chat list
-        MatrixRtcCallMember.eventType,
         // To tell bridged chats from plain Matrix rooms (MatrixFeatures)
         ...RoomBridge.stateTypes,
         // To leave bridge bots out of names, counts and typing (RoomKind)

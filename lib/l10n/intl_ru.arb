@@ -814,6 +814,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username} пригласил(а) вас в Seam. \n1. Посетите https://seam.312.dev и установите приложение \n2. Зарегистрируйтесь или войдите \n3. Откройте ссылку приглашения: \n {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "печатает…",
     "@isTyping": {
         "type": "String",
@@ -2760,36 +2772,7 @@
     "doubleTapReaction": "Двойное касание реакции",
     "shareCrashReports": "Делиться отчетами о сбоях",
     "shareCrashReportsDescription": "Автоматически отправлять отчеты о сбоях разработчикам?",
-    "countActiveCallMembers": "{count} активные участники звонка",
-    "@countActiveCallMembers": {
-        "placeholders": {
-            "count": {
-                "type": "int"
-            }
-        }
-    },
-    "enterCall": "Войти в звонок",
-    "videoCallsBetaWarning": "Видеозвонки — это бета-версия функции. Возможны ошибки или неожиданное поведение. Мы будем рады услышать ваши отзывы.",
-    "noDevicesFound": "Устройства не найдены",
-    "incomingCall": "Входящий звонок",
-    "videoCall": "Видео звонок",
-    "voiceCall": "Голосовой вызов",
-    "missedCall": "Пропущенный вызов",
-    "callBack": "Обратный звонок",
-    "hangUp": "Отключиться",
-    "waitingForParticipant": "Ждем участников...",
     "decline": "Отбой",
-    "startCall": "Начать звонок",
-    "selectCamera": "Выбрать камеру",
-    "selectMicrophone": "Выбрать микрофон",
-    "selectSpeaker": "Выбрать устройство воспроизведения",
-    "toggleMicrophone": "Включить микрофон",
-    "toggleCamera": "Включить камеру",
-    "startScreensharing": "Включить показ экрана",
-    "stopScreensharing": "Остановить показ экрана",
-    "raiseHand": "Поднять руку",
-    "stopRaiseHand": "Положить руку",
-    "preferSpeaker": "Предпочитаемый спикер",
     "unexpectedErrorOccurded": "К сожалению, произошла непредвиденная ошибка: {msg}",
     "@unexpectedErrorOccurded": {
         "placeholders": {

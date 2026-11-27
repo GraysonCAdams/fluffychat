@@ -569,6 +569,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username} meghívta a Seam-be.\n1. Keresse fel a seam.312.dev oldalt, és telepítse az alkalmazást \n2. Regisztráljon vagy jelentkezzen be \n3. Nyissa meg a meghívó linket: \n {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "épp gépel…",
     "@isTyping": {
         "type": "String",

@@ -5,6 +5,8 @@
 
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
+
 abstract class AppConfig {
   /// Seam Cobalt, the brand colour (brand/BRAND.md) and the default seed of
   /// the colour scheme.
@@ -17,21 +19,42 @@ abstract class AppConfig {
   static const bool hideTypingUsernames = false;
 
   static const String inviteLinkPrefix = 'https://matrix.to/#/';
-  static const String deepLinkPrefix = 'im.fluffychat://chat/';
   static const String schemePrefix = 'matrix:';
+  // Internal Android notification channel id, never shown to the user. All
+  // builds share it, so existing installs keep their channel settings.
   static const String pushNotificationsChannelId = 'fluffychat_push';
-  static const String pushNotificationsAppId = 'chat.fluffy.fluffychat';
   static const double borderRadius = 18.0;
   static const double spaceBorderRadius = 11.0;
   static const double columnWidth = 360.0;
 
   static const String appId = 'im.fluffychat.app';
-  // Seam's own id, in the dev.threeonetwo namespace, as its release build is
-  // named on Android. On Windows it is the AppUserModelID Seam's toasts are
-  // posted and registered under.
+  // Seam's own id, in the dev.threeonetwo namespace: the Play build's package
+  // name (android/app/build.gradle.kts) and the base of its URL schemes. On
+  // Windows it is the AppUserModelID Seam's toasts are posted and registered
+  // under.
   static const String seamApplicationId = 'dev.threeonetwo.seam';
-  static const String appOpenUrlScheme = 'im.fluffychat';
-  static const String appSsoUrlScheme = 'im.fluffychat.auth';
+
+  /// Whether this is the published Seam app: a release build on Android,
+  /// which installs as [seamApplicationId] (android/app/build.gradle.kts).
+  /// Debug and profile builds, and every other platform, keep the
+  /// identifiers the existing installs were set up under, so they upgrade
+  /// in place and stay logged in.
+  static bool get isPlayRelease =>
+      kReleaseMode &&
+      !kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.android;
+
+  /// The pusher app id the push gateway sees, before the device id is added.
+  static String get pushNotificationsAppId =>
+      isPlayRelease ? seamApplicationId : 'chat.fluffy.fluffychat';
+
+  /// URL schemes for deep links and the SSO redirect. On Android these must
+  /// match the appUrlScheme and appSsoUrlScheme manifest placeholders.
+  static String get appOpenUrlScheme =>
+      isPlayRelease ? seamApplicationId : 'im.fluffychat';
+  static String get appSsoUrlScheme =>
+      isPlayRelease ? '$seamApplicationId.auth' : 'im.fluffychat.auth';
+  static String get deepLinkPrefix => '$appOpenUrlScheme://chat/';
   // Identifies Seam's notification activation callback on Windows, a CLSID
   // that names Seam's executable alone; FluffyChat's installs use another.
   // Never change!
@@ -64,11 +87,6 @@ abstract class AppConfig {
     host: 'raw.githubusercontent.com',
     path:
         'GraysonCAdams/fluffychat/refs/heads/main/recommended_homeservers.json',
-  );
-
-  static final Uri crashReportEndpoint = Uri(
-    scheme: 'https',
-    host: 'crash.fluffy.chat',
   );
 
   static const String mainIsolatePortName = 'main_isolate';

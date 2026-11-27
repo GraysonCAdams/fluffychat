@@ -20,7 +20,6 @@ import 'package:fluffychat/pages/chat/effects/message_effect_picker.dart'
     as effects;
 import 'package:fluffychat/pages/chat/event_info_dialog.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
-import 'package:fluffychat/pages/chat/gallery_picker/gallery_picker_page.dart';
 import 'package:fluffychat/pages/chat/input_bar.dart';
 import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/pages/chat/start_poll_bottom_sheet.dart';
@@ -34,7 +33,6 @@ import 'package:fluffychat/utils/clipboard_gif.dart';
 import 'package:fluffychat/utils/emoticons.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/file_selector.dart';
-import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/event_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
@@ -68,6 +66,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -88,7 +88,6 @@ class ChatPage extends StatelessWidget {
   final SharedDraft? share;
   final String? eventId;
   final Timeline? timeline;
-  final String? action;
 
   /// Set to show a merged contact: all of its rooms in one timeline. Then
   /// [roomId] is unused.
@@ -104,7 +103,6 @@ class ChatPage extends StatelessWidget {
     this.eventId,
     this.share,
     this.timeline,
-    this.action,
     this.contactId,
     this.eventRoomId,
   });
@@ -128,12 +126,11 @@ class ChatPage extends StatelessWidget {
     }
 
     return ChatPageWithRoom(
-      key: Key('chat_page_${roomId}_${eventId}_$action'),
+      key: Key('chat_page_${roomId}_$eventId'),
       room: room,
       share: share,
       eventId: eventId,
       timeline: timeline,
-      action: action,
     );
   }
 
@@ -161,13 +158,12 @@ class ChatPage extends StatelessWidget {
         return ChatPageWithRoom(
           // The page stays the same while the contact's default network
           // changes, which only changes widget.room.
-          key: Key('chat_page_contact_${contactId}_${eventId}_$action'),
+          key: Key('chat_page_contact_${contactId}_$eventId'),
           room: contact.sendViaRoom,
           contactId: contactId,
           share: share,
           eventId: eventId,
           eventRoomId: eventRoomId,
-          action: action,
         );
       },
     );
@@ -180,7 +176,6 @@ class ChatPageWithRoom extends StatefulWidget {
   final SharedDraft? share;
   final String? eventId;
   final Timeline? timeline;
-  final String? action;
 
   /// Set when this shows a merged contact (see [ChatPage.contactId]).
   final String? contactId;
@@ -192,7 +187,6 @@ class ChatPageWithRoom extends StatefulWidget {
     this.share,
     this.eventId,
     this.timeline,
-    this.action,
     this.contactId,
     this.eventRoomId,
   });
@@ -478,33 +472,6 @@ class ChatController extends State<ChatPageWithRoom>
     final networkColor = networkColorFor(composerTarget.roomId);
     if (networkColor == null) return (theme.bubbleColor, theme.onBubbleColor);
     return (networkColor, NetworkColors.foregroundOn(networkColor));
-  }
-
-  /// Opens the full-screen camera and gallery picker and stages what it
-  /// returns in the composer, with its caption as the message text. Its
-  /// send button has the composer's colours and, in a chat on the iMessage
-  /// bridge, the same effect picker on a long press; what is picked with
-  /// an effect goes out at once, with it.
-  Future<void> openGalleryPicker() async {
-    final (sendColor, onSendColor) = sendButtonColors(context);
-    final result = await showGalleryPicker(
-      context,
-      recipientName: room.chatDisplayname(),
-      sendColor: sendColor,
-      onSendColor: onSendColor,
-      effectsAvailable:
-          editEvent == null && canSendMessageEffects(composerRoom),
-    );
-    if (result == null || !mounted) return;
-    setState(() {
-      showAttachmentPanel = false;
-      pendingAttachments.addAll(result.files);
-    });
-    final caption = result.caption.trim();
-    if (caption.isNotEmpty && sendController.text.trim().isEmpty) {
-      sendController.text = caption;
-    }
-    if (result.effect case final effect?) await send(effect: effect);
   }
 
   int emojiPickerInitialTab = 0;
@@ -888,10 +855,6 @@ class ChatController extends State<ChatPageWithRoom>
     _loadDraft();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _stageShare();
-      _checkMatrixRtcCallSupport();
-      if (widget.action == 'call') {
-        Matrix.of(context).activeCallRoomId.value = room.id;
-      }
     });
     web.window.addEventListener('paste', _handleClipboardFilePasteWeb);
     HardwareKeyboard.instance.addHandler(_escapeClearsSelection);
@@ -919,18 +882,6 @@ class ChatController extends State<ChatPageWithRoom>
     }
     WidgetsBinding.instance.addObserver(this);
     _tryLoadTimeline();
-  }
-
-  Future<void> _checkMatrixRtcCallSupport() async {
-    try {
-      final urls = await room.client.getLiveKitServiceUrls();
-      if (urls.isEmpty) return;
-      setState(() {
-        supportLiveKitCalls = true;
-      });
-    } catch (e) {
-      Logs().d('Unable to check MatrixRTC call support', e);
-    }
   }
 
   final Set<String> expandedEventIds = {};
@@ -1128,13 +1079,6 @@ class ChatController extends State<ChatPageWithRoom>
 
     // We do not set read marker if timeline is empty
     if (timeline == null || timeline.events.isEmpty) return;
-
-    // Do not set read marker on rtc notification while call is active. This
-    // mutes callkit.
-    if (room.hasActiveMatrixRtcCall &&
-        timeline.events.first.type == RtcNotificationContent.eventType) {
-      return;
-    }
 
     eventId ??= timeline.events.firstWhereOrNull((event) {
       if (event.eventId == room.lastEvent?.eventId) return true;
@@ -1574,8 +1518,14 @@ class ChatController extends State<ChatPageWithRoom>
     addPendingAttachments([pastedImageData(image)]);
   }
 
+  /// Picks photos and videos to stage in the composer. On Android this is
+  /// the system Photo Picker, which needs no media permission.
   Future<void> openGalleryAction() async {
     inputFocus.unfocus();
+    // Without this flag image_picker opens the generic document picker on
+    // Android rather than the Photo Picker.
+    final platform = ImagePickerPlatform.instance;
+    if (platform is ImagePickerAndroid) platform.useAndroidPhotoPicker = true;
     final files = await ImagePicker().pickMultipleMedia(
       requestFullMetadata: false,
     );
@@ -2621,12 +2571,6 @@ class ChatController extends State<ChatPageWithRoom>
     replyEvent = null;
     editEvent = null;
   });
-
-  void startOrJoinVideoCall() {
-    Matrix.of(context).activeCallRoomId.value = room.id;
-  }
-
-  bool supportLiveKitCalls = false;
 
   Future<void> _cancelEditWithConfirmation() async {
     final originalText = editEvent!

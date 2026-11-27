@@ -761,6 +761,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username} convidou-te para o Seam.\n1. Instala o Seam: https://seam.312.dev\n2. Regista-te ou inicia sessão.\n3. Abre a ligação de convite: {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "está a escrever…",
     "@isTyping": {
         "type": "String",

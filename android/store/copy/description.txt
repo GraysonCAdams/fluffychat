@@ -1,0 +1,34 @@
+Seam is a messaging app for the Matrix network, built around one idea: your conversations belong in one place.
+
+One inbox for every network
+
+Seam signs in to a Matrix account on a homeserver you choose. If you or your server's operator run bridges to other networks, for example Telegram, WhatsApp, Signal or Discord, those chats arrive in Seam next to your Matrix rooms. Seam includes no bridges, runs no servers and is not affiliated with any of those networks: it works with the bridges you set up yourself.
+
+One person, one conversation
+
+When someone reaches you on more than one network, merge their chats into a single contact. Their messages read as one timeline, you pick which network a reply goes out on, and each bubble can take that network's colour.
+
+Start a chat with anyone
+
+Search your chats and contacts in one place. With your permission Seam lists the contacts on your phone and matches them on the device; your address book is never uploaded.
+
+Made for everyday messaging
+
+- Attach photos and videos through the system photo picker, with no access to your whole library
+- Voice messages, with transcripts made on your device
+- Reactions, replies, threads, polls, stickers and GIFs
+- Pin chats and drag them into your own order
+- Schedule messages to send later
+- Snooze notifications or mark everything as read
+- Conversation notifications, chat bubbles and direct share
+
+Private by design
+
+End-to-end encryption, encrypted message backup and device verification. No analytics, no advertising and no tracking. Notifications arrive through UnifiedPush, using a distributor app of your choice.
+
+Open source
+
+Seam is a modified version of FluffyChat by Christian Kußowski and contributors, released under the GNU Affero General Public License version 3 or later. The source code is at https://github.com/GraysonCAdams/fluffychat
+
+Privacy policy: https://seam.312.dev/privacy
+Terms of use: https://seam.312.dev/terms

@@ -33,7 +33,7 @@ enum MatrixFeature {
   /// the space directory.
   explore,
 
-  /// Matrix calls, encryption, permissions and room addresses inside a
+  /// Matrix encryption, permissions and room addresses inside a
   /// chat. Decided per chat: only plain Matrix rooms show them.
   roomPlumbing,
 

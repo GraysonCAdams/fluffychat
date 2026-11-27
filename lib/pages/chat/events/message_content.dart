@@ -217,22 +217,6 @@ class MessageContent extends StatelessWidget {
           textColor: textColor,
           linkColor: linkColor,
         );
-      case EventTypes.CallInvite:
-        return SenderUserBuilder(
-          event: event,
-          builder: (context, user) {
-            return _ButtonContent(
-              label: L10n.of(context).startedACall(
-                user?.calcDisplayname() ??
-                    event.senderFromMemoryOrFallback.calcDisplayname(),
-              ),
-              icon: '📞',
-              textColor: buttonTextColor,
-              onPressed: () => onInfoTab!(event),
-              fontSize: fontSize,
-            );
-          },
-        );
       default:
         return SenderUserBuilder(
           event: event,

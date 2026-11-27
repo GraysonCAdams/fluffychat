@@ -32,7 +32,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 # Features
 
 - 📩 Send all kinds of messages, images and files
-- 🤙 Video calls with Matrix RTC
 - 🎙️ Voice messages
 - 📍 Location sharing
 - 🔔 Push notifications

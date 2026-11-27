@@ -1456,6 +1456,18 @@
             }
         }
     },
+    "inviteText": "{username} pakvietė jus prisijungti prie Seam. \n1. Įdiekite Seam: https://seam.312.dev \n2. Prisiregistruokite arba prisijunkite \n3. Atidarykite pakvietimo nuorodą: {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "joinedTheChat": "👋 {username} prisijungė prie pokalbio",
     "@joinedTheChat": {
         "type": "String",
@@ -1910,9 +1922,6 @@
         "placeholders": {}
     },
     "decline": "Atmesti",
-    "waitingForParticipant": "Laukiama dalyvio...",
-    "incomingCall": "Gaunamas skambutis",
-    "enterCall": "Įeiti į skambutį",
     "allow": "Leisti",
     "deny": "Atmesti",
     "save": "Išsaugoti",
