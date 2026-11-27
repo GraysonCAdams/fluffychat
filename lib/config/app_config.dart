@@ -29,7 +29,7 @@ abstract class AppConfig {
 
   static const String appId = 'im.fluffychat.app';
   // Seam's own id, in the dev.threeonetwo namespace: the Play build's package
-  // name (android/app/build.gradle.kts) and the base of its URL schemes. On
+  // name (android/app/build.gradle.kts) and its deep link scheme. On
   // Windows it is the AppUserModelID Seam's toasts are posted and registered
   // under.
   static const String seamApplicationId = 'dev.threeonetwo.seam';
@@ -48,12 +48,23 @@ abstract class AppConfig {
   static String get pushNotificationsAppId =>
       isPlayRelease ? seamApplicationId : 'chat.fluffy.fluffychat';
 
-  /// URL schemes for deep links and the SSO redirect. On Android these must
-  /// match the appUrlScheme and appSsoUrlScheme manifest placeholders.
+  /// URL scheme for deep links. On Android it must match the appUrlScheme
+  /// manifest placeholder.
   static String get appOpenUrlScheme =>
       isPlayRelease ? seamApplicationId : 'im.fluffychat';
+
+  /// SSO redirect schemes (Android, iOS and macOS; desktop redirects to
+  /// localhost). OIDC requires a native client's private-use scheme to start
+  /// with the host of its client_uri (AppSettings.website, seam.312.dev) in
+  /// reverse, and homeservers such as matrix.org refuse the registration
+  /// otherwise. Debug and profile builds take their own scheme, so they and
+  /// the release app on one device do not both claim the redirect. On Android
+  /// these must match the appSsoUrlScheme manifest placeholders in
+  /// android/app/build.gradle.kts.
+  static const String releaseSsoUrlScheme = 'dev.312.seam.auth';
+  static const String developmentSsoUrlScheme = 'dev.312.seam.dev.auth';
   static String get appSsoUrlScheme =>
-      isPlayRelease ? '$seamApplicationId.auth' : 'im.fluffychat.auth';
+      kReleaseMode ? releaseSsoUrlScheme : developmentSsoUrlScheme;
   static String get deepLinkPrefix => '$appOpenUrlScheme://chat/';
   // Identifies Seam's notification activation callback on Windows, a CLSID
   // that names Seam's executable alone; FluffyChat's installs use another.

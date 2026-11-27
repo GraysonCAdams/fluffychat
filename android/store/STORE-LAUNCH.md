@@ -91,7 +91,7 @@ as of this commit.
 3. The Play app is `dev.threeonetwo.seam` and installs beside the owner's everyday build
    (`chat.fluffy.fluffychat.fork`); neither replaces the other.
 4. Check on a test device: sign in with SSO on a homeserver (the redirect uses the release scheme
-   `dev.threeonetwo.seam.auth`), push through a UnifiedPush distributor such as ntfy, attaching
+   `dev.312.seam.auth`), push through a UnifiedPush distributor such as ntfy, attaching
    photos and videos from the composer's Gallery button (it opens the system Photo Picker, which
    asks for no permission), and contacts in New Chat.
 5. Then a closed test if the account needs one (step 1), then production.
@@ -161,7 +161,7 @@ keeps upgrading in place, logged in, with its pushers and notification settings.
 | `applicationId` | `dev.threeonetwo.seam` | `chat.fluffy.fluffychat.fork` |
 | Label | Seam | Seam |
 | Deep link scheme | `dev.threeonetwo.seam://chat/` | `im.fluffychat://chat/` |
-| SSO redirect scheme | `dev.threeonetwo.seam.auth:/login` | `im.fluffychat.auth:/login` |
+| SSO redirect scheme | `dev.312.seam.auth:/login` | `dev.312.seam.dev.auth:/login` |
 | Push app id (pusher) | `dev.threeonetwo.seam.<device>` | `chat.fluffy.fluffychat.<device>` |
 | Notification channel id | `fluffychat_push` (internal, never shown) | the same |
 | Sign-in server list | none: the user types a homeserver | public list, matrix.org preselected |
@@ -169,9 +169,13 @@ keeps upgrading in place, logged in, with its pushers and notification settings.
 
 The Gradle side is `android/app/build.gradle.kts` (the variant API sets the debug and profile id;
 manifest placeholders carry the schemes); the Dart side is `AppConfig.isPlayRelease` in
-`lib/config/app_config.dart`. The Kotlin namespace `chat.fluffy.fluffychat` is internal and stays.
-iOS, macOS, Linux and Windows still carry upstream's bundle ids and schemes; they are not
-published and need the same treatment before any other store.
+`lib/config/app_config.dart`, and the build mode for the SSO scheme. That scheme must start with
+the reverse of the OIDC client_uri host (`seam.312.dev`), or homeservers refuse the sign-in
+registration; `test/utils/sso_redirect_scheme_test.dart` checks it. The Kotlin namespace
+`chat.fluffy.fluffychat` is internal and stays. iOS, macOS, Linux and Windows still carry
+upstream's bundle ids and deep link schemes; they are not published and need the same treatment
+before any other store. iOS and macOS take the SSO scheme from Dart, and Linux and Windows
+redirect to `http://localhost:3001`.
 
 ## Permissions in the release build
 
