@@ -2323,32 +2323,8 @@
     "videoCamera": "Video camera",
     "photo": "Photo",
     "video": "Video",
-    "writeACaption": "Write a caption",
     "sendInHd": "Send in HD",
-    "switchCamera": "Switch camera",
-    "flashOn": "Flash on",
-    "flashOff": "Flash off",
-    "toRecipient": "To {name}",
-    "@toRecipient": {
-        "placeholders": {
-            "name": {
-                "type": "String"
-            }
-        }
-    },
     "removeAttachment": "Remove attachment",
-    "noRecentMedia": "No recent photos or videos",
-    "allowGalleryAccess": "Allow access to your photos and videos to pick from them here.",
-    "allowCameraAccess": "Allow camera access to take photos here.",
-    "openSettings": "Open settings",
-    "attachmentsSelected": "{count} selected",
-    "@attachmentsSelected": {
-        "placeholders": {
-            "count": {
-                "type": "int"
-            }
-        }
-    },
     "openSpacesAsChatList": "Open spaces as a list of their chats",
     "openSpacesAsChatListDescription": "Otherwise a space opens its room directory, which also lists rooms you have not joined.",
     "suggestContactsFromChats": "Suggest people from your chats",
@@ -3407,9 +3383,5 @@
     "enterYourHomeserver": "Enter your Matrix homeserver",
     "@enterYourHomeserver": {
         "description": "Hint in the sign-in server field of the Play build, which lists no servers of its own."
-    },
-    "choosePhotosAndVideos": "Choose photos and videos",
-    "@choosePhotosAndVideos": {
-        "description": "Button in the gallery picker that opens the system photo picker, shown when the app may not read all photos and videos."
     }
 }

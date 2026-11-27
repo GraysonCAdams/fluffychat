@@ -17,7 +17,6 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat_details_network_sheet.dart';
 import 'package:fluffychat/pages/chat/chat_view.dart';
 import 'package:fluffychat/pages/chat/event_info_dialog.dart';
-import 'package:fluffychat/pages/chat/gallery_picker/gallery_picker_page.dart';
 import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/pages/chat/start_poll_bottom_sheet.dart';
 import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
@@ -57,6 +56,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -438,24 +439,6 @@ class ChatController extends State<ChatPageWithRoom>
     final files = await selectFiles(context, allowMultiple: true, type: type);
     if (files.isEmpty || !mounted) return;
     addPendingAttachments(files);
-  }
-
-  /// Opens the full-screen camera and gallery picker and stages what it
-  /// returns in the composer, with its caption as the message text.
-  Future<void> openGalleryPicker() async {
-    final result = await showGalleryPicker(
-      context,
-      recipientName: room.getLocalizedDisplayname(),
-    );
-    if (result == null || !mounted) return;
-    setState(() {
-      showAttachmentPanel = false;
-      pendingAttachments.addAll(result.files);
-    });
-    final caption = result.caption.trim();
-    if (caption.isNotEmpty && sendController.text.trim().isEmpty) {
-      sendController.text = caption;
-    }
   }
 
   int emojiPickerInitialTab = 0;
@@ -1382,8 +1365,14 @@ class ChatController extends State<ChatPageWithRoom>
     addPendingAttachments([pastedImageData(image)]);
   }
 
+  /// Picks photos and videos to stage in the composer. On Android this is
+  /// the system Photo Picker, which needs no media permission.
   Future<void> openGalleryAction() async {
     inputFocus.unfocus();
+    // Without this flag image_picker opens the generic document picker on
+    // Android rather than the Photo Picker.
+    final platform = ImagePickerPlatform.instance;
+    if (platform is ImagePickerAndroid) platform.useAndroidPhotoPicker = true;
     final files = await ImagePicker().pickMultipleMedia(
       requestFullMetadata: false,
     );
