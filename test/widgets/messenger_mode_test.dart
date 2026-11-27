@@ -81,10 +81,31 @@ void main() {
       addFakeBridge(room);
       await pumpFakeChatList(tester, client);
       await inAccountMenu(tester, () {
-        expect(find.text('Mark all as read'), findsOneWidget);
+        expect(find.text('Snooze notifications'), findsOneWidget);
         expect(find.text('Set status'), findsNothing);
         expect(find.text('Invite contact'), findsNothing);
         expect(find.text('Add account'), findsNothing);
+      });
+      await finishFakeChatList(tester, client);
+    });
+
+    testWidgets('leaves Create group and Mark all as read out', (
+      tester,
+    ) async {
+      addFakeChat(client, '!kim:x', 'Kim', partner: '@kim:matrix.org');
+      await pumpFakeChatList(tester, client);
+      await inAccountMenu(tester, () {
+        expect(find.text('Create group'), findsNothing);
+        expect(find.text('Mark all as read'), findsNothing);
+        for (final kept in [
+          'Set status',
+          'Snooze notifications',
+          'Invite contact',
+          'Archive',
+          'Settings',
+        ]) {
+          expect(find.text(kept), findsOneWidget, reason: kept);
+        }
       });
       await finishFakeChatList(tester, client);
     });
