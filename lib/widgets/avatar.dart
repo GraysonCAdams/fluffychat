@@ -102,16 +102,23 @@ class Avatar extends StatelessWidget {
         SizedBox(
           width: size,
           height: size,
+          // Only the border is painted outside the clip. A fill under the
+          // clipped picture would have an anti-aliased edge of its own on
+          // the same path, and the two partly covered edge pixels let it
+          // show through as a dark (or light) fringe around the avatar.
           child: Material(
-            color: theme.brightness == Brightness.light
-                ? Colors.white
-                : Colors.black,
+            type: MaterialType.transparency,
             shape: shape,
-            // Clipping to the outer path would let the picture show through
-            // the anti-aliased outer edge of the border as a light fringe, so
-            // clip to the area inside the border instead.
+            // The picture reaches the middle of the border, so both edges of
+            // the border lie over opaque paint: clipped to the outer path
+            // the picture would show through the border's outer edge, and
+            // clipped to the inner path the background would show between
+            // the picture and the border.
             child: ClipPath(
-              clipper: _InnerShapeClipper(shape, Directionality.of(context)),
+              clipper: _InnerShapeClipper(
+                _halfBorder(shape),
+                Directionality.of(context),
+              ),
               // Without a picture there is nothing to load or fade to:
               // MxcImage would only cross-fade from this same placeholder to
               // itself, so the placeholder is shown on its own.
@@ -148,23 +155,31 @@ class Avatar extends StatelessWidget {
                               ),
                             ),
                     )
-                  : MxcImage(
-                      client: client,
-                      borderRadius: borderRadius,
-                      key: ValueKey(mxContent.toString()),
-                      cacheKey:
-                          '${mxContent}_${size}_${animated ? 'animated' : 'static'}',
-                      uri: mxContent,
-                      isThumbnail: !animated,
-                      animated: animated,
-                      fit: BoxFit.cover,
-                      width: size,
-                      height: size,
-                      placeholder: (_) => Center(
-                        child: Icon(
-                          Icons.person_2,
-                          color: theme.colorScheme.tertiary,
-                          size: size / 1.5,
+                  // Behind a picture with transparent parts, and the
+                  // placeholder. The ClipPath above is the only clip: a
+                  // second one on the picture's own edge would let this
+                  // backdrop show through it.
+                  : ColoredBox(
+                      color: theme.brightness == Brightness.light
+                          ? Colors.white
+                          : Colors.black,
+                      child: MxcImage(
+                        client: client,
+                        key: ValueKey(mxContent.toString()),
+                        cacheKey:
+                            '${mxContent}_${size}_${animated ? 'animated' : 'static'}',
+                        uri: mxContent,
+                        isThumbnail: !animated,
+                        animated: animated,
+                        fit: BoxFit.cover,
+                        width: size,
+                        height: size,
+                        placeholder: (_) => Center(
+                          child: Icon(
+                            Icons.person_2,
+                            color: theme.colorScheme.tertiary,
+                            size: size / 1.5,
+                          ),
                         ),
                       ),
                     ),
@@ -222,6 +237,13 @@ class Avatar extends StatelessWidget {
     );
   }
 }
+
+/// [shape] with its border half as wide, whose inner path runs along the
+/// middle of [shape]'s border. Shapes other than an [OutlinedBorder] are
+/// returned as they are.
+ShapeBorder _halfBorder(ShapeBorder shape) => shape is OutlinedBorder
+    ? shape.copyWith(side: shape.side.copyWith(width: shape.side.width / 2))
+    : shape;
 
 class _InnerShapeClipper extends CustomClipper<Path> {
   final ShapeBorder shape;

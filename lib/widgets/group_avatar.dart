@@ -4,6 +4,7 @@
 
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/widgets/avatar.dart';
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -27,16 +28,12 @@ class GroupAvatar extends StatefulWidget {
   final String name;
   final double size;
 
-  /// The color behind the avatar, which outlines each face so the faces
-  /// read as separate.
-  final Color? outlineColor;
   final void Function()? onTap;
 
   const GroupAvatar({
     required this.room,
     required this.name,
     this.size = Avatar.defaultSize,
-    this.outlineColor,
     this.onTap,
     super.key,
   });
@@ -161,8 +158,6 @@ class _GroupAvatarState extends State<GroupAvatar> {
     if (members.length < 2) {
       return Avatar(name: widget.name, size: size, onTap: widget.onTap);
     }
-    final outline =
-        widget.outlineColor ?? Theme.of(context).colorScheme.surface;
     // Two faces are two thirds of the size, one top left and one bottom
     // right. Three are just over half, one centred on top and two below.
     final three = members.length >= 3;
@@ -174,24 +169,37 @@ class _GroupAvatarState extends State<GroupAvatar> {
             Offset(size - face, size * 0.42),
           ]
         : [Offset.zero, Offset(size - face, size - face)];
-    final ring = size >= 40 ? 2.0 : 1.5;
+    final gap = size >= 40 ? 2.0 : 1.5;
+    final shown = members.take(3).toList();
     final collage = SizedBox(
       width: size,
       height: size,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          for (final (i, user) in members.take(3).indexed)
+          for (final (i, user) in shown.indexed)
             Positioned(
-              left: positions[i].dx,
-              top: positions[i].dy,
-              child: Avatar(
-                mxContent: user.avatarUrl,
-                name: user.calcDisplayname(),
-                size: face,
-                shapeBorder: RoundedSuperellipseBorder(
-                  side: BorderSide(width: ring, color: outline),
-                  borderRadius: BorderRadius.circular(face / 2),
+              left: positions[i].dx + gap,
+              top: positions[i].dy + gap,
+              // Each face is cut away around the faces drawn over it, [gap]
+              // wide, so whatever lies behind the avatar shows between
+              // them. A ring painted in the background's color would need
+              // that color, which a highlighted or hovered row changes, and
+              // its edge would meet the face's on the same path.
+              child: ClipPath(
+                clipper: _FaceCutout([
+                  for (var j = i + 1; j < shown.length; j++)
+                    Rect.fromLTWH(
+                      positions[j].dx - positions[i].dx - gap,
+                      positions[j].dy - positions[i].dy - gap,
+                      face,
+                      face,
+                    ),
+                ]),
+                child: Avatar(
+                  mxContent: user.avatarUrl,
+                  name: user.calcDisplayname(),
+                  size: face - 2 * gap,
                 ),
               ),
             ),
@@ -205,4 +213,27 @@ class _GroupAvatarState extends State<GroupAvatar> {
       child: GestureDetector(onTap: onTap, child: collage),
     );
   }
+}
+
+/// Clips a face of the collage to its box less the circles [cutouts], the
+/// places of the faces drawn over it with the gap around them.
+class _FaceCutout extends CustomClipper<Path> {
+  final List<Rect> cutouts;
+
+  const _FaceCutout(this.cutouts);
+
+  @override
+  Path getClip(Size size) {
+    final box = Path()..addRect(Offset.zero & size);
+    if (cutouts.isEmpty) return box;
+    final circles = Path();
+    for (final cutout in cutouts) {
+      circles.addOval(cutout);
+    }
+    return Path.combine(PathOperation.difference, box, circles);
+  }
+
+  @override
+  bool shouldReclip(_FaceCutout oldClipper) =>
+      !listEquals(oldClipper.cutouts, cutouts);
 }
