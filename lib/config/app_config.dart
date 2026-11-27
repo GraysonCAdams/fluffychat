@@ -59,6 +59,13 @@ abstract class AppConfig {
           (defaultTargetPlatform == TargetPlatform.iOS ||
               defaultTargetPlatform == TargetPlatform.macOS));
 
+  /// The Matrix push gateway that relays to APNs for the iOS app, set at
+  /// build time with `--dart-define=SEAM_PUSH_GATEWAY_URL=...`. Empty means
+  /// the build registers no pusher on iOS.
+  static const String applePushGatewayUrl = String.fromEnvironment(
+    'SEAM_PUSH_GATEWAY_URL',
+  );
+
   /// The pusher app id the push gateway sees, before the device id is added.
   static String get pushNotificationsAppId =>
       usesSeamIdentity ? seamApplicationId : 'chat.fluffy.fluffychat';

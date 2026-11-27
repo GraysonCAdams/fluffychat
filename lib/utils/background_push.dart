@@ -14,6 +14,7 @@ import 'dart:ui';
 //<GOOGLE_SERVICES>import 'package:fcm_shared_isolate/fcm_shared_isolate.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/main.dart';
+import 'package:fluffychat/utils/apple_push.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/push_helper.dart';
 import 'package:fluffychat/widgets/fluffy_chat_app.dart';
@@ -287,7 +288,11 @@ class BackgroundPush {
         if (upAction) {
           return;
         }
-        await setupFirebase(client);
+        if (PlatformInfos.isIOS) {
+          await setupApplePush(client);
+        } else {
+          await setupFirebase(client);
+        }
       }
     }
     openRoomFromNotification();
@@ -332,6 +337,27 @@ class BackgroundPush {
       }
       onFcmError?.call(l10n!.oopsPushError);
     });
+  }
+
+  /// Registers this iPhone's APNs token as the client's pusher at Seam's
+  /// push gateway. iOS has neither UnifiedPush nor, in Seam, Firebase: the
+  /// gateway talks to APNs directly, so the pushkey is the raw device token.
+  Future<void> setupApplePush(Client client) async {
+    const gatewayUrl = AppConfig.applePushGatewayUrl;
+    if (gatewayUrl.isEmpty) {
+      Logs().i('[Push] No Apple push gateway in this build, no pusher set');
+      return;
+    }
+    final registration = await ApplePush.requestToken();
+    if (registration == null) {
+      Logs().w('[Push] iOS gave no APNs token');
+      return;
+    }
+    await setupPusher(
+      client: client,
+      gatewayUrl: gatewayUrl,
+      token: registration.token,
+    );
   }
 
   Future<void> setupFirebase(Client client) async {
