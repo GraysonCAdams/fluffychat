@@ -55,6 +55,20 @@ void main() {
     required String sender,
     required TypingIndicatorRow typing,
   }) async {
+    // A sender missing from the room's state makes Message.build start a
+    // database lookup of the member. That query finishes outside the test's
+    // fake clock, so its 10 s lock-warning timer is still pending when the
+    // test ends.
+    if (room.getState(EventTypes.RoomMember, sender) == null) {
+      room.setState(
+        StrippedStateEvent(
+          type: EventTypes.RoomMember,
+          stateKey: sender,
+          senderId: sender,
+          content: {'membership': 'join'},
+        ),
+      );
+    }
     final incoming = Event(
       content: {'msgtype': 'm.text', 'body': 'Hello there'},
       type: EventTypes.Message,
