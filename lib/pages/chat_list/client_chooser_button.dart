@@ -37,7 +37,7 @@ class ClientChooserButton extends StatefulWidget {
 
   const ClientChooserButton(
     this.controller, {
-    this.size = 42,
+    this.size = 32,
     this.onPressedWithoutList,
     super.key,
   });

@@ -6,6 +6,7 @@
 
 import 'package:fluffychat/pages/chat_list/chat_filter_menu.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
+import 'package:fluffychat/widgets/avatar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -102,6 +103,21 @@ void main() {
     expect(find.text('Chats'), findsNothing);
     expect(titleText(tester), 'All chats');
     expect(find.byIcon(Icons.arrow_drop_down), findsOneWidget);
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('the account avatar beside the title is 32 round', (
+    tester,
+  ) async {
+    await pump(tester);
+    // In a 48 tap target.
+    final button = find.byKey(const Key('accounts_and_settings_buttons'));
+    expect(
+      tester.getSize(
+        find.descendant(of: button, matching: find.byType(Avatar)),
+      ),
+      const Size(32, 32),
+    );
     await finishFakeChatList(tester, client);
   });
 

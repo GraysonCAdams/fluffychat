@@ -654,7 +654,7 @@ class WindowsChrome extends StatefulWidget {
   /// Width of each window button. The three of them run the bar's height.
   static const double captionButtonWidth = 46;
 
-  static const double avatarSize = 32;
+  static const double avatarSize = 28;
 
   /// From the window's right edge to the account button: the three window
   /// buttons and 8 between.
