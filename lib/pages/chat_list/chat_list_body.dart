@@ -576,9 +576,15 @@ class _UnreadBelowChip extends StatelessWidget {
 /// unread pins lie beyond the right edge, a count on that edge says so and
 /// scrolls to the next one when tapped.
 class _PinnedRow extends StatefulWidget {
-  /// The row's height: 30 above the pins for the bubbles, the pins, and 8
-  /// below.
-  static const double height = 150;
+  /// The row's height: 8 below the header, the 19 of a preview bubble that
+  /// stands above its avatar (see [_PinnedChat.bubbleOverhang]), the pins
+  /// with their names, and 8 below. The same with or without bubbles, so
+  /// the list below does not move when one comes or goes.
+  static const double height = 140;
+
+  /// The space above the pins: 8 below the header and the bubbles' share
+  /// above their avatars, less the 4 a pin is padded with.
+  static const double _top = 8 + _PinnedChat.bubbleOverhang - 4;
 
   final List<Room> rooms;
   final Map<String, Room> spaces;
@@ -799,8 +805,9 @@ class _PinnedRowState extends State<_PinnedRow> {
               return ReorderableList(
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
-                // Extra room above for the unread preview bubbles.
-                padding: const EdgeInsets.only(top: 30, bottom: 8),
+                // Room above for the part of a preview bubble that stands
+                // above its avatar.
+                padding: const EdgeInsets.only(top: _PinnedRow._top, bottom: 8),
                 itemExtent: _extent,
                 itemCount: sorted.length,
                 onReorderStart: (_) => setState(() => _dragging = true),
@@ -833,9 +840,17 @@ class _PinnedRowState extends State<_PinnedRow> {
                       child: Container(
                         width: 44,
                         alignment: Alignment.centerRight,
-                        // Level with the middle of the avatars, which sit above
-                        // their names.
-                        padding: const EdgeInsets.only(right: 8, bottom: 4),
+                        // Level with the middle of the avatars, which sit in
+                        // the upper part of the row, above their names.
+                        padding: const EdgeInsets.only(
+                          right: 8,
+                          bottom:
+                              2 *
+                              (_PinnedRow.height / 2 -
+                                  _PinnedRow._top -
+                                  4 -
+                                  _PinnedChat._avatarSize / 2),
+                        ),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
@@ -903,6 +918,10 @@ class _PinnedChat extends StatelessWidget {
 
   static const double _avatarSize = 76;
 
+  /// How far a preview bubble stands above its avatar; the rest of it lies
+  /// over the top of the avatar.
+  static const double bubbleOverhang = 19;
+
   /// Hands a press to the row's reordering: a hold selects the chat as a
   /// long press does, and moving after it lifts the chat to drag it, with
   /// the selection put back as it was.
@@ -955,7 +974,10 @@ class _PinnedChat extends StatelessWidget {
         : null;
     return Padding(
       padding: EdgeInsetsDirectional.only(end: 2 * shift),
-      child: Center(
+      // At the top of the row, so the avatar sits as far below the header
+      // whatever the name's height.
+      child: Align(
+        alignment: Alignment.topCenter,
         child: Semantics(
           onLongPress: () => controller.toggleSelection(room),
           child: Listener(
@@ -995,7 +1017,7 @@ class _PinnedChat extends StatelessWidget {
                         // down at it.
                         if (preview != null)
                           Positioned(
-                            top: -19,
+                            top: -bubbleOverhang,
                             left: -10,
                             right: -10,
                             child: Center(

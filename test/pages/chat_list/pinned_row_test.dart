@@ -298,8 +298,9 @@ void main() {
     final tailRect = tester.getRect(tail);
     expect(tailRect.top, speech.bottom);
     expect(tailRect.center.dx, speech.center.dx);
-    // The row is 4 taller than before for the raised bubbles.
-    expect(tester.getSize(find.byType(ReorderableList)).height, 150);
+    // The row keeps 8 above the bubbles and the 19 they stand above their
+    // avatars, so its height is the same with or without bubbles.
+    expect(tester.getSize(find.byType(ReorderableList)).height, 140);
     await finishFakeChatList(tester, client);
   });
 
