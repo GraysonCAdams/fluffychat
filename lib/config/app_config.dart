@@ -32,9 +32,11 @@ abstract class AppConfig {
   static const String seamApplicationId = 'dev.threeonetwo.seam';
   static const String appOpenUrlScheme = 'im.fluffychat';
   static const String appSsoUrlScheme = 'im.fluffychat.auth';
-  // Identifies the notification activation callback on Windows. Never change!
+  // Identifies Seam's notification activation callback on Windows, a CLSID
+  // that names Seam's executable alone; FluffyChat's installs use another.
+  // Never change!
   static const String windowsNotificationGuid =
-      '4894dfda-c70a-4ebc-b139-acae55f3988d';
+      '6f3c1a5e-8d24-4b7a-9c0e-5a2d7e41b9f3';
 
   // Seam's own repository: source, issues, releases and changelog. The app is
   // a modified FluffyChat, so the About screen also credits the original.
