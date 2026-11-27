@@ -11,6 +11,7 @@ import 'package:fluffychat/pages/chat/events/poll.dart';
 import 'package:fluffychat/pages/chat/events/video_player.dart';
 import 'package:fluffychat/pages/image_viewer/image_viewer.dart';
 import 'package:fluffychat/utils/message_effects.dart';
+import 'package:fluffychat/utils/plain_mentions.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -156,12 +157,13 @@ class MessageContent extends StatelessWidget {
             }
             var html = AppSettings.renderHtml.value && event.isRichMessage
                 ? effectBodyHtml(event, event.formattedText)
-                : event
-                      .calcUnlocalizedBody(
-                        hideReply: event.inReplyToEventId() != null,
-                      )
-                      .replaceAll('<', '&lt;')
-                      .replaceAll('>', '&gt;');
+                // Plain text gets pills for its "@Name" mentions too.
+                : PlainMentions.htmlOf(
+                    event,
+                    event.calcUnlocalizedBody(
+                      hideReply: event.inReplyToEventId() != null,
+                    ),
+                  );
             if (event.messageType == MessageTypes.Emote) {
               html = '* $html';
             }

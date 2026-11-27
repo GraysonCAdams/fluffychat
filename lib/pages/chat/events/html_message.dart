@@ -259,15 +259,21 @@ class _HtmlMessageState extends State<HtmlMessage> {
           if (matrixId.sigil == '@') {
             _pillIds.add(matrixId);
             final user = room.unsafeGetUserFromMemoryOrFallback(matrixId);
+            // A bridge's link text is the person's name, which beats the
+            // user ID that a member not loaded yet would show.
+            final linkText = node.text.trim().replaceFirst(RegExp('^@'), '');
             return WidgetSpan(
               child: MatrixPill(
                 key: Key('user_pill_$matrixId'),
-                name: user.calcDisplayname(),
+                name: (user.displayName ?? '').isNotEmpty || linkText.isEmpty
+                    ? user.calcDisplayname()
+                    : linkText,
                 avatar: user.avatarUrl,
                 uri: href,
                 outerContext: context,
                 fontSize: fontSize,
                 color: linkStyle.color,
+                isUser: matrixId == room.client.userID,
               ),
             );
           }
@@ -882,6 +888,9 @@ class MatrixPill extends StatelessWidget {
   final double? fontSize;
   final Color? color;
 
+  /// Whether the pill mentions the user, which highlights it.
+  final bool isUser;
+
   const MatrixPill({
     super.key,
     required this.name,
@@ -890,11 +899,12 @@ class MatrixPill extends StatelessWidget {
     required this.uri,
     required this.fontSize,
     required this.color,
+    this.isUser = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    final pill = InkWell(
       splashColor: Colors.transparent,
       onTap: UrlLauncher(outerContext, uri).launchUrl,
       child: Text.rich(
@@ -911,13 +921,28 @@ class MatrixPill extends StatelessWidget {
               style: TextStyle(
                 color: color,
                 decorationColor: color,
-                decoration: TextDecoration.underline,
+                decoration: isUser ? null : TextDecoration.underline,
+                fontWeight: isUser ? FontWeight.bold : null,
                 fontSize: fontSize,
                 height: 1.25,
               ),
             ),
           ],
         ),
+      ),
+    );
+    if (!isUser) return pill;
+    // A mention of the user stands out from the text around it, as a
+    // highlight rather than a link.
+    return DecoratedBox(
+      key: const ValueKey('own_mention_highlight'),
+      decoration: BoxDecoration(
+        color: (color ?? Theme.of(context).colorScheme.primary).withAlpha(56),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: pill,
       ),
     );
   }
