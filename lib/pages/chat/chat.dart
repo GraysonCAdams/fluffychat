@@ -19,6 +19,7 @@ import 'package:fluffychat/pages/chat/chat_view.dart';
 import 'package:fluffychat/pages/chat/effects/message_effect_picker.dart'
     as effects;
 import 'package:fluffychat/pages/chat/event_info_dialog.dart';
+import 'package:fluffychat/pages/chat/events/message.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/gallery_picker_page.dart';
 import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/pages/chat/start_poll_bottom_sheet.dart';
@@ -1070,7 +1071,11 @@ class ChatController extends State<ChatPageWithRoom>
     return;
   }
 
+  /// The message the chat last jumped to, whose bubble brightens for a
+  /// moment (see BubbleHighlight). Forgotten once that is over, so the
+  /// message is not lit again when it is built anew.
   String? scrollToEventIdMarker;
+  Timer? _forgetMarker;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -1217,6 +1222,7 @@ class ChatController extends State<ChatPageWithRoom>
   @override
   void dispose() {
     _ownSends?.cancel();
+    _forgetMarker?.cancel();
     timeline?.cancelSubscriptions();
     timeline = null;
     _storeInputTimeoutTimer?.cancel();
@@ -2099,6 +2105,11 @@ class ChatController extends State<ChatPageWithRoom>
     if (highlightEvent) {
       setState(() {
         scrollToEventIdMarker = eventId;
+      });
+      _forgetMarker?.cancel();
+      _forgetMarker = Timer(BubbleHighlight.duration, () {
+        if (!mounted || scrollToEventIdMarker != eventId) return;
+        setState(() => scrollToEventIdMarker = null);
       });
     }
     await scrollController.scrollToIndex(
