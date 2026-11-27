@@ -9,7 +9,6 @@ import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/pages/chat/recording_input_row.dart';
 import 'package:fluffychat/pages/chat/recording_view_model.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
-import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -383,23 +382,7 @@ class ChatSendButton extends StatelessWidget {
   );
 
   Widget _build(BuildContext context) {
-    final theme = Theme.of(context);
-    // In a merged contact's chat the button takes the color of the network
-    // the message will go out on, as that network's bubbles do.
-    Color? networkColor;
-    if (AppSettings.networkBubbleColors.value) {
-      final networks = controller.mergedNetworks(
-        MatrixLocals(L10n.of(context)),
-      );
-      final targetRoomId = controller.composerTarget.roomId;
-      for (final network in networks ?? const <MergedNetwork>[]) {
-        if (network.room.id == targetRoomId) networkColor = network.bubbleColor;
-      }
-    }
-    final background = networkColor ?? theme.bubbleColor;
-    final foreground = networkColor == null
-        ? theme.onBubbleColor
-        : NetworkColors.foregroundOn(networkColor);
+    final (background, foreground) = controller.sendButtonColors(context);
     final size = compact ? 40.0 : ChatInputRow.height;
     return Container(
       height: ChatInputRow.height,
@@ -588,7 +571,9 @@ class ComposerLeadingButtons extends StatelessWidget {
                 style: style,
                 color: theme.colorScheme.onPrimaryContainer,
                 icon: Icon(
-                  emojiPickerOpen ? Icons.keyboard : Icons.add_reaction_outlined,
+                  emojiPickerOpen
+                      ? Icons.keyboard
+                      : Icons.add_reaction_outlined,
                   key: ValueKey(emojiPickerOpen),
                 ),
                 onPressed: onEmoji,

@@ -19,6 +19,7 @@ import 'package:fluffychat/pages/chat/effects/played_message_effects.dart';
 import 'package:fluffychat/pages/chat/effects/screen_effect_host.dart';
 import 'package:fluffychat/pages/chat/effects/screen_effect_scenes.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
+import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/effect_haptics.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/message_effects.dart';
@@ -132,6 +133,7 @@ void main() {
     bool reducedMotion = false,
     void Function(VoidCallback rebuild)? rebuild,
     double above = 0,
+    bool timeRevealed = false,
   }) async {
     final timeline = Timeline(
       room: room,
@@ -166,7 +168,7 @@ void main() {
                         onSelect: (_) {},
                         selected: false,
                         longPressSelect: false,
-                        timeRevealed: false,
+                        timeRevealed: timeRevealed,
                         onToggleTime: (_) {},
                         onInfoTab: (_) {},
                         scrollToEventId: (_) {},
@@ -198,6 +200,155 @@ void main() {
       tester.state<ScreenEffectHostState>(find.byType(ScreenEffectHost));
 
   group('a received screen effect', () {
+    testWidgets('shown first where nothing can play it, still plays in the '
+        'chat', (tester) async {
+      final event = effectEvent(MessageEffect.echo, body: 'Test');
+      // The compose screen's history shows the conversation's messages
+      // without an area for screen effects to play over.
+      final timeline = Timeline(
+        room: room,
+        chunk: TimelineChunk(events: [event]),
+      );
+      final scrollController = ScrollController();
+      addTearDown(scrollController.dispose);
+      await tester.pumpWidget(
+        Provider<MatrixState>.value(
+          value: _FakeMatrix(client),
+          child: MaterialApp(
+            localizationsDelegates: L10n.localizationsDelegates,
+            supportedLocales: L10n.supportedLocales,
+            home: Scaffold(
+              body: ListView(
+                controller: scrollController,
+                children: [
+                  Message(
+                    event,
+                    bigEmojis: const {},
+                    onSelect: (_) {},
+                    onInfoTab: (_) {},
+                    scrollToEventId: (_) {},
+                    onSwipe: () {},
+                    onMention: () {},
+                    onEdit: () {},
+                    enterThread: null,
+                    singleSelected: false,
+                    hideReactionPicker: true,
+                    timeline: timeline,
+                    scrollController: scrollController,
+                    colors: const [Colors.blue, Colors.blue],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await pumpUntilBuilt(tester);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(PlayedMessageEffects.hasPlayed(event), isFalse);
+
+      // Then the chat opens.
+      await pumpMessage(tester, event);
+      await tester.pump();
+      expect(host(tester).plays, 1);
+      expect(host(tester).playing, MessageEffect.echo);
+      await tester.pump(const Duration(seconds: 4));
+    });
+
+    for (final effect in [
+      MessageEffect.echo,
+      MessageEffect.fireworks,
+      MessageEffect.balloons,
+    ]) {
+      testWidgets('${effect.name} plays when it arrives in an open chat', (
+        tester,
+      ) async {
+        final events = <Event>[
+          effectEvent(MessageEffect.loud, id: '\$earlier', body: 'Testy'),
+        ];
+        final timeline = Timeline(
+          room: room,
+          chunk: TimelineChunk(events: events),
+        );
+        final scrollController = ScrollController();
+        addTearDown(scrollController.dispose);
+        late StateSetter update;
+        await tester.pumpWidget(
+          Provider<MatrixState>.value(
+            value: _FakeMatrix(client),
+            child: MaterialApp(
+              localizationsDelegates: L10n.localizationsDelegates,
+              supportedLocales: L10n.supportedLocales,
+              home: Scaffold(
+                body: ScreenEffectHost(
+                  child: StatefulBuilder(
+                    builder: (context, setState) {
+                      update = setState;
+                      return ListView.builder(
+                        reverse: true,
+                        controller: scrollController,
+                        itemCount: events.length,
+                        itemBuilder: (context, i) {
+                          final event = events[i];
+                          return KeyedSubtree(
+                            key: ValueKey(event.eventId),
+                            child: Message(
+                              event,
+                              animateIn: event.eventId == '\$arrived',
+                              previousEvent: i > 0 ? events[i - 1] : null,
+                              nextEvent: i + 1 < events.length
+                                  ? events[i + 1]
+                                  : null,
+                              bigEmojis: const {},
+                              onSelect: (_) {},
+                              selected: false,
+                              longPressSelect: false,
+                              timeRevealed: false,
+                              onToggleTime: (_) {},
+                              onInfoTab: (_) {},
+                              scrollToEventId: (_) {},
+                              onSwipe: () {},
+                              onMention: () {},
+                              onEdit: () {},
+                              enterThread: null,
+                              singleSelected: false,
+                              hideReactionPicker: true,
+                              timeline: timeline,
+                              scrollController: scrollController,
+                              colors: const [Colors.blue, Colors.blue],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await pumpUntilBuilt(tester);
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 3));
+        final before = host(tester).plays;
+
+        update(
+          () => events.insert(
+            0,
+            effectEvent(effect, id: '\$arrived', body: 'Test'),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+        expect(host(tester).plays, before + 1);
+        expect(host(tester).playing, effect);
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(host(tester).playing, effect);
+        await tester.pump(const Duration(seconds: 8));
+      });
+    }
+
     testWidgets('plays once and not again on rebuild', (tester) async {
       final event = effectEvent(MessageEffect.fireworks);
       late VoidCallback rebuild;
@@ -447,6 +598,87 @@ void main() {
       await tester.pump(const Duration(seconds: 6));
       semantics.dispose();
     });
+
+    testWidgets('lights a slim pill around its label, in a full touch target', (
+      tester,
+    ) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.confetti));
+      await tester.pump(const Duration(seconds: 6));
+      final pill = find.byKey(const ValueKey('message_effect_replay_pill'));
+      final target = tester.getRect(replayLink);
+      final shape = tester.getRect(pill);
+      expect(target.height, greaterThanOrEqualTo(48));
+      expect(shape.height, lessThanOrEqualTo(28));
+      // The pill sits at the top of the touch target, around the label,
+      // the rest of the target below it.
+      expect(shape.top - target.top, lessThan(2));
+      expect(shape.contains(tester.getCenter(find.text('Replay'))), isTrue);
+      Color? pillColor() =>
+          (tester.widget<DecoratedBox>(pill).decoration as ShapeDecoration)
+              .color;
+      expect(pillColor()?.a ?? 0, 0);
+      // Pressed, the pill lights up, and nothing outside it does.
+      final press = await tester.startGesture(
+        target.topLeft + const Offset(2, 2),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(pillColor()!.a, greaterThan(0));
+      await press.up();
+      await tester.pump(const Duration(seconds: 6));
+    });
+
+    testWidgets('sits right under the bubble, as in iMessage', (tester) async {
+      await pumpMessage(tester, effectEvent(MessageEffect.confetti));
+      await tester.pump(const Duration(seconds: 6));
+      final bubble = tester.getRect(find.byType(EffectBubble));
+      final label = tester.getRect(find.text('Replay'));
+      expect(label.top - bubble.bottom, inInclusiveRange(0, 4));
+      expect(tester.getRect(replayLink).height, greaterThanOrEqualTo(48));
+    });
+
+    for (final own in [false, true]) {
+      testWidgets('with the time shown, reads "time · arrow" '
+          '(${own ? 'sent' : 'received'})', (tester) async {
+        final event = effectEvent(
+          MessageEffect.confetti,
+          sender: own ? client.userID! : '@alice:example.org',
+        );
+        await pumpMessage(tester, event, timeRevealed: true);
+        await tester.pump(const Duration(seconds: 6));
+        final time = event.originServerTs.localizedTimeOfDay(
+          tester.element(find.byType(EffectBubble)),
+        );
+        final row = find.textContaining('$time ·');
+        expect(row, findsOneWidget);
+        expect(find.text('Replay'), findsNothing);
+        final arrow = find.descendant(
+          of: replayLink,
+          matching: find.byIcon(Icons.replay),
+        );
+        expect(arrow, findsOneWidget);
+        // The time comes first, then the arrow, right under the bubble.
+        expect(
+          tester.getRect(row).right,
+          lessThanOrEqualTo(tester.getRect(arrow).left),
+        );
+        final bubble = tester.getRect(find.byType(EffectBubble));
+        expect(tester.getRect(arrow).top - bubble.bottom, lessThanOrEqualTo(6));
+        expect(tester.getRect(replayLink).height, greaterThanOrEqualTo(48));
+        // The arrow alone still replays, from anywhere in a 48dp target
+        // around it: over the time beside it, and below it.
+        final before = host(tester).plays;
+        await tester.tap(arrow);
+        await tester.pump();
+        expect(host(tester).plays, before + 1);
+        await tester.tapAt(tester.getCenter(arrow) + const Offset(-22, 0));
+        await tester.pump();
+        expect(host(tester).plays, before + 2);
+        await tester.tapAt(tester.getCenter(arrow) + const Offset(0, 30));
+        await tester.pump();
+        expect(host(tester).plays, before + 3);
+        await tester.pump(const Duration(seconds: 6));
+      });
+    }
 
     testWidgets('a tap plays a screen effect again', (tester) async {
       await pumpMessage(tester, effectEvent(MessageEffect.confetti));

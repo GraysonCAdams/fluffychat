@@ -29,6 +29,16 @@ class SendPreview extends StatefulWidget {
   final VoidCallback onOpenCamera;
   final VoidCallback onSend;
 
+  /// The send button's colours, the chat composer's. Null for the theme's
+  /// primary container colours.
+  final Color? sendColor;
+  final Color? onSendColor;
+
+  /// What a long press on send does, given the button's colours, where it
+  /// does anything: the effect picker. The button then has no tooltip,
+  /// which would answer the same long press.
+  final void Function(Color sendColor, Color onSendColor)? onSendLongPress;
+
   const SendPreview({
     required this.selection,
     required this.thumbnails,
@@ -38,6 +48,9 @@ class SendPreview extends StatefulWidget {
     required this.onClose,
     required this.onOpenCamera,
     required this.onSend,
+    this.sendColor,
+    this.onSendColor,
+    this.onSendLongPress,
     super.key,
   });
 
@@ -122,6 +135,10 @@ class _SendPreviewState extends State<SendPreview> {
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
     final items = widget.selection.items;
+    final sendColor = widget.sendColor ?? theme.colorScheme.primaryContainer;
+    final onSendColor =
+        widget.onSendColor ?? theme.colorScheme.onPrimaryContainer;
+    final onSendLongPress = widget.onSendLongPress;
 
     return SafeArea(
       bottom: false,
@@ -225,23 +242,32 @@ class _SendPreviewState extends State<SendPreview> {
                   ),
                 ),
                 IconButton(
-                  tooltip: l10n.send,
+                  key: const ValueKey('gallery_send'),
+                  tooltip: onSendLongPress == null ? l10n.send : null,
                   onPressed: widget.sending ? null : widget.onSend,
+                  onLongPress: widget.sending || onSendLongPress == null
+                      ? null
+                      : () => onSendLongPress(sendColor, onSendColor),
                   style: IconButton.styleFrom(
                     fixedSize: const Size.square(56),
-                    backgroundColor: theme.colorScheme.primaryContainer,
-                    foregroundColor: theme.colorScheme.onPrimaryContainer,
-                    disabledBackgroundColor: theme.colorScheme.primaryContainer,
+                    backgroundColor: sendColor,
+                    foregroundColor: onSendColor,
+                    disabledBackgroundColor: sendColor,
                   ),
                   icon: widget.sending
                       ? SizedBox.square(
                           dimension: 24,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.5,
-                            color: theme.colorScheme.onPrimaryContainer,
+                            color: onSendColor,
                           ),
                         )
-                      : const Icon(Icons.send),
+                      : Icon(
+                          Icons.send,
+                          semanticLabel: onSendLongPress == null
+                              ? null
+                              : l10n.send,
+                        ),
                 ),
               ],
             ),

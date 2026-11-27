@@ -38,6 +38,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/media_adaptation.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_timeline.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/message_effects.dart';
@@ -447,12 +448,38 @@ class ChatController extends State<ChatPageWithRoom>
     addPendingAttachments(files);
   }
 
+  /// The send button's background and foreground, the colours the
+  /// message's bubble will have: in a merged contact's chat those of the
+  /// network the message goes out on, as that network's bubbles do, else
+  /// the theme's own bubble colours.
+  (Color, Color) sendButtonColors(BuildContext context) {
+    final theme = Theme.of(context);
+    Color? networkColor;
+    if (AppSettings.networkBubbleColors.value) {
+      final networks = mergedNetworks(MatrixLocals(L10n.of(context)));
+      final targetRoomId = composerTarget.roomId;
+      for (final network in networks ?? const <MergedNetwork>[]) {
+        if (network.room.id == targetRoomId) networkColor = network.bubbleColor;
+      }
+    }
+    if (networkColor == null) return (theme.bubbleColor, theme.onBubbleColor);
+    return (networkColor, NetworkColors.foregroundOn(networkColor));
+  }
+
   /// Opens the full-screen camera and gallery picker and stages what it
-  /// returns in the composer, with its caption as the message text.
+  /// returns in the composer, with its caption as the message text. Its
+  /// send button has the composer's colours and, in a chat on the iMessage
+  /// bridge, the same effect picker on a long press; what is picked with
+  /// an effect goes out at once, with it.
   Future<void> openGalleryPicker() async {
+    final (sendColor, onSendColor) = sendButtonColors(context);
     final result = await showGalleryPicker(
       context,
       recipientName: room.getLocalizedDisplayname(),
+      sendColor: sendColor,
+      onSendColor: onSendColor,
+      effectsAvailable:
+          editEvent == null && canSendMessageEffects(composerRoom),
     );
     if (result == null || !mounted) return;
     setState(() {
@@ -463,6 +490,7 @@ class ChatController extends State<ChatPageWithRoom>
     if (caption.isNotEmpty && sendController.text.trim().isEmpty) {
       sendController.text = caption;
     }
+    if (result.effect case final effect?) await send(effect: effect);
   }
 
   int emojiPickerInitialTab = 0;
