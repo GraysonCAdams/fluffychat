@@ -139,13 +139,13 @@ Future<void> showChatFilterMenu(
       ],
       const PopupMenuDivider(),
       if (discover)
-        _item(
+        chatMenuItem(
           value: 'action:discover',
           leading: const Icon(Icons.explore_outlined),
           label: l10n.discover,
           checked: false,
         ),
-      _item(
+      chatMenuItem(
         value: 'action:markAllRead',
         leading: const Icon(Icons.mark_chat_read_outlined),
         label: l10n.markAllAsRead,
