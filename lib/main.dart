@@ -16,6 +16,7 @@ import 'package:fluffychat/utils/chat_windows/chat_windows.dart';
 import 'package:fluffychat/utils/client_manager.dart';
 import 'package:fluffychat/utils/dynamic_primary_color.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
+import 'package:fluffychat/utils/logcat_mirror.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/start_push_foreground_service.dart';
@@ -59,6 +60,9 @@ void main(List<String> args) => runZonedGuarded(() async {
 
   isIntegrationTest = args.singleOrNull == 'integration_test';
   Logs().onLog = _capLogHistory;
+  // Profile and release builds on Android also write info and above to
+  // logcat as "Seam".
+  LogcatMirror.install(previous: _capLogHistory);
   // The bundled font's licence, shown on the licences page as OFL requires.
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks(const [
