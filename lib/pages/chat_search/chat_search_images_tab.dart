@@ -101,10 +101,7 @@ class ChatSearchImagesTab extends StatelessWidget {
                   );
                 }
                 return InkWell(
-                  onTap: () => showDialog(
-                    context: context,
-                    builder: (_) => ImageViewer(event, outerContext: context),
-                  ),
+                  onTap: () => showImageViewer(context, event),
                   borderRadius: borderRadius,
                   child: Material(
                     clipBehavior: Clip.hardEdge,

@@ -4112,5 +4112,9 @@
   "settingsSupport": "Support",
   "@settingsSupport": {
     "description": "Header of the group in homeserver settings with the support page and contacts."
+  },
+  "showInChat": "Show in chat",
+  "@showInChat": {
+    "description": "Menu item in the full screen media viewer that closes it and scrolls the chat to the message holding the picture or video shown."
   }
 }
