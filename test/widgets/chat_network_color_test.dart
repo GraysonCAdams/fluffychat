@@ -8,8 +8,10 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
+import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/widgets/matrix.dart';
+import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -19,6 +21,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../pages/chat_list/chat_list_fakes.dart';
+import '../utils/merged_contacts/fake_rooms.dart' show setMergedContacts;
 
 class _Matrix extends FakeMatrix {
   _Matrix(super.fakeClient, super.prefs);
@@ -57,8 +60,9 @@ void main() {
   /// the colours of that message's bubble and of the send button.
   Future<({Color? bubble, Color? send, ThemeData theme})> open(
     WidgetTester tester,
-    Room room,
-  ) async {
+    Room room, {
+    String? contactId,
+  }) async {
     tester.view.physicalSize = const Size(1200, 2400);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -71,7 +75,8 @@ void main() {
           routes: [
             GoRoute(
               path: 'chat',
-              builder: (_, _) => ChatPage(roomId: room.id),
+              builder: (_, _) =>
+                  ChatPage(roomId: room.id, contactId: contactId),
             ),
           ],
         ),
@@ -176,5 +181,72 @@ void main() {
     final colors = await open(tester, group);
     expect(colors.bubble, isNull);
     expect(colors.send, colors.theme.bubbleColor);
+  });
+
+  group('a group merged across iMessage and Google Messages', () {
+    late Room imessage;
+    late Room gmessages;
+
+    setUp(() {
+      imessage = addFakeChat(
+        client,
+        '!grp-im:x',
+        'Drew Andersen, Harrison Young',
+      );
+      gmessages = addFakeChat(
+        client,
+        '!grp-gm:x',
+        'Drew Andersen, Harrison Young',
+      );
+      addFakeBridge(imessage);
+      addFakeBridge(
+        gmessages,
+        bot: '@gmessagesbot:x',
+        network: 'Google Messages',
+      );
+      setMergedContacts(client, {
+        'c_grp': {
+          'rooms': [imessage.id, gmessages.id],
+          'send_via': imessage.id,
+          'updated': 1,
+        },
+      });
+    });
+
+    testWidgets('a message on iMessage and the send button take the '
+        'iMessage colour', (tester) async {
+      final colors = await open(tester, imessage, contactId: 'c_grp');
+      expect(colors.bubble, picked);
+      expect(colors.send, picked);
+    });
+
+    testWidgets('sending via Google Messages turns the send button its '
+        'colour', (tester) async {
+      await open(tester, imessage, contactId: 'c_grp');
+      final chat = tester.state<ChatController>(find.byType(ChatPageWithRoom));
+      await tester.runAsync(() => chat.setMergedSendVia(gmessages.id));
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      final send = tester.widget<IconButton>(
+        find.byKey(const Key('send_button')),
+      );
+      expect(
+        send.style?.backgroundColor?.resolve({}),
+        NetworkColors.defaults['gmessages'],
+      );
+    });
+
+    test('its badge in the chat list rings in both networks\' colours', () {
+      final contact = MergedContact.ofRoom(client, imessage.id)!;
+      expect(
+        MergedBadge(
+          contact: contact,
+          size: 24,
+          outlineColor: Colors.black,
+        ).ringColors,
+        [picked, NetworkColors.defaults['gmessages']],
+      );
+    });
   });
 }

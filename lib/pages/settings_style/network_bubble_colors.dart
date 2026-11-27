@@ -52,7 +52,7 @@ class _NetworkBubbleColorsState extends State<NetworkBubbleColors> {
         child: InkWell(
           borderRadius: BorderRadius.circular(_swatchSize),
           onTap: () async {
-            await NetworkColors.pick(bridgeId, color);
+            await NetworkColors.pick(bridgeId, color, client: widget.client);
             if (mounted) setState(() {});
           },
           child: Material(

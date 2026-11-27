@@ -174,13 +174,14 @@ class MergedBadge extends StatelessWidget {
     super.key,
   });
 
-  /// One colour per network of the contact, in room order. Networks without
-  /// a known colour are left out.
-  List<Color> get _ringColors {
+  /// One colour per network of the contact, in room order, a group's as
+  /// well as a person's. Networks without a known colour are left out.
+  @visibleForTesting
+  List<Color> get ringColors {
     final seen = <String>{};
     return [
       for (final room in contact.rooms)
-        if (NetworkColors.bridgeIdOf(room) case final id?)
+        if (NetworkColors.bridgeIdOfRoom(room) case final id?)
           if (seen.add(id)) ?NetworkColors.colorFor(id),
     ];
   }
@@ -197,7 +198,7 @@ class MergedBadge extends StatelessWidget {
         padding: const EdgeInsets.all(2),
         child: CustomPaint(
           painter: _SplitRingPainter(
-            colors: _ringColors,
+            colors: ringColors,
             fill: theme.colorScheme.surfaceContainerHighest,
             gap: outlineColor,
           ),
