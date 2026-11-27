@@ -192,5 +192,17 @@
         <meta-data android:name="android.content.APP_RESTRICTIONS"
             android:resource="@xml/app_restrictions" />
 
+        <!-- Serves the pictures of message notifications, which the system UI
+             reads. The plugin grants it read access to each URI it shows. -->
+        <provider
+            android:name=".NotificationMediaProvider"
+            android:authorities="${applicationId}.notification_media"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/notification_media_paths" />
+        </provider>
+
     </application>
 </manifest>
