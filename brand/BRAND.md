@@ -24,9 +24,13 @@ stitch, and the loose end is where the sewing began.
 
 | Name | Hex | Use |
 |---|---|---|
-| Seam Cobalt | `#1A5AD7` | Icon background; the mark's colour on light backgrounds |
+| Seam Cobalt | `#1A5AD7` | Icon and launch-screen background; the mark's colour on light backgrounds; the app's default theme colour |
 | White | `#FFFFFF` | Bubble, needle and thread; the glyph on dark backgrounds |
 | Glyph dark | `#1F1F1F` | The glyph on light backgrounds |
+
+In the app, Seam Cobalt is the default seed of the Material colour scheme (`AppConfig.primaryColor`
+and the default of `AppSettings.colorSchemeSeedInt`), and the first colour in Settings > Style.
+The system's dynamic colour is an option there, not the default.
 
 Seam Cobalt was chosen to sit apart from other messaging blues (Google Messages `#1A73E8`, Signal
 `#3A76F0`, Messenger `#0084FF`, LinkedIn `#0A66C2`).
@@ -55,7 +59,8 @@ The app already carries these assets; after changing the mark, rebuild the kit a
 | `android/app/src/main/res/drawable-*/ic_launcher_foreground.png`, `ic_launcher_monochrome.png` | `android/res/mipmap-*/` foreground and monochrome layers (the adaptive icon in `mipmap-anydpi-v26/ic_launcher.xml` points at these, with the background colour in `values/ic_launcher_background.xml`) |
 | `android/app/src/main/res/mipmap-*/ic_launcher.png` | `android/res/mipmap-*/ic_launcher.png` (pre-Android 8 launchers) |
 | `android/app/src/main/res/drawable/notifications_icon.xml` | `android/res/drawable/ic_stat_seam.xml` (the file keeps its old name because the code loads it by that name) |
-| `android/app/src/main/res/drawable-*/splash.png` | `png/seam-mark-on-light-1024.png`, scaled to 177 dp |
+| `android/app/src/main/res/drawable-*/splash.png` | `png/seam-mark-1024.png` (white), scaled to 177 dp, centred on Seam Cobalt by `drawable/launch_background.xml` (the launch screen before Android 12) |
+| Android 12+ splash screen (`values-v31/styles.xml`, `values-night-v31/styles.xml`) | Seam Cobalt (`values/colors.xml`, `seam_cobalt`) with the launcher foreground `ic_launcher_foreground` as the icon and no icon backing |
 | `assets/seam/seam_app_icon.png`, `seam_glyph.png`, `tray_icon.ico` | in-app logo (also the icon in the Windows title bar the app draws), tinted logo and the Windows tray icon |
 | `windows/runner/resources/app_icon.ico` | `windows/app_icon.ico` (the exe, taskbar and Alt+Tab) |
 | `web/icons/`, `web/favicon.png` | the app icon at the matching sizes |

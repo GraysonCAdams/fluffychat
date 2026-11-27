@@ -843,18 +843,6 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} sizni FluffyChat’ga taklif qildi.\n1. fluffychat.im saytiga tashrif buyuring va ilovani oʻrnating.\n2. Roʻyxatdan oʻting yoki tizimga kiring.\n3. Taklif havolasini oching:\n{link}",
-    "@inviteText": {
-        "type": "String",
-        "placeholders": {
-            "username": {
-                "type": "String"
-            },
-            "link": {
-                "type": "String"
-            }
-        }
-    },
     "isTyping": "yozmoqda…",
     "@isTyping": {
         "type": "String",
@@ -1083,7 +1071,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "💬 FluffyChat yangi xabarlar",
+    "newMessageInFluffyChat": "💬 Seam yangi xabarlar",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}

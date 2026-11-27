@@ -814,18 +814,6 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} convidoute a FluffyChat.\n1. Visita fluffychat.im e instala a app\n2. Crea unha conta ou Accede\n3. Abre a ligazón do convite: \n {link}",
-    "@inviteText": {
-        "type": "String",
-        "placeholders": {
-            "username": {
-                "type": "String"
-            },
-            "link": {
-                "type": "String"
-            }
-        }
-    },
     "isTyping": "está escribindo",
     "@isTyping": {
         "type": "String",
@@ -971,7 +959,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "💬 Nova mensaxe en FluffyChat",
+    "newMessageInFluffyChat": "💬 Nova mensaxe en Seam",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}
@@ -2471,7 +2459,7 @@
     "advancedConfigurations": "Configuracións avanzadas",
     "signIn": "Acceder",
     "createNewAccount": "Crear nova conta",
-    "signUpGreeting": "FluffyChat é descentralizada! Elixe un servidor para crear a conta e xa podes utilizar a app!",
+    "signUpGreeting": "Seam é descentralizada! Elixe un servidor para crear a conta e xa podes utilizar a app!",
     "signInGreeting": "Xa tes unha conta en Matrix? Benvida! Selecciona o teu servidor de orixe e accede.",
     "theProcessWasCanceled": "Desbotouse o proceso.",
     "join": "Unirse",
@@ -2592,7 +2580,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newPassphraseDescription": "FluffyChat utiliza cifraxe de extremo a extremo. Para non perder as mensaxes elixe unha frase de paso forte para protexer a túa identidade criptográfica e a túa copia de apoio de mensaxes cifradas.",
+    "newPassphraseDescription": "Seam utiliza cifraxe de extremo a extremo. Para non perder as mensaxes elixe unha frase de paso forte para protexer a túa identidade criptográfica e a túa copia de apoio de mensaxes cifradas.",
     "@newPassphraseDescription": {
         "type": "String",
         "placeholders": {}

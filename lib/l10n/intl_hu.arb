@@ -569,18 +569,6 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} meghívta a FluffyChat-be.\n1. Keresse fel a fluffychat.im oldalt, és telepítse az alkalmazást \n2. Regisztráljon vagy jelentkezzen be \n3. Nyissa meg a meghívó linket: \n {link}",
-    "@inviteText": {
-        "type": "String",
-        "placeholders": {
-            "username": {
-                "type": "String"
-            },
-            "link": {
-                "type": "String"
-            }
-        }
-    },
     "isTyping": "épp gépel…",
     "@isTyping": {
         "type": "String",
@@ -706,7 +694,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "💬 Új FluffyChat üzenet",
+    "newMessageInFluffyChat": "💬 Új Seam üzenet",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}

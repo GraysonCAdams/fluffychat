@@ -622,18 +622,6 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} te invitó a FluffyChat.\n1.Visita fluffychat.im e instala la app\n2. Regístrate o inicia sesión\n3. Abre el enlace de invitación:\n{link}",
-    "@inviteText": {
-        "type": "String",
-        "placeholders": {
-            "username": {
-                "type": "String"
-            },
-            "link": {
-                "type": "String"
-            }
-        }
-    },
     "isTyping": "escribiendo…",
     "@isTyping": {
         "type": "String",
@@ -759,7 +747,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "Nuevo mensaje en FluffyChat",
+    "newMessageInFluffyChat": "Nuevo mensaje en Seam",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}
@@ -2479,7 +2467,7 @@
     "advancedConfigurations": "Configuraciones Avanzadas",
     "signIn": "Iniciar sesión",
     "createNewAccount": "Crear nueva cuenta",
-    "signUpGreeting": "¡FluffyChat está descentralizado! ¡Selecciona un servidor donde quieres crear tu cuenta y sigamos!",
+    "signUpGreeting": "¡Seam está descentralizado! ¡Selecciona un servidor donde quieres crear tu cuenta y sigamos!",
     "signInGreeting": "¿Ya tienes una cuenta en Matrix? ¡Bienvenido de nuevo! Selecciona tu servidor e inicia sesión.",
     "theProcessWasCanceled": "El proceso se ha cancelado.",
     "join": "Unirse",

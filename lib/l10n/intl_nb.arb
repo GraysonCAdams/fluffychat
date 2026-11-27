@@ -663,18 +663,6 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} har invitert deg til FluffyChat. \n1. Installer FluffyChat: https://fluffychat.im \n2. Registrer deg eller logg inn \n3. Åpne invitasjonslenken: \n {link}",
-    "@inviteText": {
-        "type": "String",
-        "placeholders": {
-            "username": {
-                "type": "String"
-            },
-            "link": {
-                "type": "String"
-            }
-        }
-    },
     "isTyping": "skriver",
     "@isTyping": {
         "type": "String",
@@ -810,7 +798,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "Ny melding i FluffyChat",
+    "newMessageInFluffyChat": "Ny melding i Seam",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}
@@ -2477,7 +2465,7 @@
     "report": "rapportere",
     "signIn": "Logg på",
     "createNewAccount": "Opprett ny konto",
-    "signUpGreeting": "FluffyChat er desentralisert! Velg en server der du vil opprette kontoen din, så kjører vi på!",
+    "signUpGreeting": "Seam er desentralisert! Velg en server der du vil opprette kontoen din, så kjører vi på!",
     "signInGreeting": "Har du allerede en Matrix-konto? Velkommen tilbake! Velg hjemmeserveren din og logg inn.",
     "theProcessWasCanceled": "Prosessen ble avbrutt.",
     "join": "Bli med",
@@ -2578,7 +2566,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newPassphraseDescription": "FluffyChat bruker ende-til-ende-kryptering. For å ikke miste meldingene dine, vennligst velg et sterkt passord for å sikre din kryptografiske identitet og din krypterte sikkerhetskopi av meldinger.",
+    "newPassphraseDescription": "Seam bruker ende-til-ende-kryptering. For å ikke miste meldingene dine, vennligst velg et sterkt passord for å sikre din kryptografiske identitet og din krypterte sikkerhetskopi av meldinger.",
     "@newPassphraseDescription": {
         "type": "String",
         "placeholders": {}

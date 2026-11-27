@@ -44,9 +44,9 @@ Future<void> oidcLoginFlow(
     clientInformation: OidcClientInformation(
       clientName: AppSettings.applicationName.value,
       clientUri: clientUri,
-      logoUri: Uri.parse(AppSettings.logoUrl.value),
-      tosUri: Uri.parse(AppSettings.tos.value),
-      policyUri: Uri.parse(AppSettings.privacyPolicy.value),
+      logoUri: _optionalUri(AppSettings.logoUrl.value),
+      tosUri: _optionalUri(AppSettings.tos.value),
+      policyUri: _optionalUri(AppSettings.privacyPolicy.value),
     ),
   );
 
@@ -90,3 +90,6 @@ Future<void> oidcLoginFlow(
 
   await client.oidcLogin(session: session, code: code, state: state);
 }
+
+/// Null for an empty setting, so the registration leaves the field out.
+Uri? _optionalUri(String value) => value.isEmpty ? null : Uri.parse(value);

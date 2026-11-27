@@ -62,17 +62,18 @@ class IntroPage extends StatelessWidget {
                   ],
                 ),
               ),
-              PopupMenuItem(
-                onTap: () => launchUrlString(AppSettings.privacyPolicy.value),
-                child: Row(
-                  mainAxisSize: .min,
-                  spacing: 12,
-                  children: [
-                    const Icon(Icons.privacy_tip_outlined),
-                    Text(L10n.of(context).privacy),
-                  ],
+              if (AppSettings.privacyPolicy.value.isNotEmpty)
+                PopupMenuItem(
+                  onTap: () => launchUrlString(AppSettings.privacyPolicy.value),
+                  child: Row(
+                    mainAxisSize: .min,
+                    spacing: 12,
+                    children: [
+                      const Icon(Icons.privacy_tip_outlined),
+                      Text(L10n.of(context).privacy),
+                    ],
+                  ),
                 ),
-              ),
               PopupMenuItem(
                 onTap: () => PlatformInfos.showDialog(context),
                 child: Row(
