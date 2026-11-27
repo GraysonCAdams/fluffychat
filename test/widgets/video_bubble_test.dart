@@ -109,6 +109,7 @@ void main() {
     required int w,
     required int h,
     Map<String, Object?>? thumbnailInfo,
+    String? thumbnailUrl,
   }) => Event(
     content: {
       'msgtype': MessageTypes.Video,
@@ -120,6 +121,7 @@ void main() {
         'duration': 5000,
         'mimetype': 'video/mp4',
         'thumbnail_info': ?thumbnailInfo,
+        'thumbnail_url': ?thumbnailUrl,
       },
     },
     type: EventTypes.Message,
@@ -142,7 +144,11 @@ void main() {
     return controller;
   }
 
-  Future<void> pumpBubble(WidgetTester tester, Event event) async {
+  Future<void> pumpBubble(
+    WidgetTester tester,
+    Event event, {
+    Future<double?> Function(Event)? measureThumbnail,
+  }) async {
     loads = 0;
     await tester.pumpWidget(
       MaterialApp(
@@ -154,6 +160,7 @@ void main() {
               event,
               playInline: true,
               loadController: fakeLoad,
+              measureThumbnail: measureThumbnail,
             ),
           ),
         ),
@@ -195,6 +202,54 @@ void main() {
       videoEvent(w: 3840, h: 2160, thumbnailInfo: {'w': 1080, 'h': 1920}),
     );
     expect(bubbleSize(tester), const Size(180, 320));
+  });
+
+  testWidgets('a portrait clip takes the shape of its thumbnail image when '
+      'the thumbnail info has no size', (tester) async {
+    // As Seam sent it: the raw landscape frame size, and a portrait
+    // thumbnail whose info carries no size.
+    await AppSettings.showThumbnailsInTimeline.setItem(true);
+    addTearDown(() => AppSettings.showThumbnailsInTimeline.setItem(false));
+    final measured = <String>[];
+    await pumpBubble(
+      tester,
+      videoEvent(
+        w: 3840,
+        h: 2160,
+        thumbnailInfo: {'mimetype': 'image/jpeg', 'size': 210559},
+        thumbnailUrl: 'mxc://example.org/thumb',
+      ),
+      measureThumbnail: (event) async {
+        measured.add(event.eventId);
+        return 2160 / 3840;
+      },
+    );
+    expect(measured, hasLength(1));
+    expect(bubbleSize(tester), const Size(180, 320));
+    expect(loads, 0);
+  });
+
+  testWidgets('a thumbnail with a size in its info is not measured', (
+    tester,
+  ) async {
+    await AppSettings.showThumbnailsInTimeline.setItem(true);
+    addTearDown(() => AppSettings.showThumbnailsInTimeline.setItem(false));
+    var measured = 0;
+    await pumpBubble(
+      tester,
+      videoEvent(
+        w: 1920,
+        h: 1080,
+        thumbnailInfo: {'w': 640, 'h': 360},
+        thumbnailUrl: 'mxc://example.org/thumb2',
+      ),
+      measureThumbnail: (event) async {
+        measured++;
+        return 1;
+      },
+    );
+    expect(measured, 0);
+    expect(bubbleSize(tester), const Size(280, 157.5));
   });
 
   testWidgets('a landscape clip is landscape', (tester) async {
@@ -248,5 +303,7 @@ void main() {
     await tester.pump();
     expect(find.byType(ImageViewer), findsOneWidget);
     expect(loads, 0);
+    // Let the viewer's download request to the fake server finish.
+    await tester.pump(const Duration(milliseconds: 10));
   });
 }
