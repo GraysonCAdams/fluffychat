@@ -648,18 +648,6 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} bjöd in dig till FluffyChat.\n1. Besök fluffychat.im och installera appen\n2. Registrera dig eller logga in\n3. Öppna inbjudningslänk:\n {link}",
-    "@inviteText": {
-        "type": "String",
-        "placeholders": {
-            "username": {
-                "type": "String"
-            },
-            "link": {
-                "type": "String"
-            }
-        }
-    },
     "isTyping": "skriver…",
     "@isTyping": {
         "type": "String",
@@ -795,7 +783,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "💬 Nya meddelanden i FluffyChat",
+    "newMessageInFluffyChat": "💬 Nya meddelanden i Seam",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}
@@ -825,7 +813,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "noGoogleServicesWarning": "De ser ut som att du inte har google-tjänster på din telefon. Det är ett bra beslut för din integritet! För att få aviseringar i FluffyChat rekommenderar vi att använda https://microg.org/ eller https://unifiedpush.org/ .",
+    "noGoogleServicesWarning": "De ser ut som att du inte har google-tjänster på din telefon. Det är ett bra beslut för din integritet! För att få aviseringar i Seam rekommenderar vi att använda https://microg.org/ eller https://unifiedpush.org/ .",
     "@noGoogleServicesWarning": {
         "type": "String",
         "placeholders": {}
@@ -2459,7 +2447,7 @@
     "identityServer": "Identitetsserver:",
     "advancedConfigs": "Avancerad konfiguration",
     "advancedConfigurations": "Avancerade konfigurationer",
-    "signUpGreeting": "FluffyChat är decentraliserad! Välj en server där du vill skapa ditt konto och kom igång!",
+    "signUpGreeting": "Seam är decentraliserad! Välj en server där du vill skapa ditt konto och kom igång!",
     "signInGreeting": "Har du redan ett konto i Matrix? Välkommen tillbaka! Välj din hemserver och logga in.",
     "theProcessWasCanceled": "Processen blev avbruten.",
     "join": "Gå med",
@@ -2573,7 +2561,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newPassphraseDescription": "FluffyChat använder helsträckskryptering. För att inte bli av med dina meddelanden, vänligen välj en stark lösenfras för att säkra din krypto-identitet och din krypterade säkerhetskopiering av meddelanden.",
+    "newPassphraseDescription": "Seam använder helsträckskryptering. För att inte bli av med dina meddelanden, vänligen välj en stark lösenfras för att säkra din krypto-identitet och din krypterade säkerhetskopiering av meddelanden.",
     "@newPassphraseDescription": {
         "type": "String",
         "placeholders": {}

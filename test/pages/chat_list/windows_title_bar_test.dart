@@ -219,10 +219,10 @@ void main() {
     final first = tester.getRect(chips.at(0));
     final second = tester.getRect(chips.at(1));
     // A 48 row right under the bar: 8 above the chips, 16 in from the edge
-    // of the list, which starts after the 80 rail and its divider.
+    // of the list, which starts right after the 80 rail.
     expect(first.top, 48 + 8);
     expect(first.height, 32);
-    expect(first.left, 80 + 1 + 16);
+    expect(first.left, 80 + 16);
     expect(second.left - first.right, 8);
     expect(second.top, first.top);
     final label = tester.widget<DefaultTextStyle>(

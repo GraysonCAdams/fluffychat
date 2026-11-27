@@ -176,6 +176,23 @@ abstract class FluffyThemes {
       ),
     );
   }
+
+  /// The theme inside the column-mode chat card (TwoColumnLayout). The
+  /// card's colour, surfaceContainerLow, stands in for surface, so scaffolds,
+  /// app bars, chips and the composer's backdrop blend into the card.
+  static ThemeData cardPaneTheme(ThemeData theme) {
+    final cardColor = theme.colorScheme.surfaceContainerLow;
+    return theme.copyWith(
+      colorScheme: theme.colorScheme.copyWith(surface: cardColor),
+      scaffoldBackgroundColor: cardColor,
+      canvasColor: cardColor,
+      appBarTheme: theme.appBarTheme.copyWith(
+        backgroundColor: cardColor,
+        surfaceTintColor: cardColor,
+      ),
+      chipTheme: theme.chipTheme.copyWith(backgroundColor: cardColor),
+    );
+  }
 }
 
 extension on Brightness {

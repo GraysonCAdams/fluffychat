@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:cross_file/cross_file.dart';
 import 'package:fluffychat/l10n/l10n.dart';
-import 'package:fluffychat/pages/chat/effects/message_effect_bubble.dart';
+import 'package:fluffychat/pages/chat/effects/effect_preview_message.dart';
 import 'package:fluffychat/pages/chat/effects/screen_effect_host.dart';
 import 'package:fluffychat/utils/message_effects.dart';
 import 'package:material_ui/material_ui.dart';
@@ -24,8 +25,12 @@ IconData _iconOf(MessageEffect effect) => switch (effect) {
   MessageEffect.shootingStar => Icons.star_outline,
 };
 
-/// Opens the sheet that sends [text] with an effect and returns the effect
-/// picked, or null when the sheet was dismissed.
+/// Opens the sheet that sends [text] and the staged [media] with an effect
+/// and returns the effect picked, or null when the sheet was dismissed.
+///
+/// The sheet is dragged by its handle only: a drag anywhere below it is
+/// left to the preview, where invisible ink is rubbed, and to the list of
+/// effects.
 ///
 /// [onSchedule], when given, puts a schedule button at the foot of the
 /// sheet, apart from the effects, which closes the sheet before it is
@@ -35,6 +40,7 @@ IconData _iconOf(MessageEffect effect) => switch (effect) {
 Future<MessageEffect?> showMessageEffectPicker(
   BuildContext context, {
   required String text,
+  List<XFile> media = const [],
   required Color bubbleColor,
   required Color onBubbleColor,
   VoidCallback? onSchedule,
@@ -43,11 +49,13 @@ Future<MessageEffect?> showMessageEffectPicker(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
+  enableDrag: false,
   showDragHandle: true,
   builder: (context) => FractionallySizedBox(
     heightFactor: 1,
     child: MessageEffectPicker(
       text: text,
+      media: media,
       bubbleColor: bubbleColor,
       onBubbleColor: onBubbleColor,
       onSchedule: onSchedule,
@@ -57,27 +65,29 @@ Future<MessageEffect?> showMessageEffectPicker(
 );
 
 /// What a long press on the send button does: in a chat that can carry
-/// effects, with a message typed, it opens the effect picker and hands the
-/// pick to [send]; anywhere else it calls [fallback]. The picker's schedule
+/// effects, with a message typed or [media] staged, it opens the effect
+/// picker and hands the pick to [send]; anywhere else it calls [fallback]. The picker's schedule
 /// button calls [fallback] too, unless [canSchedule], asked as the picker
 /// opens, answers false.
 Future<void> onSendLongPress(
   BuildContext context, {
   required bool effectsAvailable,
   required String text,
+  List<XFile> media = const [],
   required Color bubbleColor,
   required Color onBubbleColor,
   required void Function(MessageEffect effect) send,
   required VoidCallback fallback,
   Future<bool> Function()? canSchedule,
 }) async {
-  if (!effectsAvailable || text.trim().isEmpty) {
+  if (!effectsAvailable || (text.trim().isEmpty && media.isEmpty)) {
     fallback();
     return;
   }
   final effect = await showMessageEffectPicker(
     context,
     text: text,
+    media: media,
     bubbleColor: bubbleColor,
     onBubbleColor: onBubbleColor,
     onSchedule: fallback,
@@ -87,11 +97,15 @@ Future<void> onSendLongPress(
 }
 
 /// The content of the effect sheet: a switch between bubble and screen
-/// effects, a stage that plays the chosen effect on the typed message, and
+/// effects, a stage that plays the chosen effect on the message as it will
+/// arrive (the staged media and the typed text together), and
 /// the effects of that kind, each with its own send button. Below them,
 /// under a divider, a foot with the schedule button.
 class MessageEffectPicker extends StatefulWidget {
   final String text;
+
+  /// The photos, videos and files staged to go with [text].
+  final List<XFile> media;
   final Color bubbleColor;
   final Color onBubbleColor;
   final VoidCallback? onSchedule;
@@ -102,6 +116,7 @@ class MessageEffectPicker extends StatefulWidget {
 
   const MessageEffectPicker({
     required this.text,
+    this.media = const [],
     required this.bubbleColor,
     required this.onBubbleColor,
     this.onSchedule,
@@ -210,7 +225,8 @@ class _MessageEffectPickerState extends State<MessageEffectPicker> {
             }),
           ),
         ),
-        // The stage: the message as it will arrive. Tapping plays it again.
+        // The stage: the message as it will arrive. Tapping plays it
+        // again, except under invisible ink, which a touch rubs away.
         Expanded(
           flex: 5,
           child: Padding(
@@ -220,39 +236,21 @@ class _MessageEffectPickerState extends State<MessageEffectPicker> {
               borderRadius: BorderRadius.circular(28),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
-                onTap: () => setState(() => _preview++),
+                onTap: _effect == MessageEffect.invisibleInk
+                    ? null
+                    : () => setState(() => _preview++),
                 child: ScreenEffectHost(
                   child: Container(
                     alignment: Alignment.bottomRight,
                     padding: const EdgeInsets.all(20),
-                    child: EffectBubble(
+                    child: EffectPreviewMessage(
                       key: ValueKey((_effect, _preview)),
                       effect: _effect,
-                      ownMessage: true,
-                      autoPlay: true,
+                      text: widget.text,
+                      media: widget.media,
                       bubbleColor: widget.bubbleColor,
                       onBubbleColor: widget.onBubbleColor,
                       borderRadius: radius,
-                      text: widget.text,
-                      child: Container(
-                        constraints: const BoxConstraints(maxWidth: 260),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: widget.bubbleColor,
-                          borderRadius: radius,
-                        ),
-                        child: Text(
-                          widget.text,
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: widget.onBubbleColor,
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                 ),

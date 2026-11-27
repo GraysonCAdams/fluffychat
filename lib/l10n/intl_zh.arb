@@ -786,18 +786,6 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} 邀请你使用 FluffyChat。 \n1. 安装 FluffyChat：https://fluffychat.im \n2. 注册或登录 \n3. 打开邀请链接：\n {link}",
-    "@inviteText": {
-        "type": "String",
-        "placeholders": {
-            "username": {
-                "type": "String"
-            },
-            "link": {
-                "type": "String"
-            }
-        }
-    },
     "isTyping": "正在输入",
     "@isTyping": {
         "type": "String",
@@ -933,7 +921,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "💬 FluffyChat 新消息",
+    "newMessageInFluffyChat": "💬 Seam 新消息",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}
@@ -968,7 +956,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "noGoogleServicesWarning": "看起来你手机上没有 Firebase Cloud Messaging。如果仍希望接收 FluffyChat 的推送通知，推荐安装 ntfy。借助 ntfy 或另一个 Unified Push 程序，你可以以一种数据安全的方式接收推送通知。你可以从 PlayStore 或 F-Droid 商店下载 ntfy。",
+    "noGoogleServicesWarning": "看起来你手机上没有 Firebase Cloud Messaging。如果仍希望接收 Seam 的推送通知，推荐安装 ntfy。借助 ntfy 或另一个 Unified Push 程序，你可以以一种数据安全的方式接收推送通知。你可以从 PlayStore 或 F-Droid 商店下载 ntfy。",
     "@noGoogleServicesWarning": {
         "type": "String",
         "placeholders": {}
@@ -2102,7 +2090,7 @@
             }
         }
     },
-    "appLockDescription": "用 pin 码在不用 FluffyChat 时锁定它",
+    "appLockDescription": "用 pin 码在不用 Seam 时锁定它",
     "globalChatId": "全局聊天 ID",
     "accessAndVisibility": "访问和可见性",
     "accessAndVisibilityDescription": "谁可以加入此聊天以及怎样发现该聊天。",
@@ -2471,7 +2459,7 @@
     "advancedConfigurations": "高级配置",
     "signIn": "登录",
     "createNewAccount": "创建新账户",
-    "signUpGreeting": "FluffyChat 是去中心化的！选择您希望创建账户的服务器！",
+    "signUpGreeting": "Seam 是去中心化的！选择您希望创建账户的服务器！",
     "signInGreeting": "已经有 Matrix 账户了？欢迎回来！选择 homeserver 登录。",
     "theProcessWasCanceled": "过程被取消。",
     "join": "加入",
@@ -2590,7 +2578,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newPassphraseDescription": "FluffyChat 使用端到端加密。为了不丢失消息，请选择强密码短语来保护加密身份和加密的消息备份。",
+    "newPassphraseDescription": "Seam 使用端到端加密。为了不丢失消息，请选择强密码短语来保护加密身份和加密的消息备份。",
     "@newPassphraseDescription": {
         "type": "String",
         "placeholders": {}

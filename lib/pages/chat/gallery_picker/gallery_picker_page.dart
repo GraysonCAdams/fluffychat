@@ -5,11 +5,14 @@
 import 'package:cross_file/cross_file.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat/effects/message_effect_picker.dart'
+    as effects;
 import 'package:fluffychat/pages/chat/gallery_picker/camera_view.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/media_grid_sheet.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/picked_media.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/send_preview.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/thumbnail_cache.dart';
+import 'package:fluffychat/utils/message_effects.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -20,18 +23,36 @@ class GalleryPickerResult {
   final List<XFile> files;
   final String caption;
 
-  const GalleryPickerResult({required this.files, required this.caption});
+  /// The effect picked with a long press on send, to send the files with
+  /// at once.
+  final MessageEffect? effect;
+
+  const GalleryPickerResult({
+    required this.files,
+    required this.caption,
+    this.effect,
+  });
 }
 
 /// Opens the full-screen camera and gallery picker. Resolves to null when
-/// the user closes it without sending.
+/// the user closes it without sending. The send button has [sendColor]
+/// and [onSendColor], the chat composer's, and where [effectsAvailable] a
+/// long press on it opens the effect picker.
 Future<GalleryPickerResult?> showGalleryPicker(
   BuildContext context, {
   required String recipientName,
+  Color? sendColor,
+  Color? onSendColor,
+  bool effectsAvailable = false,
 }) => Navigator.of(context, rootNavigator: true).push<GalleryPickerResult>(
   MaterialPageRoute(
     fullscreenDialog: true,
-    builder: (_) => GalleryPickerPage(recipientName: recipientName),
+    builder: (_) => GalleryPickerPage(
+      recipientName: recipientName,
+      sendColor: sendColor,
+      onSendColor: onSendColor,
+      effectsAvailable: effectsAvailable,
+    ),
   ),
 );
 
@@ -45,7 +66,21 @@ Future<GalleryPickerResult?> showGalleryPicker(
 class GalleryPickerPage extends StatefulWidget {
   final String recipientName;
 
-  const GalleryPickerPage({required this.recipientName, super.key});
+  /// The colours of the chat composer's send button, which this page's
+  /// send button takes. Null for the theme's primary container colours.
+  final Color? sendColor;
+  final Color? onSendColor;
+
+  /// Whether a long press on send offers iMessage's effects.
+  final bool effectsAvailable;
+
+  const GalleryPickerPage({
+    required this.recipientName,
+    this.sendColor,
+    this.onSendColor,
+    this.effectsAvailable = false,
+    super.key,
+  });
 
   @override
   State<GalleryPickerPage> createState() => _GalleryPickerPageState();
@@ -133,36 +168,69 @@ class _GalleryPickerPageState extends State<GalleryPickerPage> {
     return _darkTheme!;
   }
 
-  Future<void> _send() async {
+  /// The picked media as files, each the untouched original.
+  Future<List<XFile>> _files() async {
+    final files = <XFile>[];
+    for (final media in _selection.items) {
+      switch (media) {
+        case CapturedMedia():
+          files.add(media.file);
+        case GalleryMedia():
+          final entity = media.entity;
+          final file = await entity.originFile ?? await entity.file;
+          if (file == null) continue;
+          files.add(
+            XFile(
+              file.path,
+              mimeType: entity.mimeType ?? await entity.mimeTypeAsync,
+            ),
+          );
+      }
+    }
+    return files;
+  }
+
+  /// A long press on send: the effect picker, previewing the picked media
+  /// with the caption, whose pick sends them with the effect.
+  Future<void> _sendLongPress(Color bubbleColor, Color onBubbleColor) async {
+    if (_sending || _selection.isEmpty) return;
+    final List<XFile> files;
+    try {
+      files = await _files();
+    } catch (e, s) {
+      Logs().w('Unable to resolve picked media', e, s);
+      return;
+    }
+    if (!mounted || files.isEmpty) return;
+    await effects.onSendLongPress(
+      context,
+      effectsAvailable: widget.effectsAvailable,
+      text: _caption.text,
+      media: files,
+      bubbleColor: bubbleColor,
+      onBubbleColor: onBubbleColor,
+      send: (effect) => _send(effect: effect),
+      fallback: () {},
+    );
+  }
+
+  Future<void> _send({MessageEffect? effect}) async {
     if (_sending || _selection.isEmpty) return;
     setState(() => _sending = true);
     try {
-      final files = <XFile>[];
-      for (final media in _selection.items) {
-        switch (media) {
-          case CapturedMedia():
-            files.add(media.file);
-          case GalleryMedia():
-            final entity = media.entity;
-            // Media always goes as the untouched original.
-            final file = await entity.originFile ?? await entity.file;
-            if (file == null) continue;
-            files.add(
-              XFile(
-                file.path,
-                mimeType: entity.mimeType ?? await entity.mimeTypeAsync,
-              ),
-            );
-        }
-      }
+      final files = await _files();
       if (!mounted) return;
       if (files.isEmpty) {
         setState(() => _sending = false);
         return;
       }
-      Navigator.of(
-        context,
-      ).pop(GalleryPickerResult(files: files, caption: _caption.text.trim()));
+      Navigator.of(context).pop(
+        GalleryPickerResult(
+          files: files,
+          caption: _caption.text.trim(),
+          effect: effect,
+        ),
+      );
     } catch (e, s) {
       Logs().w('Unable to resolve picked media', e, s);
       if (!mounted) return;
@@ -242,6 +310,11 @@ class _GalleryPickerPageState extends State<GalleryPickerPage> {
                               onOpenCamera: () =>
                                   setState(() => _cameraRequested = true),
                               onSend: _send,
+                              sendColor: widget.sendColor,
+                              onSendColor: widget.onSendColor,
+                              onSendLongPress: widget.effectsAvailable
+                                  ? _sendLongPress
+                                  : null,
                             ),
                     ),
                   ),

@@ -8,8 +8,10 @@ rooms, and nothing is written into the rooms themselves.
 
 ## Scope
 
-- Direct chats only. A merged contact is a set of 1:1 rooms with the same
-  person. Group chats are never merged.
+- A merged contact is a set of 1:1 rooms with the same person, or of group
+  chats: groups with the same name on different networks, merged by the
+  user, and groups on one bridge with exactly the same people, which the
+  app merges by itself (see "Same-people groups").
 - Rooms stay separate on the server. Unmerging loses nothing.
 - Every message is sent into exactly one room. Nothing is cross-posted.
 
@@ -38,8 +40,13 @@ One account data event, `im.fluffychat.merged_contacts`:
 - `send_mode`: `preferred` (always `send_via` unless the user picks another
   for one message) or `last_received` (reply on the network they last wrote
   from).
-- `name` is optional. Without it the display name of the `send_via` room is
-  used.
+- `name` is optional, set by renaming the contact, which also writes
+  `"name_set": true`. Without it a one-to-one contact shows the display
+  name of the `send_via` room, and a contact of group chats the name its
+  rooms give it now (see "Same-people groups"). A group contact's `name`
+  without `name_set` that is one of its rooms' own names, as an earlier
+  version stored the name a conversation showed when a chat was added to
+  it, is not used, so the name follows the rooms.
 - `fallback` (optional, default false) turns on the offer to resend a failed
   message through the next network (see SendRouter).
 - Conflicts between devices: last write wins per contact, by `updated`. The
@@ -89,7 +96,9 @@ Derived, never stored:
 
 - last event: newest `lastEvent` across rooms
 - unread and highlight counts: sums; `isUnread` if any room is
-- avatar and name: from the `send_via` room unless `name` is set
+- avatar: from the `send_via` room
+- name: `name` when the user set it, else the `send_via` room's name, or
+  for group chats the live name (`liveGroupName`)
 - networks: the bridge each room belongs to, for badges (from the room's
   parent space, the same source as the chat list's corner badge)
 - muted: only if every room is muted
@@ -196,6 +205,50 @@ macOS), else either goes as `m.file` if the room takes that type as a file;
 otherwise, or over the room's `max_size`, nothing is sent and a snackbar names
 what the chat accepts. A caption the room refuses is sent as its own text
 message after the media. A room without the event behaves as before.
+
+### Same-people groups (`lib/utils/merged_contacts/same_groups.dart`)
+
+A network can keep several threads with the same people (iMessage does),
+and its bridge makes a room for each. Joined group chats on one bridge
+(the `m.bridge` bot, else the bridge space) whose people are the same,
+joined or invited, besides the user and the bridge bot, are one
+conversation without the user doing anything (`findSameGroups`):
+
+- The store adds an automatic contact for each such set (ID prefix
+  `auto_`, `MergedContactEntry.automatic`) next to the stored ones. It
+  lives in memory only and is made again on every reindex, which also runs
+  on new messages. A room in a contact the user made is left out of it.
+- Its rooms are ordered most recently active first, and new messages go to
+  the first (`send_via`). Replies, edits and reactions go to their
+  message's room, as for every merged contact.
+- Its name, like that of any contact of group chats without a name the
+  user set, follows the rooms as they are now (`liveGroupName`): the
+  newest room's name that the bridge did not build from the members, else
+  the newest built name that still matches its room's members, else the
+  members' names built the same way. A name is built (`groupNameIsBuilt`)
+  when the bridge's `dev.macoun.group_name` state says `"generated":
+  true`; without that event, when the room has no name, is named "Group
+  Chat", or is named as the iMessage bridge builds one: the other members'
+  names joined with ", " for four or fewer, "A, B, C +N more" for five or
+  more, in any order. A list of only some of the members (two or more, or
+  the three before "+N more") counts as built too, since the bridge builds
+  a name again only some time after someone joins.
+- Rooms on different bridges, and rooms whose people differ at all, are
+  never merged this way. A room whose member list is not all in memory is
+  left out until it is loaded (its joined members, at most 50, once a
+  session, shared with the chat list's group avatars).
+- Unmerge and removing a room store the pairs of rooms as dismissed
+  (`dismissed_suggestions`), so the contact is not made again. Renaming
+  or picking another default network is not stored for an automatic
+  contact.
+- Adding a chat to it with the chat's "+" stores a contact made of its
+  rooms and the added one, with no name of its own, and the conversation
+  opens under the new contact's route. The automatic one is not made again,
+  as its rooms now belong to a contact the user made.
+- The chat list badges it as its one network, and the chat's network
+  switcher shows that network once, for the room the next message goes
+  to. A group conversation without a picture shows its members, as a
+  single group does.
 
 ### MergeSuggester (`lib/utils/merged_contacts/suggester.dart`)
 
@@ -352,7 +405,7 @@ directory:
 
 A bridge contact or address book entry joins a row with the same phone
 number (`normalizePhone`), then email, then bridge ghost; two chats are
-never merged here. Each row ends with grey icons of the networks that reach
+never merged here. Each row ends with the logos of the networks that reach
 the person. A typed phone number nobody has gets a row of its own (Add
 people also gives a typed email one).
 
@@ -540,7 +593,9 @@ with a `SharedDraft` (`lib/utils/share_items.dart`) as the route's `extra`.
   instead drops the share and returns the same way, without a toast.
 - A long press on send offers iMessage's effects as in the chat when the
   message goes out on iMessage (the chat's network, else the new group's
-  or the new direct chat's) and nothing is staged.
+  or the new direct chat's) and no forwarded messages are staged. Staged
+  photos and videos are previewed with the text and go out with the
+  effect too.
 
 ### Merged chat screen
 
@@ -575,7 +630,10 @@ with a `SharedDraft` (`lib/utils/share_items.dart`) as the route's `extra`.
 - Chat details: a sheet titled "Chat details", "Choose a network", lists
   one row per network (its icon, its name, and the person's phone number
   there when known, else the chat's name); a row opens that room's own
-  details page, as there is no merged details page. A last "Linked chats"
+  details page, as there is no merged details page. Several rooms on one
+  network (threads with the same people) are one row, "N threads
+  combined", opening the room messages go to: `send_via` when it is one of
+  them, else the most recently active. A last "Linked chats"
   row opens the manage sheet. The details page is pushed over the merged
   chat, so going back returns to the merged view with the send-via pick
   unchanged. A chat on one network opens its details directly.

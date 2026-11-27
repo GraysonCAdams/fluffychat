@@ -21,6 +21,7 @@ import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
 import 'package:fluffychat/utils/new_chat/new_group.dart';
 import 'package:fluffychat/utils/share_items.dart';
 import 'package:fluffychat/widgets/avatar.dart';
+import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -114,11 +115,23 @@ class _FakeDelivery extends NewChatDelivery {
 
   @override
   Future<void> loadSources(Client client, NewChatSources sources) async {
-    sources.bridges = [_imessage, _gmessages, _telegram, _linkedin];
+    await sourcesGate?.future;
+    sources.bridges = bridgeList;
     sources.bridgeContacts = bridgeContacts;
     // As the real sources do when the bridges answer.
     sources.onChanged();
   }
+
+  /// The bridges the user is logged in to.
+  List<BridgeInfo> bridgeList = const [
+    _imessage,
+    _gmessages,
+    _telegram,
+    _linkedin,
+  ];
+
+  /// When set, the bridges answer once it completes.
+  Completer<void>? sourcesGate;
 
   @override
   Future<bool> hasBridges(Client client) async => bridges;
@@ -182,7 +195,8 @@ class _FakeDelivery extends NewChatDelivery {
   }
 
   /// One entry per share sent: room, the files' names, the number of
-  /// forwarded messages and the text.
+  /// forwarded messages and the text, then the effect id when one was
+  /// picked.
   final List<String> shared = [];
 
   @override
@@ -194,7 +208,8 @@ class _FakeDelivery extends NewChatDelivery {
   }) async {
     shared.add(
       '${room.id}: ${payload.files.map((file) => file.path.split('/').last).join(',')} '
-      '${payload.contents.length} "${payload.text}"',
+      '${payload.contents.length} "${payload.text}"'
+      '${effect == null ? '' : ' [${effect.id}]'}',
     );
   }
 
@@ -1177,6 +1192,30 @@ void main() {
     expect(chip('+14045550103'), findsOneWidget);
   });
 
+  group('Create group row', () {
+    final createGroup = find.text('Create group');
+
+    testWidgets('not offered while the networks are loading, nor once they '
+        'answer with some', (tester) async {
+      delivery.sourcesGate = Completer();
+      await pump(tester);
+      expect(createGroup, findsNothing);
+      delivery.sourcesGate!.complete();
+      await tester.pumpAndSettle();
+      expect(createGroup, findsNothing);
+    });
+
+    testWidgets('offered once the networks answer with none', (tester) async {
+      delivery.bridgeList = const [];
+      delivery.sourcesGate = Completer();
+      await pump(tester);
+      expect(createGroup, findsNothing);
+      delivery.sourcesGate!.complete();
+      await tester.pumpAndSettle();
+      expect(createGroup, findsOneWidget);
+    });
+  });
+
   testWidgets('Create group on an account without bridges goes to Matrix', (
     tester,
   ) async {
@@ -1268,18 +1307,35 @@ void main() {
       expect(delivery.sent, isEmpty);
     });
 
-    testWidgets('not offered with a shared photo staged', (tester) async {
-      await pump(
-        tester,
-        share: SharedDraft([FileShareItem(XFile('/tmp/photo.jpg'))]),
-      );
-      await pick(tester, 'quinn', 'Quinn Imsg');
-      await pick(tester, 'quinby', 'Quinby Imsg');
-      await longPressSend(tester, 'yo');
-      expect(find.byType(MessageEffectPicker), findsNothing);
-      expect(delivery.created, isEmpty);
-      expect(delivery.shared, isEmpty);
-    });
+    for (final caption in ['yo', '']) {
+      testWidgets('offered with a shared photo staged, '
+          '${caption.isEmpty ? 'alone' : 'with a caption'}, and the effect '
+          'goes with the share', (tester) async {
+        await pump(
+          tester,
+          share: SharedDraft([FileShareItem(XFile('/tmp/photo.jpg'))]),
+        );
+        await pick(tester, 'quinn', 'Quinn Imsg');
+        await pick(tester, 'quinby', 'Quinby Imsg');
+        await longPressSend(tester, caption);
+        expect(find.byType(MessageEffectPicker), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(MessageEffectPicker),
+            matching: find.byKey(const ValueKey('effect_preview_media')),
+          ),
+          findsOneWidget,
+        );
+        await tester.pump(const Duration(seconds: 3));
+        await tester.tap(find.byKey(const ValueKey('send_effect_slam')));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pump(const Duration(seconds: 1));
+        expect(delivery.shared, [
+          '!group:x: photo.jpg 0 "$caption" [${MessageEffect.slam.id}]',
+        ]);
+      });
+    }
   });
 
   group('share', () {
@@ -1343,6 +1399,59 @@ void main() {
         },
       });
     }
+
+    testWidgets('a recent group without a photo shows its members as the '
+        'chat list does', (tester) async {
+      addTripGroup();
+      await pump(tester, share: SharedDraft([FileShareItem(photo)]));
+      final row = find.ancestor(
+        of: find.descendant(of: recent, matching: find.text('Trip crew')),
+        matching: find.byType(ListTile),
+      );
+      expect(
+        find.descendant(of: row, matching: find.byType(GroupAvatar)),
+        findsOneWidget,
+      );
+      // A group bubble looks its sender up in the database, whose
+      // transaction holds a ten-second timer in the test's fake time.
+      await tester.pump(const Duration(seconds: 11));
+    });
+
+    testWidgets('a recent row shows its networks\' own logos, in colour, as '
+        'the network switcher does', (tester) async {
+      final imsg = addFakeChat(
+        client,
+        '!q-imsg:x',
+        'Quinn Imsg',
+        partner: '@imessage_qm:x',
+      );
+      addFakeSpace(client, '!ispace:x', 'iMessage', [imsg.id]).setState(
+        StrippedStateEvent(
+          type: EventTypes.RoomAvatar,
+          content: {'url': 'mxc://x/imessage-logo'},
+          senderId: '@imessagebot:x',
+          stateKey: '',
+        ),
+      );
+      await pump(tester, share: SharedDraft([FileShareItem(photo)]));
+      final row = find.ancestor(
+        of: find.descendant(of: recent, matching: find.text('Quinn Imsg')),
+        matching: find.byType(ListTile),
+      );
+      final logo = find.descendant(
+        of: row,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Avatar &&
+              widget.mxContent == Uri.parse('mxc://x/imessage-logo'),
+        ),
+      );
+      expect(logo, findsOneWidget);
+      expect(
+        find.ancestor(of: logo, matching: find.byType(ColorFiltered)),
+        findsNothing,
+      );
+    });
 
     testWidgets('opens with the To field empty, recent chats offered and '
         'the share staged', (tester) async {

@@ -119,6 +119,10 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// The user's bridges, once their `whoami` answered.
   List<BridgeInfo> get bridges => sources.bridges;
 
+  /// Whether the user has no network: the bridges answered with none.
+  /// False while they are still being asked.
+  bool get noNetworks => sources.bridgesLoaded && sources.bridges.isEmpty;
+
   /// The people in the To field, in the order they were added.
   final List<NewChatPerson<ExistingChat>> recipients = [];
 
@@ -1199,12 +1203,14 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   }
 
   /// Whether a long press on send offers iMessage's effects: a typed
-  /// message with nothing staged (the bridge carries an effect on text
-  /// only), going out on iMessage. That is the chat's network when there
-  /// is one, else the new group's or the new direct chat's.
+  /// message or staged files, or both, with no forwarded messages, going
+  /// out on iMessage. That is the chat's network when there is one, else
+  /// the new group's or the new direct chat's.
   bool get effectsAvailable {
-    if (stagedFiles.isNotEmpty || stagedContents.isNotEmpty) return false;
-    if (messageController.text.trim().isEmpty) return false;
+    if (stagedContents.isNotEmpty) return false;
+    if (messageController.text.trim().isEmpty && stagedFiles.isEmpty) {
+      return false;
+    }
     final room = sendRoom;
     if (room != null) return canSendMessageEffects(room);
     if (group.isGroup) return group.bridge?.name == 'imessage';
@@ -1219,6 +1225,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     final effect = await effects.showMessageEffectPicker(
       context,
       text: messageController.text,
+      media: List.of(stagedFiles),
       bubbleColor: bubbleColor,
       onBubbleColor: onBubbleColor,
     );

@@ -31,8 +31,15 @@ enum SendMode {
 class MergedContactEntry {
   final String id;
 
-  /// A name the user gave the contact. Null shows the `send_via` room's name.
+  /// A name the user gave the contact. Null shows the `send_via` room's
+  /// name, or for group chats a name made from the rooms as they are now
+  /// (see `MergedContact.displayName`).
   final String? name;
+
+  /// Whether [name] was set by renaming the contact (`name_set`). A group
+  /// contact's [name] without it may be one an earlier version stored as
+  /// it was shown, which is not kept when it is the rooms' own name.
+  final bool nameSet;
 
   /// Member room IDs, most preferred first. Can hold rooms that are no
   /// longer usable; [MergedContactsData.normalized] drops those from the
@@ -68,12 +75,21 @@ class MergedContactEntry {
     required this.rooms,
     required this.updated,
     this.name,
+    this.nameSet = false,
     this.sendVia,
     this.sendMode = SendMode.preferred,
     this.removed = false,
     this.identifier,
     this.fallback = false,
   });
+
+  /// The prefix of the ID of a contact the app made by itself for group
+  /// chats on one bridge with the same people (see `findSameGroups`). Such
+  /// a contact lives in memory only and is never stored.
+  static const automaticIdPrefix = 'auto_';
+
+  /// Whether the app made this contact by itself for same-people groups.
+  bool get automatic => id.startsWith(automaticIdPrefix);
 
   /// The `send_via` room if it is one of [usableRooms], else the first of
   /// them in the stored order.
@@ -86,6 +102,7 @@ class MergedContactEntry {
   MergedContactEntry copyWith({
     List<String>? rooms,
     String? Function()? name,
+    bool? nameSet,
     String? Function()? sendVia,
     SendMode? sendMode,
     int? updated,
@@ -96,6 +113,7 @@ class MergedContactEntry {
     id: id,
     rooms: rooms ?? this.rooms,
     name: name == null ? this.name : name(),
+    nameSet: nameSet ?? this.nameSet,
     sendVia: sendVia == null ? this.sendVia : sendVia(),
     sendMode: sendMode ?? this.sendMode,
     updated: updated ?? this.updated,
@@ -125,6 +143,7 @@ class MergedContactEntry {
       rooms: roomIds,
       updated: updated is int ? updated : 0,
       name: name is String && name.trim().isNotEmpty ? name : null,
+      nameSet: json['name_set'] == true,
       sendVia: sendVia is String ? sendVia : null,
       sendMode: SendMode.fromJson(json['send_mode']),
       removed: json['removed'] == true,
@@ -139,6 +158,7 @@ class MergedContactEntry {
       ? {'removed': true, 'rooms': const <String>[], 'updated': updated}
       : {
           'name': ?name,
+          if (nameSet) 'name_set': true,
           'rooms': rooms,
           'send_via': ?sendVia,
           'send_mode': sendMode.jsonValue,

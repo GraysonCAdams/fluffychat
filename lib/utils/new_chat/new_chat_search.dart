@@ -153,8 +153,20 @@ class NewChatSources {
 
   NewChatSources({required this.onChanged});
 
-  /// The user's bridges, once their `whoami` answered.
-  List<BridgeInfo> bridges = const [];
+  /// The user's bridges, once their `whoami` answered. Setting them marks
+  /// them [bridgesLoaded].
+  List<BridgeInfo> get bridges => _bridges;
+  set bridges(List<BridgeInfo> value) {
+    _bridges = value;
+    bridgesLoaded = true;
+  }
+
+  List<BridgeInfo> _bridges = const [];
+
+  /// Whether the bridges answered, or there are none to ask, so an empty
+  /// [bridges] means the user has no network rather than that the answer
+  /// is still coming. A failed answer leaves it false.
+  bool bridgesLoaded = false;
 
   List<BridgeContactInput> bridgeContacts = const [];
 
@@ -172,7 +184,10 @@ class NewChatSources {
   /// Starts reading the bridges and, when allowed, the phone's contacts.
   Future<void> load(Client client) async {
     final directory = BridgeDirectory.forClient(client);
-    if (directory != null) {
+    if (directory == null) {
+      bridges = const [];
+      _changed();
+    } else {
       directory.bridges().then((value) {
         bridges = value;
         _changed();

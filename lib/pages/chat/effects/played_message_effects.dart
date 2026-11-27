@@ -5,6 +5,7 @@
 import 'dart:convert';
 
 import 'package:fluffychat/config/setting_keys.dart';
+import 'package:flutter/foundation.dart';
 import 'package:matrix/matrix.dart';
 
 /// Which messages have had their effect play, so each plays by itself only
@@ -21,6 +22,10 @@ abstract class PlayedMessageEffects {
   static const maxAge = Duration(days: 1);
 
   static List<String>? _loaded;
+
+  /// Counts up each time a message is marked played, so a widget that
+  /// waits for an effect to have played can listen for it.
+  static final changes = ValueNotifier<int>(0);
 
   static List<String> get _ids {
     final loaded = _loaded;
@@ -60,6 +65,7 @@ abstract class PlayedMessageEffects {
     if (!changed) return;
     if (ids.length > _capacity) ids.removeRange(0, ids.length - _capacity);
     AppSettings.playedMessageEffects.setItem(jsonEncode(ids));
+    changes.value++;
   }
 
   /// Forgets what was loaded, so the next question reads the store again.

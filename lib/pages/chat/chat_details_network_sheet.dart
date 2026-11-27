@@ -71,6 +71,12 @@ final class LinkedChatsPick extends ChatDetailsPick {
 /// Lists a merged contact's networks, each opening that room's details, and
 /// a last row for the contact's linked chats. Closes with the
 /// [ChatDetailsPick] tapped.
+///
+/// Several rooms on one network (threads with the same people, such as two
+/// iMessage threads) are one row, saying how many threads it combines and
+/// opening the room messages go to: the contact's `send_via` room when it
+/// is one of them, else the most recently active. Linked chats still lists
+/// each room.
 class ChatDetailsNetworkSheet extends StatelessWidget {
   final MergedContact contact;
 
@@ -86,12 +92,38 @@ class ChatDetailsNetworkSheet extends StatelessWidget {
     return room.getLocalizedDisplayname(locals);
   }
 
+  /// One entry per network of [networks] in their order: its room the one
+  /// messages go to, with how many of [networks] are on it.
+  List<({MergedNetwork network, int threads})> _byNetwork(
+    List<MergedNetwork> networks,
+  ) {
+    final groups = <String, List<MergedNetwork>>{};
+    for (final network in networks) {
+      (groups[network.space?.id ?? network.name] ??= []).add(network);
+    }
+    final sendVia = contact.sendViaRoom;
+    return [
+      for (final group in groups.values)
+        () {
+          final shown =
+              group.where((network) => network.room == sendVia).firstOrNull ??
+              (group.toList()..sort(
+                    (a, b) => b.room.latestEventReceivedTime.compareTo(
+                      a.room.latestEventReceivedTime,
+                    ),
+                  ))
+                  .first;
+          return (network: shown, threads: group.length);
+        }(),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final theme = Theme.of(context);
     final locals = MatrixLocals(l10n);
-    final networks = MergedNetwork.of(contact, locals);
+    final networks = _byNetwork(MergedNetwork.of(contact, locals));
     return SafeArea(
       child: SingleChildScrollView(
         child: Column(
@@ -117,21 +149,23 @@ class ChatDetailsNetworkSheet extends StatelessWidget {
             for (final network in networks)
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-                leading: network.icon(size: _iconSize),
+                leading: network.network.icon(size: _iconSize),
                 title: Text(
-                  network.name,
+                  network.network.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 subtitle: Text(
-                  _identifierOn(network.room, locals),
+                  network.threads > 1
+                      ? l10n.threadsCombined(network.threads)
+                      : _identifierOn(network.network.room, locals),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(
                   context,
-                ).pop(NetworkDetailsPick(network.room.id)),
+                ).pop(NetworkDetailsPick(network.network.room.id)),
               ),
             const Divider(),
             ListTile(

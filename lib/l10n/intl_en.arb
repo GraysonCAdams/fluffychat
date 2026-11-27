@@ -3212,6 +3212,15 @@
     "@linkedChats": {
         "description": "Last row of the chat details sheet of a merged chat; opens the sheet that manages the chats merged into it."
     },
+    "threadsCombined": "{count} threads combined",
+    "@threadsCombined": {
+        "description": "Subtitle of a network row in the chat details sheet of a merged chat whose network holds several rooms with the same people, such as two iMessage threads, shown as one conversation.",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
     "linkedChatsDescription": "Add, remove or unlink",
     "@linkedChatsDescription": {
         "description": "Subtitle of the Linked chats row in the chat details sheet of a merged chat."
@@ -3716,6 +3725,19 @@
     "@replayEffect": {
         "description": "Entry of a message's menu that plays the message's effect again."
     },
+    "replay": "Replay",
+    "@replay": {
+        "description": "Small link under a message sent with an effect that plays the effect again, as iMessage shows it."
+    },
+    "replayNamedEffect": "Replay {effect}",
+    "@replayNamedEffect": {
+        "description": "Screen reader label of the Replay link under a message sent with an effect.",
+        "placeholders": {
+            "effect": {
+                "type": "String"
+            }
+        }
+    },
     "invisibleInkHidden": "Hidden with Invisible Ink. Touch to reveal.",
     "@invisibleInkHidden": {
         "description": "Screen reader label of a message sent with Invisible Ink while its content is hidden."
@@ -3797,6 +3819,26 @@
         "description": "Toast after something shared from another app was sent to a chat on no bridged network, as Seam goes back to that app.",
         "placeholders": {
             "name": {
+                "type": "String"
+            }
+        }
+    },
+    "previewGif": "GIF",
+    "@previewGif": {
+        "description": "Chat list preview of a message that is an animated GIF, after a GIF icon."
+    },
+    "previewSticker": "Sticker",
+    "@previewSticker": {
+        "description": "Chat list preview of a sticker, after a sticker icon."
+    },
+    "previewWithDuration": "{type} {duration}",
+    "@previewWithDuration": {
+        "description": "Chat list preview of a video or voice message with its length, like 'Video 0:48'; type is 'Video' or 'Voice message', duration a clock.",
+        "placeholders": {
+            "type": {
+                "type": "String"
+            },
+            "duration": {
                 "type": "String"
             }
         }

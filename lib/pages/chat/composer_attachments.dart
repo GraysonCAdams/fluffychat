@@ -4,13 +4,19 @@
 
 import 'dart:io';
 
+import 'package:chewie/chewie.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/image_viewer/video_player.dart';
+import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/size_string.dart';
+import 'package:fluffychat/utils/video_poster.dart';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:matrix/matrix.dart';
 import 'package:mime/mime.dart';
+import 'package:video_player/video_player.dart';
 
 /// Side of the square thumbnail tile for one staged attachment.
 const double _tileSize = 72;
@@ -37,9 +43,10 @@ const double _hitTarget = 48;
 /// Attachments the user has picked but not sent yet, shown as a row of
 /// removable thumbnails inside the message composer, above the text field.
 ///
-/// Each file becomes a rounded square tile: a picture for images, a video
-/// placeholder for videos, and an icon with the file name for anything else.
-/// Tapping a picture opens it full screen.
+/// Each file becomes a rounded square tile: a picture for images, the first
+/// frame for videos (a placeholder until it is read), and an icon with the
+/// file name for anything else. Tapping a picture opens it full screen, and
+/// tapping a video plays it full screen.
 /// A small round badge on the tile's top-right corner removes it through
 /// [onRemove]. The strip collapses to nothing when [files] is empty and
 /// animates its height as the first file arrives or the last one leaves.
@@ -47,11 +54,19 @@ class ComposerAttachmentStrip extends StatelessWidget {
   final List<XFile> files;
   final void Function(XFile file) onRemove;
 
+  /// Reads a video's first frame for its tile; [VideoPoster.forFile] by
+  /// default, for a file on disk.
+  final Future<Uint8List?> Function(XFile file)? videoPoster;
+
   const ComposerAttachmentStrip({
     required this.files,
     required this.onRemove,
+    this.videoPoster,
     super.key,
   });
+
+  static Future<Uint8List?> _posterOnDisk(XFile file) =>
+      _isOnDisk(file) ? VideoPoster.forFile(file.path) : Future.value(null);
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +88,7 @@ class ComposerAttachmentStrip extends StatelessWidget {
                     key: ObjectKey(file),
                     file: file,
                     onRemove: () => onRemove(file),
+                    poster: videoPoster ?? _posterOnDisk,
                   );
                 },
               ),
@@ -89,10 +105,12 @@ class ComposerAttachmentStrip extends StatelessWidget {
 class _AttachmentChip extends StatelessWidget {
   final XFile file;
   final VoidCallback onRemove;
+  final Future<Uint8List?> Function(XFile file) poster;
 
   const _AttachmentChip({
     required this.file,
     required this.onRemove,
+    required this.poster,
     super.key,
   });
 
@@ -112,7 +130,20 @@ class _AttachmentChip extends StatelessWidget {
         child: _ImagePreview(file: file),
       );
     } else if (mimeType.startsWith('video/')) {
-      preview = const _VideoPreview();
+      final video = _VideoPreview(file: file, poster: poster);
+      // Tapping a video plays it full screen, where videos can be played
+      // and the file is on disk for the player to read.
+      preview = PlatformInfos.supportsVideoPlayer && _isOnDisk(file)
+          ? GestureDetector(
+              onTap: () => Navigator.of(context, rootNavigator: true).push(
+                MaterialPageRoute<void>(
+                  fullscreenDialog: true,
+                  builder: (_) => _FullScreenVideo(file: file),
+                ),
+              ),
+              child: video,
+            )
+          : video;
     } else {
       preview = _FilePreview(file: file, mimeType: mimeType);
     }
@@ -318,19 +349,59 @@ class _FullScreenImage extends StatelessWidget {
   }
 }
 
-/// Placeholder for a video: decoding a real frame needs a platform video
-/// decoder per tile, which is too slow for a preview that appears the moment
-/// a file is picked.
-class _VideoPreview extends StatelessWidget {
-  const _VideoPreview();
+/// A video's tile: its first frame once [poster] has read it, faded in
+/// over a placeholder shown until then (or for good, when no frame can be
+/// read), with a play badge on top.
+class _VideoPreview extends StatefulWidget {
+  final XFile file;
+  final Future<Uint8List?> Function(XFile file) poster;
+
+  const _VideoPreview({required this.file, required this.poster});
+
+  @override
+  State<_VideoPreview> createState() => _VideoPreviewState();
+}
+
+class _VideoPreviewState extends State<_VideoPreview> {
+  late final Future<Uint8List?> _poster = widget.poster(widget.file);
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final cacheWidth = (_tileSize * MediaQuery.devicePixelRatioOf(context))
+        .round();
     return Stack(
       fit: StackFit.expand,
       children: [
-        _IconTile(icon: Icons.videocam, colorScheme: colorScheme),
+        FutureBuilder<Uint8List?>(
+          future: _poster,
+          builder: (context, snapshot) {
+            final poster = snapshot.data;
+            return AnimatedSwitcher(
+              duration: FluffyThemes.animationDuration,
+              child: poster == null
+                  ? _IconTile(
+                      key: const ValueKey('video-placeholder'),
+                      icon: Icons.videocam,
+                      colorScheme: colorScheme,
+                    )
+                  : Image.memory(
+                      poster,
+                      key: const ValueKey('video-poster'),
+                      fit: BoxFit.cover,
+                      width: _tileSize,
+                      height: _tileSize,
+                      // Posters are full-size frames; decode them at the
+                      // size of the tile.
+                      cacheWidth: cacheWidth,
+                      errorBuilder: (context, _, _) => _IconTile(
+                        icon: Icons.videocam,
+                        colorScheme: colorScheme,
+                      ),
+                    ),
+            );
+          },
+        ),
         Positioned(
           left: 6,
           bottom: 6,
@@ -349,6 +420,73 @@ class _VideoPreview extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A staged video on its own page, playing with the controls of a received
+/// one, and a close button.
+class _FullScreenVideo extends StatefulWidget {
+  final XFile file;
+
+  const _FullScreenVideo({required this.file});
+
+  @override
+  State<_FullScreenVideo> createState() => _FullScreenVideoState();
+}
+
+class _FullScreenVideoState extends State<_FullScreenVideo> {
+  late final VideoPlayerController _video = VideoPlayerController.file(
+    File(widget.file.path),
+  );
+  ChewieController? _chewie;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _open();
+  }
+
+  Future<void> _open() async {
+    try {
+      await _video.initialize();
+      if (!mounted) return;
+      setState(() => _chewie = videoChewieController(_video, looping: true));
+    } catch (e, s) {
+      Logs().w('Unable to play a staged video', e, s);
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _chewie?.dispose();
+    _video.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chewie = _chewie;
+    return Scaffold(
+      key: const ValueKey('staged-video'),
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: const CloseButton(),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: chewie != null
+              ? Chewie(controller: chewie)
+              : _failed
+              ? const Icon(Icons.error_outline, color: Colors.white, size: 48)
+              : const CircularProgressIndicator.adaptive(),
+        ),
+      ),
     );
   }
 }
@@ -428,7 +566,7 @@ class _IconTile extends StatelessWidget {
   final IconData icon;
   final ColorScheme colorScheme;
 
-  const _IconTile({required this.icon, required this.colorScheme});
+  const _IconTile({required this.icon, required this.colorScheme, super.key});
 
   @override
   Widget build(BuildContext context) {

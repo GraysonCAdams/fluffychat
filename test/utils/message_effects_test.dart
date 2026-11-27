@@ -193,7 +193,7 @@ void main() {
       final ink = message(withEffect(text, MessageEffect.invisibleInk));
       expect(effectPreviewOf(ink, l10n), 'Sent with Invisible Ink');
       expect(
-        MessagePreviewCache.localizedBody(ink, l10n, MatrixLocals(l10n)),
+        MessagePreviewCache.preview(ink, l10n, MatrixLocals(l10n)).text,
         'Sent with Invisible Ink',
       );
     });
@@ -229,7 +229,7 @@ void main() {
       expect(effectPreviewOf(loud, l10n), isNull);
       expect(effectPreviewOf(message(text, id: '\$plain'), l10n), isNull);
       expect(
-        MessagePreviewCache.localizedBody(loud, l10n, MatrixLocals(l10n)),
+        MessagePreviewCache.preview(loud, l10n, MatrixLocals(l10n)).text,
         contains('The password'),
       );
     });

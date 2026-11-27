@@ -118,9 +118,11 @@ Map<String, Object?> withEffect(
 ) => {...content, messageEffectKey: effect.id};
 
 /// Whether [room] is a chat on the iMessage bridge, the only place effects
-/// can be sent. The bridge carries an effect on a text message only, and
-/// drops it from one that goes out as SMS. A direct chat tells by its ghost's user id; a group by the
-/// network its bridge state names.
+/// can be sent. A message sent with one carries the key on one event: its
+/// text, or, with files, the last file, which also carries the text as its
+/// caption (see `sendAttachments`). The bridge drops the effect from a
+/// message that goes out as SMS. A direct chat tells by its ghost's user
+/// id; a group by the network its bridge state names.
 bool canSendMessageEffects(Room room) {
   if (NetworkColors.bridgeIdOf(room) == 'imessage') return true;
   final network = MatrixFeatures.forClient(room.client).bridgeOf(room)?.network;
@@ -133,7 +135,12 @@ extension SendWithEffect on Room {
   Map<String, Object?> textContentWithEffect(
     String text,
     MessageEffect effect,
-  ) {
+  ) => withEffect(formattedContent(text), effect);
+
+  /// The content of a text message saying [text], formatted from Markdown
+  /// as [Room.sendTextEvent] formats it. Also the caption on a file sent
+  /// with text.
+  Map<String, Object?> formattedContent(String text) {
     final content = <String, Object?>{
       'msgtype': MessageTypes.Text,
       'body': text,
@@ -157,7 +164,7 @@ extension SendWithEffect on Room {
       content['format'] = 'org.matrix.custom.html';
       content['formatted_body'] = html;
     }
-    return withEffect(content, effect);
+    return content;
   }
 
   /// Sends [text] as a message with [effect]. Commands are not run: a
@@ -196,7 +203,7 @@ String effectBodyHtml(Event event, String html) =>
 final _spoilerAttribute = RegExp(r'''\sdata-mx-spoiler(=("[^"]*"|'[^']*'))?''');
 
 /// Tells message bubbles to play their effect again, as the message menu
-/// asks. The value is the event id and a counter, so asking twice for the
+/// and the Replay link under an effect message ask. The value is the event id and a counter, so asking twice for the
 /// same message notifies twice.
 final messageEffectReplays = ValueNotifier<(String eventId, int count)?>(null);
 

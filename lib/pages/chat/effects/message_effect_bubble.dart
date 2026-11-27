@@ -10,6 +10,7 @@ import 'package:fluffychat/pages/chat/effects/played_message_effects.dart';
 import 'package:fluffychat/pages/chat/effects/screen_effect_host.dart';
 import 'package:fluffychat/utils/effect_haptics.dart';
 import 'package:fluffychat/utils/message_effects.dart';
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -19,6 +20,9 @@ import 'package:matrix/matrix.dart';
 /// swells and shakes it, gentle lets it grow in slowly, invisible ink
 /// covers it until touched. A screen effect leaves the bubble alone and
 /// plays on the [ScreenEffectHost] above it.
+///
+/// While a bubble effect moves the bubble, the bubble is drawn in the
+/// overlay over the conversation, so it covers the messages around it.
 ///
 /// Each play is felt too, on phones with haptics (see [EffectHaptics]).
 /// Under reduced motion nothing moves and nothing is felt; a line under the
@@ -149,14 +153,35 @@ class EffectBubbleState extends State<EffectBubble>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(vsync: this)
     ..addStatusListener((status) {
-      if (status == AnimationStatus.completed) setState(() => _moving = false);
+      if (status != AnimationStatus.completed) return;
+      setState(() => _moving = false);
+      _lift.hide();
     });
   final _inkKey = GlobalKey<InvisibleInkState>();
+
+  /// While the bubble moves it is drawn in the overlay above the
+  /// conversation, so that, grown or out of place, it covers the messages
+  /// around it instead of passing under the ones drawn after it. Its own
+  /// place keeps its room, empty, and the lifted bubble follows that place
+  /// as the conversation scrolls or shakes.
+  final _lift = _LiftController();
+  final _place = LayerLink();
+
+  /// The bubble itself, which moves between its place and the overlay.
+  final _content = GlobalKey();
+
+  /// The bubble's size at rest, the room its place keeps while it is
+  /// lifted.
+  Size? _restSize;
 
   /// Whether the bubble is being moved by its effect, or is about to be.
   late bool _moving = widget.autoPlay && _duration != null;
   bool _landed = false;
   int _plays = 0;
+
+  /// The host's count of plays when it started this bubble's scene, so a
+  /// replay can tell whether that scene is still the one on screen.
+  int? _hostPlay;
 
   /// How many times the effect has played here.
   int get plays => _plays;
@@ -191,16 +216,28 @@ class EffectBubbleState extends State<EffectBubble>
     return box.localToGlobal(Offset.zero) & box.size;
   }
 
-  void _playOnHost(MessageEffect effect) =>
-      ScreenEffectHost.maybeOf(context)?.play(
-        effect,
-        globalRect: _globalRect,
-        globalRectOf: () => mounted ? _globalRect : null,
-        text: widget.text,
-        borderRadius: widget.borderRadius,
-        bubbleColor: widget.bubbleColor,
-        onBubbleColor: widget.onBubbleColor,
-      );
+  void _playOnHost(MessageEffect effect) {
+    final host = ScreenEffectHost.maybeOf(context);
+    if (host == null) return;
+    final started = host.play(
+      effect,
+      globalRect: _globalRect,
+      globalRectOf: () => mounted ? _globalRect : null,
+      text: widget.text,
+      borderRadius: widget.borderRadius,
+      bubbleColor: widget.bubbleColor,
+      onBubbleColor: widget.onBubbleColor,
+    );
+    if (started) _hostPlay = host.plays;
+  }
+
+  /// Takes this bubble's scene off the host if it is still running, so a
+  /// play that starts over does not leave the last one's scene behind.
+  void _stopOwnScene() {
+    final host = ScreenEffectHost.maybeOf(context);
+    if (host == null || host.playing == null) return;
+    if (_hostPlay == host.plays) host.stop();
+  }
 
   void _onTick() {
     // The slam's ring and shake start the moment the bubble lands.
@@ -212,12 +249,14 @@ class EffectBubbleState extends State<EffectBubble>
     }
   }
 
-  /// Plays the effect from the start. Does nothing under reduced motion.
+  /// Plays the effect from the start, in place of a play of it still
+  /// running. Does nothing under reduced motion.
   void play() {
     if (MediaQuery.disableAnimationsOf(context)) {
       if (_moving) setState(() => _moving = false);
       return;
     }
+    _stopOwnScene();
     _plays++;
     final effect = widget.effect;
     if (effect == MessageEffect.invisibleInk) {
@@ -230,11 +269,48 @@ class EffectBubbleState extends State<EffectBubble>
       return;
     }
     _landed = false;
+    final box = context.findRenderObject();
+    if (box is RenderBox && box.hasSize && Overlay.maybeOf(context) != null) {
+      _restSize = Size.copy(box.size);
+      _lift.show();
+    }
     setState(() => _moving = true);
     _controller
       ..duration = duration
       ..forward(from: 0);
     EffectHaptics.instance.playFor(context, EffectBubble.hapticsOf(effect));
+  }
+
+  /// How long a replay takes to scroll its bubble into view.
+  static const _revealDuration = Duration(milliseconds: 300);
+
+  /// Plays the effect again, as the message menu or the Replay link under
+  /// the bubble asks. A bubble that is partly off screen is first scrolled
+  /// to the middle of the conversation, so the whole effect is seen.
+  Future<void> replay() async {
+    if (!MediaQuery.disableAnimationsOf(context) && !_fullyVisible) {
+      await Scrollable.ensureVisible(
+        context,
+        alignment: 0.5,
+        duration: _revealDuration,
+        curve: Easing.standard,
+      );
+      if (!mounted) return;
+    }
+    play();
+  }
+
+  /// Whether the whole bubble is inside the conversation it scrolls in.
+  /// True when it is not in a scrolling list at all.
+  bool get _fullyVisible {
+    final bubble = _globalRect;
+    final viewport = Scrollable.maybeOf(context)?.context.findRenderObject();
+    if (bubble == null || viewport is! RenderBox || !viewport.hasSize) {
+      return true;
+    }
+    final visible = viewport.localToGlobal(Offset.zero) & viewport.size;
+    return visible.inflate(0.5).contains(bubble.topLeft) &&
+        visible.inflate(0.5).contains(bubble.bottomRight);
   }
 
   /// [child] where the effect has it at this moment; in place when
@@ -297,19 +373,18 @@ class EffectBubbleState extends State<EffectBubble>
         opacity = math.min(1, v / 0.15);
       default:
     }
-    return Opacity(
-      opacity: opacity,
-      child: Transform.translate(
-        offset: offset,
-        child: Transform.rotate(
-          angle: angle,
-          child: Transform.scale(
-            scale: scale,
-            alignment: widget.ownMessage
-                ? Alignment.bottomRight
-                : Alignment.bottomLeft,
-            child: child,
-          ),
+    // The fade goes inside the transforms, so a touch finds the bubble
+    // where it is drawn, not only where it rests.
+    return Transform.translate(
+      offset: offset,
+      child: Transform.rotate(
+        angle: angle,
+        child: Transform.scale(
+          scale: scale,
+          alignment: widget.ownMessage
+              ? Alignment.bottomRight
+              : Alignment.bottomLeft,
+          child: Opacity(opacity: opacity, child: child),
         ),
       ),
     );
@@ -320,22 +395,47 @@ class EffectBubbleState extends State<EffectBubble>
     final reduced = MediaQuery.disableAnimationsOf(context);
     var bubble = widget.child;
     if (widget.effect == MessageEffect.invisibleInk) {
+      // A photo or video sent without a bubble is covered in the theme's
+      // own grey, so the ink keeps the picture's shape.
+      final bare = widget.bubbleColor.a == 0;
+      final colorScheme = Theme.of(context).colorScheme;
       bubble = InvisibleInk(
         key: _inkKey,
-        bubbleColor: widget.bubbleColor,
-        dustColor: widget.onBubbleColor,
+        bubbleColor: bare
+            ? colorScheme.surfaceContainerHighest
+            : widget.bubbleColor,
+        dustColor: bare ? colorScheme.onSurface : widget.onBubbleColor,
         borderRadius: widget.borderRadius,
         animate: !reduced,
         child: bubble,
       );
     } else if (_duration != null) {
       // The transforms stay in the tree between plays, so the bubble
-      // under them keeps its state when a play starts or ends.
-      bubble = AnimatedBuilder(
+      // under them keeps its state when a play starts or ends, and the
+      // key carries that state into the overlay and back.
+      final moved = AnimatedBuilder(
+        key: _content,
         animation: _controller,
         builder: (context, child) =>
             _moved(child!, active: _moving && !reduced),
         child: bubble,
+      );
+      final restSize = _restSize;
+      final lifted = _lift.isShowing && restSize != null;
+      bubble = OverlayPortal(
+        controller: _lift.portal,
+        overlayChildBuilder: (context) => restSize == null
+            ? const SizedBox.shrink()
+            : _LiftedBubble(
+                place: _place,
+                size: restSize,
+                clipTo: ScreenEffectHost.maybeOf(this.context),
+                child: moved,
+              ),
+        child: CompositedTransformTarget(
+          link: _place,
+          child: lifted ? SizedBox.fromSize(size: restSize) : moved,
+        ),
       );
     }
     if (!reduced) return bubble;
@@ -362,10 +462,125 @@ class EffectBubbleState extends State<EffectBubble>
   }
 }
 
+/// Shows and hides a bubble's place in the overlay.
+class _LiftController {
+  final portal = OverlayPortalController();
+
+  bool get isShowing => portal.isShowing;
+
+  void show() {
+    if (!portal.isShowing) portal.show();
+  }
+
+  void hide() {
+    if (portal.isShowing) portal.hide();
+  }
+}
+
+/// A moving bubble drawn in the overlay over its [place], at its resting
+/// [size], and cut to the area of [clipTo] (the conversation) as the
+/// conversation itself would cut it.
+class _LiftedBubble extends StatelessWidget {
+  final LayerLink place;
+  final Size size;
+  final ScreenEffectHostState? clipTo;
+  final Widget child;
+
+  const _LiftedBubble({
+    required this.place,
+    required this.size,
+    required this.clipTo,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) => ClipRect(
+    clipper: _HostClipper(clipTo, context),
+    child: Align(
+      alignment: Alignment.topLeft,
+      child: CompositedTransformFollower(
+        link: place,
+        showWhenUnlinked: false,
+        child: _HitWhereDrawn(size: size, child: child),
+      ),
+    ),
+  );
+}
+
+/// Lays [child] out at [size], and passes it every touch, so a bubble
+/// grown or thrown past its resting box can still be touched where it is
+/// drawn.
+class _HitWhereDrawn extends SingleChildRenderObjectWidget {
+  final Size size;
+
+  const _HitWhereDrawn({required this.size, required super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderHitWhereDrawn(size);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderHitWhereDrawn renderObject,
+  ) {
+    renderObject.fixedSize = size;
+  }
+}
+
+class _RenderHitWhereDrawn extends RenderProxyBox {
+  _RenderHitWhereDrawn(this._fixedSize);
+
+  Size _fixedSize;
+
+  set fixedSize(Size value) {
+    if (value == _fixedSize) return;
+    _fixedSize = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void performLayout() {
+    child?.layout(BoxConstraints.tight(_fixedSize));
+    size = constraints.constrain(_fixedSize);
+  }
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) =>
+      hitTestChildren(result, position: position);
+}
+
+/// The area of the conversation, in the overlay's coordinates.
+class _HostClipper extends CustomClipper<Rect> {
+  final ScreenEffectHostState? host;
+  final BuildContext overlay;
+
+  _HostClipper(this.host, this.overlay);
+
+  @override
+  Rect getClip(Size size) {
+    final whole = Offset.zero & size;
+    final hostBox = host?.mounted == true
+        ? host!.context.findRenderObject()
+        : null;
+    final overlayBox = overlay.findRenderObject();
+    if (hostBox is! RenderBox || overlayBox is! RenderBox) return whole;
+    if (!hostBox.hasSize || !overlayBox.attached) return whole;
+    final topLeft = overlayBox.globalToLocal(
+      hostBox.localToGlobal(Offset.zero),
+    );
+    return topLeft & hostBox.size;
+  }
+
+  @override
+  bool shouldReclip(_HostClipper oldClipper) => true;
+}
+
 /// The hook between a message in the timeline and its effect: wraps the
 /// bubble of [event] so its effect plays once when the message first comes
-/// on screen, and again when the message menu asks for a replay. A message
-/// without an effect is passed through untouched.
+/// on screen, and again when the message menu or the Replay link under the
+/// bubble asks for a replay (see [replayMessageEffect]). A message without
+/// an effect is passed through untouched.
 class MessageEffectBubble extends StatefulWidget {
   final Event event;
   final Widget child;
@@ -413,6 +628,10 @@ class _MessageEffectBubbleState extends State<MessageEffectBubble>
     final effect = effectOf(widget.event);
     // Invisible ink has nothing to play: it is simply always on.
     if (effect == null || effect == MessageEffect.invisibleInk) return;
+    // A screen effect plays over the chat. Where a message is shown with
+    // nothing to play it over (the compose screen's history), it is left
+    // to play when the chat shows the message.
+    if (effect.isScreen && ScreenEffectHost.maybeOf(context) == null) return;
     if (!PlayedMessageEffects.shouldAutoPlay(widget.event)) return;
     if (_appVisible) {
       PlayedMessageEffects.markPlayed(widget.event);
@@ -436,7 +655,7 @@ class _MessageEffectBubbleState extends State<MessageEffectBubble>
 
   void _onReplay() {
     if (messageEffectReplays.value?.$1 != widget.event.eventId) return;
-    _bubbleKey.currentState?.play();
+    _bubbleKey.currentState?.replay();
   }
 
   @override

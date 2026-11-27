@@ -38,6 +38,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/media_adaptation.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_timeline.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/message_effects.dart';
@@ -447,12 +448,38 @@ class ChatController extends State<ChatPageWithRoom>
     addPendingAttachments(files);
   }
 
+  /// The send button's background and foreground, the colours the
+  /// message's bubble will have: in a merged contact's chat those of the
+  /// network the message goes out on, as that network's bubbles do, else
+  /// the theme's own bubble colours.
+  (Color, Color) sendButtonColors(BuildContext context) {
+    final theme = Theme.of(context);
+    Color? networkColor;
+    if (AppSettings.networkBubbleColors.value) {
+      final networks = mergedNetworks(MatrixLocals(L10n.of(context)));
+      final targetRoomId = composerTarget.roomId;
+      for (final network in networks ?? const <MergedNetwork>[]) {
+        if (network.room.id == targetRoomId) networkColor = network.bubbleColor;
+      }
+    }
+    if (networkColor == null) return (theme.bubbleColor, theme.onBubbleColor);
+    return (networkColor, NetworkColors.foregroundOn(networkColor));
+  }
+
   /// Opens the full-screen camera and gallery picker and stages what it
-  /// returns in the composer, with its caption as the message text.
+  /// returns in the composer, with its caption as the message text. Its
+  /// send button has the composer's colours and, in a chat on the iMessage
+  /// bridge, the same effect picker on a long press; what is picked with
+  /// an effect goes out at once, with it.
   Future<void> openGalleryPicker() async {
+    final (sendColor, onSendColor) = sendButtonColors(context);
     final result = await showGalleryPicker(
       context,
       recipientName: room.getLocalizedDisplayname(),
+      sendColor: sendColor,
+      onSendColor: onSendColor,
+      effectsAvailable:
+          editEvent == null && canSendMessageEffects(composerRoom),
     );
     if (result == null || !mounted) return;
     setState(() {
@@ -463,6 +490,7 @@ class ChatController extends State<ChatPageWithRoom>
     if (caption.isNotEmpty && sendController.text.trim().isEmpty) {
       sendController.text = caption;
     }
+    if (result.effect case final effect?) await send(effect: effect);
   }
 
   int emojiPickerInitialTab = 0;
@@ -1355,19 +1383,19 @@ class ChatController extends State<ChatPageWithRoom>
   }
 
   /// What a long press on the send button does: the effect picker in a
-  /// chat on the iMessage bridge, the scheduling options elsewhere, while
-  /// a message is being edited and while attachments are staged (the
-  /// bridge carries an effect on text only). The picker's own schedule
-  /// button is switched off on a homeserver without delayed events. [bubbleColor] and [onBubbleColor]
-  /// are the send button's, the colours the message's bubble will have.
+  /// chat on the iMessage bridge, which previews the staged attachments
+  /// and the text together, and the scheduling options elsewhere and while
+  /// a message is being edited. The picker's own schedule button is
+  /// switched off on a homeserver without delayed events. [bubbleColor]
+  /// and [onBubbleColor] are the send button's, the colours the message's
+  /// bubble will have.
   Future<void> onSendLongPress(Color bubbleColor, Color onBubbleColor) =>
       effects.onSendLongPress(
         context,
         effectsAvailable:
-            editEvent == null &&
-            pendingAttachments.isEmpty &&
-            canSendMessageEffects(composerRoom),
+            editEvent == null && canSendMessageEffects(composerRoom),
         text: sendController.text,
+        media: List.of(pendingAttachments),
         bubbleColor: bubbleColor,
         onBubbleColor: onBubbleColor,
         send: (effect) => send(effect: effect),
@@ -1375,8 +1403,9 @@ class ChatController extends State<ChatPageWithRoom>
         canSchedule: () => room.client.canScheduleMessages,
       );
 
-  /// Sends what is in the composer; the typed text goes out with [effect]
-  /// when one is given.
+  /// Sends what is in the composer, with [effect] when one is given. Text
+  /// typed with staged attachments is their caption and goes out on the
+  /// last of them, with the reply, as one message (see [sendAttachments]).
   Future<void> send({MessageEffect? effect}) async {
     // Taken once: the reply, edit or picked network can change while the
     // dialogs below are open, and the message must go where the composer
@@ -1386,13 +1415,25 @@ class ChatController extends State<ChatPageWithRoom>
     if (!mounted || !proceed) return;
     if (pendingAttachments.isNotEmpty) {
       final files = List.of(pendingAttachments);
+      final caption = editEvent == null && sendController.text.trim().isNotEmpty
+          ? sendController.text
+          : null;
+      final inReplyTo = caption == null ? null : replyEvent;
       setState(() {
         pendingAttachments.clear();
         showAttachmentPanel = false;
       });
+      if (caption != null) {
+        _storeInputTimeoutTimer?.cancel();
+        if (!_holdsShare) Matrix.of(context).store.remove(_draftKey);
+        _clearComposerAfterSend();
+      }
       await sendAttachments(
         room: target,
         files: files,
+        caption: caption,
+        inReplyTo: inReplyTo,
+        effect: effect,
         threadRootEventId: activeThreadId,
         threadLastEventId: threadLastEventId,
         scaffoldMessenger: ScaffoldMessenger.of(context),
@@ -1425,12 +1466,6 @@ class ChatController extends State<ChatPageWithRoom>
       parseCommands = false;
     }
 
-    if (currentlyTyping) {
-      typingCoolDown?.cancel();
-      currentlyTyping = false;
-      _typingRoom?.setTyping(false);
-    }
-
     final Future<void> textSent;
     if (effect != null && editEvent == null) {
       textSent = target.sendTextEventWithEffect(
@@ -1451,11 +1486,22 @@ class ChatController extends State<ChatPageWithRoom>
     // The chat shows the message as sending, and as failed with a retry,
     // so only a share waits for it.
     textSent.ignore();
+    _clearComposerAfterSend();
+    await _afterShareSent(target, textSent);
+  }
+
+  /// Empties the composer once its text went out: typing stops, the text
+  /// held back while editing comes back, and the reply and edit are done.
+  void _clearComposerAfterSend() {
+    if (currentlyTyping) {
+      typingCoolDown?.cancel();
+      currentlyTyping = false;
+      _typingRoom?.setTyping(false);
+    }
     sendController.value = TextEditingValue(
       text: pendingText,
       selection: const TextSelection.collapsed(offset: 0),
     );
-
     setState(() {
       sendController.text = pendingText;
       inputTextIsEmpty.value = pendingText.isEmpty;
@@ -1464,7 +1510,6 @@ class ChatController extends State<ChatPageWithRoom>
       pendingText = '';
     });
     _afterNewMessage();
-    await _afterShareSent(target, textSent);
   }
 
   Future<void> sendFileAction({FileType type = FileType.any}) async {

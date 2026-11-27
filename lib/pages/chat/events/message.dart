@@ -12,6 +12,7 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/effects/message_effect_bubble.dart';
+import 'package:fluffychat/pages/chat/effects/message_effect_replay_link.dart';
 import 'package:fluffychat/pages/chat/typing_run.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
@@ -20,6 +21,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/routed_event.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
+import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -291,6 +293,99 @@ class Message extends StatelessWidget {
         event.status == EventStatus.error ||
         event.status == EventStatus.sending;
 
+    // The status line's parts, apart, so that under an effect message the
+    // Replay link can carry them on its own line (MessageEffectReplayLink).
+    final shownTime = !showTime
+        ? null
+        : selected
+        ? event.originServerTs.localizedDetailedTime(context)
+        : event.originServerTs.localizedTimeOfDay(context);
+    final timeStyle = TextStyle(
+      color: eventStateTextColor,
+      fontSize: 12,
+      shadows: wallpaperTextShadow,
+    );
+    final statusItems = <Widget>[
+      ?networkBadge,
+      if (isEdited) ...[
+        Text(' ', style: TextStyle(fontSize: 12)),
+        Text(
+          L10n.of(context).edited,
+          style: TextStyle(
+            color: eventStateTextColor,
+            fontSize: 12,
+            shadows: wallpaperTextShadow,
+          ),
+        ),
+      ],
+      if (event.status == EventStatus.error) ...[
+        Text(' ', style: TextStyle(fontSize: 12)),
+        Text(
+          L10n.of(context).couldNotBeSent,
+          style: TextStyle(
+            fontSize: 12,
+            color: theme.colorScheme.error,
+            shadows: wallpaperTextShadow,
+          ),
+        ),
+        Text(' ', style: TextStyle(fontSize: 12)),
+        Icon(
+          Icons.error_outlined,
+          size: 16,
+          color: theme.colorScheme.error,
+          shadows: wallpaperTextShadow,
+        ),
+      ],
+      if (event.status == EventStatus.sending) ...[
+        Text(
+          switch (event.fileSendingStatus) {
+            null => L10n.of(context).sending,
+            FileSendingStatus.generatingThumbnail => L10n.of(
+              context,
+            ).generatingThumbnail,
+            FileSendingStatus.encrypting => L10n.of(context).encrypting,
+            FileSendingStatus.uploading => L10n.of(context).uploading,
+          },
+          style: TextStyle(
+            color: eventStateTextColor,
+            fontSize: 12,
+            shadows: wallpaperTextShadow,
+          ),
+        ),
+        Text(' ', style: TextStyle(fontSize: 12)),
+        SizedBox.square(
+          dimension: 12,
+          child: CircularProgressIndicator(strokeWidth: 1),
+        ),
+      ],
+      if (showSentMark) ...[
+        Text(' ', style: TextStyle(fontSize: 12)),
+        Tooltip(
+          message: L10n.of(context).sent,
+          child: Icon(
+            Icons.check_circle_outline,
+            size: 16,
+            color: eventStateTextColor,
+            shadows: wallpaperTextShadow,
+            semanticLabel: L10n.of(context).sent,
+          ),
+        ),
+      ],
+    ];
+    final statusLine = Padding(
+      padding: EdgeInsets.only(top: 4, left: 8 + bubbleIndent, right: 8),
+      child: Row(
+        mainAxisAlignment: ownMessage ? .end : .start,
+        children: [
+          // The time of a message shows on demand, when it is selected or
+          // its bubble was tapped; the timeline's separators carry the time
+          // otherwise.
+          if (shownTime != null) Text(' $shownTime', style: timeStyle),
+          ...statusItems,
+        ],
+      ),
+    );
+
     final rowPaddingTop = nextEventSameSender ? 1.0 : 8.0;
     final rowPaddingBottom = previousEventSameSender || previousEvent == null
         ? 1.0
@@ -301,6 +396,15 @@ class Message extends StatelessWidget {
     const highlightInsetX = 6.0;
     final highlightInsetTop = min(rowPaddingTop, 4.0);
     final highlightInsetBottom = min(rowPaddingBottom, 4.0);
+    // Under an effect message whose Replay line is the last thing in it,
+    // the line takes the space below the message into its own box, so taps
+    // there are the link's.
+    final replayOwnsBottom =
+        effectOf(event) != null &&
+        !showSeenBy &&
+        !showReactionPicker &&
+        threadChildren.isEmpty &&
+        !displayReadMarker;
 
     return Center(
       child: SwipeToReply(
@@ -315,7 +419,7 @@ class Message extends StatelessWidget {
             left: 8.0,
             right: 8.0,
             top: rowPaddingTop,
-            bottom: rowPaddingBottom,
+            bottom: replayOwnsBottom ? 0 : rowPaddingBottom,
           ),
           child: Column(
             mainAxisSize: .min,
@@ -326,7 +430,9 @@ class Message extends StatelessWidget {
                 children: [
                   Positioned(
                     top: -highlightInsetTop,
-                    bottom: -highlightInsetBottom,
+                    bottom: replayOwnsBottom
+                        ? rowPaddingBottom - highlightInsetBottom
+                        : -highlightInsetBottom,
                     left: -highlightInsetX,
                     right: -highlightInsetX,
                     child: InkWell(
@@ -428,23 +534,25 @@ class Message extends StatelessWidget {
                                               senderId: event.senderId,
                                               isNewest: previousEvent == null,
                                               child: SenderUserBuilder(
-                                              event: event,
-                                              builder: (context, fetchedUser) {
-                                                final user =
-                                                    fetchedUser ?? sender;
-                                                return Avatar(
-                                                  mxContent: user.avatarUrl,
-                                                  name: user.calcDisplayname(),
-                                                  onTap: () =>
-                                                      showMemberActionsPopupMenu(
-                                                        context: context,
-                                                        user: user,
-                                                        onMention: onMention,
-                                                      ),
-                                                  size: senderAvatarSize,
-                                                );
-                                              },
-                                            ))
+                                                event: event,
+                                                builder: (context, fetchedUser) {
+                                                  final user =
+                                                      fetchedUser ?? sender;
+                                                  return Avatar(
+                                                    mxContent: user.avatarUrl,
+                                                    name: user
+                                                        .calcDisplayname(),
+                                                    onTap: () =>
+                                                        showMemberActionsPopupMenu(
+                                                          context: context,
+                                                          user: user,
+                                                          onMention: onMention,
+                                                        ),
+                                                    size: senderAvatarSize,
+                                                  );
+                                                },
+                                              ),
+                                            )
                                           : null,
                                     ),
                                   ),
@@ -696,104 +804,25 @@ class Message extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            if (hasStatusLine)
-                              Padding(
-                                padding: EdgeInsets.only(
-                                  top: 4,
-                                  left: 8 + bubbleIndent,
-                                  right: 8,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: ownMessage ? .end : .start,
-                                  children: [
-                                    // The time of a message shows on demand,
-                                    // when it is selected or its bubble was
-                                    // tapped; the timeline's separators carry
-                                    // the time otherwise.
-                                    if (showTime)
-                                      Text(
-                                        ' ${selected ? event.originServerTs.localizedDetailedTime(context) : event.originServerTs.localizedTimeOfDay(context)}',
-                                        style: TextStyle(
-                                          color: eventStateTextColor,
-                                          fontSize: 12,
-                                          shadows: wallpaperTextShadow,
-                                        ),
-                                      ),
-                                    ?networkBadge,
-                                    if (isEdited) ...[
-                                      Text(' ', style: TextStyle(fontSize: 12)),
-                                      Text(
-                                        L10n.of(context).edited,
-                                        style: TextStyle(
-                                          color: eventStateTextColor,
-                                          fontSize: 12,
-                                          shadows: wallpaperTextShadow,
-                                        ),
-                                      ),
-                                    ],
-                                    if (event.status == EventStatus.error) ...[
-                                      Text(' ', style: TextStyle(fontSize: 12)),
-                                      Text(
-                                        L10n.of(context).couldNotBeSent,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: theme.colorScheme.error,
-                                          shadows: wallpaperTextShadow,
-                                        ),
-                                      ),
-                                      Text(' ', style: TextStyle(fontSize: 12)),
-                                      Icon(
-                                        Icons.error_outlined,
-                                        size: 16,
-                                        color: theme.colorScheme.error,
-                                        shadows: wallpaperTextShadow,
-                                      ),
-                                    ],
-                                    if (event.status ==
-                                        EventStatus.sending) ...[
-                                      Text(
-                                        switch (event.fileSendingStatus) {
-                                          null => L10n.of(context).sending,
-                                          FileSendingStatus
-                                              .generatingThumbnail =>
-                                            L10n.of(
-                                              context,
-                                            ).generatingThumbnail,
-                                          FileSendingStatus.encrypting =>
-                                            L10n.of(context).encrypting,
-                                          FileSendingStatus.uploading =>
-                                            L10n.of(context).uploading,
-                                        },
-                                        style: TextStyle(
-                                          color: eventStateTextColor,
-                                          fontSize: 12,
-                                          shadows: wallpaperTextShadow,
-                                        ),
-                                      ),
-                                      Text(' ', style: TextStyle(fontSize: 12)),
-                                      SizedBox.square(
-                                        dimension: 12,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 1,
-                                        ),
-                                      ),
-                                    ],
-                                    if (showSentMark) ...[
-                                      Text(' ', style: TextStyle(fontSize: 12)),
-                                      Tooltip(
-                                        message: L10n.of(context).sent,
-                                        child: Icon(
-                                          Icons.check_circle_outline,
-                                          size: 16,
-                                          color: eventStateTextColor,
-                                          shadows: wallpaperTextShadow,
-                                          semanticLabel: L10n.of(context).sent,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
+                            // Under an effect message the Replay link
+                            // carries the status line, right under the
+                            // bubble, as iMessage puts Replay there.
+                            if (effectOf(event) != null)
+                              MessageEffectReplayLink(
+                                event: event,
+                                ownMessage: ownMessage,
+                                indent: bubbleIndent,
+                                time: shownTime,
+                                status: statusItems,
+                                statusLine: hasStatusLine ? statusLine : null,
+                                timeStyle: timeStyle,
+                                shadows: wallpaperTextShadow,
+                                bottomPadding: replayOwnsBottom
+                                    ? rowPaddingBottom
+                                    : 0,
+                              )
+                            else if (hasStatusLine)
+                              statusLine,
                             if (showSeenBy)
                               SeenByRow(
                                 event: event,

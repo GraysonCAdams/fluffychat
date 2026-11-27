@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Theme applied to the Android Window while the process is starting.
+         Shows the launch screen until Flutter draws its first frame. Android
+         12 and later use values-v31 instead. -->
     <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
-        <!-- Show a splash screen on the activity. Automatically removed when
-             Flutter draws its first frame -->
         <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+    <!-- Theme applied once Flutter draws its first frame (the
+         io.flutter.embedding.android.NormalTheme meta-data in the manifest).
+         Its background shows only where Flutter does not draw, such as behind
+         the keyboard while it opens. -->
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@android:color/white</item>
     </style>
 </resources>

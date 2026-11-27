@@ -15,9 +15,11 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// Makes a still image for video messages that arrive without a thumbnail,
-/// which bridges commonly send. The video is downloaded and its first frame
-/// kept as a JPEG, cached on disk by event so this happens once per video.
+/// Makes a still image of a video's first frame: for video messages that
+/// arrive without a thumbnail, which bridges commonly send, and for a video
+/// staged in the composer. A message's video is downloaded and its frame
+/// kept as a JPEG, cached on disk by event so this happens once per video;
+/// a staged video's frame is read from its file and kept in memory.
 abstract class VideoPoster {
   /// Larger videos are left with their placeholder rather than downloaded
   /// just to show a preview.
@@ -27,6 +29,26 @@ abstract class VideoPoster {
 
   static bool get isSupported =>
       PlatformInfos.isMobile || PlatformInfos.isWindows;
+
+  static final Map<String, Future<Uint8List?>> _files = {};
+
+  /// The first frame of the video file at [path], or null when none can
+  /// be made.
+  static Future<Uint8List?> forFile(String path) =>
+      _files[path] ??= _loadFile(path);
+
+  static Future<Uint8List?> _loadFile(String path) async {
+    if (!isSupported || path.isEmpty) return null;
+    try {
+      final bytes = PlatformInfos.isMobile
+          ? await _mobileFrame(path)
+          : await _desktopFrame(path);
+      return bytes == null || bytes.isEmpty ? null : bytes;
+    } catch (e, s) {
+      Logs().w('Unable to make a poster for a staged video', e, s);
+      return null;
+    }
+  }
 
   /// The poster for [event], or null when none can be made.
   static Future<Uint8List?> forEvent(Event event) =>

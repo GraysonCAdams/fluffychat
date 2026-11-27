@@ -75,18 +75,11 @@ class ChatAppBarTitle extends StatelessWidget {
             children: [
               Hero(
                 tag: 'content_banner',
-                child: contact == null && GroupAvatar.shows(room)
-                    ? GroupAvatar(
-                        room: room,
-                        name: title,
-                        size: 32,
-                        outlineColor: Theme.of(context).colorScheme.surface,
-                      )
-                    : Avatar(
-                        mxContent: contact?.avatar ?? room.avatar,
-                        name: title,
-                        size: 32,
-                      ),
+                child: ChatHeaderAvatar(
+                  room: room,
+                  contact: contact,
+                  name: title,
+                ),
               ),
             ],
           ),
@@ -301,6 +294,39 @@ class _GroupMembersLineState extends State<GroupMembersLine> {
   }
 }
 
+/// The picture beside a chat's title: a group without one, merged or not,
+/// shows its members, as in the chat list; anything else its avatar. A
+/// merged chat shows the room messages go to.
+class ChatHeaderAvatar extends StatelessWidget {
+  final Room room;
+  final MergedContact? contact;
+  final String name;
+
+  const ChatHeaderAvatar({
+    required this.room,
+    required this.contact,
+    required this.name,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = contact?.sendViaRoom ?? room;
+    return GroupAvatar.shows(shown)
+        ? GroupAvatar(
+            room: shown,
+            name: name,
+            size: 32,
+            outlineColor: Theme.of(context).colorScheme.surface,
+          )
+        : Avatar(
+            mxContent: contact?.avatar ?? room.avatar,
+            name: name,
+            size: 32,
+          );
+  }
+}
+
 /// Under the title of a chat that belongs to a merged contact: the network
 /// shown, which opens the contact's other networks and switches to the one
 /// picked.
@@ -375,10 +401,20 @@ class ChatNetworkIcons extends StatelessWidget {
         );
     final entries = <NetworkSwitcherOption>[];
     if (merged) {
+      // Same-people groups on one bridge are one network: one button, for
+      // the room the next message goes to.
+      final target = controller.composerTarget.roomId;
+      final bySpace = <String, (Room, String)>{};
       for (final network
           in controller.mergedNetworks(locals) ?? const <MergedNetwork>[]) {
         final space = network.space;
-        if (space != null) entries.add(option(space, network.room.id));
+        if (space == null) continue;
+        if (!bySpace.containsKey(space.id) || network.room.id == target) {
+          bySpace[space.id] = (space, network.room.id);
+        }
+      }
+      for (final (space, roomId) in bySpace.values) {
+        entries.add(option(space, roomId));
       }
     } else {
       final space = spacesByChild(room.client)[room.id];

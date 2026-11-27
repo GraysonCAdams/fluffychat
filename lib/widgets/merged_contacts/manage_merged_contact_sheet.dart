@@ -8,6 +8,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/model.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
+import 'package:fluffychat/utils/merged_contacts/same_groups.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_text_input_dialog.dart';
@@ -71,8 +72,10 @@ class _ManageContact extends StatelessWidget {
       title: l10n.renameContact,
       okLabel: l10n.ok,
       cancelLabel: l10n.cancel,
-      initialText: contact.entry.name ?? '',
-      hintText: contact.sendViaRoom.getLocalizedDisplayname(MatrixLocals(l10n)),
+      initialText: contact.userName ?? '',
+      hintText: contact.isGroup
+          ? liveGroupName(contact.rooms, MatrixLocals(l10n))
+          : contact.sendViaRoom.getLocalizedDisplayname(MatrixLocals(l10n)),
     );
     if (name == null || !context.mounted) return;
     await showFutureLoadingDialog(

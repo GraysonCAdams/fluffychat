@@ -108,8 +108,11 @@ class _AddMergedChatButtonState extends State<AddMergedChatButton> {
           ? await _store.merge([controller.room.id, picked.id])
           : await _store.merge([picked.id], intoContactId: contact.id);
       // An unmerged chat becomes a merged conversation with a route of its
-      // own; an already merged one picks the new room up by itself.
-      if (contact == null) router.go(mergedContactRoute(id));
+      // own, and so does one the app merged by itself (same-people groups),
+      // which is stored anew; a stored one picks the new room up by itself.
+      if (contact == null || id != contact.id) {
+        router.go(mergedContactRoute(id));
+      }
     } catch (e) {
       scaffoldMessenger.showSnackBar(SnackBar(content: Text(e.toString())));
     }

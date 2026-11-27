@@ -90,20 +90,9 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
 
       // Create a ChewieController on top.
       setState(() {
-        _chewieController = ChewieController(
-          videoPlayerController: videoPlayerController,
-          showControlsOnInitialize: false,
-          autoPlay: true,
-          autoInitialize: true,
+        _chewieController = videoChewieController(
+          videoPlayerController,
           looping: widget.inlineSize == null,
-          aspectRatio: _videoPlayerController?.value.aspectRatio,
-          // Chewie's options open as a bottom sheet, which suits phones but
-          // spans the whole window on desktop. Desktop gets a speed menu on
-          // the control bar instead, opening next to its button.
-          showOptions: !PlatformInfos.isDesktop,
-          additionalControls: PlatformInfos.isDesktop
-              ? (context) => [_PlaybackSpeedButton(videoPlayerController)]
-              : null,
         );
       });
     } on IOException catch (e) {
@@ -203,6 +192,28 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
           );
   }
 }
+
+/// The playback controls on top of [controller], an initialized video:
+/// playing at once with its controls hidden until a tap, looping when
+/// [looping]. The image viewer and a video staged in the composer use it.
+ChewieController videoChewieController(
+  VideoPlayerController controller, {
+  required bool looping,
+}) => ChewieController(
+  videoPlayerController: controller,
+  showControlsOnInitialize: false,
+  autoPlay: true,
+  autoInitialize: true,
+  looping: looping,
+  aspectRatio: controller.value.aspectRatio,
+  // Chewie's options open as a bottom sheet, which suits phones but spans
+  // the whole window on desktop. Desktop gets a speed menu on the control
+  // bar instead, opening next to its button.
+  showOptions: !PlatformInfos.isDesktop,
+  additionalControls: PlatformInfos.isDesktop
+      ? (context) => [_PlaybackSpeedButton(controller)]
+      : null,
+);
 
 /// Hosts a video player inside a chat message.
 ///

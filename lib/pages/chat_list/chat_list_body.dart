@@ -511,7 +511,7 @@ class _UnreadBelowChip extends StatelessWidget {
   static const double _rowHeight = 68;
   static const double _unreadRowHeight = 89;
   static const double _headerHeight = 72 + 39;
-  static const double _pinsHeight = 146;
+  static const double _pinsHeight = _PinnedRow.height;
 
   @override
   Widget build(BuildContext context) {
@@ -583,6 +583,10 @@ class _UnreadBelowChip extends StatelessWidget {
 /// unread pins lie beyond the right edge, a count on that edge says so and
 /// scrolls to the next one when tapped.
 class _PinnedRow extends StatefulWidget {
+  /// The row's height: 30 above the pins for the bubbles, the pins, and 8
+  /// below.
+  static const double height = 150;
+
   final List<Room> rooms;
   final Map<String, Room> spaces;
   final ChatListController controller;
@@ -598,26 +602,28 @@ class _PinnedRow extends StatefulWidget {
 }
 
 class _PinnedRowState extends State<_PinnedRow> {
-  static const double _itemWidth = 104;
+  /// The slot each pin takes in a row that scrolls: 36 between avatars,
+  /// which keeps the widest bubbles 16 apart.
+  static const double _itemWidth = 112;
 
   /// How far the avatars of the chat list below start from the edge: the
   /// tile's 8dp margin plus its 8dp content padding (see `ChatListItem`).
   static const double _listAvatarInset = 16;
 
-  /// Lines the first avatar up with the list avatars below. Each avatar is
-  /// centred in its item, so the padding is the inset less the space beside
-  /// the avatar.
-  static const double _sidePadding =
-      _listAvatarInset - (_itemWidth - _PinnedChat._avatarSize) / 2;
+  /// How far a pin in a row that scrolls sits left of its slot's centre,
+  /// so the first avatar lines up with the list avatars below: half the
+  /// space beside an avatar is 18, 2 more than the inset, and a list's
+  /// padding cannot be negative. The extra room is all between pins.
+  static const double _shift =
+      (_itemWidth - _PinnedChat._avatarSize) / 2 - _listAvatarInset;
 
   final _scrollController = ScrollController();
 
-  /// The width each pin takes and the padding at either end, as laid out
-  /// last. Pins that fit share the row's width evenly, so they sit centred;
-  /// pins that do not fit take [_itemWidth] each and start level with the
-  /// list avatars below, scrolling sideways.
+  /// The width each pin takes, as laid out last. Pins that fit share the
+  /// row's width evenly, so they sit centred; pins that do not fit take
+  /// [_itemWidth] each and start level with the list avatars below,
+  /// scrolling sideways.
   double _extent = _itemWidth;
-  double _padding = _sidePadding;
 
   /// How many unread pins are fully or partly past the right edge.
   final _hiddenUnread = ValueNotifier<int>(0);
@@ -672,7 +678,7 @@ class _PinnedRowState extends State<_PinnedRow> {
   int _firstCutOff() {
     final position = _scrollController.position;
     final rightEdge = position.pixels + position.viewportDimension;
-    return ((rightEdge - _padding) / _extent).floor();
+    return (rightEdge / _extent).floor();
   }
 
   void _updateHiddenUnread() {
@@ -691,7 +697,7 @@ class _PinnedRowState extends State<_PinnedRow> {
     if (next == -1) return;
     final position = _scrollController.position;
     _scrollController.animateTo(
-      (2 * _padding + (next + 1) * _extent - position.viewportDimension).clamp(
+      ((next + 1) * _extent - position.viewportDimension).clamp(
         0.0,
         position.maxScrollExtent,
       ),
@@ -785,24 +791,23 @@ class _PinnedRowState extends State<_PinnedRow> {
     });
 
     return SizedBox(
-      height: 146,
+      height: _PinnedRow.height,
       child: Stack(
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
               final fits =
                   sorted.isNotEmpty &&
-                  2 * _sidePadding + sorted.length * _itemWidth <=
+                  sorted.length * _itemWidth - 2 * _shift <=
                       constraints.maxWidth;
               _extent = fits
                   ? constraints.maxWidth / sorted.length
                   : _itemWidth;
-              _padding = fits ? 0 : _sidePadding;
               return ReorderableList(
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
                 // Extra room above for the unread preview bubbles.
-                padding: EdgeInsets.fromLTRB(_padding, 26, _padding, 8),
+                padding: const EdgeInsets.only(top: 30, bottom: 8),
                 itemExtent: _extent,
                 itemCount: sorted.length,
                 onReorderStart: (_) => setState(() => _dragging = true),
@@ -811,6 +816,7 @@ class _PinnedRowState extends State<_PinnedRow> {
                 proxyDecorator: _decorateDragged,
                 itemBuilder: (context, i) => _PinnedChat(
                   key: ValueKey(sorted[i].id),
+                  shift: fits ? 0 : _shift,
                   index: i,
                   room: sorted[i],
                   space: widget.spaces[sorted[i].id],
@@ -887,8 +893,12 @@ class _PinnedChat extends StatelessWidget {
   /// The chat's position in the row, for dragging it.
   final int index;
 
+  /// How far the pin sits towards the start of its slot from the centre.
+  final double shift;
+
   const _PinnedChat({
     required this.index,
+    this.shift = 0,
     required this.room,
     required this.space,
     required this.controller,
@@ -947,146 +957,164 @@ class _PinnedChat extends StatelessWidget {
                   .trim()
                   .replaceAll('\n', ' ')
         : null;
-    return Center(
-      child: Semantics(
-        onLongPress: () => controller.toggleSelection(room),
-        child: Listener(
-          onPointerDown: (event) => _startDrag(context, event),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppConfig.borderRadius),
-            onTap: () => controller.onListedChatTap(room),
-            onSecondaryTap: () => controller.toggleSelection(room),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      SelectableAvatar(
-                        selected: selected,
-                        size: _avatarSize,
-                        // A group without a picture shows its members.
-                        child: contact == null && GroupAvatar.shows(room)
-                            ? GroupAvatar(
-                                room: room,
-                                name: name,
-                                size: _avatarSize,
-                              )
-                            : Avatar(
-                                mxContent: contact?.avatar ?? room.avatar,
-                                name: name,
-                                size: _avatarSize,
-                                presenceUserId: (contact?.sendViaRoom ?? room)
-                                    .directChatMatrixID,
-                              ),
-                      ),
-                      // An unread pin shows its newest message in a small speech
-                      // bubble over the top of the avatar.
-                      if (preview != null)
-                        Positioned(
-                          top: -14,
-                          left: -10,
-                          right: -10,
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color:
-                                    theme.colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: theme.colorScheme.shadow.withAlpha(
-                                      60,
+    return Padding(
+      padding: EdgeInsetsDirectional.only(end: 2 * shift),
+      child: Center(
+        child: Semantics(
+          onLongPress: () => controller.toggleSelection(room),
+          child: Listener(
+            onPointerDown: (event) => _startDrag(context, event),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppConfig.borderRadius),
+              onTap: () => controller.onListedChatTap(room),
+              onSecondaryTap: () => controller.toggleSelection(room),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        SelectableAvatar(
+                          selected: selected,
+                          size: _avatarSize,
+                          // A group without a picture shows its members.
+                          child: GroupAvatar.shows(contact?.sendViaRoom ?? room)
+                              ? GroupAvatar(
+                                  room: contact?.sendViaRoom ?? room,
+                                  name: name,
+                                  size: _avatarSize,
+                                )
+                              : Avatar(
+                                  mxContent: contact?.avatar ?? room.avatar,
+                                  name: name,
+                                  size: _avatarSize,
+                                  presenceUserId: (contact?.sendViaRoom ?? room)
+                                      .directChatMatrixID,
+                                ),
+                        ),
+                        // An unread pin shows its newest message in a small speech
+                        // bubble over the top of the avatar, its tail pointing
+                        // down at it.
+                        if (preview != null)
+                          Positioned(
+                            top: -19,
+                            left: -10,
+                            right: -10,
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
                                     ),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 1),
+                                    decoration: BoxDecoration(
+                                      color: theme
+                                          .colorScheme
+                                          .surfaceContainerHighest,
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: theme.colorScheme.shadow
+                                              .withAlpha(60),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      preview,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color: theme.colorScheme.onSurface,
+                                            height: 1.15,
+                                          ),
+                                    ),
+                                  ),
+                                  _BubbleTail(
+                                    color: theme
+                                        .colorScheme
+                                        .surfaceContainerHighest,
                                   ),
                                 ],
                               ),
-                              child: Text(
-                                preview,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSurface,
-                                  height: 1.15,
-                                ),
-                              ),
                             ),
                           ),
-                        ),
-                      // A selected chat shows only the check, without badges.
-                      if (selected || !AppSettings.chatListNetworkBadges.value)
-                        const SizedBox.shrink()
-                      else if (contact != null)
-                        Positioned(
-                          right: -2,
-                          bottom: -2,
-                          child: MergedBadge(
-                            contact: contact,
-                            size: 24,
-                            outlineColor: theme.colorScheme.surface,
-                          ),
-                        )
-                      else if (space != null)
-                        Positioned(
-                          right: -2,
-                          bottom: -2,
-                          child: Avatar(
-                            shapeBorder: RoundedSuperellipseBorder(
-                              side: BorderSide(
-                                width: 2,
-                                color: theme.colorScheme.surface,
+                        // A selected chat shows only the check, without badges.
+                        if (selected ||
+                            !AppSettings.chatListNetworkBadges.value)
+                          const SizedBox.shrink()
+                        else if (contact != null && contact.spansNetworks)
+                          Positioned(
+                            right: -2,
+                            bottom: -2,
+                            child: MergedBadge(
+                              contact: contact,
+                              size: 24,
+                              outlineColor: theme.colorScheme.surface,
+                            ),
+                          )
+                        else if (space != null)
+                          Positioned(
+                            right: -2,
+                            bottom: -2,
+                            child: Avatar(
+                              shapeBorder: RoundedSuperellipseBorder(
+                                side: BorderSide(
+                                  width: 2,
+                                  color: theme.colorScheme.surface,
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  AppConfig.spaceBorderRadius * 0.5,
+                                ),
                               ),
                               borderRadius: BorderRadius.circular(
                                 AppConfig.spaceBorderRadius * 0.5,
                               ),
+                              mxContent: space.avatar,
+                              size: 24,
+                              name: space.getLocalizedDisplayname(locals),
                             ),
-                            borderRadius: BorderRadius.circular(
-                              AppConfig.spaceBorderRadius * 0.5,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (unread)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(right: 4),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary,
+                              shape: BoxShape.circle,
                             ),
-                            mxContent: space.avatar,
-                            size: 24,
-                            name: space.getLocalizedDisplayname(locals),
+                          ),
+                        Flexible(
+                          child: Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: unread ? FontWeight.w700 : null,
+                              color: unread
+                                  ? theme.colorScheme.onSurface
+                                  : null,
+                            ),
                           ),
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (unread)
-                        Container(
-                          width: 8,
-                          height: 8,
-                          margin: const EdgeInsets.only(right: 4),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      Flexible(
-                        child: Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: unread ? FontWeight.w700 : null,
-                            color: unread ? theme.colorScheme.onSurface : null,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1094,6 +1122,41 @@ class _PinnedChat extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The tail under a pin's speech bubble: a small triangle with a rounded
+/// tip, in the bubble's color, pointing down at the avatar.
+class _BubbleTail extends StatelessWidget {
+  final Color color;
+
+  const _BubbleTail({required this.color});
+
+  @override
+  Widget build(BuildContext context) =>
+      CustomPaint(size: const Size(12, 6), painter: _BubbleTailPainter(color));
+}
+
+class _BubbleTailPainter extends CustomPainter {
+  final Color color;
+
+  const _BubbleTailPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(w, 0)
+      ..lineTo(w / 2 + 2, h - 1.5)
+      ..quadraticBezierTo(w / 2, h + 0.5, w / 2 - 2, h - 1.5)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_BubbleTailPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 /// The first filter chip. It reads "All" with a dropdown arrow and opens the
