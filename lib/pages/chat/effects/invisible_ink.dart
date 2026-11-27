@@ -37,6 +37,11 @@ import 'package:material_ui/material_ui.dart';
 /// list scrolling under it or a sheet being dragged, once the finger has
 /// moved [rubSlop]. Taps and long presses still reach the widgets around
 /// the bubble.
+///
+/// A finger that came down on one ink bubble rubs every other on the same
+/// page it passes over, each with its own share to reach and its own
+/// time to come back. Bubbles under one [InvisibleInkGroup] are one
+/// surface instead.
 class InvisibleInk extends StatefulWidget {
   final Widget child;
 
@@ -100,8 +105,54 @@ class InvisibleInk extends StatefulWidget {
   State<InvisibleInk> createState() => InvisibleInkState();
 }
 
+/// Makes the ink bubbles under it one surface, as over a photo and its
+/// caption: [InvisibleInk.revealThreshold] is a share of all of them
+/// together, the rest of the ink goes from all of them at once, a touch
+/// on any of them keeps all of them as they are, and the ink comes back
+/// over all of them together.
+class InvisibleInkGroup extends StatefulWidget {
+  final Widget child;
+
+  const InvisibleInkGroup({required this.child, super.key});
+
+  @override
+  State<InvisibleInkGroup> createState() => _InvisibleInkGroupState();
+}
+
+class _InvisibleInkGroupState extends State<InvisibleInkGroup> {
+  final members = <InvisibleInkState>[];
+
+  @override
+  Widget build(BuildContext context) =>
+      _InkGroupScope(group: this, child: widget.child);
+}
+
+class _InkGroupScope extends InheritedWidget {
+  final _InvisibleInkGroupState group;
+
+  const _InkGroupScope({required this.group, required super.child});
+
+  @override
+  bool updateShouldNotify(_InkGroupScope oldWidget) => oldWidget.group != group;
+}
+
 class InvisibleInkState extends State<InvisibleInk>
     with TickerProviderStateMixin {
+  /// Every ink bubble on screen.
+  static final _mounted = <InvisibleInkState>{};
+
+  /// The group this bubble is in, if any, and the bubbles that act as
+  /// one with it, itself included.
+  _InvisibleInkGroupState? _group;
+  late final _alone = [this];
+  List<InvisibleInkState> get _members => _group?.members ?? _alone;
+
+  /// The page the bubble is on.
+  ModalRoute<Object?>? _route;
+
+  /// The other bubbles the finger that is down on this one has rubbed.
+  final _carried = <InvisibleInkState>{};
+
   late final AnimationController _fade =
       AnimationController(vsync: this, duration: InvisibleInk.concealDuration)
         ..addListener(() {
@@ -162,9 +213,27 @@ class InvisibleInkState extends State<InvisibleInk>
   /// How much of the ink is rubbed away, as a share of the bubble.
   double get cleared => _mask.cleared;
 
+  /// Whether the rest of the ink is going by itself.
+  bool get isFinishing => _complete.isAnimating;
+
+  @override
+  void initState() {
+    super.initState();
+    _mounted.add(this);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final group = context
+        .dependOnInheritedWidgetOfExactType<_InkGroupScope>()
+        ?.group;
+    if (group != _group) {
+      _group?.members.remove(this);
+      _group = group;
+      group?.members.add(this);
+    }
+    _route = ModalRoute.of(context);
     _syncTicker();
   }
 
@@ -198,9 +267,16 @@ class InvisibleInkState extends State<InvisibleInk>
     return true;
   }
 
+  /// Stops the ink closing in on this bubble and those it is one with.
+  void _wake() {
+    for (final member in _members) {
+      member._wakeOne();
+    }
+  }
+
   /// Stops the ink closing in, keeping what is still clear as it is. Ink
   /// coming back over a bubble that was wholly readable is cleared again.
-  void _wake() {
+  void _wakeOne() {
     _concealTimer?.cancel();
     _fade.stop();
     if (_fade.value == 0) return;
@@ -208,10 +284,30 @@ class InvisibleInkState extends State<InvisibleInk>
     _fade.value = 0;
   }
 
-  /// Sends the rest of the ink away, outwards from what is clear.
-  void _finish() {
+  /// How much of the ink is rubbed away over this bubble and those it is
+  /// one with, as a share of them all.
+  double _clearedOverMembers() {
+    final members = _members;
+    if (members.length == 1) return _mask.cleared;
+    var all = 0.0, clear = 0.0;
+    for (final member in members) {
+      final size = member.context.size;
+      if (size == null) continue;
+      final area = size.width * size.height;
+      all += area;
+      clear += area * member._mask.cleared;
+    }
+    return all == 0 ? 0 : clear / all;
+  }
+
+  /// Sends the rest of the ink away, outwards from what is clear, or
+  /// evenly from a bubble nothing of which is. Felt with [tick].
+  void _finish({required bool tick}) {
+    if (isRevealed || _complete.isAnimating || !_fitMask()) return;
     _reach = InkMask.edgeDepth - _mask.spread(InvisibleInk.brushRadius);
     _complete.forward(from: 0);
+    _sync();
+    if (!tick) return;
     EffectHaptics.instance.play(
       const HapticPattern([
         HapticBeat(
@@ -249,8 +345,10 @@ class InvisibleInkState extends State<InvisibleInk>
     );
     _last = position;
     _sync();
-    if (_mask.cleared >= InvisibleInk.revealThreshold) {
-      _finish();
+    if (_clearedOverMembers() >= InvisibleInk.revealThreshold) {
+      for (final member in _members) {
+        member._finish(tick: identical(member, this));
+      }
       return;
     }
     if (!tick || !cleared) return;
@@ -272,7 +370,57 @@ class InvisibleInkState extends State<InvisibleInk>
     );
   }
 
+  /// Rubs this bubble where the finger of [event] is and, with it, any
+  /// other on the page the finger is over or within the brush's reach of.
+  void _rubUnder(PointerEvent event, {required bool down}) {
+    _rub(event.localPosition, down: down);
+    if (!widget.animate) return;
+    for (final other in _mounted) {
+      if (identical(other, this) ||
+          !other.widget.animate ||
+          other._route != _route) {
+        continue;
+      }
+      final position = other._near(event.position);
+      if (position != null) {
+        _carried.add(other);
+        other._rub(position, down: other._last == null);
+      } else if (_carried.contains(other)) {
+        // A new track when the finger comes back.
+        other._last = null;
+      }
+    }
+  }
+
+  /// Where the point [global] on the screen is in this bubble, if it is
+  /// within the brush's reach of it.
+  Offset? _near(Offset global) {
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+    final position = box.globalToLocal(global);
+    final reach = (Offset.zero & box.size).inflate(InvisibleInk.brushRadius);
+    return reach.contains(position) ? position : null;
+  }
+
+  /// The finger has lifted from this bubble and from those it rubbed on
+  /// its way.
+  void _lift() {
+    _release();
+    for (final other in _carried) {
+      if (other.mounted) other._release();
+    }
+    _carried.clear();
+  }
+
+  /// Starts the wait for the ink to come back, on this bubble and those
+  /// it is one with.
   void _release() {
+    for (final member in _members) {
+      member._releaseOne();
+    }
+  }
+
+  void _releaseOne() {
     _last = null;
     _lastTick = null;
     _concealTimer?.cancel();
@@ -307,6 +455,8 @@ class InvisibleInkState extends State<InvisibleInk>
 
   @override
   void dispose() {
+    _mounted.remove(this);
+    _group?.members.remove(this);
     _concealTimer?.cancel();
     _ticker.dispose();
     _fade.dispose();
@@ -319,10 +469,10 @@ class InvisibleInkState extends State<InvisibleInk>
   @override
   Widget build(BuildContext context) {
     Widget ink = Listener(
-      onPointerDown: (event) => _rub(event.localPosition, down: true),
-      onPointerMove: (event) => _rub(event.localPosition, down: false),
-      onPointerUp: (_) => _release(),
-      onPointerCancel: (_) => _release(),
+      onPointerDown: (event) => _rubUnder(event, down: true),
+      onPointerMove: (event) => _rubUnder(event, down: false),
+      onPointerUp: (_) => _lift(),
+      onPointerCancel: (_) => _lift(),
       child: Semantics(
         label: _hidden ? L10n.of(context).invisibleInkHidden : null,
         // A screen reader's tap, which cannot rub, shows the whole bubble.
@@ -639,10 +789,18 @@ class InkMask extends ChangeNotifier {
   /// Carries the depths on from the strokes to the rest of the bubble,
   /// falling at the brush's rate with the distance from what was rubbed,
   /// so below 0 past the rim of a brush of [radius]. Returns the lowest
-  /// depth. [shown] stays as it is until [fade] goes below 0, and the box
+  /// depth, 0 on a mask no stroke has touched. [shown] stays as it is until [fade] goes below 0, and the box
   /// of [bounds] becomes the whole bubble.
   double spread(double radius) {
-    if (_empty) return 0;
+    _left = 0;
+    _top = 0;
+    _right = _size.width;
+    _bottom = _size.height;
+    if (_empty) {
+      // Nothing to spread from: every point is as far from showing.
+      _empty = _columns == 0;
+      return 0;
+    }
     for (var i = 0; i < _depth.length; i++) {
       if (_depth[i] <= 0) _depth[i] = _unreached;
     }
@@ -681,10 +839,6 @@ class InkMask extends ChangeNotifier {
         if (_depth[i] < lowest) lowest = _depth[i];
       }
     }
-    _left = 0;
-    _top = 0;
-    _right = _size.width;
-    _bottom = _size.height;
     return lowest;
   }
 
