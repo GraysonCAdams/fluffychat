@@ -306,8 +306,9 @@ FakeChatListRoom addFakeChat(
   return room;
 }
 
-/// Shows the chat list of [client] at `/rooms`, with a chat route that
-/// names the chat it opened. Returns the router to read the location from.
+/// Shows the chat list of [client] at `/rooms`, with chat and merged contact
+/// routes that name what they opened. Returns the router to read the
+/// location from.
 Future<GoRouter> pumpFakeChatList(WidgetTester tester, Client client) async {
   final prefs = await SharedPreferences.getInstance();
   final router = GoRouter(
@@ -317,6 +318,20 @@ Future<GoRouter> pumpFakeChatList(WidgetTester tester, Client client) async {
         path: '/rooms',
         builder: (context, state) => const ChatList(activeChat: null),
         routes: [
+          // A merged contact's screen, naming the message it opened at and
+          // the room that message is in.
+          GoRoute(
+            path: 'contact/:contactid',
+            builder: (context, state) {
+              final query = state.uri.queryParameters;
+              final at = query['event'] == null
+                  ? ''
+                  : ' at ${query['event']} in ${query['room']}';
+              return Text(
+                'opened contact ${state.pathParameters['contactid']}$at',
+              );
+            },
+          ),
           GoRoute(
             path: ':roomid',
             builder: (context, state) =>
