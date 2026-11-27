@@ -2767,34 +2767,5 @@
     "compressingVideo": "Mengompresi video...",
     "shareCrashReports": "Bagikan laporan kerusakan",
     "shareCrashReportsDescription": "Otomatis membagikan laporan kerusakan kepada pengembang?",
-    "countActiveCallMembers": "{count} anggota panggilan aktif",
-    "@countActiveCallMembers": {
-        "placeholders": {
-            "count": {
-                "type": "int"
-            }
-        }
-    },
-    "enterCall": "Masuk ke panggilan",
-    "videoCallsBetaWarning": "Panggilan video adalah fitur beta. Mungkin terdapat bug atau perilaku yang tidak terduga. Kami akan sangat menghargai umpan balik Anda.",
-    "noDevicesFound": "Tidak ada perangkat yang ditemukan",
-    "incomingCall": "Panggilan masuk",
-    "videoCall": "Panggilan video",
-    "voiceCall": "Panggilan suara",
-    "missedCall": "Panggilan terlewat",
-    "callBack": "Telpon balik",
-    "hangUp": "Tutup panggilan",
-    "waitingForParticipant": "Menunggu peserta...",
-    "decline": "Tolak",
-    "startCall": "Mulai panggilan",
-    "selectCamera": "Pilih kamera",
-    "selectMicrophone": "Pilih mikrofon",
-    "selectSpeaker": "Pilih pengeras suara",
-    "toggleMicrophone": "Alihkan mikrofon",
-    "toggleCamera": "Alihkan kamera",
-    "startScreensharing": "Mulai berbagi layar",
-    "stopScreensharing": "Hentikan berbagi layar",
-    "raiseHand": "Angkat tangan",
-    "stopRaiseHand": "Turunkan tangan",
-    "preferSpeaker": "Utamakan pengeras suara"
+    "decline": "Tolak"
 }

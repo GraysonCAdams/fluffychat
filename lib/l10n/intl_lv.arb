@@ -2732,10 +2732,6 @@
     "buildDoesNotSupportFirebase": "Šis būvējums neatbalsta Firebase mākoņziņapmaiņu.",
     "unableToRegisterDeviceForFirebase": "Nav iespējams reģistrēt ierīci Firebase ziņapmaiņai.",
     "decline": "Noraidīt",
-    "videoCallsBetaWarning": "Video zvani pašreiz ir beta iespēja. Tajos var būt nepilnības vai neparedzēta uzvedība. Mēs būsim priecīgi par atsauksmēm.",
-    "noDevicesFound": "Nav atrasta neviena ierīce",
-    "incomingCall": "Ienākošs zvans",
-    "waitingForParticipant": "Gaida dalībnieku…",
     "compressingVideo": "Saspiež video…",
     "doubleTapToReact": "Divkāršs piesitiens, lai atsauktos",
     "doubleTapToReactDescription": "Divkāršs piesitiens ziņai, lai atsauktos, nevis iezīmētu tekstu",
@@ -2753,35 +2749,11 @@
     "allow": "Atļaut",
     "deny": "Noraidīt",
     "activeCall": "Notiekošs zvans",
-    "countActiveCallMembers": "{count, plural, zero{{count} zvanā esoši dalībnieki} one{{count} zvanā esošs dalībnieks} other{{count} zvanā esoši dalībnieki}}",
-    "@countActiveCallMembers": {
-        "placeholders": {
-            "count": {
-                "type": "int"
-            }
-        }
-    },
-    "enterCall": "Pievienoties zvanam",
     "accountsAndSettings": "Konti un iestatījumi",
     "@accountsAndSettings": {
         "type": "String",
         "placeholders": {}
     },
-    "videoCall": "Video zvans",
-    "voiceCall": "Balss zvans",
-    "missedCall": "Neatbildēts zvans",
-    "callBack": "Atzvanīt",
-    "hangUp": "Beigt zvanu",
-    "startCall": "Zvanīt",
-    "selectCamera": "Atlasīt kameru",
-    "selectMicrophone": "Atlasīt mikrofonu",
-    "selectSpeaker": "Atlasīt skaļruni",
-    "toggleMicrophone": "Pārslēg mikrofonu",
-    "toggleCamera": "Pārslēgt kameru",
-    "startScreensharing": "Sākt ekrāna kopīgošanu",
-    "stopScreensharing": "Apturēt ekrāna kopīgošanu",
-    "raiseHand": "Pacelt roku",
-    "stopRaiseHand": "Nolaist roku",
     "unexpectedErrorOccurded": "Diemžēl atgadījās neparedzēta kļūda: {msg}",
     "@unexpectedErrorOccurded": {
         "placeholders": {
@@ -2805,6 +2777,5 @@
                 "type": "String"
             }
         }
-    },
-    "preferSpeaker": "Priekšroku dot skaļrunim"
+    }
 }

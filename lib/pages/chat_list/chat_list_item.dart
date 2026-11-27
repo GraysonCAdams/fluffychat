@@ -6,13 +6,11 @@
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
-import 'package:fluffychat/pages/chat_list/active_call_indicator.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/message_preview_cache.dart';
 import 'package:fluffychat/pages/chat_list/push_rule_state_cache.dart';
 import 'package:fluffychat/pages/chat_list/unread_bubble.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
-import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/one_time_code.dart';
@@ -377,11 +375,6 @@ class _ChatListItemState extends State<ChatListItem> {
                 children: [
                   Row(
                     children: [
-                      if (room.hasActiveMatrixRtcCall)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 4.0),
-                          child: ActiveCallIndicator(room: room),
-                        ),
                       if (typingText.isEmpty &&
                           ownMessage &&
                           lastEvent?.status.isSending == true) ...[

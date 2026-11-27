@@ -23,7 +23,6 @@
   "sendOnEnter": false,
   "showPresences": true,
   "displayNavigationRail": false,
-  "experimentalVoip": false,
   "shareKeysWith": "all",
   "noEncryptionWarningShown": false,
   "displayChatDetailsColumn": false,

@@ -169,7 +169,6 @@ abstract class AppRoutes {
                       roomId: state.pathParameters['roomid']!,
                       eventId: state.uri.queryParameters['event'],
                       timeline: state.extra as Timeline?,
-                      action: state.uri.queryParameters['action'],
                     ),
                   ),
                   redirect: loggedOutRedirect,
@@ -403,7 +402,6 @@ abstract class AppRoutes {
                       : null,
                   eventId: state.uri.queryParameters['event'],
                   eventRoomId: state.uri.queryParameters['room'],
-                  action: state.uri.queryParameters['action'],
                 ),
               ),
               redirect: loggedOutRedirect,
@@ -427,7 +425,6 @@ abstract class AppRoutes {
                     roomId: state.pathParameters['roomid']!,
                     shareItems: shareItems,
                     eventId: state.uri.queryParameters['event'],
-                    action: state.uri.queryParameters['action'],
                   ),
                 );
               },
@@ -569,13 +566,11 @@ abstract class AppRoutes {
     ).contactForRoom(roomId);
     if (contact == null) return null;
     final event = query['event'];
-    final action = query['action'];
     final clientName = query['client'];
     return Uri(
       path: '/rooms/contact/${contact.id}',
       queryParameters: {
         if (event != null) ...{'event': event, 'room': roomId},
-        'action': ?action,
         'client': ?clientName,
       },
     ).toString();

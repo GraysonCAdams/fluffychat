@@ -2768,36 +2768,7 @@
     "doubleTapReaction": "Рэакцыя пры двайным ціску",
     "shareCrashReports": "Падзяліцца паведамленнем пра памылку",
     "shareCrashReportsDescription": "Аўтаматычна дасылаць распрацоўшчыкам паведамленні пра памылкі?",
-    "countActiveCallMembers": "{count} актыўных удзельнікаў выкліку",
-    "@countActiveCallMembers": {
-        "placeholders": {
-            "count": {
-                "type": "int"
-            }
-        }
-    },
-    "enterCall": "Увайсці ў выклік",
-    "videoCallsBetaWarning": "Відэа выклікі знаходзяцца ў бэце. Яны могуць працаваць некарэктна ці не на ўсіх платформах. Мы будзем рады водгукам.",
-    "noDevicesFound": "Прылад не знойдзена",
-    "incomingCall": "Уваходны выклік",
-    "videoCall": "Відэа выклік",
-    "voiceCall": "Галасавы выклік",
-    "missedCall": "Прапушчаны выклік",
-    "callBack": "Ператэлефанаваць",
-    "hangUp": "Скінуць выклік",
-    "waitingForParticipant": "Чаканне ўдзельніка...",
     "decline": "Адмяніць",
-    "startCall": "Пачаць выклік",
-    "selectCamera": "Выбраць камеру",
-    "selectMicrophone": "Выбраць мікрафон",
-    "selectSpeaker": "Выбраць дынамік",
-    "toggleMicrophone": "Уключыць мікрафон",
-    "toggleCamera": "Уключыць камеру",
-    "startScreensharing": "Пачаць трансліраваць экран",
-    "stopScreensharing": "Спыніць трансляцыю экрана",
-    "raiseHand": "Падняць руку",
-    "stopRaiseHand": "Апусціць руку",
-    "preferSpeaker": "Пажаданы дынамік",
     "unexpectedErrorOccurded": "На жаль, апынулася нечаканая памылка: {msg}",
     "@unexpectedErrorOccurded": {
         "placeholders": {

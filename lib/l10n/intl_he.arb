@@ -1255,10 +1255,6 @@
             }
         }
     },
-    "@videoCall": {
-        "type": "String",
-        "placeholders": {}
-    },
     "@userAndOthersAreTyping": {
         "type": "String",
         "placeholders": {

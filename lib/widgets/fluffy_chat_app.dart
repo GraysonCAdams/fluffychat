@@ -12,7 +12,6 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/windows_shell.dart';
 import 'package:fluffychat/widgets/app_lock.dart';
-import 'package:fluffychat/widgets/layouts/call_overlay.dart';
 import 'package:fluffychat/widgets/theme_builder.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
@@ -125,9 +124,7 @@ class FluffyChatApp extends StatelessWidget {
             child: Matrix(
               clients: clients,
               store: store,
-              child: CallOverlay(
-                child: testWidget ?? child ?? const SizedBox.shrink(),
-              ),
+              child: testWidget ?? child ?? const SizedBox.shrink(),
             ),
           );
           if (!PlatformInfos.isWindows) return app;

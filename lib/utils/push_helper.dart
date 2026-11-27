@@ -13,10 +13,8 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/android_bubble.dart';
 import 'package:fluffychat/utils/android_conversation_notifications.dart';
-import 'package:fluffychat/utils/call_kit_params.dart';
 import 'package:fluffychat/utils/client_manager.dart';
 import 'package:fluffychat/utils/fallback_avatar_image.dart';
-import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
@@ -26,7 +24,6 @@ import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/start_push_foreground_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_new_badger/flutter_new_badger.dart';
 import 'package:http/http.dart' as http;
@@ -185,13 +182,6 @@ Future<void> _tryPushHelper(
     return;
   }
 
-  if (event.type == RtcNotificationContent.eventType &&
-      event.tryParseRtcNotificationContent()?.notificationType == .ring &&
-      PlatformInfos.isMobile) {
-    _showIncomingCall(event, l10n);
-    return;
-  }
-
   // Waits for the merged contacts too, which decide below whether this room
   // is on screen and which conversation it belongs to.
   await MergedContactsStore.forClient(client).loaded;
@@ -339,13 +329,6 @@ Future<void> _tryPushHelper(
           semanticAction: SemanticAction.mute,
         ),
       ],
-      RtcNotificationContent.eventType => [
-        AndroidNotificationAction(
-          FluffyChatNotificationActions.enterCall.name,
-          l10n.enterCall,
-          semanticAction: SemanticAction.call,
-        ),
-      ],
       _ => null,
     },
   );
@@ -490,57 +473,6 @@ extension on PushNotification {
     }
     if (clientName == null) return roomId.hashCode;
     return '${clientName}_$roomId'.hashCode;
-  }
-}
-
-Future<void> _showIncomingCall(Event event, L10n l10n) async {
-  final callId = '${event.room.id}|${event.room.client.clientName}';
-  final activeCalls = await FlutterCallkitIncoming.activeCalls();
-  if (activeCalls.any((call) => call.id == callId)) {
-    Logs().d(
-      'Call with this ID is already active. Ignoring this Push Notification...',
-      callId,
-    );
-    return;
-  }
-  final intentStr = event.content.tryGet<String>('m.call.intent');
-  final intent =
-      MatrixRtcCallIntent.values.singleWhereOrNull(
-        (i) => i.name == intentStr,
-      ) ??
-      .video;
-  final timeout =
-      event.tryParseRtcNotificationContent()?.lifetime ??
-      RtcNotificationContent.defaultLifetime;
-  final params = await buildFluffyChatCallKitParams(
-    event.room,
-    l10n: l10n,
-    intent: intent,
-    timeout: timeout,
-  );
-  final timeoutDateTime = DateTime.now().add(timeout);
-  await FlutterCallkitIncoming.showCallkitIncoming(params);
-
-  while (DateTime.now().isBefore(timeoutDateTime)) {
-    await event.room.client.oneShotSync();
-    if (!event.room.hasActiveMatrixRtcCall) {
-      Logs().i('The other party has ended the call');
-      await FlutterCallkitIncoming.endCall(params.id);
-      break;
-    }
-    if (event.room.ownMatrixRtcMembership != null) {
-      Logs().d('User has joined the call.');
-      break;
-    }
-    if (event.room.getActiveMatrixRtcMembers().any(
-      (member) =>
-          member.senderId == event.room.client.userID! &&
-          member.deviceId != event.room.client.deviceID!,
-    )) {
-      Logs().i('User has accepted the call on a different device');
-      await FlutterCallkitIncoming.endCall(params.id);
-      break;
-    }
   }
 }
 

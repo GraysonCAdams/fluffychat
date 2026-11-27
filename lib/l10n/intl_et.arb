@@ -2771,41 +2771,12 @@
     "compressingVideo": "Pakime videot väiksemaks...",
     "shareCrashReports": "Jaga krahhilogisid",
     "shareCrashReportsDescription": "Kas jagad rakenduse kokkujooksmise aruandeid automaatselt arendajatega?",
-    "countActiveCallMembers": "Pooleliolevas kõnes on {count} osalejat",
-    "@countActiveCallMembers": {
-        "placeholders": {
-            "count": {
-                "type": "int"
-            }
-        }
-    },
-    "enterCall": "Liitu kõnega",
-    "videoCallsBetaWarning": "Palun arvesta, et videokõned on veel beetajärgus. Neis võib olla vigu ja ootamatusi. Kui midagi niisugust peaks juhtuma, siis hea meelega sooviksime sellest teada.",
-    "noDevicesFound": "Ühtegi seadet ei leidu",
-    "incomingCall": "Telefon heliseb",
-    "waitingForParticipant": "Ootan osaleja järgi…",
     "decline": "Keeldu",
-    "videoCall": "Videokõne",
-    "voiceCall": "Häälkõne",
-    "missedCall": "Märkamata kõne",
-    "callBack": "Helista tagasi",
-    "hangUp": "Lõpeta kõne",
-    "startCall": "Helista",
-    "selectCamera": "Vali kaamera",
-    "selectMicrophone": "Vali mikrofon",
-    "selectSpeaker": "Vali kõlar",
-    "toggleMicrophone": "Lülita mikrofon sisse/välja",
-    "toggleCamera": "Lülita kaamera sisse/välja",
-    "startScreensharing": "Alusta ekraanijagamist",
-    "stopScreensharing": "Lõpeta ekraanijagamine",
-    "raiseHand": "Anna käega märku",
-    "stopRaiseHand": "Lõpeta käega märkuandmine",
     "accountsAndSettings": "Kasutajakontod ja seadistused",
     "@accountsAndSettings": {
         "type": "String",
         "placeholders": {}
     },
-    "preferSpeaker": "Eelista esinejat",
     "unexpectedErrorOccurded": "Kahjuks tekkis ootamatu viga: {msg}",
     "@unexpectedErrorOccurded": {
         "placeholders": {

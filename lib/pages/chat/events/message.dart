@@ -127,7 +127,6 @@ class Message extends StatelessWidget {
     if (!{
       EventTypes.Message,
       EventTypes.Sticker,
-      EventTypes.CallInvite,
       PollEventContent.startType,
     }.contains(event.type)) {
       if (event.type.startsWith('m.call.')) {

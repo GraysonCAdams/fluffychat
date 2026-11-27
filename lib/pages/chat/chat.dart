@@ -26,7 +26,6 @@ import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/clipboard_gif.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/file_selector.dart';
-import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/event_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
@@ -76,7 +75,6 @@ class ChatPage extends StatelessWidget {
   final List<ShareItem>? shareItems;
   final String? eventId;
   final Timeline? timeline;
-  final String? action;
 
   /// Set to show a merged contact: all of its rooms in one timeline. Then
   /// [roomId] is unused.
@@ -92,7 +90,6 @@ class ChatPage extends StatelessWidget {
     this.eventId,
     this.shareItems,
     this.timeline,
-    this.action,
     this.contactId,
     this.eventRoomId,
   });
@@ -116,12 +113,11 @@ class ChatPage extends StatelessWidget {
     }
 
     return ChatPageWithRoom(
-      key: Key('chat_page_${roomId}_${eventId}_$action'),
+      key: Key('chat_page_${roomId}_$eventId'),
       room: room,
       shareItems: shareItems,
       eventId: eventId,
       timeline: timeline,
-      action: action,
     );
   }
 
@@ -149,13 +145,12 @@ class ChatPage extends StatelessWidget {
         return ChatPageWithRoom(
           // The page stays the same while the contact's default network
           // changes, which only changes widget.room.
-          key: Key('chat_page_contact_${contactId}_${eventId}_$action'),
+          key: Key('chat_page_contact_${contactId}_$eventId'),
           room: contact.sendViaRoom,
           contactId: contactId,
           shareItems: shareItems,
           eventId: eventId,
           eventRoomId: eventRoomId,
-          action: action,
         );
       },
     );
@@ -168,7 +163,6 @@ class ChatPageWithRoom extends StatefulWidget {
   final List<ShareItem>? shareItems;
   final String? eventId;
   final Timeline? timeline;
-  final String? action;
 
   /// Set when this shows a merged contact (see [ChatPage.contactId]).
   final String? contactId;
@@ -180,7 +174,6 @@ class ChatPageWithRoom extends StatefulWidget {
     this.shareItems,
     this.eventId,
     this.timeline,
-    this.action,
     this.contactId,
     this.eventRoomId,
   });
@@ -752,10 +745,6 @@ class ChatController extends State<ChatPageWithRoom>
     _loadDraft();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _shareItems();
-      _checkMatrixRtcCallSupport();
-      if (widget.action == 'call') {
-        Matrix.of(context).activeCallRoomId.value = room.id;
-      }
     });
     web.window.addEventListener('paste', _handleClipboardFilePasteWeb);
     HardwareKeyboard.instance.addHandler(_escapeClearsSelection);
@@ -783,18 +772,6 @@ class ChatController extends State<ChatPageWithRoom>
     }
     WidgetsBinding.instance.addObserver(this);
     _tryLoadTimeline();
-  }
-
-  Future<void> _checkMatrixRtcCallSupport() async {
-    try {
-      final urls = await room.client.getLiveKitServiceUrls();
-      if (urls.isEmpty) return;
-      setState(() {
-        supportLiveKitCalls = true;
-      });
-    } catch (e) {
-      Logs().d('Unable to check MatrixRTC call support', e);
-    }
   }
 
   final Set<String> expandedEventIds = {};
@@ -988,13 +965,6 @@ class ChatController extends State<ChatPageWithRoom>
 
     // We do not set read marker if timeline is empty
     if (timeline == null || timeline.events.isEmpty) return;
-
-    // Do not set read marker on rtc notification while call is active. This
-    // mutes callkit.
-    if (room.hasActiveMatrixRtcCall &&
-        timeline.events.first.type == RtcNotificationContent.eventType) {
-      return;
-    }
 
     eventId ??= timeline.events.firstWhereOrNull((event) {
       if (event.eventId == room.lastEvent?.eventId) return true;
@@ -2360,12 +2330,6 @@ class ChatController extends State<ChatPageWithRoom>
     replyEvent = null;
     editEvent = null;
   });
-
-  void startOrJoinVideoCall() {
-    Matrix.of(context).activeCallRoomId.value = room.id;
-  }
-
-  bool supportLiveKitCalls = false;
 
   Future<void> _cancelEditWithConfirmation() async {
     final originalText = editEvent!

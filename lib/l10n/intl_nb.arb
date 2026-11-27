@@ -2762,7 +2762,6 @@
     "doubleTapToReact": "Dubbelttrykk for å reagere",
     "doubleTapToReactDescription": "Dobbelt-trykk på en melding for å reagere i stedet for å merke tekst",
     "doubleTapReaction": "Reaksjon ved dobbelttrykk",
-    "videoCallsBetaWarning": "Videosamtaler er en betafunksjon. Det kan forekomme feil eller uventet oppførsel. Vi vil gjerne høre tilbakemeldingene dine.",
     "sendingFilesDoNotExit": "Sender {count} filer... Ikke avslutt!",
     "@sendingFilesDoNotExit": {
         "type": "String",
@@ -2785,40 +2784,12 @@
     },
     "allow": "Tillat",
     "deny": "Avvis",
-    "enterCall": "Bli med i samtale",
-    "noDevicesFound": "Ingen enheter funnet",
-    "incomingCall": "Innkommende samtale",
-    "waitingForParticipant": "Venter på deltakere...",
     "decline": "Avslå",
-    "videoCall": "Videosamtale",
-    "voiceCall": "Talesamtale",
-    "missedCall": "Tapte anrop",
-    "callBack": "Ring tilbake",
-    "hangUp": "Legg på",
-    "startCall": "Start samtale",
-    "selectCamera": "Velg kamera",
-    "selectMicrophone": "Velg mikrofon",
-    "selectSpeaker": "Velg høytaler",
-    "toggleMicrophone": "Slå på/av mikrofon",
-    "toggleCamera": "Slå på/av kamera",
-    "startScreensharing": "Start skjermdeling",
-    "stopScreensharing": "Avslutt skjermdeling",
-    "raiseHand": "Hev hånden",
-    "stopRaiseHand": "Senk hånden",
     "accountsAndSettings": "Kontoer og innstillinger",
     "@accountsAndSettings": {
         "type": "String",
         "placeholders": {}
     },
-    "countActiveCallMembers": "{count} aktive samtaledeltakere",
-    "@countActiveCallMembers": {
-        "placeholders": {
-            "count": {
-                "type": "int"
-            }
-        }
-    },
-    "preferSpeaker": "Prioriter taler",
     "unexpectedErrorOccurded": "Det oppstod dessverre en uventet feil: {msg}",
     "@unexpectedErrorOccurded": {
         "placeholders": {

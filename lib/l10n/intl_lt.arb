@@ -1922,9 +1922,6 @@
         "placeholders": {}
     },
     "decline": "Atmesti",
-    "waitingForParticipant": "Laukiama dalyvio...",
-    "incomingCall": "Gaunamas skambutis",
-    "enterCall": "Įeiti į skambutį",
     "allow": "Leisti",
     "deny": "Atmesti",
     "save": "Išsaugoti",

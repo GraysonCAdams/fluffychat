@@ -2742,23 +2742,7 @@
     "loadingMessages": "جاري تحميل الرسائل...",
     "buildDoesNotSupportFirebase": "هذا الإصدار لا يدعم خدمة firebase cloud messaging.",
     "unableToRegisterDeviceForFirebase": "يتعذر تسجيل الجهاز في خدمة firebase cloud messaging.",
-    "missedCall": "مكالمة فائتة",
-    "hangUp": "إنهاء المكالمة",
-    "waitingForParticipant": "في انتظار المشارك...",
     "decline": "رفض",
-    "startCall": "بدء المكالمة",
-    "selectCamera": "إختيار الكاميرا",
-    "selectMicrophone": "إختيار الميكروفون",
-    "incomingCall": "مكالمة واردة",
     "shareCrashReports": "مشاركة تقارير الأعطال",
-    "shareCrashReportsDescription": "مشاركة تقارير الأعطال تلقائيًا مع المطورين؟",
-    "countActiveCallMembers": "‏{count} أعضاء نشطون في المكالمة",
-    "@countActiveCallMembers": {
-        "placeholders": {
-            "count": {
-                "type": "int"
-            }
-        }
-    },
-    "toggleMicrophone": "تشغيل/إيقاف الميكروفون"
+    "shareCrashReportsDescription": "مشاركة تقارير الأعطال تلقائيًا مع المطورين؟"
 }

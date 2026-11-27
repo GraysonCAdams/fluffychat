@@ -256,15 +256,13 @@ Future<void> notificationTap(
           await room.setPushRuleState(PushRuleState.mentionsOnly);
         case FluffyChatNotificationActions.open:
           router?.go(_notificationRoute(client, roomId, payload.eventId));
-        case FluffyChatNotificationActions.enterCall:
-          router?.go('/rooms/$roomId?client=${client.clientName}&action=call');
       }
     case NotificationResponseType.notificationDismissed:
       return;
   }
 }
 
-enum FluffyChatNotificationActions { markAsRead, reply, mute, open, enterCall }
+enum FluffyChatNotificationActions { markAsRead, reply, mute, open }
 
 /// The chat a notification belongs to, scrolled to the notified message.
 String _notificationRoute(Client client, String roomId, String? eventId) {

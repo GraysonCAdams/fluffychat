@@ -2781,35 +2781,7 @@
     "doubleTapReaction": "Doppeltippreaktion",
     "shareCrashReports": "Absturzberichte teilen",
     "shareCrashReportsDescription": "Absturzberichte automatisch mit den Entwicklern teilen?",
-    "countActiveCallMembers": "{count} aktive Anrufteilnehmer",
-    "@countActiveCallMembers": {
-        "placeholders": {
-            "count": {
-                "type": "int"
-            }
-        }
-    },
-    "enterCall": "Anruf beitreten",
-    "videoCallsBetaWarning": "Videoanrufe sind eine Betafunktion. Es können Fehler oder unerwartetes Verhalten auftreten. Wir würden uns über Rückmeldungen freuen.",
-    "noDevicesFound": "Keine Geräte gefunden",
-    "incomingCall": "Eingehender Anruf",
-    "videoCall": "Videoanruf",
-    "voiceCall": "Sprachanruf",
-    "missedCall": "Verpasster Anruf",
-    "callBack": "Zurückrufen",
-    "hangUp": "Auflegen",
-    "waitingForParticipant": "Warte auf Teilnehmer...",
     "decline": "Ablehnen",
-    "startCall": "Anrufen",
-    "selectCamera": "Kamera auswählen",
-    "selectMicrophone": "Mikrophon auswählen",
-    "selectSpeaker": "Lautsprecher auswählen",
-    "toggleMicrophone": "Mikrophon wechseln",
-    "toggleCamera": "Kamera wechseln",
-    "startScreensharing": "Bildschirm teilen",
-    "stopScreensharing": "Bildschirm nicht mehr teilen",
-    "raiseHand": "Hand heben",
-    "stopRaiseHand": "Hand senken",
     "unexpectedErrorOccurded": "Unglücklicherweise ist ein unerwarteter Fehler aufgetreten: {msg}",
     "@unexpectedErrorOccurded": {
         "placeholders": {
@@ -2818,7 +2790,6 @@
             }
         }
     },
-    "preferSpeaker": "Lautsprecher bevorzugen",
     "incomingCallFrom": "Eingehender Anruf von {user}",
     "@incomingCallFrom": {
         "placeholders": {
