@@ -235,11 +235,62 @@ void main() {
     final messageAvatar = avatarIn(Message);
     final typingAvatar = avatarIn(TypingIndicatorRow);
     expect(typingAvatar.left, moreOrLessEquals(messageAvatar.left, epsilon: 1));
-    expect(typingAvatar.width, moreOrLessEquals(messageAvatar.width, epsilon: 1));
+    expect(
+      typingAvatar.width,
+      moreOrLessEquals(messageAvatar.width, epsilon: 1),
+    );
     expect(
       typingBubbleRect(tester).left,
       moreOrLessEquals(bubbleRect(tester, 'Hello there').left, epsilon: 1),
     );
+  });
+
+  testWidgets('a merged group continuing the sender\'s run lines the dots up '
+      'with the bubbles, the avatar beside them', (tester) async {
+    // A merged contact can be one group on two networks.
+    final groups = client.rooms
+        .where((room) => !room.isSpace && !room.isDirectChat)
+        .take(2)
+        .toList();
+    final room = groups.first;
+    setTyping(room, ['@alice:example.org']);
+    addTearDown(() => room.ephemerals.remove('m.typing'));
+
+    await pump(
+      tester,
+      room: room,
+      sender: '@alice:example.org',
+      typing: TypingIndicatorRow(
+        rooms: groups,
+        oneToOne: TypingIndicatorRow.oneToOneFor(groups),
+        newestFromOwn: false,
+        newestSenderId: '@alice:example.org',
+      ),
+    );
+
+    // The dots start where the run's bubbles do, past the avatar's column.
+    expect(
+      typingBubbleRect(tester).left,
+      moreOrLessEquals(bubbleRect(tester, 'Hello there').left, epsilon: 1),
+    );
+    expect(
+      find.descendant(
+        of: find.byType(TypingIndicatorRow),
+        matching: find.byType(Avatar),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  test('only direct chats read as one-to-one', () {
+    final direct = client.rooms.where((room) => room.isDirectChat).toList();
+    final groups = client.rooms
+        .where((room) => !room.isSpace && !room.isDirectChat)
+        .toList();
+    expect(TypingIndicatorRow.oneToOneFor(groups.take(2).toList()), isFalse);
+    if (direct.isNotEmpty) {
+      expect(TypingIndicatorRow.oneToOneFor([direct.first]), isTrue);
+    }
   });
 
   /// Opacity of the avatar slot on the message's last bubble.
@@ -257,9 +308,8 @@ void main() {
     matching: find.byType(Avatar),
   );
 
-  Room groupRoom() => client.rooms.firstWhere(
-    (room) => !room.isSpace && !room.isDirectChat,
-  );
+  Room groupRoom() =>
+      client.rooms.firstWhere((room) => !room.isSpace && !room.isDirectChat);
 
   testWidgets('the sender typing moves their avatar from the last bubble to '
       'the dots, at the spacing of a run', (tester) async {
@@ -341,7 +391,9 @@ void main() {
         rooms: RoomsUpdate(
           join: {
             room.id: JoinedRoomUpdate(
-              ephemeral: [BasicEvent(type: 'm.typing', content: {'user_ids': []})],
+              ephemeral: [
+                BasicEvent(type: 'm.typing', content: {'user_ids': []}),
+              ],
             ),
           },
         ),

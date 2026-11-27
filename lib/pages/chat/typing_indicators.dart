@@ -30,9 +30,10 @@ class TypingIndicators extends StatelessWidget {
     final newest = controller.timeline?.events.firstWhereOrNull(
       (event) => event.isVisibleInGui,
     );
+    final rooms = contact?.rooms ?? [room];
     return TypingIndicatorRow(
-      rooms: contact?.rooms ?? [room],
-      oneToOne: contact != null || room.isDirectChat,
+      rooms: rooms,
+      oneToOne: TypingIndicatorRow.oneToOneFor(rooms),
       newestFromOwn:
           newest != null && newest.senderId == newest.room.client.userID,
       newestSenderId: newest?.senderId,
@@ -70,6 +71,14 @@ class TypingIndicatorRow extends StatefulWidget {
     this.newestSenderId,
     super.key,
   });
+
+  /// Whether [rooms] read as a one-to-one conversation, so the typing row
+  /// has no avatar: when every one of them is a direct chat. A merged
+  /// contact can be a group on several networks, whose messages show their
+  /// senders' avatars and line up past them (see `Message`), and the
+  /// typing row lines up with those.
+  static bool oneToOneFor(List<Room> rooms) =>
+      rooms.every((room) => room.isDirectChat);
 
   @override
   State<TypingIndicatorRow> createState() => _TypingIndicatorRowState();
