@@ -4,8 +4,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/config/setting_keys.dart';
+import 'package:fluffychat/widgets/settings_list.dart';
 import 'package:material_ui/material_ui.dart';
 
+/// A [SettingsSwitchTile] bound to a stored [setting].
 class SettingsSwitchListTile extends StatefulWidget {
   final AppSettings<bool?> setting;
   final String title;
@@ -30,7 +32,7 @@ class SettingsSwitchListTileState extends State<SettingsSwitchListTile> {
   @override
   Widget build(BuildContext context) {
     final subtitle = widget.subtitle;
-    return SwitchListTile.adaptive(
+    return SettingsSwitchTile(
       // A setting never changed has nothing stored: show its own default
       // rather than off, which is what the rest of the app acts on.
       value:
