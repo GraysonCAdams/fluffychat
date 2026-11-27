@@ -339,10 +339,4 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
   }
 }
 
-enum SettingsAction {
-  setStatus,
-  snooze,
-  invite,
-  settings,
-  archive,
-}
+enum SettingsAction { setStatus, snooze, invite, settings, archive }
