@@ -135,8 +135,12 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// is none.
   ExistingChat? conversation;
 
-  /// The room the first message goes to in [conversation].
-  Room? get sendRoom => conversation?.sendRoom;
+  /// The room the first message goes to in [conversation]: for one person,
+  /// their chat on the selected network, which is null on a network they
+  /// have no chat on yet (the message then starts one there).
+  Room? get sendRoom => recipients.length == 1 && !recipients.single.group
+      ? selectedNetwork?.room
+      : conversation?.sendRoom;
 
   /// What the networks answered about each person in the To field, by
   /// [groupMemberKey].
@@ -686,10 +690,17 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     return recipients.any((recipient) => groupMemberKey(recipient) == key);
   }
 
+  /// Whether the To field holds a group chat picked from the suggestions,
+  /// which is then where the message goes: the field shows it locked, and
+  /// nobody can be added or typed in until the composer closes.
+  bool get groupLocked => recipients.length == 1 && recipients.single.group;
+
   /// A suggestion was tapped: adds [person] to the To field, or takes them
-  /// out when they are in it. A group chat is not a person, so with nobody
-  /// in the To field it opens instead.
+  /// out when they are in it. A group chat is not a person: with nobody in
+  /// the To field it becomes the locked recipient ([groupLocked]), and the
+  /// message field takes the focus.
   Future<void> pickPerson(NewChatPerson<ExistingChat> person) async {
+    if (groupLocked) return;
     if (isRecipient(person)) {
       removeRecipient(groupMemberKey(person));
       _clearSearch();
@@ -698,16 +709,12 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     if (person.group) {
       final chat = person.chat;
       if (recipients.isEmpty && chat != null) {
-        if (sharing) {
-          // A share goes to the group from here, so it is the recipient.
-          setState(() {
-            recipients.add(person);
-            _findConversation();
-          });
-          _clearSearch();
-          return;
-        }
-        context.go(_routeOf(chat));
+        setState(() {
+          recipients.add(person);
+          _findConversation();
+        });
+        _clearSearch();
+        messageFocus.requestFocus();
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
@@ -735,7 +742,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// as in [toggleGroupMember], and someone it cannot reach stays out,
   /// with the reason in a snackbar.
   Future<void> addRecipient(NewChatPerson<ExistingChat> person) async {
-    if (sending) return;
+    if (sending || groupLocked) return;
     if (recipients.isNotEmpty && !await _addToGroup(person)) return;
     setState(() {
       recipients.add(person);
@@ -890,12 +897,17 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     } else if (first.group) {
       conversation = recipients.length == 1 ? first.chat : null;
     } else if (recipients.length == 1) {
-      final room = selectedNetwork?.room;
+      // A merged contact shows every network's messages in one whichever
+      // network is picked; the pick changes only where the message goes
+      // (see [sendRoom]).
+      final contact = _personChat?.contact;
+      final room =
+          selectedNetwork?.room ?? (contact == null ? null : _personChat?.room);
       conversation = room == null
           ? null
           : ExistingChat(
               room: room,
-              contact: null,
+              contact: contact,
               networks: [?spacesByChild(client)[room.id]],
             );
     } else if (groupBridge != null) {
