@@ -4000,5 +4000,21 @@
   "noSpellingSuggestions": "(No spelling suggestions)",
   "@noSpellingSuggestions": {
     "description": "Greyed-out item in the message input's right-click menu on Windows when the misspelled word under the pointer has no suggested corrections."
+  },
+  "playVideo": "Play video",
+  "@playVideo": {
+    "description": "Label of the button in the middle of a video in a chat that plays it in place."
+  },
+  "pauseVideo": "Pause video",
+  "@pauseVideo": {
+    "description": "Label of the button in the middle of a playing video in a chat that pauses it."
+  },
+  "replayVideo": "Replay video",
+  "@replayVideo": {
+    "description": "Label of the button in the middle of a video in a chat that has played to the end, which plays it again."
+  },
+  "unmute": "Unmute",
+  "@unmute": {
+    "description": "Label of the speaker button in the corner of a muted video in a chat, which turns its sound back on."
   }
 }

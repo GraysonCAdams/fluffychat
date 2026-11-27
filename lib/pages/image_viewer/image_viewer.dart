@@ -19,10 +19,15 @@ class ImageViewer extends StatefulWidget {
   final Timeline? timeline;
   final BuildContext outerContext;
 
+  /// Where [event]'s video starts, when it was already playing in its chat
+  /// message. Other videos paged to start at the beginning.
+  final Duration? videoStartPosition;
+
   const ImageViewer(
     this.event, {
     required this.outerContext,
     this.timeline,
+    this.videoStartPosition,
     super.key,
   });
 
