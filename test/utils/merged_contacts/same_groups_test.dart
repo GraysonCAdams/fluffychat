@@ -240,6 +240,26 @@ void main() {
     expect(MergedContact.ofRoom(client, '!imsg:x'), isNull);
   });
 
+  test(
+    'a chat added to them makes a stored conversation of all three',
+    () async {
+      final backend = _Backend();
+      final store = MergedContactsStore(backend);
+      addTearDown(store.dispose);
+      final automatic = store.contactForRoom('!a')!;
+
+      // The same people on another network, added with the chat's "+".
+      final id = await store.merge(['!gm'], intoContactId: automatic.id);
+      final contact = store.contactForRoom('!gm');
+      expect(contact?.id, id);
+      expect(contact?.automatic, isFalse);
+      expect(contact?.rooms, ['!a', '!b', '!gm']);
+      expect(store.contactForRoom('!a')?.id, id);
+      expect(store.contactForRoom('!b')?.id, id);
+      expect(store.contacts, hasLength(1));
+    },
+  );
+
   test('splitting them up keeps them apart', () async {
     final backend = _Backend();
     final store = MergedContactsStore(backend);

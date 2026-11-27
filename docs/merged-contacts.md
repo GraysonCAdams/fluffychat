@@ -229,6 +229,10 @@ conversation without the user doing anything (`findSameGroups`):
   (`dismissed_suggestions`), so the contact is not made again. Renaming
   or picking another default network is not stored for an automatic
   contact.
+- Adding a chat to it with the chat's "+" stores a contact made of its
+  rooms and the added one, under the name it showed, and the conversation
+  opens under the new contact's route. The automatic one is not made again,
+  as its rooms now belong to a contact the user made.
 - The chat list badges it as its one network, and the chat's network
   switcher shows that network once, for the room the next message goes
   to. A group conversation without a picture shows its members, as a

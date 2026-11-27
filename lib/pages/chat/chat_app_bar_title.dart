@@ -75,18 +75,11 @@ class ChatAppBarTitle extends StatelessWidget {
             children: [
               Hero(
                 tag: 'content_banner',
-                child: contact == null && GroupAvatar.shows(room)
-                    ? GroupAvatar(
-                        room: room,
-                        name: title,
-                        size: 32,
-                        outlineColor: Theme.of(context).colorScheme.surface,
-                      )
-                    : Avatar(
-                        mxContent: contact?.avatar ?? room.avatar,
-                        name: title,
-                        size: 32,
-                      ),
+                child: ChatHeaderAvatar(
+                  room: room,
+                  contact: contact,
+                  name: title,
+                ),
               ),
             ],
           ),
@@ -298,6 +291,39 @@ class _GroupMembersLineState extends State<GroupMembersLine> {
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     );
+  }
+}
+
+/// The picture beside a chat's title: a group without one, merged or not,
+/// shows its members, as in the chat list; anything else its avatar. A
+/// merged chat shows the room messages go to.
+class ChatHeaderAvatar extends StatelessWidget {
+  final Room room;
+  final MergedContact? contact;
+  final String name;
+
+  const ChatHeaderAvatar({
+    required this.room,
+    required this.contact,
+    required this.name,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = contact?.sendViaRoom ?? room;
+    return GroupAvatar.shows(shown)
+        ? GroupAvatar(
+            room: shown,
+            name: name,
+            size: 32,
+            outlineColor: Theme.of(context).colorScheme.surface,
+          )
+        : Avatar(
+            mxContent: contact?.avatar ?? room.avatar,
+            name: name,
+            size: 32,
+          );
   }
 }
 

@@ -362,13 +362,23 @@ class MergedContactsStore {
 
   /// Merges [roomIds] into one contact and returns its ID. Rooms already in
   /// other contacts move to this one. With [intoContactId] the rooms are
-  /// added to that contact, after its own.
+  /// added to that contact, after its own. A contact the app made for
+  /// same-people groups is not stored, so adding to it stores a new
+  /// contact with its rooms and [roomIds], whose ID is returned.
   Future<String> merge(
     List<String> roomIds, {
     String? intoContactId,
     String? name,
     Map<String, Object?>? identifier,
   }) async {
+    final automatic = intoContactId == null ? null : _byId[intoContactId];
+    if (automatic != null && automatic.automatic) {
+      return merge(
+        [...automatic.rooms, ...roomIds],
+        name: name ?? automatic.name,
+        identifier: identifier,
+      );
+    }
     final id = intoContactId ?? _newId();
     await _update((data, now) {
       final existing = data.contacts[id];
