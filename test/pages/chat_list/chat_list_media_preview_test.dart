@@ -15,7 +15,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'chat_list_fakes.dart';
 
-/// Where a preview's icon sits in its plain text.
+/// Where a preview's icon sits in its plain text. The user's own message
+/// also starts with one, for its status icon before "You:".
 const _icon = '￼';
 const _me = '@me:x';
 const _url = 'https://scrolly.312.dev/join/e424660b?p=QmFz';
@@ -126,7 +127,7 @@ void main() {
       );
       expect(
         texts(tester),
-        contains('You: ${_icon}scrolly.312.dev/join/e424660b?p=QmFz'),
+        contains('${_icon}You: ${_icon}scrolly.312.dev/join/e424660b?p=QmFz'),
       );
       expect(find.byIcon(Icons.link), findsOneWidget);
       expect(texts(tester).where((t) => t.contains('🔗')), isEmpty);
@@ -139,7 +140,7 @@ void main() {
       );
       expect(
         texts(tester),
-        contains('You: ${_icon}scrolly.312.dev/join/e424660b?p=QmFz'),
+        contains('${_icon}You: ${_icon}scrolly.312.dev/join/e424660b?p=QmFz'),
       );
       expect(find.byIcon(Icons.link), findsOneWidget);
     });
@@ -156,7 +157,7 @@ void main() {
           'formatted_body': 'see <a href="https://x.org">https://x.org</a> now',
         }),
       );
-      expect(texts(tester), contains('You: see https://x.org now'));
+      expect(texts(tester), contains('${_icon}You: see https://x.org now'));
       expect(find.byIcon(Icons.link), findsNothing);
     });
 
@@ -170,7 +171,7 @@ void main() {
           'formatted_body': '🔗 links <b>below</b>',
         }),
       );
-      expect(texts(tester), contains('You: 🔗 links below'));
+      expect(texts(tester), contains('${_icon}You: 🔗 links below'));
     });
   });
 
@@ -200,7 +201,7 @@ void main() {
           'filename': 'PXL_1.jpg',
         }),
       );
-      expect(texts(tester), contains('You: ${_icon}Photo'));
+      expect(texts(tester), contains('${_icon}You: ${_icon}Photo'));
       expect(texts(tester).where((t) => t.contains('Grayson')), isEmpty);
     });
 
@@ -358,7 +359,7 @@ void main() {
       tester,
       chat(_me, {'msgtype': MessageTypes.Text, 'body': 'Test'}),
     );
-    expect(texts(tester), contains('You: Test'));
-    expect(previewText(tester, 'You: ').maxLines, 1);
+    expect(texts(tester), contains('${_icon}You: Test'));
+    expect(previewText(tester, '${_icon}You: ').maxLines, 1);
   });
 }

@@ -11,6 +11,7 @@ import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_swipe.dart';
 import 'package:fluffychat/pages/chat_list/message_preview.dart';
 import 'package:fluffychat/pages/chat_list/message_preview_cache.dart';
+import 'package:fluffychat/pages/chat_list/own_message_status.dart';
 import 'package:fluffychat/pages/chat_list/push_rule_state_cache.dart';
 import 'package:fluffychat/pages/chat_list/unread_bubble.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
@@ -410,18 +411,6 @@ class _ChatListItemState extends State<ChatListItem> {
                           padding: const EdgeInsets.only(right: 4.0),
                           child: ActiveCallIndicator(room: room),
                         ),
-                      if (typingText.isEmpty &&
-                          ownMessage &&
-                          lastEvent?.status.isSending == true) ...[
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                      ],
                       AnimatedSize(
                         clipBehavior: Clip.hardEdge,
                         duration: FluffyThemes.animationDuration,
@@ -524,33 +513,56 @@ class _ChatListItemState extends State<ChatListItem> {
                                         : l10n.senderMessage(sender, text);
                                   }
 
+                                  final span =
+                                      room.membership == Membership.invite
+                                      ? TextSpan(
+                                          text:
+                                              room
+                                                  .getState(
+                                                    EventTypes.RoomMember,
+                                                    room.client.userID!,
+                                                  )
+                                                  ?.content
+                                                  .tryGet<String>('reason') ??
+                                              (isDirectChat
+                                                  ? l10n.newChatRequest
+                                                  : l10n.inviteGroupChat),
+                                        )
+                                      : preview == null
+                                      ? TextSpan(text: l10n.noMessagesYet)
+                                      // Media and a lone link show an icon
+                                      // before a word or the address.
+                                      : preview.icon != null
+                                      ? messagePreviewSpan(
+                                          l10n,
+                                          preview,
+                                          sender: sender,
+                                          color: textColor,
+                                        )
+                                      : TextSpan(text: plain(preview));
+                                  // The user's own message shows how far it
+                                  // has got before "You:".
+                                  final ownStatus =
+                                      lastEvent != null &&
+                                      preview != null &&
+                                      room.membership != Membership.invite &&
+                                      ownMessage;
                                   return Text.rich(
-                                    room.membership == Membership.invite
+                                    ownStatus
                                         ? TextSpan(
-                                            text:
-                                                room
-                                                    .getState(
-                                                      EventTypes.RoomMember,
-                                                      room.client.userID!,
-                                                    )
-                                                    ?.content
-                                                    .tryGet<String>('reason') ??
-                                                (isDirectChat
-                                                    ? l10n.newChatRequest
-                                                    : l10n.inviteGroupChat),
+                                            children: [
+                                              WidgetSpan(
+                                                alignment:
+                                                    PlaceholderAlignment.middle,
+                                                child: OwnMessageStatusIcon(
+                                                  lastEvent,
+                                                  color: textColor,
+                                                ),
+                                              ),
+                                              span,
+                                            ],
                                           )
-                                        : preview == null
-                                        ? TextSpan(text: l10n.noMessagesYet)
-                                        // Media and a lone link show an icon
-                                        // before a word or the address.
-                                        : preview.icon != null
-                                        ? messagePreviewSpan(
-                                            l10n,
-                                            preview,
-                                            sender: sender,
-                                            color: textColor,
-                                          )
-                                        : TextSpan(text: plain(preview)),
+                                        : span,
                                     softWrap: false,
                                     maxLines: notificationCount >= 1 ? 2 : 1,
                                     overflow: TextOverflow.ellipsis,
