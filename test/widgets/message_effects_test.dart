@@ -2156,6 +2156,157 @@ void main() {
     });
   });
 
+  group('the picker sheet', () {
+    Future<List<String>> pumpInkPicker(WidgetTester tester) async {
+      final log = <String>[];
+      // A phone's screen with its status bar, so the sheet has a phone's
+      // room and stops short of the top.
+      tester.view.physicalSize = const Size(412, 900);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 40);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: L10n.localizationsDelegates,
+          supportedLocales: L10n.supportedLocales,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async {
+                  final effect = await showMessageEffectPicker(
+                    context,
+                    text: List.filled(
+                      4,
+                      'The password is swordfish.',
+                    ).join(' '),
+                    bubbleColor: Colors.green,
+                    onBubbleColor: Colors.white,
+                  );
+                  log.add('closed with $effect');
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await pumpUntilBuilt(tester);
+      await tester.tap(find.text('Open'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      await tester.tap(find.byKey(const ValueKey('effect_invisibleInk')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      return log;
+    }
+
+    final sheet = find.byType(BottomSheet);
+    final stage = find.byType(ScreenEffectHost);
+
+    testWidgets('stays still while the ink in the preview is rubbed', (
+      tester,
+    ) async {
+      final log = await pumpInkPicker(tester);
+      final top = tester.getTopLeft(sheet).dy;
+      final inkRect = tester.getRect(find.byType(InvisibleInk));
+      expect(inkRect.height, greaterThan(80));
+      final gesture = await tester.startGesture(
+        inkRect.topCenter + const Offset(0, 10),
+      );
+      for (var i = 0; i < 10; i++) {
+        await gesture.moveBy(const Offset(0, 10));
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.getTopLeft(sheet).dy, top);
+      }
+      // The ink took the rub.
+      final ink = tester.state<InvisibleInkState>(find.byType(InvisibleInk));
+      expect(ink.shownAt(Offset(inkRect.width / 2, 60)), 1);
+      await gesture.up();
+      await tester.pump();
+      // Lifting does not replay the preview and cover the ink again.
+      expect(ink.mounted, isTrue);
+      expect(ink.isHidden, isFalse);
+      await tester.pump(const Duration(seconds: 1));
+      expect(log, isEmpty);
+      expect(tester.getTopLeft(sheet).dy, top);
+
+      // A fast downward flick over the ink does not close the sheet.
+      await tester.flingFrom(inkRect.topCenter, const Offset(0, 120), 3000);
+      await tester.pump(const Duration(seconds: 1));
+      expect(log, isEmpty);
+      expect(find.byType(MessageEffectPicker), findsOneWidget);
+      await tester.pump(const Duration(seconds: 8));
+    });
+
+    testWidgets('a tap on the ink in the preview clears a patch of it', (
+      tester,
+    ) async {
+      await pumpInkPicker(tester);
+      final ink = tester.state<InvisibleInkState>(find.byType(InvisibleInk));
+      await tester.tap(find.byType(InvisibleInk));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      // The preview is not played again, which would cover the ink anew.
+      expect(ink.mounted, isTrue);
+      expect(ink.isHidden, isFalse);
+      expect(ink.isRevealed, isFalse);
+      await tester.pump(const Duration(seconds: 8));
+    });
+
+    testWidgets('stays still under a drag on the stage around the bubble', (
+      tester,
+    ) async {
+      final log = await pumpInkPicker(tester);
+      final top = tester.getTopLeft(sheet).dy;
+      final from = tester.getTopLeft(stage) + const Offset(30, 30);
+      final gesture = await tester.startGesture(from);
+      for (var i = 0; i < 10; i++) {
+        await gesture.moveBy(const Offset(0, 12));
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.getTopLeft(sheet).dy, top);
+      }
+      await gesture.up();
+      await tester.pump(const Duration(seconds: 1));
+      expect(log, isEmpty);
+    });
+
+    testWidgets('still closes when its handle is dragged down', (tester) async {
+      final log = await pumpInkPicker(tester);
+      final top = tester.getTopLeft(sheet).dy;
+      final handle = tester.getRect(sheet).topCenter + const Offset(0, 16);
+      final gesture = await tester.startGesture(handle);
+      await gesture.moveBy(const Offset(0, 30));
+      await gesture.moveBy(const Offset(0, 100));
+      await tester.pump();
+      expect(tester.getTopLeft(sheet).dy, greaterThan(top + 60));
+      for (var i = 0; i < 10; i++) {
+        await gesture.moveBy(const Offset(0, 40));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(log, ['closed with null']);
+      expect(find.byType(MessageEffectPicker), findsNothing);
+    });
+
+    testWidgets('still closes on a tap outside it and on back', (tester) async {
+      final log = await pumpInkPicker(tester);
+      await tester.tapAt(const Offset(200, 20));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(log, ['closed with null']);
+      await tester.tap(find.text('Open'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.byType(MessageEffectPicker), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(log, ['closed with null', 'closed with null']);
+    });
+  });
+
   group('the send button', () {
     Future<List<Object>> pumpSendButton(
       WidgetTester tester,

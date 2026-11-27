@@ -28,6 +28,10 @@ IconData _iconOf(MessageEffect effect) => switch (effect) {
 /// Opens the sheet that sends [text] and the staged [media] with an effect
 /// and returns the effect picked, or null when the sheet was dismissed.
 ///
+/// The sheet is dragged by its handle only: a drag anywhere below it is
+/// left to the preview, where invisible ink is rubbed, and to the list of
+/// effects.
+///
 /// [onSchedule], when given, puts a schedule button at the foot of the
 /// sheet, apart from the effects, which closes the sheet before it is
 /// called. [canSchedule] tells whether the homeserver can hold a message
@@ -45,6 +49,7 @@ Future<MessageEffect?> showMessageEffectPicker(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
+  enableDrag: false,
   showDragHandle: true,
   builder: (context) => FractionallySizedBox(
     heightFactor: 1,
@@ -220,7 +225,8 @@ class _MessageEffectPickerState extends State<MessageEffectPicker> {
             }),
           ),
         ),
-        // The stage: the message as it will arrive. Tapping plays it again.
+        // The stage: the message as it will arrive. Tapping plays it
+        // again, except under invisible ink, which a touch rubs away.
         Expanded(
           flex: 5,
           child: Padding(
@@ -230,7 +236,9 @@ class _MessageEffectPickerState extends State<MessageEffectPicker> {
               borderRadius: BorderRadius.circular(28),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
-                onTap: () => setState(() => _preview++),
+                onTap: _effect == MessageEffect.invisibleInk
+                    ? null
+                    : () => setState(() => _preview++),
                 child: ScreenEffectHost(
                   child: Container(
                     alignment: Alignment.bottomRight,
