@@ -7,6 +7,7 @@ import 'package:fluffychat/utils/room_unread.dart';
 import 'package:matrix/matrix.dart';
 
 import 'model.dart';
+import 'same_groups.dart';
 import 'store.dart';
 
 /// A merged contact with its rooms resolved: everything the chat list and
@@ -56,10 +57,36 @@ class MergedContact {
     return null;
   }
 
-  /// The name the user gave the contact, else the `send_via` room's name.
+  /// The name the user gave the contact ([userName]), else for group chats
+  /// the name their rooms give it now ([liveGroupName]), else the
+  /// `send_via` room's name.
   String displayName([
     MatrixLocalizations i18n = const MatrixDefaultLocalizations(),
-  ]) => entry.name ?? sendViaRoom.getLocalizedDisplayname(i18n);
+  ]) =>
+      userName ??
+      (isGroup
+          ? liveGroupName(rooms, i18n)
+          : sendViaRoom.getLocalizedDisplayname(i18n));
+
+  /// Whether every room is a group chat.
+  bool get isGroup => rooms.every((room) => !room.isDirectChat);
+
+  /// The name the user gave the contact, or null. A group contact's stored
+  /// name that was not set by a rename and is one of its rooms' own names
+  /// (as an earlier version stored the name a conversation showed when a
+  /// chat was added to it) is not one, so the name follows the rooms.
+  String? get userName {
+    final name = entry.name;
+    if (name == null || entry.nameSet || !isGroup) return name;
+    final shown =
+        name == liveGroupName(rooms) ||
+        rooms.any(
+          (room) =>
+              room.getLocalizedDisplayname() == name ||
+              isBuiltGroupName(name, room),
+        );
+    return shown ? null : name;
+  }
 
   Uri? get avatar => sendViaRoom.avatar;
 

@@ -4,6 +4,7 @@
 
 import 'package:matrix/matrix.dart';
 
+import 'merged_contact.dart';
 import 'store.dart';
 
 /// The value that stands for a merged contact's screen wherever the app
@@ -55,19 +56,16 @@ String notificationConversation(Client client, String roomId) {
   return conversationId(roomId, contact?.id);
 }
 
-/// The display name of [roomId]'s conversation: the merged contact's name,
-/// or null to use the room's own.
+/// The display name of [roomId]'s conversation: its merged contact's
+/// (see [MergedContact.displayName]), or null to use the room's own.
 String? notificationConversationName(
   Client client,
   String roomId,
   MatrixLocalizations i18n,
 ) {
-  final contact = MergedContactsStore.forClient(client).contactForRoom(roomId);
-  if (contact == null) return null;
-  final name = contact.name;
-  if (name != null) return name;
-  final sendVia = client.getRoomById(contact.sendViaIn(contact.rooms) ?? '');
-  return sendVia?.getLocalizedDisplayname(i18n);
+  final entry = MergedContactsStore.forClient(client).contactForRoom(roomId);
+  if (entry == null) return null;
+  return MergedContact.resolve(client, entry)?.displayName(i18n);
 }
 
 /// Whether the notification of [roomId]'s conversation can go: every room
