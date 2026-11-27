@@ -66,6 +66,9 @@ class Message extends StatelessWidget {
   /// Hides the reaction picker shown under a single selected message.
   final bool hideReactionPicker;
   final Timeline timeline;
+
+  /// Whether the chat just jumped to this message, which brightens its
+  /// bubble for a moment (see [BubbleHighlight]).
   final bool highlightMarker;
   final bool animateIn;
   final bool wallpaperMode;
@@ -446,7 +449,7 @@ class Message extends StatelessWidget {
                         borderRadius: BorderRadius.circular(
                           AppConfig.borderRadius / 2,
                         ),
-                        color: selected || highlightMarker
+                        color: selected
                             ? theme.colorScheme.secondaryContainer.withAlpha(
                                 128,
                               )
@@ -685,113 +688,115 @@ class Message extends StatelessWidget {
                                                     ),
                                                 scrollController:
                                                     scrollController,
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          AppConfig
-                                                              .borderRadius,
+                                                child: BubbleHighlight(
+                                                  active: highlightMarker,
+                                                  overContent: noBubble,
+                                                  child: Container(
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            AppConfig
+                                                                .borderRadius,
+                                                          ),
+                                                    ),
+                                                    constraints:
+                                                        const BoxConstraints(
+                                                          maxWidth: 325,
                                                         ),
-                                                  ),
-                                                  constraints:
-                                                      const BoxConstraints(
-                                                        maxWidth: 325,
-                                                      ),
-                                                  child: Column(
-                                                    mainAxisSize: .min,
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: <Widget>[
-                                                      if (event.inReplyToEventId(
-                                                            includingFallback:
-                                                                false,
-                                                          ) !=
-                                                          null)
-                                                        ReplyEventBuilder(
-                                                          event: event,
-                                                          timeline: timeline,
-                                                          builder:
-                                                              (
-                                                                context,
-                                                                foundReplyEvent,
-                                                              ) {
-                                                                final replyEvent =
-                                                                    foundReplyEvent ??
-                                                                    Event(
-                                                                      eventId:
-                                                                          event
-                                                                              .inReplyToEventId() ??
-                                                                          '\$fake_event_id',
-                                                                      content: {
-                                                                        'msgtype':
-                                                                            'm.text',
-                                                                        'body':
-                                                                            '...',
-                                                                      },
-                                                                      senderId:
-                                                                          event
-                                                                              .senderId,
-                                                                      type:
-                                                                          'm.room.message',
-                                                                      room: event
-                                                                          .room,
-                                                                      status: EventStatus
-                                                                          .sent,
-                                                                      originServerTs:
-                                                                          DateTime.now(),
-                                                                    );
-                                                                return Padding(
-                                                                  padding:
-                                                                      const EdgeInsets.only(
-                                                                        left:
-                                                                            16,
-                                                                        right:
-                                                                            16,
-                                                                        top: 8,
-                                                                      ),
-                                                                  child: Material(
-                                                                    color: Colors
-                                                                        .transparent,
-                                                                    borderRadius:
-                                                                        ReplyContent
-                                                                            .borderRadius,
-                                                                    child: InkWell(
+                                                    child: Column(
+                                                      mainAxisSize: .min,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: <Widget>[
+                                                        if (event.inReplyToEventId(
+                                                              includingFallback:
+                                                                  false,
+                                                            ) !=
+                                                            null)
+                                                          ReplyEventBuilder(
+                                                            event: event,
+                                                            timeline: timeline,
+                                                            builder:
+                                                                (
+                                                                  context,
+                                                                  foundReplyEvent,
+                                                                ) {
+                                                                  final replyEvent =
+                                                                      foundReplyEvent ??
+                                                                      Event(
+                                                                        eventId:
+                                                                            event.inReplyToEventId() ??
+                                                                            '\$fake_event_id',
+                                                                        content: {
+                                                                          'msgtype':
+                                                                              'm.text',
+                                                                          'body':
+                                                                              '...',
+                                                                        },
+                                                                        senderId:
+                                                                            event.senderId,
+                                                                        type:
+                                                                            'm.room.message',
+                                                                        room: event
+                                                                            .room,
+                                                                        status:
+                                                                            EventStatus.sent,
+                                                                        originServerTs:
+                                                                            DateTime.now(),
+                                                                      );
+                                                                  return Padding(
+                                                                    padding:
+                                                                        const EdgeInsets.only(
+                                                                          left:
+                                                                              16,
+                                                                          right:
+                                                                              16,
+                                                                          top:
+                                                                              8,
+                                                                        ),
+                                                                    child: Material(
+                                                                      color: Colors
+                                                                          .transparent,
                                                                       borderRadius:
                                                                           ReplyContent
                                                                               .borderRadius,
-                                                                      onTap: () => scrollToEventId(
-                                                                        replyEvent
-                                                                            .eventId,
-                                                                      ),
-                                                                      child: AbsorbPointer(
-                                                                        child: ReplyContent(
-                                                                          replyEvent,
-                                                                          ownMessage:
-                                                                              ownMessage,
-                                                                          foregroundColor:
-                                                                              onNetworkColor,
-                                                                          timeline:
-                                                                              timeline,
+                                                                      child: InkWell(
+                                                                        borderRadius:
+                                                                            ReplyContent.borderRadius,
+                                                                        onTap: () => scrollToEventId(
+                                                                          replyEvent
+                                                                              .eventId,
+                                                                        ),
+                                                                        child: AbsorbPointer(
+                                                                          child: ReplyContent(
+                                                                            replyEvent,
+                                                                            ownMessage:
+                                                                                ownMessage,
+                                                                            foregroundColor:
+                                                                                onNetworkColor,
+                                                                            timeline:
+                                                                                timeline,
+                                                                          ),
                                                                         ),
                                                                       ),
                                                                     ),
-                                                                  ),
-                                                                );
-                                                              },
+                                                                  );
+                                                                },
+                                                          ),
+                                                        MessageContent(
+                                                          displayEvent,
+                                                          textColor: textColor,
+                                                          linkColor: linkColor,
+                                                          onInfoTab: onInfoTab,
+                                                          borderRadius:
+                                                              borderRadius,
+                                                          timeline: timeline,
+                                                          selected: selected,
+                                                          bigEmojis: bigEmojis,
                                                         ),
-                                                      MessageContent(
-                                                        displayEvent,
-                                                        textColor: textColor,
-                                                        linkColor: linkColor,
-                                                        onInfoTab: onInfoTab,
-                                                        borderRadius:
-                                                            borderRadius,
-                                                        timeline: timeline,
-                                                        selected: selected,
-                                                        bigEmojis: bigEmojis,
-                                                      ),
-                                                    ],
+                                                      ],
+                                                    ),
                                                   ),
                                                 ),
                                               ),
@@ -1233,4 +1238,105 @@ class __AnimateInState extends State<_AnimateIn> {
       child: _animationFinished ? widget.child : const SizedBox.shrink(),
     );
   }
+}
+
+/// Brightens a message's bubble for a moment when the chat jumps to it, as
+/// from a search result, a notification or a reply: the bubble lightens in
+/// 150 ms, holds for 1.5 s and fades back to its own colour over 1 s. The
+/// light lies over the bubble's fill and under its text, so the text keeps
+/// its colour. A message without a bubble, such as a picture or a sticker,
+/// gets a fainter light over its content instead.
+class BubbleHighlight extends StatefulWidget {
+  /// Whether the chat just jumped to this message. The flash runs once
+  /// each time this turns on.
+  final bool active;
+
+  /// Whether the light goes over [child] rather than under it, for a
+  /// message without a bubble.
+  final bool overContent;
+
+  final Widget child;
+
+  const BubbleHighlight({
+    required this.active,
+    required this.overContent,
+    required this.child,
+    super.key,
+  });
+
+  /// How long the whole flash takes, after which the chat forgets the jump.
+  static const duration = Duration(milliseconds: 150 + 1500 + 1000);
+
+  @override
+  State<BubbleHighlight> createState() => BubbleHighlightState();
+}
+
+class BubbleHighlightState extends State<BubbleHighlight>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _flash = AnimationController(
+    vsync: this,
+    duration: BubbleHighlight.duration,
+  );
+
+  late final Animation<double> _amount = TweenSequence([
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 0.0,
+        end: 1.0,
+      ).chain(CurveTween(curve: Curves.easeOut)),
+      weight: 150,
+    ),
+    TweenSequenceItem(tween: ConstantTween(1.0), weight: 1500),
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 1.0,
+        end: 0.0,
+      ).chain(CurveTween(curve: Curves.easeOut)),
+      weight: 1000,
+    ),
+  ]).animate(_flash);
+
+  /// How bright the bubble is now: 0 in its own colour, 1 at the brightest.
+  double get amount => _flash.isAnimating ? _amount.value : 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.active) _flash.forward(from: 0);
+  }
+
+  @override
+  void didUpdateWidget(BubbleHighlight oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) _flash.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _flash.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _flash,
+    builder: (context, child) {
+      final value = amount;
+      // Towards white: about 15% lighter on a bubble, a little less over a
+      // picture.
+      final light = Colors.white.withValues(
+        alpha: (widget.overContent ? 0.12 : 0.16) * value,
+      );
+      return DecoratedBox(
+        position: widget.overContent
+            ? DecorationPosition.foreground
+            : DecorationPosition.background,
+        decoration: BoxDecoration(
+          color: value == 0 ? Colors.transparent : light,
+        ),
+        child: child,
+      );
+    },
+    child: widget.child,
+  );
 }
