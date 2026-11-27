@@ -534,6 +534,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username}(e)k Seamera gonbidatu zaitu.\n1. Bisitatu https://seam.312.dev eta instalatu aplikazioa\n2. Eman izena edo hasi saioa\n3. Ireki gonbidapen-esteka:\n{link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "idazten ari da…",
     "@isTyping": {
         "type": "String",

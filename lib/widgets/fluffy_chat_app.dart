@@ -17,7 +17,6 @@ import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/windows_shell.dart';
 import 'package:fluffychat/widgets/app_lock.dart';
 import 'package:fluffychat/widgets/chat_windows_host.dart';
-import 'package:fluffychat/widgets/layouts/call_overlay.dart';
 import 'package:fluffychat/widgets/theme_builder.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
@@ -121,9 +120,7 @@ class FluffyChatApp extends StatelessWidget {
         supportedLocales: L10n.supportedLocales,
         routerConfig: router,
         builder: (context, child) {
-          Widget content = CallOverlay(
-            child: testWidget ?? child ?? const SizedBox.shrink(),
-          );
+          var content = testWidget ?? child ?? const SizedBox.shrink();
           if (ChatWindows.instance.isSupported) {
             content = ChatWindowsHost(
               windowBuilder: (context, target) => _ChatWindowApp(

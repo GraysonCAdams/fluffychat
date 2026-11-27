@@ -257,23 +257,28 @@ class _HtmlMessageState extends State<HtmlMessage> {
             ?.parseIdentifierIntoParts()
             ?.primaryIdentifier;
         if (matrixId != null) {
+          // A pill is labelled with the link text as written, unless that
+          // is empty or a bare ID.
+          final linkText = node.text.trim();
+          String label(String fallback) =>
+              linkText.isEmpty ||
+                  linkText.isValidMatrixIdStrict() ||
+                  '@$linkText'.isValidMatrixIdStrict() && linkText.contains(':')
+              ? fallback
+              : linkText.replaceFirst(RegExp('^@'), '');
           if (matrixId.sigil == '@') {
             _pillIds.add(matrixId);
             final user = room.unsafeGetUserFromMemoryOrFallback(matrixId);
-            // A bridge's link text is the person's name, which beats the
-            // user ID that a member not loaded yet would show.
-            final linkText = node.text.trim().replaceFirst(RegExp('^@'), '');
             return WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
               child: MatrixPill(
                 key: Key('user_pill_$matrixId'),
-                name: (user.displayName ?? '').isNotEmpty || linkText.isEmpty
-                    ? user.calcDisplayname()
-                    : linkText,
+                name: label(user.calcDisplayname()),
+                avatarName: user.calcDisplayname(),
                 avatar: user.avatarUrl,
                 uri: href,
                 outerContext: context,
                 fontSize: fontSize,
-                color: linkStyle.color,
                 isUser: matrixId == room.client.userID,
               ),
             );
@@ -284,13 +289,16 @@ class _HtmlMessageState extends State<HtmlMessage> {
                 ? this.room.client.getRoomById(matrixId)
                 : this.room.client.getRoomByAlias(matrixId);
             return WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
               child: MatrixPill(
-                name: room?.chatDisplayname() ?? matrixId,
-                avatar: room?.chatAvatar,
+                key: Key('room_pill_$matrixId'),
+                name: linkText.isEmpty || linkText == matrixId
+                    ? room?.chatDisplayname() ?? matrixId
+                    : linkText.replaceFirst(RegExp('^#'), ''),
                 uri: href,
                 outerContext: context,
                 fontSize: fontSize,
-                color: linkStyle.color,
+                isRoom: true,
               ),
             );
           }
@@ -878,16 +886,23 @@ class _CollapsibleTextState extends State<_CollapsibleText> {
   }
 }
 
+/// A mention chip: a stadium-shaped tag in the text for a user or a room,
+/// with a 16dp avatar (a "#" glyph for a room) before its label. Every
+/// mention is the same chip; a mention of someone else, or of a room, has a
+/// neutral tonal fill, and a mention of the user the accent fill with a bold
+/// label, so it stands out in the conversation.
 class MatrixPill extends StatelessWidget {
   final String name;
   final BuildContext outerContext;
   final Uri? avatar;
   final String uri;
   final double? fontSize;
-  final Color? color;
 
-  /// Whether the pill mentions the user, which highlights it.
+  /// Whether the chip mentions the user, which gives it the accent fill.
   final bool isUser;
+
+  /// Whether the chip mentions a room, which shows "#" for the avatar.
+  final bool isRoom;
 
   const MatrixPill({
     super.key,
@@ -896,51 +911,95 @@ class MatrixPill extends StatelessWidget {
     this.avatar,
     required this.uri,
     required this.fontSize,
-    required this.color,
     this.isUser = false,
+    this.isRoom = false,
+    this.avatarName,
   });
+
+  static const double avatarSize = 16;
+
+  /// The fill of a chip for someone else or a room.
+  static Color neutralFill(ColorScheme scheme) =>
+      scheme.onSurface.withAlpha(36);
+
+  /// The name the avatar's initial and colour come from, when it differs
+  /// from the label: the member's display name for a label written as
+  /// "harrison".
+  final String? avatarName;
 
   @override
   Widget build(BuildContext context) {
-    final pill = InkWell(
-      splashColor: Colors.transparent,
-      onTap: UrlLauncher(outerContext, uri).launchUrl,
-      child: Text.rich(
-        TextSpan(
-          children: [
-            WidgetSpan(
-              child: Padding(
-                padding: const EdgeInsetsDirectional.only(end: 4.0),
-                child: Avatar(mxContent: avatar, name: name, size: 16),
+    final scheme = Theme.of(context).colorScheme;
+    // The neutral fill is a translucent layer of the text colour rather
+    // than a surface tone, since incoming bubbles already are a surface
+    // tone and an outgoing one can be any network's colour.
+    final fill = isUser ? scheme.primaryContainer : neutralFill(scheme);
+    final onFill = isUser ? scheme.onPrimaryContainer : scheme.onSurface;
+    final fontSize = this.fontSize;
+    const height = avatarSize + 4;
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        splashColor: Colors.transparent,
+        borderRadius: BorderRadius.circular(height / 2),
+        onTap: UrlLauncher(outerContext, uri).launchUrl,
+        child: DecoratedBox(
+          key: const ValueKey('mention_chip'),
+          decoration: BoxDecoration(
+            color: fill,
+            borderRadius: BorderRadius.circular(height / 2),
+          ),
+          child: SizedBox(
+            height: height,
+            child: Padding(
+              padding: const EdgeInsetsDirectional.only(start: 2, end: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 4,
+                children: [
+                  if (isRoom)
+                    SizedBox.square(
+                      key: const ValueKey('mention_room_glyph'),
+                      dimension: avatarSize,
+                      child: Center(
+                        child: Text(
+                          '#',
+                          style: TextStyle(
+                            color: onFill,
+                            fontSize: 12,
+                            height: 1,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Avatar(
+                      mxContent: avatar,
+                      name: avatarName ?? name,
+                      size: avatarSize,
+                    ),
+                  Flexible(
+                    child: Text(
+                      name,
+                      key: const ValueKey('mention_label'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: onFill,
+                        fontSize: fontSize == null ? null : fontSize * 0.9,
+                        fontWeight: isUser
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            TextSpan(
-              text: name,
-              style: TextStyle(
-                color: color,
-                decorationColor: color,
-                decoration: isUser ? null : TextDecoration.underline,
-                fontWeight: isUser ? FontWeight.bold : null,
-                fontSize: fontSize,
-                height: 1.25,
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
-    );
-    if (!isUser) return pill;
-    // A mention of the user stands out from the text around it, as a
-    // highlight rather than a link.
-    return DecoratedBox(
-      key: const ValueKey('own_mention_highlight'),
-      decoration: BoxDecoration(
-        color: (color ?? Theme.of(context).colorScheme.primary).withAlpha(56),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: pill,
       ),
     );
   }

@@ -163,9 +163,7 @@ NotificationResponse unpackWindowsResponse(NotificationResponse response) {
   return NotificationResponse(
     notificationResponseType: response.notificationResponseType,
     id: response.id,
-    actionId: codeSeparator == -1
-        ? action
-        : action.substring(0, codeSeparator),
+    actionId: codeSeparator == -1 ? action : action.substring(0, codeSeparator),
     payload: arguments.substring(separator + 1),
     input: response.data[windowsReplyInputId] as String? ?? response.input,
     data: codeSeparator == -1
@@ -281,8 +279,6 @@ Future<void> notificationTap(
           await room.setPushRuleState(PushRuleState.mentionsOnly);
         case FluffyChatNotificationActions.open:
           router?.go(_notificationRoute(client, roomId, payload.eventId));
-        case FluffyChatNotificationActions.enterCall:
-          router?.go('/rooms/$roomId?client=${client.clientName}&action=call');
       }
     case NotificationResponseType.notificationDismissed:
       return;
@@ -305,7 +301,6 @@ enum FluffyChatNotificationActions {
   reply,
   mute,
   open,
-  enterCall,
 
   /// Copies the one-time code of the notified message and marks it read.
   copyCode,

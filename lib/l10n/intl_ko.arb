@@ -1488,6 +1488,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username}님이 당신을 Seam에 초대했습니다.\n1. Seam 설치: https://seam.312.dev \n2. 가입하거나 로그인 \n3. 초대 링크 열기: \n {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "invitedUsersOnly": "초대된 유저만",
     "@invitedUsersOnly": {
         "type": "String",

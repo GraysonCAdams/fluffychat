@@ -91,6 +91,9 @@ path = [
     "web/icons/**",
     "web/favicon.png",
     "windows/runner/resources/app_icon.ico",
+    "android/store/icon-512.png",
+    "android/store/play/*.png",
+    "android/store/play/screenshots/*.png",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "2026 312.dev LLC"
@@ -101,3 +104,17 @@ path = "assets/fonts/google_sans_flex/**"
 precedence = "override"
 SPDX-FileCopyrightText = "2015 The Google Sans Flex Authors (https://github.com/googlefonts/googlesans-flex)"
 SPDX-License-Identifier = "OFL-1.1"
+
+# Play store kit: listing copy, scripts and docs
+[[annotations]]
+path = [
+    "android/store/*.md",
+    "android/store/*.js",
+    "android/store/*.py",
+    "android/store/copy/**",
+    "android/store/declarations/**",
+    "android/store/play/screenshots/README.md",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Grayson Adams"
+SPDX-License-Identifier = "AGPL-3.0-or-later"

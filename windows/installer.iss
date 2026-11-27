@@ -17,10 +17,10 @@ AppId={{B6D2F0A4-3C7E-4F5B-8A19-D4E1C7A09B52}
 AppName=Seam
 AppVersion={#AppVersion}
 AppVerName=Seam {#AppVersion}
-AppPublisher=Christian Kußowski
-AppPublisherURL=https://fluffychat.im
-AppSupportURL=https://github.com/krille-chan/fluffychat/issues
-AppUpdatesURL=https://github.com/krille-chan/fluffychat/releases
+AppPublisher=Grayson Adams
+AppPublisherURL=https://seam.312.dev
+AppSupportURL=https://github.com/GraysonCAdams/fluffychat/issues
+AppUpdatesURL=https://github.com/GraysonCAdams/fluffychat/releases
 VersionInfoVersion={#AppVersion}
 ; Per-user installation into %LOCALAPPDATA%\Programs, so that neither the
 ; installation nor updates require admin rights.

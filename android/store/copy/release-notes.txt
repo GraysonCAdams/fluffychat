@@ -1,0 +1,1 @@
+Seam's first release: one inbox for your Matrix chats and the networks you bridge, merged contacts across networks, and voice message transcripts made on your device.

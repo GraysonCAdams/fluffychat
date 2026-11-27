@@ -198,11 +198,6 @@ android/app/google-services.json
 ios/Runner.ipa
 ios/Runner/GoogleServices-Info.plist
 
-# livekit
-web/e2ee.worker.dart.js
-web/e2ee.worker.dart.js.deps
-web/e2ee.worker.dart.js.map
-
 test/rust
 
 # FVM Version Cache
@@ -254,13 +249,6 @@ macos/FluffyChat.app/Contents/Frameworks/FlutterMacOS.framework/Versions/A/Resou
 macos/FluffyChat.app/Contents/Frameworks/FlutterMacOS.framework/Versions/A/Resources/Info.plist
 macos/FluffyChat.app/Contents/Frameworks/FlutterMacOS.framework/Versions/A/Resources/PrivacyInfo.xcprivacy
 macos/FluffyChat.app/Contents/Frameworks/FlutterMacOS.framework/Versions/A/_CodeSignature/CodeResources
-macos/FluffyChat.app/Contents/Frameworks/WebRTC.framework/Resources
-macos/FluffyChat.app/Contents/Frameworks/WebRTC.framework/WebRTC
-macos/FluffyChat.app/Contents/Frameworks/WebRTC.framework/Versions/Current
-macos/FluffyChat.app/Contents/Frameworks/WebRTC.framework/Versions/A/WebRTC
-macos/FluffyChat.app/Contents/Frameworks/WebRTC.framework/Versions/A/Resources/Info.plist
-macos/FluffyChat.app/Contents/Frameworks/WebRTC.framework/Versions/A/Versions/A/Resources/PrivacyInfo.xcprivacy
-macos/FluffyChat.app/Contents/Frameworks/WebRTC.framework/Versions/A/_CodeSignature/CodeResources
 macos/FluffyChat.app/Contents/Frameworks/objective_c.framework/objective_c
 macos/FluffyChat.app/Contents/Frameworks/objective_c.framework/Resources
 macos/FluffyChat.app/Contents/Frameworks/objective_c.framework/Versions/Current

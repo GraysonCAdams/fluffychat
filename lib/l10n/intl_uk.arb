@@ -534,6 +534,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username} запрошує вас у Seam. \n1. Перейдіть на seam.312.dev й установіть застосунок \n2. Зареєструйтесь або ввійдіть \n3. Відкрийте запрошувальне посилання:\n {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "пише",
     "@isTyping": {
         "type": "String",
@@ -2531,7 +2543,6 @@
             }
         }
     },
-    "videoCallsBetaWarning": "Відеовиклики на ранньому етапі розробки. Поведінка може бути непередбачуваною. Будемо раді отримати від вас відгук.",
     "editImage": "Змінити зображення",
     "@editImage": {
         "type": "String",

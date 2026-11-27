@@ -147,9 +147,10 @@ void main() {
     // The profile: change the avatar, rename, share the ID.
     expect(find.byTooltip(l10n.changeYourAvatar), findsOneWidget);
     expectTappable(MatrixFeatures.forClient(client).userLabel(client.userID!));
-    // The account page opens in the browser.
+    // The account page and the default privacy policy open in the browser.
     expectTappable(l10n.manageAccount);
-    expect(find.byIcon(Icons.open_in_new_outlined), findsOneWidget);
+    expectTappable(l10n.privacy);
+    expect(find.byIcon(Icons.open_in_new_outlined), findsNWidgets(2));
     // Chat backup is the one switch.
     expectSwitches(1);
     await expectLinks(tester, '/rooms/settings', {
@@ -434,7 +435,7 @@ void main() {
       l10n.privacy,
       l10n.sendTypingNotificationsDescription,
       l10n.sendReadReceiptsDescription,
-      l10n.shareCrashReportsDescription,
+      l10n.showErrorReportsDescription,
       l10n.blockedUsers,
       l10n.thereAreCountUsersBlocked(1),
       l10n.shareKeysWith,
@@ -449,7 +450,7 @@ void main() {
     await expectToggles(tester, {
       l10n.sendTypingNotifications: AppSettings.sendTypingNotifications,
       l10n.sendReadReceipts: AppSettings.sendPublicReadReceipts,
-      l10n.shareCrashReports: AppSettings.autoSendErrorReports,
+      l10n.showErrorReports: AppSettings.autoSendErrorReports,
     });
     await expectLinks(tester, '/rooms/settings/security', {
       l10n.blockedUsers: '/rooms/settings/security/ignorelist',

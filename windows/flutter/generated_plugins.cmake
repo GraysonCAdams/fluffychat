@@ -3,16 +3,13 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  connectivity_plus
   desktop_drop
   desktop_webview_window
   dynamic_color
   emoji_picker_flutter
   file_selector_windows
   flutter_secure_storage_windows
-  flutter_webrtc
   geolocator_windows
-  livekit_client
   local_auth_windows
   media_kit_libs_windows_video
   media_kit_video

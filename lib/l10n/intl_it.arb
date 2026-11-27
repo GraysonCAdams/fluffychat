@@ -690,6 +690,18 @@
         "type": "String",
         "placeholders": {}
     },
+    "inviteText": "{username} ti ha invitato/a a Seam.\n1. Visita seam.312.dev e installa l'applicazione\n2. Iscriviti o accedi\n3. Apri il collegamento di invito: \n {link}",
+    "@inviteText": {
+        "type": "String",
+        "placeholders": {
+            "username": {
+                "type": "String"
+            },
+            "link": {
+                "type": "String"
+            }
+        }
+    },
     "isTyping": "sta scrivendo",
     "@isTyping": {
         "type": "String",

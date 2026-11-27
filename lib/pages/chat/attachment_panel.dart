@@ -33,7 +33,7 @@ class AttachmentPanel extends StatelessWidget {
       _AttachmentItem(
         icon: Icons.photo_outlined,
         label: l10n.gallery,
-        onTap: controller.openGalleryPicker,
+        onTap: controller.openGalleryAction,
       ),
       if (PlatformInfos.isMobile)
         _AttachmentItem(
