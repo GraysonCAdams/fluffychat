@@ -8,6 +8,7 @@ import 'package:fluffychat/utils/message_search/index_operation.dart';
 import 'package:fluffychat/utils/message_search/message_search_indexer.dart';
 import 'package:fluffychat/utils/size_string.dart';
 import 'package:fluffychat/widgets/matrix.dart';
+import 'package:fluffychat/widgets/settings_list.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// Shows what the local message search index of the active account costs on
@@ -56,18 +57,17 @@ class _MessageSearchIndexTileState extends State<MessageSearchIndexTile> {
     final stats = _stats;
     if (stats == null) return const SizedBox.shrink();
     final l10n = L10n.of(context);
-    return ListTile(
+    return SettingsTile(
       title: Text(l10n.messageSearchIndex),
       subtitle: Text(
         '${l10n.messageSearchIndexSize(stats.messages, stats.bytes.sizeString)}\n'
         '${l10n.messageSearchIndexDescription}',
       ),
-      isThreeLine: true,
       trailing: _rebuilding
-          ? const Padding(
-              padding: EdgeInsets.all(16),
-              child: SizedBox.square(
-                dimension: 18,
+          ? const SizedBox.square(
+              dimension: 24,
+              child: Padding(
+                padding: EdgeInsets.all(3),
                 child: CircularProgressIndicator.adaptive(strokeWidth: 2),
               ),
             )

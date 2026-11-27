@@ -5,8 +5,8 @@
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/settings_3pid/settings_3pid.dart';
-import 'package:fluffychat/widgets/layouts/max_width_body.dart';
 import 'package:fluffychat/widgets/matrix.dart';
+import 'package:fluffychat/widgets/settings_list.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -18,91 +18,82 @@ class Settings3PidView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = L10n.of(context);
 
     controller.request ??= Matrix.of(context).client.getAccount3PIDs();
-    return Scaffold(
-      appBar: AppBar(
-        leading: const Center(child: BackButton()),
-        title: Text(L10n.of(context).passwordRecovery),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_outlined),
-            onPressed: controller.add3PidAction,
-            tooltip: L10n.of(context).addEmail,
-          ),
-        ],
-      ),
-      body: MaxWidthBody(
-        withScrolling: false,
-        child: FutureBuilder<List<ThirdPartyIdentifier>?>(
+    return SettingsPage(
+      title: l10n.passwordRecovery,
+      nested: true,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.add_outlined),
+          onPressed: controller.add3PidAction,
+          tooltip: l10n.addEmail,
+        ),
+      ],
+      children: [
+        FutureBuilder<List<ThirdPartyIdentifier>?>(
           future: controller.request,
-          builder:
-              (
-                BuildContext context,
-                AsyncSnapshot<List<ThirdPartyIdentifier>?> snapshot,
-              ) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      snapshot.error.toString(),
-                      textAlign: TextAlign.center,
-                    ),
-                  );
-                }
-                if (!snapshot.hasData) {
-                  return const Center(
-                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                  );
-                }
-                final identifier = snapshot.data!;
-                return Column(
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Padding(
+                padding: const EdgeInsets.all(SettingsMetrics.textInset),
+                child: Text(
+                  snapshot.error.toString(),
+                  textAlign: TextAlign.center,
+                ),
+              );
+            }
+            if (!snapshot.hasData) {
+              return const Padding(
+                padding: EdgeInsets.all(SettingsMetrics.textInset),
+                child: Center(
+                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                ),
+              );
+            }
+            final identifier = snapshot.data!;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SettingsGroup(
                   children: [
-                    ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: theme.scaffoldBackgroundColor,
-                        foregroundColor: identifier.isEmpty
-                            ? Colors.orange
-                            : Colors.grey,
-                        child: Icon(
-                          identifier.isEmpty
-                              ? Icons.warning_outlined
-                              : Icons.info_outlined,
-                        ),
+                    SettingsTile(
+                      leading: Icon(
+                        identifier.isEmpty
+                            ? Icons.warning_outlined
+                            : Icons.info_outlined,
+                        color: identifier.isEmpty ? Colors.orange : null,
                       ),
                       title: Text(
                         identifier.isEmpty
-                            ? L10n.of(context).noPasswordRecoveryDescription
-                            : L10n.of(
-                                context,
-                              ).withTheseAddressesRecoveryDescription,
-                      ),
-                    ),
-                    const Divider(),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: identifier.length,
-                        itemBuilder: (BuildContext context, int i) => ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: theme.scaffoldBackgroundColor,
-                            foregroundColor: Colors.grey,
-                            child: Icon(identifier[i].iconData),
-                          ),
-                          title: Text(identifier[i].address),
-                          trailing: IconButton(
-                            tooltip: L10n.of(context).delete,
-                            icon: const Icon(Icons.delete_forever_outlined),
-                            color: Colors.red,
-                            onPressed: () =>
-                                controller.delete3Pid(identifier[i]),
-                          ),
-                        ),
+                            ? l10n.noPasswordRecoveryDescription
+                            : l10n.withTheseAddressesRecoveryDescription,
                       ),
                     ),
                   ],
-                );
-              },
+                ),
+                const SizedBox(height: 16),
+                SettingsGroup(
+                  children: [
+                    for (final address in identifier)
+                      SettingsTile(
+                        leading: Icon(address.iconData),
+                        title: Text(address.address),
+                        trailing: IconButton(
+                          tooltip: l10n.delete,
+                          icon: const Icon(Icons.delete_forever_outlined),
+                          color: theme.colorScheme.error,
+                          onPressed: () => controller.delete3Pid(address),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
-      ),
+      ],
     );
   }
 }

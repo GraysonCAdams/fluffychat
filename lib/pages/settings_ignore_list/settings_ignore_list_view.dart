@@ -5,7 +5,7 @@
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
-import 'package:fluffychat/widgets/layouts/max_width_body.dart';
+import 'package:fluffychat/widgets/settings_list.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../widgets/matrix.dart';
@@ -18,78 +18,73 @@ class SettingsIgnoreListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
+    final l10n = L10n.of(context);
     final client = Matrix.of(context).client;
-    return Scaffold(
-      appBar: AppBar(
-        leading: const Center(child: BackButton()),
-        title: Text(L10n.of(context).blockedUsers),
-      ),
-      body: MaxWidthBody(
-        withScrolling: false,
-        child: StreamBuilder(
+    return SettingsPage(
+      title: l10n.blockedUsers,
+      nested: true,
+      children: [
+        StreamBuilder(
           stream: controller.ignoreListUpdates,
           builder: (context, asyncSnapshot) {
             if (client.prevBatch == null) {
-              return const Center(child: CircularProgressIndicator.adaptive());
+              return const Padding(
+                padding: EdgeInsets.all(SettingsMetrics.textInset),
+                child: Center(child: CircularProgressIndicator.adaptive()),
+              );
             }
             return Column(
-              mainAxisSize: .min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisSize: .min,
-                    children: [
-                      TextField(
-                        controller: controller.controller,
-                        autocorrect: false,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => controller.ignoreUser(context),
-                        decoration: InputDecoration(
-                          errorText: controller.errorText,
-                          hintText: '@bad_guy:domain.abc',
-                          floatingLabelBehavior: FloatingLabelBehavior.always,
-                          labelText: L10n.of(context).blockUsername,
-                          suffixIcon: IconButton(
-                            tooltip: L10n.of(context).block,
-                            icon: const Icon(Icons.add),
-                            onPressed: () => controller.ignoreUser(context),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        L10n.of(context).blockListDescription,
-                        style: const TextStyle(color: Colors.orange),
-                      ),
-                    ],
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: SettingsMetrics.pageMargin,
+                    vertical: 8,
                   ),
-                ),
-                Divider(color: theme.dividerColor),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: client.ignoredUsers.length,
-                    itemBuilder: (c, i) => ListTile(
-                      title: Text(client.ignoredUsers[i]),
-                      trailing: IconButton(
-                        tooltip: L10n.of(context).delete,
-                        icon: const Icon(Icons.delete_outlined),
-                        onPressed: () => showFutureLoadingDialog(
-                          context: context,
-                          future: () =>
-                              client.unignoreUser(client.ignoredUsers[i]),
-                        ),
+                  child: TextField(
+                    controller: controller.controller,
+                    autocorrect: false,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => controller.ignoreUser(context),
+                    decoration: InputDecoration(
+                      errorText: controller.errorText,
+                      hintText: '@bad_guy:domain.abc',
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      labelText: l10n.blockUsername,
+                      suffixIcon: IconButton(
+                        tooltip: l10n.block,
+                        icon: const Icon(Icons.add),
+                        onPressed: () => controller.ignoreUser(context),
                       ),
                     ),
                   ),
+                ),
+                SettingsCaption(
+                  l10n.blockListDescription,
+                  color: Colors.orange,
+                ),
+                const SizedBox(height: 8),
+                SettingsGroup(
+                  children: [
+                    for (final userId in client.ignoredUsers)
+                      SettingsTile(
+                        title: Text(userId),
+                        trailing: IconButton(
+                          tooltip: l10n.delete,
+                          icon: const Icon(Icons.delete_outlined),
+                          onPressed: () => showFutureLoadingDialog(
+                            context: context,
+                            future: () => client.unignoreUser(userId),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             );
           },
         ),
-      ),
+      ],
     );
   }
 }

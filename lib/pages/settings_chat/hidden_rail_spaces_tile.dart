@@ -6,6 +6,7 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/widgets/matrix.dart';
+import 'package:fluffychat/widgets/settings_list.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// The row in chat settings for the networks taken off the chat list's
@@ -72,14 +73,11 @@ class _HiddenRailSpacesTileState extends State<HiddenRailSpacesTile> {
   Widget build(BuildContext context) {
     final hidden = AppSettings.railHiddenSpaces.value;
     if (hidden.isEmpty) return const SizedBox.shrink();
-    return ListTile(
+    return SettingsTile(
       title: Text(L10n.of(context).hiddenFromRail),
       subtitle: Text(hidden.map(_name).join(', ')),
       onTap: _openSheet,
-      trailing: const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Icon(Icons.chevron_right_outlined),
-      ),
+      trailing: SettingsTile.chevron,
     );
   }
 }
