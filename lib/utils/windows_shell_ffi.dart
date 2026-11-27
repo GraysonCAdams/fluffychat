@@ -440,7 +440,11 @@ abstract final class WindowsDesktop {
 
   static const _runKey = r'Software\Microsoft\Windows\CurrentVersion\Run';
   static const _runValueName = seamRunValueName;
+  /// The glyph alone, white for the dark taskbar and near-black for a light
+  /// one, so it reads like the other tray icons.
   static const _trayIcon = 'assets/seam/tray_icon.ico';
+  static const _trayIconLightTaskbar =
+      'assets/seam/tray_icon_light_taskbar.ico';
 
   static final _advapi32 = DynamicLibrary.open('advapi32.dll');
   static final _regSetKeyValue = _advapi32
@@ -460,7 +464,58 @@ abstract final class WindowsDesktop {
         Int32 Function(IntPtr, Pointer<Utf16>, Pointer<Utf16>),
         int Function(int, Pointer<Utf16>, Pointer<Utf16>)
       >('RegDeleteKeyValueW');
+  static final _regGetValue = _advapi32
+      .lookupFunction<
+        Int32 Function(
+          IntPtr,
+          Pointer<Utf16>,
+          Pointer<Utf16>,
+          Uint32,
+          Pointer<Uint32>,
+          Pointer,
+          Pointer<Uint32>,
+        ),
+        int Function(
+          int,
+          Pointer<Utf16>,
+          Pointer<Utf16>,
+          int,
+          Pointer<Uint32>,
+          Pointer,
+          Pointer<Uint32>,
+        )
+      >('RegGetValueW');
+  static const _rrfRtRegDword = 0x10;
   static const _hkeyCurrentUser = 0x80000001;
+
+  /// Whether the taskbar uses the light theme (Settings > Personalization >
+  /// Colors > "Choose your default Windows mode"); false when unset.
+  static bool _taskbarIsLight() {
+    final subKey =
+        r'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
+            .toNativeUtf16();
+    final name = 'SystemUsesLightTheme'.toNativeUtf16();
+    final data = calloc<Uint32>();
+    final size = calloc<Uint32>()..value = 4;
+    try {
+      final result = _regGetValue(
+        _hkeyCurrentUser,
+        subKey,
+        name,
+        _rrfRtRegDword,
+        nullptr,
+        data,
+        size,
+      );
+      return result == 0 && data.value != 0;
+    } finally {
+      calloc
+        ..free(subKey)
+        ..free(name)
+        ..free(data)
+        ..free(size);
+    }
+  }
   static const _regSz = 1;
 
   /// Restores the window, sets up the tray and shows the window unless the
@@ -534,7 +589,9 @@ abstract final class WindowsDesktop {
   }
 
   static Future<void> _initTray(L10n l10n) async {
-    await tray.trayManager.setIcon(_trayIcon);
+    await tray.trayManager.setIcon(
+      _taskbarIsLight() ? _trayIconLightTaskbar : _trayIcon,
+    );
     await tray.trayManager.setToolTip(AppSettings.applicationName.value);
     await tray.trayManager.setContextMenu(
       tray.Menu(
