@@ -686,10 +686,17 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     return recipients.any((recipient) => groupMemberKey(recipient) == key);
   }
 
+  /// Whether the To field holds a group chat picked from the suggestions,
+  /// which is then where the message goes: the field shows it locked, and
+  /// nobody can be added or typed in until the composer closes.
+  bool get groupLocked => recipients.length == 1 && recipients.single.group;
+
   /// A suggestion was tapped: adds [person] to the To field, or takes them
-  /// out when they are in it. A group chat is not a person, so with nobody
-  /// in the To field it opens instead.
+  /// out when they are in it. A group chat is not a person: with nobody in
+  /// the To field it becomes the locked recipient ([groupLocked]), and the
+  /// message field takes the focus.
   Future<void> pickPerson(NewChatPerson<ExistingChat> person) async {
+    if (groupLocked) return;
     if (isRecipient(person)) {
       removeRecipient(groupMemberKey(person));
       _clearSearch();
@@ -698,16 +705,12 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     if (person.group) {
       final chat = person.chat;
       if (recipients.isEmpty && chat != null) {
-        if (sharing) {
-          // A share goes to the group from here, so it is the recipient.
-          setState(() {
-            recipients.add(person);
-            _findConversation();
-          });
-          _clearSearch();
-          return;
-        }
-        context.go(_routeOf(chat));
+        setState(() {
+          recipients.add(person);
+          _findConversation();
+        });
+        _clearSearch();
+        messageFocus.requestFocus();
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
@@ -735,7 +738,7 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// as in [toggleGroupMember], and someone it cannot reach stays out,
   /// with the reason in a snackbar.
   Future<void> addRecipient(NewChatPerson<ExistingChat> person) async {
-    if (sending) return;
+    if (sending || groupLocked) return;
     if (recipients.isNotEmpty && !await _addToGroup(person)) return;
     setState(() {
       recipients.add(person);
