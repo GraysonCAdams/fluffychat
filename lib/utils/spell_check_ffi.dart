@@ -7,6 +7,7 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
+import 'package:fluffychat/utils/android_spell_check.dart';
 import 'package:fluffychat/utils/composer_native_menu.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +18,8 @@ import 'package:matrix/matrix.dart';
 /// own service; Flutter has none on Windows, so there it asks the Windows
 /// Spell Checking API, which follows the languages set up in Windows. Its
 /// suggestions appear in the native right-click menu (composer_native_menu.dart).
+/// On both Android and Windows only misspelled words are underlined, not
+/// grammar suggestions or repeated words.
 ///
 /// Android has no native correction popup for a Flutter text field (the
 /// embedding only reads the spell checker's results), so the keyboard's
@@ -36,13 +39,14 @@ SpellCheckConfiguration? messageSpellCheckConfiguration() {
   return null;
 }
 
-/// Android's configuration, with [service] standing in for the system spell
-/// checker in tests.
+/// Android's configuration: the system spell checker through
+/// [AndroidSpellCheckService], which underlines typos only. [service] stands
+/// in for it in tests.
 @visibleForTesting
 SpellCheckConfiguration androidSpellCheckConfiguration({
   SpellCheckService? service,
 }) => SpellCheckConfiguration(
-  spellCheckService: service,
+  spellCheckService: service ?? AndroidSpellCheckService.instance,
   // Flutter's toolbar opens with nothing in it; the next tap or long press
   // closes it as usual.
   spellCheckSuggestionsToolbarBuilder: (_, _) => const SizedBox.shrink(),
@@ -160,6 +164,8 @@ class WindowsSpellCheckService
             _call1(spellingError, _errorLength, number);
             final end = start + number.value;
             _call1(spellingError, _errorCorrectiveAction, number);
+            // Only misspellings: a repeated word ("the the") comes back
+            // as CORRECTIVE_ACTION_DELETE and is left alone.
             final suggestions = switch (number.value) {
               _getSuggestions => _suggest(checker, text.substring(start, end)),
               _replace => [?_replacement(spellingError)],

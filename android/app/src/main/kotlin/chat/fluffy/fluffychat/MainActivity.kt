@@ -88,6 +88,8 @@ class MainActivity : FlutterFragmentActivity() {
                 .setMethodCallHandler(ConversationNotifications(context.applicationContext))
             MethodChannel(eng.dartExecutor.binaryMessenger, EffectHaptics.CHANNEL_NAME)
                 .setMethodCallHandler(EffectHaptics(context.applicationContext))
+            MethodChannel(eng.dartExecutor.binaryMessenger, SpellCheckBridge.CHANNEL_NAME)
+                .setMethodCallHandler(SpellCheckBridge(context.applicationContext))
             MethodChannel(eng.dartExecutor.binaryMessenger, BubbleActivity.CHANNEL_NAME)
                 .setMethodCallHandler { call, result ->
                     when (call.method) {
