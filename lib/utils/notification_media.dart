@@ -132,29 +132,50 @@ String? _extensionOf(String mimeType) => switch (mimeType) {
   _ => null,
 };
 
+/// Writes [file] under [directory], named after [eventId] so a second push
+/// for the same event reuses it, and returns the file with its MIME type.
+/// Null when [file] is not a picture the system can decode. Files older than
+/// [notificationMediaMaxAge] go.
+Future<({File file, String mimeType})?> writeNotificationMediaFile(
+  MatrixFile file, {
+  required String eventId,
+  required Directory directory,
+  Set<String>? mimeTypes,
+}) async {
+  final mimeType = file.mimeType.split(';').first.trim().toLowerCase();
+  final extension = _extensionOf(mimeType);
+  if (extension == null || file.bytes.isEmpty) return null;
+  final normalized = mimeType == 'image/jpg' ? 'image/jpeg' : mimeType;
+  if (mimeTypes != null && !mimeTypes.contains(normalized)) return null;
+
+  await directory.create(recursive: true);
+  final name = '${sha256.convert(eventId.codeUnits)}.$extension';
+  final target = File(path.join(directory.path, name));
+  await target.writeAsBytes(file.bytes);
+  await _removeOldMedia(directory);
+  return (file: target, mimeType: normalized);
+}
+
 /// Writes [file] under [directory] and returns it as a notification
-/// picture, or null when it is not a picture the system can decode.
-///
-/// The file is named after [eventId] so a second push for the same event
-/// reuses it. Files older than [notificationMediaMaxAge] go.
+/// picture served by the provider [authority] names, or null when it is not
+/// a picture the system can decode. See [writeNotificationMediaFile].
 Future<NotificationMedia?> storeNotificationMedia(
   MatrixFile file, {
   required String eventId,
   required Directory directory,
   required String authority,
 }) async {
-  final mimeType = file.mimeType.split(';').first.trim().toLowerCase();
-  final extension = _extensionOf(mimeType);
-  if (extension == null || file.bytes.isEmpty) return null;
-
-  await directory.create(recursive: true);
-  final name = '${sha256.convert(eventId.codeUnits)}.$extension';
-  await File(path.join(directory.path, name)).writeAsBytes(file.bytes);
-  await _removeOldMedia(directory);
-
+  final written = await writeNotificationMediaFile(
+    file,
+    eventId: eventId,
+    directory: directory,
+  );
+  if (written == null) return null;
   return NotificationMedia(
-    mimeType: mimeType == 'image/jpg' ? 'image/jpeg' : mimeType,
-    uri: 'content://$authority/$notificationMediaPathName/$name',
+    mimeType: written.mimeType,
+    uri:
+        'content://$authority/$notificationMediaPathName/'
+        '${path.basename(written.file.path)}',
   );
 }
 
@@ -178,17 +199,16 @@ Future<Directory> _defaultDirectory() async => Directory(
 Future<String> _defaultAuthority() async =>
     '${(await PackageInfo.fromPlatform()).packageName}.$notificationMediaPathName';
 
-/// The picture [event] shows in its notification, or null when there is none
-/// to show: the event is not a picture or video, it was sent with Invisible
-/// Ink, or the picture cannot be had. A failure here never stops the
-/// notification, which then carries the text alone.
-Future<NotificationMedia?> notificationMediaOf(
-  Event event, {
-  NotificationMediaDownloader downloader = downloadNotificationMedia,
-  NotificationMediaDirectory directory = _defaultDirectory,
-  NotificationMediaAuthority authority = _defaultAuthority,
-  Duration timeout = const Duration(seconds: 5),
-}) async {
+/// The downloaded picture [event] shows in its notification, or null when
+/// there is none to show: the event is not a picture or video, it was sent
+/// with Invisible Ink, or the picture cannot be had within [timeout]. A
+/// failure here never stops the notification, which then carries the text
+/// alone.
+Future<MatrixFile?> _mediaFileOf(
+  Event event,
+  NotificationMediaDownloader downloader,
+  Duration timeout,
+) async {
   final effective = effectiveEvent(event);
   if (!hasNotificationMedia(event)) return null;
   // Invisible Ink hides what a message says; its picture stays hidden too.
@@ -197,8 +217,25 @@ Future<NotificationMedia?> notificationMediaOf(
     return null;
   }
   try {
-    final file = await downloader(effective).timeout(timeout);
-    if (file == null) return null;
+    return await downloader(effective).timeout(timeout);
+  } catch (e, s) {
+    Logs().w('Unable to get the picture for a notification', e, s);
+    return null;
+  }
+}
+
+/// The picture [event] shows in its Android notification, or null when
+/// there is none to show; see [_mediaFileOf].
+Future<NotificationMedia?> notificationMediaOf(
+  Event event, {
+  NotificationMediaDownloader downloader = downloadNotificationMedia,
+  NotificationMediaDirectory directory = _defaultDirectory,
+  NotificationMediaAuthority authority = _defaultAuthority,
+  Duration timeout = const Duration(seconds: 5),
+}) async {
+  final file = await _mediaFileOf(event, downloader, timeout);
+  if (file == null) return null;
+  try {
     return await storeNotificationMedia(
       file,
       eventId: event.eventId,
@@ -206,7 +243,36 @@ Future<NotificationMedia?> notificationMediaOf(
       authority: await authority(),
     );
   } catch (e, s) {
-    Logs().w('Unable to get the picture for a notification', e, s);
+    Logs().w('Unable to store the picture for a notification', e, s);
+    return null;
+  }
+}
+
+/// The picture formats a Windows toast draws.
+const _windowsToastMimeTypes = {'image/jpeg', 'image/png', 'image/gif'};
+
+/// The picture [event] shows in its Windows toast, as a file under
+/// [directory] (a toast can only name a local file), or null when there is
+/// none to show; see [_mediaFileOf]. A GIF is the still the homeserver or
+/// the thumbnail gives, which Windows draws as is.
+Future<Uri?> notificationMediaFileOf(
+  Event event, {
+  required NotificationMediaDirectory directory,
+  NotificationMediaDownloader downloader = downloadNotificationMedia,
+  Duration timeout = const Duration(seconds: 5),
+}) async {
+  final file = await _mediaFileOf(event, downloader, timeout);
+  if (file == null) return null;
+  try {
+    final written = await writeNotificationMediaFile(
+      file,
+      eventId: event.eventId,
+      directory: await directory(),
+      mimeTypes: _windowsToastMimeTypes,
+    );
+    return written?.file.uri;
+  } catch (e, s) {
+    Logs().w('Unable to store the picture for a toast', e, s);
     return null;
   }
 }
