@@ -27,6 +27,12 @@ import 'package:material_ui/material_ui.dart';
 /// closes in again from the edges of the track over [concealDuration]. A
 /// finger that clears fresh ink feels light ticks.
 ///
+/// Once [revealThreshold] of the ink has been rubbed away the rest of it
+/// goes by itself, spreading out from what is clear over
+/// [completeDuration] with one firmer tick. The bubble then stays
+/// readable until it has not been touched for [revealedIdle], and the ink
+/// comes back over the whole of it at once.
+///
 /// A drag that starts on the ink belongs to the ink: it wins against a
 /// list scrolling under it or a sheet being dragged, once the finger has
 /// moved [rubSlop]. Taps and long presses still reach the widgets around
@@ -56,9 +62,23 @@ class InvisibleInk extends StatefulWidget {
     super.key,
   });
 
-  /// How long a bubble revealed whole stays readable after the finger
-  /// lifts.
+  /// How long a bubble revealed whole by one touch, under reduced motion,
+  /// stays readable after the finger lifts.
   static const concealAfter = Duration(seconds: 5);
+
+  /// How much of the ink is rubbed away before the rest goes by itself,
+  /// as a share of the bubble.
+  static const revealThreshold = 0.8;
+
+  /// How long the rest of the ink takes to go.
+  static const completeDuration = Duration(milliseconds: 350);
+
+  /// How long a bubble rubbed clear stays readable without a touch.
+  static const revealedIdle = Duration(seconds: 4);
+
+  /// How strong the tick is when the rest of the ink goes, against 0.5
+  /// for a finger landing on the ink.
+  static const completeTick = 0.8;
 
   /// How long rubbed ink stays clear after the finger lifts.
   static const holdAfterRub = Duration(seconds: 2);
@@ -94,6 +114,23 @@ class InvisibleInkState extends State<InvisibleInk>
           _fade.value = 0;
           _sync();
         });
+
+  /// Runs while the rest of the ink goes, past [InvisibleInk.revealThreshold].
+  late final AnimationController _complete =
+      AnimationController(vsync: this, duration: InvisibleInk.completeDuration)
+        ..addListener(() {
+          _mask.fade = -Curves.easeIn.transform(_complete.value) * _reach;
+        })
+        ..addStatusListener((status) {
+          if (status != AnimationStatus.completed) return;
+          _mask.fill();
+          _complete.value = 0;
+          _sync();
+        });
+
+  /// How far [_complete] has to push the mask's edge to clear the point
+  /// farthest from what was rubbed.
+  double _reach = 0;
   late final Ticker _ticker = createTicker(
     (elapsed) => _time.value = elapsed.inMicroseconds / 1e6,
   );
@@ -121,6 +158,9 @@ class InvisibleInkState extends State<InvisibleInk>
   /// How much of the content shows at [position] in the bubble, from 0
   /// under untouched ink to 1 where it has been rubbed clear.
   double shownAt(Offset position) => _mask.shownAt(position);
+
+  /// How much of the ink is rubbed away, as a share of the bubble.
+  double get cleared => _mask.cleared;
 
   @override
   void didChangeDependencies() {
@@ -158,13 +198,29 @@ class InvisibleInkState extends State<InvisibleInk>
     return true;
   }
 
-  /// Stops the ink closing in, keeping what is still clear as it is.
+  /// Stops the ink closing in, keeping what is still clear as it is. Ink
+  /// coming back over a bubble that was wholly readable is cleared again.
   void _wake() {
     _concealTimer?.cancel();
     _fade.stop();
     if (_fade.value == 0) return;
-    _mask.bake();
+    if (!_mask.isFilled) _mask.bake();
     _fade.value = 0;
+  }
+
+  /// Sends the rest of the ink away, outwards from what is clear.
+  void _finish() {
+    _reach = InkMask.edgeDepth - _mask.spread(InvisibleInk.brushRadius);
+    _complete.forward(from: 0);
+    EffectHaptics.instance.play(
+      const HapticPattern([
+        HapticBeat(
+          HapticPrimitive.tick,
+          Duration.zero,
+          scale: InvisibleInk.completeTick,
+        ),
+      ]),
+    );
   }
 
   /// Clears the whole bubble at once.
@@ -185,7 +241,7 @@ class InvisibleInkState extends State<InvisibleInk>
       return;
     }
     _wake();
-    if (isRevealed || !_fitMask()) return;
+    if (isRevealed || _complete.isAnimating || !_fitMask()) return;
     final cleared = _mask.stroke(
       down ? position : _last ?? position,
       position,
@@ -193,6 +249,10 @@ class InvisibleInkState extends State<InvisibleInk>
     );
     _last = position;
     _sync();
+    if (_mask.cleared >= InvisibleInk.revealThreshold) {
+      _finish();
+      return;
+    }
     if (!tick || !cleared) return;
     final lastTick = _lastTick;
     if (!down &&
@@ -217,16 +277,26 @@ class InvisibleInkState extends State<InvisibleInk>
     _lastTick = null;
     _concealTimer?.cancel();
     if (isHidden) return;
-    _concealTimer = Timer(
-      isRevealed ? InvisibleInk.concealAfter : InvisibleInk.holdAfterRub,
-      conceal,
-    );
+    final Duration wait;
+    if (!widget.animate) {
+      wait = InvisibleInk.concealAfter;
+    } else if (isRevealed || _complete.isAnimating) {
+      wait = InvisibleInk.revealedIdle;
+    } else {
+      wait = InvisibleInk.holdAfterRub;
+    }
+    _concealTimer = Timer(wait, conceal);
   }
 
   /// Covers the bubble again.
   void conceal() {
     _concealTimer?.cancel();
     if (!mounted || isHidden || _fade.isAnimating) return;
+    if (_complete.isAnimating) {
+      _complete.stop();
+      _mask.fill();
+      _complete.value = 0;
+    }
     if (widget.animate) {
       _fade.forward(from: 0);
     } else {
@@ -240,6 +310,7 @@ class InvisibleInkState extends State<InvisibleInk>
     _concealTimer?.cancel();
     _ticker.dispose();
     _fade.dispose();
+    _complete.dispose();
     _time.dispose();
     _mask.dispose();
     super.dispose();
@@ -400,7 +471,10 @@ class _ShownClipper extends CustomClipper<Rect> {
 /// [shown] is what is seen of that: 1 where the content is clear, 0 where
 /// the ink is whole, and a soft edge between. As [fade] goes from 0 to 1
 /// the edge moves in from the outside of every track to its middle, until
-/// nothing is shown.
+/// nothing is shown. A [fade] below 0 moves the edge outwards instead,
+/// which after [spread] reaches every point of the bubble. A mask that
+/// has been filled shows the whole bubble, and [fade] covers all of it
+/// evenly.
 ///
 /// The mask also holds the cover: the bubble's colour over every point
 /// in step with [shown], opaque where the ink is whole, drawn over the
@@ -417,6 +491,12 @@ class InkMask extends ChangeNotifier {
   /// less [fade], is at least one part in this many.
   static const _edge = 2.5;
 
+  /// The depth from which a point is shown in full.
+  static const edgeDepth = 1 / _edge;
+
+  /// The depth [spread] starts a point at that no stroke has reached.
+  static const _unreached = -1e6;
+
   /// The smallest gain in depth that counts as fresh ink cleared.
   static const _fresh = 0.02;
 
@@ -430,6 +510,9 @@ class InkMask extends ChangeNotifier {
   double _fade = 0;
   bool _empty = true;
   bool _filled = false;
+
+  /// The sum of [shown] over every point.
+  double _shownSum = 0;
 
   /// The box around every point a stroke has reached.
   double _left = 0;
@@ -463,6 +546,12 @@ class InkMask extends ChangeNotifier {
   /// Whether the whole bubble is shown.
   bool get isFull => _filled && _fade == 0;
 
+  /// Whether the mask was filled, and has not been cleared since.
+  bool get isFilled => _filled;
+
+  /// How much of the content shows, as a share of the bubble.
+  double get cleared => _empty ? 0 : _shownSum / _shown.length;
+
   /// The box around everything that is shown, or has been since the mask
   /// was last empty.
   Rect get bounds =>
@@ -475,8 +564,16 @@ class InkMask extends ChangeNotifier {
     if (value == _fade) return;
     _fade = value;
     if (_empty) return;
-    for (var i = 0; i < _depth.length; i++) {
-      _shown[i] = _ease(_depth[i] - value);
+    if (_filled) {
+      final shown = _ease((1 - value) * edgeDepth);
+      _shown.fillRange(0, _shown.length, shown);
+      _shownSum = shown * _shown.length;
+    } else {
+      var sum = 0.0;
+      for (var i = 0; i < _depth.length; i++) {
+        sum += _shown[i] = _ease(_depth[i] - value);
+      }
+      _shownSum = sum;
     }
     _changed();
   }
@@ -532,10 +629,63 @@ class InkMask extends ChangeNotifier {
       }
     }
     _fade = 0;
+    _shownSum = 0;
     _empty = true;
     _filled = false;
     _cover?.dispose();
     _cover = null;
+  }
+
+  /// Carries the depths on from the strokes to the rest of the bubble,
+  /// falling at the brush's rate with the distance from what was rubbed,
+  /// so below 0 past the rim of a brush of [radius]. Returns the lowest
+  /// depth. [shown] stays as it is until [fade] goes below 0, and the box
+  /// of [bounds] becomes the whole bubble.
+  double spread(double radius) {
+    if (_empty) return 0;
+    for (var i = 0; i < _depth.length; i++) {
+      if (_depth[i] <= 0) _depth[i] = _unreached;
+    }
+    final across = _stepX / radius, down = _stepY / radius;
+    final aslant = math.sqrt(across * across + down * down);
+    // Each point takes the best of its neighbours less the step between
+    // them: those before it on the way down, those after on the way up.
+    void take(int i, int column, int row, int sign) {
+      var depth = _depth[i];
+      final beside = column - sign;
+      final other = row - sign;
+      if (beside >= 0 && beside < _columns) {
+        depth = math.max(depth, _depth[i - sign] - across);
+      }
+      if (other >= 0 && other < _rows) {
+        final o = i - sign * _columns;
+        depth = math.max(depth, _depth[o] - down);
+        if (column > 0) depth = math.max(depth, _depth[o - 1] - aslant);
+        if (column < _columns - 1) {
+          depth = math.max(depth, _depth[o + 1] - aslant);
+        }
+      }
+      _depth[i] = depth;
+    }
+
+    for (var row = 0; row < _rows; row++) {
+      for (var column = 0; column < _columns; column++) {
+        take(row * _columns + column, column, row, 1);
+      }
+    }
+    var lowest = 1.0;
+    for (var row = _rows - 1; row >= 0; row--) {
+      for (var column = _columns - 1; column >= 0; column--) {
+        final i = row * _columns + column;
+        take(i, column, row, -1);
+        if (_depth[i] < lowest) lowest = _depth[i];
+      }
+    }
+    _left = 0;
+    _top = 0;
+    _right = _size.width;
+    _bottom = _size.height;
+    return lowest;
   }
 
   /// Wipes the ink within [radius] of the line from [from] to [to], most
@@ -574,7 +724,9 @@ class InkMask extends ChangeNotifier {
         final before = _depth[i];
         if (depth <= before) continue;
         _depth[i] = depth;
-        _shown[i] = _ease(depth - _fade);
+        final shown = _ease(depth - _fade);
+        _shownSum += shown - _shown[i];
+        _shown[i] = shown;
         touched = true;
         if (depth > before + _fresh) fresh = true;
       }
@@ -605,6 +757,7 @@ class InkMask extends ChangeNotifier {
     if (_columns == 0) return;
     _depth.fillRange(0, _depth.length, 1);
     _shown.fillRange(0, _shown.length, 1);
+    _shownSum = _shown.length.toDouble();
     _fade = 0;
     _left = 0;
     _top = 0;
@@ -620,6 +773,7 @@ class InkMask extends ChangeNotifier {
     if (_empty) return;
     _depth.fillRange(0, _depth.length, 0);
     _shown.fillRange(0, _shown.length, 0);
+    _shownSum = 0;
     _fade = 0;
     _empty = true;
     _filled = false;
@@ -635,7 +789,6 @@ class InkMask extends ChangeNotifier {
       _depth[i] = math.max(0, _depth[i] - _fade);
     }
     _fade = 0;
-    _filled = false;
   }
 
   /// How much of the content shows at [position] in the bubble, between
