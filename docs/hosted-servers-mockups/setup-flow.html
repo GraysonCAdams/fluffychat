@@ -1,0 +1,194 @@
+<title>Seam Server Setup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@8..144,400;8..144,500;8..144,700&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a phone frame on the left that steps through the flow, notes on the right; stacks on phones. */
+:root{
+  --bg:#eef1f8; --panel:#ffffff; --fg:#161a22; --muted:#5b6272; --line:#d9deea;
+  --seam:#1a5ad7; --seam-ink:#ffffff; --ext:#8a5a00; --ext-soft:#fff3dc; --ok:#1e7d3b;
+  --phone:#111318; --phone-fg:#e6e8ee; --phone-muted:#9aa1b0; --phone-card:#1d2028; --phone-line:#2b2f3a;
+  --sheet:#f6f6f4; --sheet-fg:#1f2125; --sheet-muted:#6b6f78;
+  --display:"Google Sans Flex","Google Sans",system-ui,sans-serif;
+  --mono:"Roboto Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d0f14; --panel:#161922; --fg:#e4e7ee; --muted:#a0a7b6; --line:#2a2f3b;
+  --seam:#8fb3ff; --seam-ink:#0d1a3a; --ext:#f0b85a; --ext-soft:#2d2414; --ok:#6fcf8d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d0f14; --panel:#161922; --fg:#e4e7ee; --muted:#a0a7b6; --line:#2a2f3b;
+  --seam:#8fb3ff; --seam-ink:#0d1a3a; --ext:#f0b85a; --ext-soft:#2d2414; --ok:#6fcf8d; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--display);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1{font-size:clamp(24px,4vw,32px);margin:0;font-weight:700;text-wrap:balance}
+.lede{margin:4px 0 0;color:var(--muted);max-width:68ch}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel)}
+.dot{width:9px;height:9px;border-radius:50%}
+.stage{display:grid;grid-template-columns:auto minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:760px){.stage{grid-template-columns:1fr;justify-items:center}}
+/* phone */
+.phone{width:320px;max-width:100%;aspect-ratio:9/19;background:var(--phone);color:var(--phone-fg);border-radius:36px;padding:12px;
+  box-shadow:0 0 0 2px #2a2d35,0 20px 50px rgba(10,15,30,.28);position:relative;overflow:hidden;display:flex;flex-direction:column}
+.status{display:flex;justify-content:space-between;font-size:11px;color:var(--phone-muted);padding:4px 14px 8px;font-family:var(--mono)}
+.screen{flex:1;display:flex;flex-direction:column;padding:6px 14px 14px;gap:12px;min-height:0;position:relative}
+.appbar{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:500}
+.appbar .back{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:var(--phone-muted)}
+.hero-ic{width:56px;height:56px;border-radius:16px;background:#1a5ad7;display:grid;place-items:center;margin-top:8px}
+.ph-title{font-size:22px;font-weight:700;line-height:1.2;margin:0;text-wrap:balance}
+.ph-body{font-size:13.5px;color:var(--phone-muted);margin:0}
+.card{background:var(--phone-card);border:1px solid var(--phone-line);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.row{display:flex;justify-content:space-between;gap:8px;font-size:13px}
+.row b{font-weight:500}
+.spacer{flex:1}
+.btn{border:0;border-radius:999px;padding:12px 16px;font:500 14px var(--display);cursor:pointer;width:100%}
+.btn.primary{background:#1a5ad7;color:#fff}
+.btn.ghost{background:transparent;color:#a9c2ff}
+.btn:focus-visible{outline:2px solid #a9c2ff;outline-offset:2px}
+.tiny{font-size:11.5px;color:var(--phone-muted);text-align:center;margin:0}
+.check{display:flex;align-items:center;gap:10px;font-size:13.5px}
+.check .st{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;flex:none}
+.st.done{background:#1e7d3b;color:#fff}.st.now{border:2px solid #a9c2ff}.st.todo{border:2px solid var(--phone-line)}
+.bar{height:6px;border-radius:99px;background:var(--phone-line);overflow:hidden}
+.bar i{display:block;height:100%;width:62%;background:#4f86f0;border-radius:99px}
+.net{display:flex;align-items:center;gap:10px;font-size:13.5px;padding:8px 0;border-bottom:1px solid var(--phone-line)}
+.net:last-child{border-bottom:0}
+.net .lg{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff}
+.net .go{margin-left:auto;font-size:12px;color:#a9c2ff}
+/* in-app browser sheet showing the host's own page */
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+.sheet{position:absolute;left:0;right:0;bottom:0;top:52px;background:var(--sheet);color:var(--sheet-fg);border-radius:18px 18px 0 0;display:flex;flex-direction:column;overflow:hidden}
+.sheet-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #e1e1dc;font-size:12px;color:var(--sheet-muted)}
+.sheet-bar .x{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#e9e9e4;color:#333;font-size:12px}
+.url{flex:1;background:#ececea;border-radius:999px;padding:5px 10px;font-family:var(--mono);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sheet-body{flex:1;padding:16px;display:flex;flex-direction:column;gap:10px}
+.ext-tag{align-self:flex-start;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a5a00;background:#fff3dc;border:1px solid #f0d39b;border-radius:999px;padding:3px 8px}
+.wire{background:#e6e6e2;border-radius:10px}
+.sheet .ph-title{color:var(--sheet-fg);font-size:18px}
+.sheet .ph-body{color:var(--sheet-muted);font-size:12.5px}
+.sheet .btn.primary{background:#2a2c31}
+/* steps + notes */
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.steps{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.steps button{width:100%;text-align:left;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;
+  border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit;cursor:pointer}
+.steps button[aria-current="step"]{border-color:var(--seam);box-shadow:0 0 0 1px var(--seam) inset}
+.steps button:focus-visible{outline:2px solid var(--seam);outline-offset:2px}
+.num{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;background:var(--bg);font-variant-numeric:tabular-nums}
+.where{font-size:11.5px;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.where.seam{background:color-mix(in srgb,var(--seam) 18%,transparent);color:var(--seam)}
+.where.ext{background:var(--ext-soft);color:var(--ext)}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.note h2{font-size:16px;margin:0 0 4px}
+.note p{margin:0;color:var(--muted);max-width:62ch}
+.nav{display:flex;gap:8px}
+.nav button{flex:1;border-radius:999px;padding:10px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:500 14px var(--display);cursor:pointer}
+.nav button:disabled{opacity:.45;cursor:default}
+@media (prefers-reduced-motion:no-preference){.screen,.sheet{animation:in .25s ease-out}@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Seam Server Setup</h1>
+    <p class="lede">A clickable sketch of getting a Matrix server with bridges from inside Seam, hosted in the user's own Railway account. Two steps happen on Railway's own pages, shown in a sheet over Seam; everything else is Seam's own screens.</p>
+    <div class="legend">
+      <span class="chip"><span class="dot" style="background:#1a5ad7"></span>Seam's own screen</span>
+      <span class="chip"><span class="dot" style="background:#e0a33a"></span>Railway's page, in an in-app sheet</span>
+      <span class="chip">Drawn mockup, not the app</span>
+    </div>
+  </header>
+
+  <div class="stage">
+    <div class="phone" aria-live="polite">
+      <div class="status"><span>9:41</span><span>5G ▮▮▮ 82%</span></div>
+      <div id="screen" class="screen"></div>
+    </div>
+
+    <div class="side">
+      <ol class="steps" id="steps"></ol>
+      <div class="note" id="note"></div>
+      <div class="nav"><button id="prev" type="button">Back</button><button id="next" type="button">Next step</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const seamIcon = '<svg width="30" height="30" viewBox="0 0 24 24"><path fill="#fff" d="M12 4c5 0 9 3 9 6.8s-4 6.7-9 6.7c-1 0-2-.1-2.9-.4C7.6 18.4 5.6 19.5 3 19.6c1.5-1.3 2.3-2.8 2.5-4.4C4 13.9 3 12.4 3 10.8 3 7 7 4 12 4Z"/><path stroke="#1a5ad7" stroke-width="1.6" stroke-linecap="round" d="M6 11.6l2 .2M10 11.9l2-.3M14 11.3l2-.6"/></svg>';
+const steps = [
+  { label:'Offer setup', where:'seam',
+    note:['Start in Seam','Shown to someone who has no server yet. It says plainly what it costs and who they pay, before anything opens.'],
+    html:`<div class="appbar"><span class="back">←</span>Your server</div>
+      <div class="hero-ic">${seamIcon}</div>
+      <h2 class="ph-title">Get your own chat server</h2>
+      <p class="ph-body">Seam sets up a private server for you and connects your networks. It runs in your own Railway account, so you own it.</p>
+      <div class="card"><div class="row"><span>Railway Hobby plan</span><b>$5 / month</b></div><div class="row"><span>Typical usage on top</span><b>about $3 to 6</b></div><div class="row"><span>Paid to</span><b>Railway, once</b></div></div>
+      <div class="spacer"></div><button class="btn primary">Set up my server</button><p class="tiny">Takes about 5 minutes</p>` },
+  { label:'Sign in or create a Railway account', where:'ext',
+    note:["Railway's sign-in, in a sheet","The sheet is Railway's real page loaded inside Seam, so new users can sign up here. When they approve Seam, the sheet closes on its own. Drawn as a grey placeholder on purpose."],
+    html:`<div class="appbar"><span class="back">←</span>Your server</div><div class="dim"></div>
+      <div class="sheet"><div class="sheet-bar"><span class="x">✕</span><span class="url">railway.com › sign in</span></div>
+      <div class="sheet-body"><span class="ext-tag">Railway's own page</span>
+      <h2 class="ph-title">Sign in or create an account</h2><p class="ph-body">Then approve "Seam" to create a project in your account.</p>
+      <div class="wire" style="height:40px"></div><div class="wire" style="height:40px"></div><div class="wire" style="height:40px;width:70%"></div>
+      <div class="spacer"></div><button class="btn primary">Approve Seam</button></div></div>` },
+  { label:'Add a card and choose Hobby', where:'ext',
+    note:['Payment, once, with Railway',"The only time they enter a card, and it goes to Railway, not to Seam. Seam watches for the upgrade and moves on when it sees it."],
+    html:`<div class="appbar"><span class="back">←</span>Your server</div><div class="dim"></div>
+      <div class="sheet"><div class="sheet-bar"><span class="x">✕</span><span class="url">railway.com › plans</span></div>
+      <div class="sheet-body"><span class="ext-tag">Railway's own page</span>
+      <h2 class="ph-title">Choose a plan</h2><p class="ph-body">Hobby keeps your server running all the time.</p>
+      <div class="wire" style="height:64px"></div><div class="wire" style="height:40px"></div><div class="wire" style="height:40px;width:60%"></div>
+      <div class="spacer"></div><button class="btn primary">Upgrade to Hobby</button></div></div>` },
+  { label:'Create the server', where:'seam',
+    note:['Back in Seam',"Seam deploys the template through Railway's API and shows plain progress. If something fails, the step says what and offers Retry."],
+    html:`<div class="appbar">Setting up</div>
+      <h2 class="ph-title">Creating your server</h2><p class="ph-body">You can leave this screen. We'll notify you when it's ready.</p>
+      <div class="card">
+        <div class="check"><span class="st done">✓</span>Railway account connected</div>
+        <div class="check"><span class="st done">✓</span>Server created</div>
+        <div class="check"><span class="st now"></span>Database starting</div>
+        <div class="check"><span class="st todo"></span>Secure address</div>
+        <div class="check"><span class="st todo"></span>Bridges</div>
+      </div><div class="bar"><i></i></div><div class="spacer"></div><p class="tiny">About 2 minutes left</p>` },
+  { label:'Choose your address', where:'seam',
+    note:['Name the server',"The server's name becomes part of every account address and can't change later, so this is explained once, simply. A custom domain is optional."],
+    html:`<div class="appbar"><span class="back">←</span>Your address</div>
+      <h2 class="ph-title">Pick your server's name</h2><p class="ph-body">People won't usually see it, but it can't be changed later.</p>
+      <div class="card"><div class="row"><span>Free address</span><b>gray-chat.up.railway.app</b></div><div class="row"><span>Your account</span><b style="font-family:var(--mono);font-size:12px">@gray:gray-chat…</b></div></div>
+      <button class="btn ghost" style="text-align:left;padding-left:0">Use my own domain instead</button>
+      <div class="spacer"></div><button class="btn primary">Continue</button>` },
+  { label:'Connect your networks', where:'seam',
+    note:['Bridges','Each network uses its own sign-in or pairing step, the same screens Seam already has. iMessage needs a Mac and is not offered here.'],
+    html:`<div class="appbar">Connect networks</div>
+      <h2 class="ph-title">Bring your chats in</h2><p class="ph-body">Connect any you use. You can add more later.</p>
+      <div class="card" style="gap:0">
+        <div class="net"><span class="lg" style="background:#1a73e8">GM</span>Google Messages<span class="go">Pair</span></div>
+        <div class="net"><span class="lg" style="background:#25a35a">WA</span>WhatsApp<span class="go">Link</span></div>
+        <div class="net"><span class="lg" style="background:#3a76f0">S</span>Signal<span class="go">Link</span></div>
+        <div class="net"><span class="lg" style="background:#2aa0d8">T</span>Telegram<span class="go">Sign in</span></div>
+      </div><div class="spacer"></div><button class="btn primary">Done</button>` },
+  { label:'Hand back the keys', where:'seam',
+    note:['Seam lets go',"Seam revokes its own Railway access. The user can also check under Railway's Account Settings, Apps. The server, the bill and the admin login are now entirely theirs."],
+    html:`<div class="appbar">All set</div>
+      <div class="hero-ic" style="background:#1e7d3b"><svg width="28" height="28" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <h2 class="ph-title">Your server is ready</h2><p class="ph-body">It's yours. Seam no longer has access to your Railway account.</p>
+      <div class="card"><div class="row"><span>Server</span><b>gray-chat</b></div><div class="row"><span>Networks</span><b>3 connected</b></div><div class="row"><span>Seam's Railway access</span><b style="color:#6fcf8d">Removed</b></div></div>
+      <div class="spacer"></div><button class="btn primary">Open my chats</button>` },
+];
+let i = 0;
+const $ = id => document.getElementById(id);
+function render(){
+  const s = steps[i];
+  $('screen').innerHTML = s.html; $('screen').style.animation='none'; void $('screen').offsetWidth; $('screen').style.animation='';
+  $('note').innerHTML = `<h2>${s.note[0]}</h2><p>${s.note[1]}</p>`;
+  document.querySelectorAll('#steps button').forEach((b,k)=> b.toggleAttribute('aria-current', k===i) || (k===i && b.setAttribute('aria-current','step')));
+  document.querySelectorAll('#steps button').forEach((b,k)=>{ if(k===i) b.setAttribute('aria-current','step'); else b.removeAttribute('aria-current'); });
+  $('prev').disabled = i===0; $('next').disabled = i===steps.length-1;
+}
+$('steps').innerHTML = steps.map((s,k)=>`<li><button type="button" id="step-${k}"><span class="num">${k+1}</span><span>${s.label}</span><span class="where ${s.where}">${s.where==='seam'?'Seam':'Railway sheet'}</span></button></li>`).join('');
+document.querySelectorAll('#steps button').forEach((b,k)=> b.addEventListener('click',()=>{i=k;render();}));
+$('prev').addEventListener('click',()=>{ if(i>0){i--;render();} });
+$('next').addEventListener('click',()=>{ if(i<steps.length-1){i++;render();} });
+render();
+</script>

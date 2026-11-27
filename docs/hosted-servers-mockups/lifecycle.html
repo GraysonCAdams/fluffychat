@@ -1,0 +1,385 @@
+<title>Seam Server Lifecycle</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@8..144,400;8..144,500;8..144,700&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a touchpoint map (table) first, then lifecycle sections, each a row of phone screens with a note per screen. */
+:root{
+  --bg:#eef1f8; --panel:#ffffff; --fg:#161a22; --muted:#5b6272; --line:#d9deea;
+  --seam:#1a5ad7; --ext:#8a5a00; --ext-soft:#fff3dc; --ok:#1e7d3b; --warn:#9a6400; --bad:#b3261e; --chipbg:#e8eefc;
+  --phone:#111318; --phone-fg:#e6e8ee; --phone-muted:#9aa1b0; --phone-card:#1d2028; --phone-line:#2b2f3a;
+  --display:"Google Sans Flex","Google Sans",system-ui,sans-serif; --mono:"Roboto Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d0f14; --panel:#161922; --fg:#e4e7ee; --muted:#a0a7b6; --line:#2a2f3b; --seam:#8fb3ff; --ext:#f0b85a; --ext-soft:#2d2414;
+  --ok:#6fcf8d; --warn:#f0b85a; --bad:#f2a19b; --chipbg:#1d2840; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d0f14; --panel:#161922; --fg:#e4e7ee; --muted:#a0a7b6; --line:#2a2f3b; --seam:#8fb3ff; --ext:#f0b85a; --ext-soft:#2d2414;
+  --ok:#6fcf8d; --warn:#f0b85a; --bad:#f2a19b; --chipbg:#1d2840; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--display);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 56px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:26px}
+h1{font-size:clamp(24px,4vw,32px);margin:0;font-weight:700;text-wrap:balance}
+h2{font-size:20px;margin:0;text-wrap:balance}
+.lede{margin:4px 0 0;color:var(--muted);max-width:72ch}
+nav{display:flex;flex-wrap:wrap;gap:6px}
+nav a{font-size:13px;color:var(--seam);text-decoration:none;background:var(--chipbg);padding:5px 10px;border-radius:999px}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:13.5px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+tr:last-child td{border-bottom:0}
+td.grp{font-weight:700;white-space:nowrap}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.t-seam{background:var(--chipbg);color:var(--seam)} .t-ext{background:var(--ext-soft);color:var(--ext)} .t-auto{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+.t-risk{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+section{display:flex;flex-direction:column;gap:12px}
+section>p{margin:0;color:var(--muted);max-width:80ch}
+.row{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px;align-items:start}
+figure{margin:0;display:flex;flex-direction:column;gap:8px}
+figcaption{font-size:13px;color:var(--muted)}
+figcaption b{color:var(--fg);display:block;font-size:14px}
+/* phone */
+.phone{width:100%;max-width:270px;aspect-ratio:9/18.5;background:var(--phone);color:var(--phone-fg);border-radius:30px;padding:10px;
+  box-shadow:0 0 0 2px #2a2d35,0 14px 34px rgba(10,15,30,.25);display:flex;flex-direction:column;overflow:hidden;font-size:12.5px}
+.sb{display:flex;justify-content:space-between;font:10px var(--mono);color:var(--phone-muted);padding:2px 10px 6px}
+.scr{flex:1;display:flex;flex-direction:column;gap:9px;padding:4px 10px 10px;min-height:0}
+.bar{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500}
+.bar .bk{color:var(--phone-muted)}
+.big{font-size:18px;font-weight:700;margin:0;line-height:1.2}
+.sub{color:var(--phone-muted);margin:0;font-size:12px}
+.card{background:var(--phone-card);border:1px solid var(--phone-line);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:6px}
+.kv{display:flex;justify-content:space-between;gap:8px}.kv span{color:var(--phone-muted)}
+.li{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--phone-line)}
+.li:last-child{border-bottom:0}
+.lg{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:10.5px;font-weight:700;color:#fff;flex:none}
+.end{margin-left:auto;font-size:11.5px;color:var(--phone-muted);text-align:right}
+.ok{color:#6fcf8d}.warn{color:#f0b85a}.bad{color:#f2a19b}.lnk{color:#a9c2ff}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:11.5px;width:max-content}
+.p-ok{background:#163a22;color:#8fe0a8}.p-warn{background:#3a2e14;color:#f5c66e}.p-bad{background:#3d1a18;color:#f6aaa4}
+.btn{border:0;border-radius:999px;padding:10px;font:500 13px var(--display);text-align:center;width:100%}
+.b1{background:#1a5ad7;color:#fff}.b2{background:transparent;color:#a9c2ff;border:1px solid var(--phone-line)}.b3{background:#5c1d1a;color:#ffd7d3}
+.sp{flex:1}
+.tg{width:34px;height:20px;border-radius:99px;background:#1a5ad7;position:relative;flex:none}.tg::after{content:"";position:absolute;right:3px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff}
+.tg.off{background:#3a3f4b}.tg.off::after{right:auto;left:3px}
+.meter{height:6px;border-radius:99px;background:var(--phone-line);overflow:hidden}.meter i{display:block;height:100%;border-radius:99px;background:#4f86f0}
+.steps{display:flex;flex-direction:column;gap:5px}
+.st{display:flex;gap:8px;align-items:center}.st i{width:16px;height:16px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:10px;font-style:normal}
+.i-d{background:#1e7d3b;color:#fff}.i-n{border:2px solid #a9c2ff}.i-t{border:2px solid var(--phone-line)}
+.sheetmark{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#f5c66e}
+.mono{font-family:var(--mono);font-size:11px}
+.callout{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:12px;padding:12px 14px;max-width:90ch}
+.callout b{display:block;margin-bottom:2px}
+</style>
+
+<div class="wrap">
+<header>
+  <h1>Seam Server Lifecycle</h1>
+  <p class="lede">Every point where a user meets their hosted server after setup: running it, networks, updates, backups, moving it, billing, alerts and closing it down. Drawn mockups, not the app. Items marked <span class="tag t-risk">verify</span> depend on Railway features not yet confirmed.</p>
+</header>
+<nav><a href="#map">All touchpoints</a><a href="#home">Server home</a><a href="#networks">Networks</a><a href="#updates">Updates</a><a href="#backups">Backups</a><a href="#move">Export and move</a><a href="#billing">Billing</a><a href="#alerts">Alerts</a><a href="#access">Access and closing</a></nav>
+
+<div class="callout"><b>One decision shapes most of this</b>Updates, adding bridges and seeing cost all need Seam to keep a Railway connection the user can revoke. Without it, the server can only update itself and Seam can't see billing. These screens assume Seam keeps that connection, and show what changes when the user turns it off.</div>
+
+<section id="map">
+<h2>All touchpoints</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Area</th><th>Moment</th><th>How often</th><th>Where it happens</th><th>Needs</th></tr></thead>
+<tbody>
+<tr><td class="grp">Setup</td><td>Offer, Railway sign-in, plan, deploy, address, networks, done</td><td>once</td><td><span class="tag t-seam">Seam</span> <span class="tag t-ext">Railway sheet</span></td><td>see the setup flow page</td></tr>
+<tr><td class="grp">Setup</td><td>Deploy failed: say what failed, Retry, or undo everything it created</td><td>rare</td><td><span class="tag t-seam">Seam</span></td><td>Railway API</td></tr>
+<tr><td class="grp">Setup</td><td>Railway account not verified yet: bridges can't reach the internet</td><td>once</td><td><span class="tag t-ext">Railway sheet</span></td><td><span class="tag t-risk">verify</span> how Railway verifies</td></tr>
+<tr><td class="grp">Setup</td><td>Already have a server: connect it instead of creating one</td><td>once</td><td><span class="tag t-seam">Seam</span></td><td>OAuth, find the project</td></tr>
+<tr><td class="grp">Home</td><td>Server status at a glance: online, version, last backup, this month's cost</td><td>any time</td><td><span class="tag t-seam">Seam</span></td><td>server health check, Railway usage <span class="tag t-risk">verify</span></td></tr>
+<tr><td class="grp">Networks</td><td>Add a network</td><td>occasional</td><td><span class="tag t-seam">Seam</span></td><td>bridge service, no Railway access</td></tr>
+<tr><td class="grp">Networks</td><td>Re-link a network that dropped (WhatsApp after the phone is offline for weeks, Google Messages pairing lost)</td><td>every few weeks</td><td><span class="tag t-seam">Seam</span></td><td>bridge status from the server</td></tr>
+<tr><td class="grp">Networks</td><td>Disconnect a network, keep or delete its chats</td><td>rare</td><td><span class="tag t-seam">Seam</span></td><td>bridge service</td></tr>
+<tr><td class="grp">Updates</td><td>Update available, what's new, update now</td><td>monthly</td><td><span class="tag t-seam">Seam</span></td><td>Railway API</td></tr>
+<tr><td class="grp">Updates</td><td>Automatic updates on or off, overnight window</td><td>once</td><td><span class="tag t-seam">Seam</span></td><td>Railway API, a scheduler</td></tr>
+<tr><td class="grp">Updates</td><td>Update in progress, then a health check</td><td>monthly</td><td><span class="tag t-auto">automatic</span></td><td>Railway API</td></tr>
+<tr><td class="grp">Updates</td><td>Update failed and was rolled back</td><td>rare</td><td><span class="tag t-seam">Seam</span> + notification</td><td>keep the previous version to return to</td></tr>
+<tr><td class="grp">Updates</td><td>Security update applied automatically even with auto-updates off</td><td>rare</td><td><span class="tag t-auto">automatic</span></td><td>policy decision</td></tr>
+<tr><td class="grp">Backups</td><td>Daily automatic backup, its status</td><td>daily</td><td><span class="tag t-auto">automatic</span></td><td>where backups live: Railway volume backups <span class="tag t-risk">verify</span> or the user's own storage</td></tr>
+<tr><td class="grp">Backups</td><td>Back up now, download a copy</td><td>occasional</td><td><span class="tag t-seam">Seam</span></td><td>server-side backup job</td></tr>
+<tr><td class="grp">Backups</td><td>Restore from a backup</td><td>rare</td><td><span class="tag t-seam">Seam</span></td><td>Railway API</td></tr>
+<tr><td class="grp">Backups</td><td>Backup password: set once, needed to restore anywhere else</td><td>once</td><td><span class="tag t-seam">Seam</span></td><td>user keeps it</td></tr>
+<tr><td class="grp">Move</td><td>Export everything to self-host (database, media, network logins, server keys, config, a ready docker compose file)</td><td>rare</td><td><span class="tag t-seam">Seam</span></td><td>export job</td></tr>
+<tr><td class="grp">Move</td><td>Move to another host or own computer, then switch the address over</td><td>rare</td><td><span class="tag t-seam">Seam</span></td><td>only works with a custom domain</td></tr>
+<tr><td class="grp">Billing</td><td>This month's cost and estimate</td><td>any time</td><td><span class="tag t-seam">Seam</span></td><td>Railway usage API <span class="tag t-risk">verify</span></td></tr>
+<tr><td class="grp">Billing</td><td>Spending limit</td><td>once</td><td><span class="tag t-seam">Seam</span> or <span class="tag t-ext">Railway sheet</span></td><td><span class="tag t-risk">verify</span></td></tr>
+<tr><td class="grp">Billing</td><td>Change card, see invoices, change plan</td><td>rare</td><td><span class="tag t-ext">Railway sheet</span></td><td>Railway's own pages</td></tr>
+<tr><td class="grp">Billing</td><td>Payment failed, server stopped: how to fix it</td><td>rare</td><td><span class="tag t-seam">Seam</span> + notification, fix in <span class="tag t-ext">Railway sheet</span></td><td>detect "stopped for billing"</td></tr>
+<tr><td class="grp">Storage</td><td>Storage filling up: clear old media, set how long media is kept</td><td>occasional</td><td><span class="tag t-seam">Seam</span></td><td>server media settings</td></tr>
+<tr><td class="grp">Alerts</td><td>Server offline, network disconnected, backup failed, update rolled back, payment problem, storage nearly full, Railway outage</td><td>as needed</td><td>notification</td><td>a watcher that is not the server itself</td></tr>
+<tr><td class="grp">Access</td><td>Seam's Railway access on or off, what that changes</td><td>rare</td><td><span class="tag t-seam">Seam</span></td><td>OAuth revoke and reconnect</td></tr>
+<tr><td class="grp">Access</td><td>New phone or Windows: sign in to the same server, see the same management screens</td><td>occasional</td><td><span class="tag t-seam">Seam</span></td><td>server admin rights, not Railway</td></tr>
+<tr><td class="grp">Access</td><td>Lost admin password: reset it through Railway</td><td>rare</td><td><span class="tag t-seam">Seam</span></td><td>Railway API to set a variable</td></tr>
+<tr><td class="grp">Closing</td><td>Delete the server: export first, then remove the Railway project so billing stops</td><td>once</td><td><span class="tag t-seam">Seam</span></td><td>Railway API</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="home">
+<h2>Server home</h2>
+<p>One place in Settings that answers "is my server fine, and what is it costing me".</p>
+<div class="row">
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Your server</div>
+  <span class="pill p-ok">● Online</span>
+  <div class="card"><div class="kv"><span>Address</span><b class="mono">gray.chat</b></div><div class="kv"><span>Version</span><b>Seam Server 1.8</b></div><div class="kv"><span>Last backup</span><b>Today, 3:12 AM</b></div><div class="kv"><span>This month</span><b>$6.40 so far</b></div></div>
+  <div class="card" style="gap:0">
+   <div class="li"><span class="lg" style="background:#1a73e8">GM</span>Google Messages<span class="end ok">Connected</span></div>
+   <div class="li"><span class="lg" style="background:#25a35a">WA</span>WhatsApp<span class="end warn">Needs re-link</span></div>
+   <div class="li"><span class="lg" style="background:#3a76f0">S</span>Signal<span class="end ok">Connected</span></div></div>
+  <div class="card" style="gap:0">
+   <div class="li">Updates<span class="end lnk">1 available</span></div><div class="li">Backups<span class="end">Daily</span></div><div class="li">Billing<span class="end">Railway</span></div><div class="li">Storage<span class="end">3.1 of 5 GB</span></div><div class="li">Move or export<span class="end">›</span></div></div>
+</div></div><figcaption><b>Overview</b>Status, cost and anything needing attention first. Rows open the screens below.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Your server</div>
+  <span class="pill p-bad">● Offline since 2:40 PM</span>
+  <p class="big">Your server isn't responding</p>
+  <p class="sub">Messages sent to you are waiting on your networks and will arrive when it's back.</p>
+  <div class="card"><div class="kv"><span>Railway status</span><b class="warn">Incident reported</b></div><div class="kv"><span>Your project</span><b>Running, not reachable</b></div></div>
+  <p class="sub">Nothing to do on your side yet. We'll notify you when it's back.</p>
+  <div class="sp"></div><button class="btn b2">Restart server</button><button class="btn b2">See Railway status</button>
+</div></div><figcaption><b>Offline</b>Says whose problem it is: Railway, billing, or the server itself, and only offers actions that can help.</figcaption></figure>
+</div></section>
+
+<section id="networks">
+<h2>Networks</h2>
+<p>All bridges live in one service on the user's server, switched on from Seam, so adding a network never needs Railway access.</p>
+<div class="row">
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Networks</div>
+  <div class="card" style="gap:0">
+   <div class="li"><span class="lg" style="background:#1a73e8">GM</span><div>Google Messages<div class="sub">Paired with Pixel 10</div></div><span class="end ok">On</span></div>
+   <div class="li"><span class="lg" style="background:#25a35a">WA</span><div>WhatsApp<div class="sub warn">Phone offline 13 days</div></div><span class="end lnk">Re-link</span></div>
+   <div class="li"><span class="lg" style="background:#3a76f0">S</span><div>Signal<div class="sub">Linked device</div></div><span class="end ok">On</span></div>
+   <div class="li"><span class="lg" style="background:#2aa0d8">T</span><div>Telegram<div class="sub">Not connected</div></div><span class="end lnk">Add</span></div>
+   <div class="li"><span class="lg" style="background:#555">iM</span><div>iMessage<div class="sub">Needs a Mac</div></div><span class="end">Learn how</span></div></div>
+  <p class="sub">New networks appear here after a server update.</p>
+</div></div><figcaption><b>Network list</b>Each row shows the one thing that matters: connected, needs re-linking, or not set up.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>WhatsApp</div>
+  <p class="big">Re-link WhatsApp</p>
+  <p class="sub">WhatsApp disconnects linked devices when your phone has been offline for a while. Scan this from WhatsApp on your phone.</p>
+  <div class="card" style="align-items:center;padding:16px"><div style="width:130px;height:130px;background:repeating-conic-gradient(#e6e8ee 0 25%,#1d2028 0 50%) 0 0/16px 16px;border-radius:6px"></div></div>
+  <p class="sub">WhatsApp › Settings › Linked devices › Link a device</p>
+  <div class="sp"></div><button class="btn b2">Disconnect WhatsApp</button>
+</div></div><figcaption><b>Re-link</b>The most common maintenance task, so it explains why it happened and where to tap on the other phone.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Disconnect WhatsApp</div>
+  <p class="big">Disconnect WhatsApp?</p>
+  <p class="sub">Seam stops receiving WhatsApp messages. Your WhatsApp account itself isn't affected.</p>
+  <div class="card"><label class="kv"><span style="color:var(--phone-fg)">Keep past WhatsApp chats in Seam</span><span class="tg"></span></label></div>
+  <div class="sp"></div><button class="btn b3">Disconnect</button><button class="btn b2">Cancel</button>
+</div></div><figcaption><b>Disconnect</b>Separates "stop syncing" from "delete history", since people usually want only the first.</figcaption></figure>
+</div></section>
+
+<section id="updates">
+<h2>Updates</h2>
+<p>Seam publishes tested server versions; each user's server moves to them. Automatic by default, overnight, with an automatic rollback if the new version fails its health check.</p>
+<div class="row">
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Updates</div>
+  <div class="card"><div class="kv"><span>Installed</span><b>1.8</b></div><div class="kv"><span>Available</span><b class="lnk">1.9</b></div></div>
+  <div class="card"><b>What's new in 1.9</b><span class="sub">• Signal: faster photo sending<br>• Google Messages: fixes missed group photos<br>• Security fixes for the database</span></div>
+  <p class="sub">Takes about 2 minutes. Messages wait and arrive afterwards.</p>
+  <div class="sp"></div><button class="btn b1">Update now</button><button class="btn b2">Tonight at 3 AM</button>
+</div></div><figcaption><b>Update available</b>Plain changes, how long it takes, and that nothing is lost while it runs.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Automatic updates</div>
+  <div class="card"><label class="kv"><span style="color:var(--phone-fg)">Update automatically</span><span class="tg"></span></label><span class="sub">Recommended. Seam installs tested updates while you sleep.</span></div>
+  <div class="card"><div class="kv"><span>Time window</span><b>2 to 5 AM</b></div><div class="kv"><span>Time zone</span><b>Eastern</b></div></div>
+  <div class="card"><label class="kv"><span style="color:var(--phone-fg)">Security fixes right away</span><span class="tg"></span></label><span class="sub">Applies urgent security fixes even outside the window.</span></div>
+  <p class="sub">Needs Seam's Railway access. <span class="lnk">Manage access</span></p>
+</div></div><figcaption><b>Auto-update settings</b>On by default. Turning off Seam's Railway access turns this off too, and the screen says so.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar">Updating</div>
+  <p class="big">Updating to 1.9</p>
+  <div class="steps">
+   <div class="st"><i class="i-d">✓</i>Backup taken</div><div class="st"><i class="i-d">✓</i>New version started</div>
+   <div class="st"><i class="i-n"></i>Checking it works</div><div class="st"><i class="i-t"></i>Switching over</div></div>
+  <div class="meter"><i style="width:68%"></i></div>
+  <p class="sub">If anything fails, your server goes back to 1.8 automatically.</p>
+</div></div><figcaption><b>In progress</b>Always backs up first, then starts the new version beside the old one and only switches when it passes.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Updates</div>
+  <span class="pill p-warn">● Update rolled back</span>
+  <p class="big">1.9 didn't start, so you're still on 1.8</p>
+  <p class="sub">Nothing was lost. Seam has been told and will try again when a fix is out.</p>
+  <div class="card"><div class="kv"><span>Failed check</span><b>Database migration</b></div><div class="kv"><span>Rolled back</span><b>3:07 AM</b></div></div>
+  <div class="sp"></div><button class="btn b2">Send details to Seam</button>
+</div></div><figcaption><b>Rolled back</b>The failure case people will actually see: reassuring, specific, and no action required.</figcaption></figure>
+</div></section>
+
+<section id="backups">
+<h2>Backups</h2>
+<p>Daily, automatic, encrypted with a password only the user has. Where they're stored is open: Railway's own volume backups if available, or the user's Google Drive or OneDrive.</p>
+<div class="row">
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Backups</div>
+  <span class="pill p-ok">● Last backup today, 3:12 AM</span>
+  <div class="card"><div class="kv"><span>Schedule</span><b>Daily</b></div><div class="kv"><span>Keep</span><b>14 days</b></div><div class="kv"><span>Stored in</span><b>Google Drive</b></div><div class="kv"><span>Encrypted</span><b class="ok">Yes</b></div></div>
+  <div class="card" style="gap:0"><div class="li">Today 3:12 AM<span class="end">412 MB</span></div><div class="li">Yesterday 3:10 AM<span class="end">409 MB</span></div><div class="li">Nov 24 3:11 AM<span class="end">405 MB</span></div></div>
+  <div class="sp"></div><button class="btn b1">Back up now</button><button class="btn b2">Download a copy</button>
+</div></div><figcaption><b>Backup list</b>Status first, then schedule and history.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Backup password</div>
+  <p class="big">Set a backup password</p>
+  <p class="sub">Backups are locked with it. You'll need it to restore, or to move your server somewhere else. Seam can't recover it.</p>
+  <div class="card"><div class="kv"><span>Password</span><b class="mono">••••••••••••</b></div><div class="kv"><span>Strength</span><b class="ok">Strong</b></div></div>
+  <div class="card"><label class="kv"><span style="color:var(--phone-fg)">Save to my password manager</span><span class="tg"></span></label></div>
+  <div class="sp"></div><button class="btn b1">Save password</button>
+</div></div><figcaption><b>Backup password</b>Asked once, during setup or the first backup. The honest line about recovery is the important part.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Restore</div>
+  <p class="big">Restore from yesterday?</p>
+  <p class="sub">Your server goes back to Nov 25, 3:10 AM. Messages from after that are still on your networks and will sync back in.</p>
+  <div class="card"><div class="kv"><span>Backup</span><b>Nov 25, 3:10 AM</b></div><div class="kv"><span>Downtime</span><b>About 5 minutes</b></div></div>
+  <p class="sub">A fresh backup of today is taken first, so you can undo this.</p>
+  <div class="sp"></div><button class="btn b1">Restore</button><button class="btn b2">Cancel</button>
+</div></div><figcaption><b>Restore</b>Explains what comes back on its own, and that the restore itself can be undone.</figcaption></figure>
+</div></section>
+
+<section id="move">
+<h2>Export and move</h2>
+<p>The promise behind "you own it": one export holds everything needed to run the same server elsewhere.</p>
+<div class="callout"><b>Constraint to design for at setup</b>A Matrix server's name is permanent. A server named on Railway's free address can be exported, but can only keep its address if Railway keeps serving that name, so moving it means starting a new server name. Suggest a custom domain at setup to anyone who might ever move.</div>
+<div class="row">
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Move or export</div>
+  <p class="big">Where do you want it?</p>
+  <div class="card" style="gap:0">
+   <div class="li"><div><b>Download everything</b><div class="sub">One encrypted file to keep or self-host</div></div><span class="end">›</span></div>
+   <div class="li"><div><b>Move to my own computer</b><div class="sub">Windows or a home server, with Docker</div></div><span class="end">›</span></div>
+   <div class="li"><div><b>Move to another host</b><div class="sub">Any VPS with Docker</div></div><span class="end">›</span></div></div>
+  <div class="card"><div class="kv"><span>Address</span><b class="mono">gray.chat</b></div><span class="sub ok">Your own domain: the address moves with you.</span></div>
+</div></div><figcaption><b>Choose a destination</b>Shows up front whether the address can move.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Download everything</div>
+  <p class="big">Preparing your export</p>
+  <div class="steps"><div class="st"><i class="i-d">✓</i>Messages and rooms</div><div class="st"><i class="i-d">✓</i>Photos and files (2.4 GB)</div><div class="st"><i class="i-n"></i>Network logins</div><div class="st"><i class="i-t"></i>Server keys and settings</div><div class="st"><i class="i-t"></i>Setup file for Docker</div></div>
+  <div class="meter"><i style="width:55%"></i></div>
+  <p class="sub">Locked with your backup password. Includes step-by-step instructions to run it yourself.</p>
+</div></div><figcaption><b>Export</b>Lists what's inside so "everything" is believable: data, logins, keys and a ready Docker setup.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Move to another host</div>
+  <p class="big">Switch over</p>
+  <div class="steps"><div class="st"><i class="i-d">✓</i>New server running your export</div><div class="st"><i class="i-d">✓</i>Checked it works</div><div class="st"><i class="i-n"></i>Point gray.chat to the new server</div><div class="st"><i class="i-t"></i>Stop the Railway server</div></div>
+  <div class="card"><span class="sub">At your domain provider, change this record:</span><span class="mono">gray.chat  A  203.0.113.24</span></div>
+  <p class="sub">Network logins can only run in one place at a time, so the old server stops first.</p>
+  <div class="sp"></div><button class="btn b1">I've changed it</button>
+</div></div><figcaption><b>Cut over</b>The old server must stop before the new one connects to WhatsApp and Signal, or both break.</figcaption></figure>
+</div></section>
+
+<section id="billing">
+<h2>Billing</h2>
+<p>Railway bills the user; Seam only shows and explains. Changing a card or plan opens Railway's own page.</p>
+<div class="row">
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Billing</div>
+  <div class="card"><div class="kv"><span>Plan</span><b>Railway Hobby</b></div><div class="kv"><span>This month so far</span><b>$6.40</b></div><div class="kv"><span>Estimated total</span><b>$8.90</b></div><div class="kv"><span>Spending limit</span><b>$15</b></div></div>
+  <div class="meter"><i style="width:59%"></i></div><p class="sub">$8.90 of your $15 limit</p>
+  <div class="card" style="gap:0"><div class="li">Server<span class="end">$3.10</span></div><div class="li">Database<span class="end">$1.70</span></div><div class="li">Networks<span class="end">$1.60</span></div></div>
+  <div class="sp"></div><button class="btn b2">Change card or plan on Railway ↗</button>
+</div></div><figcaption><b>Cost</b>Plain dollars with a forecast. <span class="tag t-risk">verify</span> Railway exposes usage and limits through its API.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Your server</div>
+  <span class="pill p-bad">● Stopped by Railway</span>
+  <p class="big">Railway couldn't charge your card</p>
+  <p class="sub">Your server is paused until the payment goes through. Your messages and settings are safe.</p>
+  <div class="card"><div class="kv"><span>Since</span><b>Nov 26</b></div><div class="kv"><span>Amount due</span><b>$8.90</b></div></div>
+  <div class="sp"></div><button class="btn b1">Update card on Railway ↗</button>
+</div></div><figcaption><b>Payment failed</b>Seam can't take payment, so it explains and sends them to the one place that can.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Storage</div>
+  <div class="card"><div class="kv"><span>Used</span><b>3.1 of 5 GB</b></div><div class="meter"><i style="width:62%"></i></div></div>
+  <div class="card" style="gap:0"><div class="li">Photos and videos<span class="end">2.4 GB</span></div><div class="li">Messages<span class="end">0.5 GB</span></div><div class="li">Other<span class="end">0.2 GB</span></div></div>
+  <div class="card"><div class="kv"><span>Keep media on server</span><b>1 year</b></div><span class="sub">Older media stays on your phone and on the original network.</span></div>
+  <div class="sp"></div><button class="btn b2">Clear media older than a year</button>
+</div></div><figcaption><b>Storage</b>Storage is the slow cost driver; a retention setting keeps it flat.</figcaption></figure>
+</div></section>
+
+<section id="alerts">
+<h2>Alerts</h2>
+<p>Sent as normal Seam notifications. Server-down alerts can't come from the server itself, so they need a small watcher run by Seam, or Railway's own alerts.</p>
+<div class="row">
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar">Notifications</div>
+  <div class="card"><b class="bad">Server offline</b><span class="sub">Seam can't reach gray.chat since 2:40 PM.</span></div>
+  <div class="card"><b class="warn">WhatsApp disconnected</b><span class="sub">Re-link it to keep getting messages.</span></div>
+  <div class="card"><b class="warn">Backup failed</b><span class="sub">Google Drive is full. Last good backup: yesterday.</span></div>
+  <div class="card"><b>Updated to 1.9</b><span class="sub">Installed overnight. Everything's running.</span></div>
+  <div class="card"><b class="warn">Spending at 80% of your limit</b><span class="sub">$12 of $15 this month.</span></div>
+</div></div><figcaption><b>Alert types</b>Each says what happened and the one next step. Routine ones like "updated" can be turned off.</figcaption></figure>
+</div></section>
+
+<section id="bridge-setup">
+<h2>Setting up bridges that use commands</h2>
+<p>12 of Seam's 14 networks use the standard bridgev2 sign-in and get native screens. Discord and Google Chat still sign in through chat commands; these three layers cover them, and any future bridge, without code written per bridge.</p>
+<div class="row">
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+ <div class="bar"><span class="bk">←</span><span class="lg" style="background:#5865F2">D</span>Discord setup</div>
+ <span class="pill p-warn">● Not connected</span>
+ <div class="card"><b>How Discord connects</b><span class="sub">Scan a QR code with the Discord app on your phone. <span class="lnk">Full guide ↗</span></span></div>
+ <div class="card" style="align-self:flex-start;max-width:85%"><span>Discord bridge ready. Use <span class="mono">login-qr</span> or <span class="mono">login-token</span>.</span></div>
+ <div style="align-self:flex-end;background:#1a5ad7;color:#fff;border-radius:14px;padding:6px 10px" class="mono">login-qr</div>
+ <div class="card" style="align-items:center"><div style="width:110px;height:110px;background:repeating-conic-gradient(#e6e8ee 0 25%,#1d2028 0 50%) 0 0/14px 14px;border-radius:6px"></div><span class="sub">Discord app › Settings › Scan QR Code</span></div>
+ <div class="sp"></div>
+ <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="pill mono" style="border:1px solid #3a3f4b;color:#a9c2ff">login-qr</span><span class="pill mono" style="border:1px solid #3a3f4b;color:#a9c2ff">login-token</span><span class="pill mono" style="border:1px solid #3a3f4b;color:#a9c2ff">help</span></div>
+ <div class="card" style="flex-direction:row;border-radius:999px;padding:7px 12px"><span class="sub">Type a command…</span><span class="end lnk">✦ Help me</span></div>
+</div></div><figcaption><b>A: bridge console</b>The bot chat with a guide card on top and suggested commands parsed from the bridge's own <span class="mono">help</span>. Works for any bridge, no code per bridge.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+ <div class="bar"><span class="bk">←</span><span class="lg" style="background:#5865F2">D</span>Discord setup</div>
+ <p class="big">Connect Discord</p><p class="sub">Choose how to sign in.</p>
+ <div class="card" style="gap:0"><div class="li"><div><b>Scan a QR code</b><div class="sub">With the Discord app on your phone</div></div><span class="end">›</span></div><div class="li"><div><b>Use a token</b><div class="sub">Advanced</div></div><span class="end">›</span></div></div>
+ <p class="sub">Seam runs <span class="mono">login-qr</span> for you and shows the code here.</p>
+ <div class="sp"></div><button class="btn b2">Open console instead</button>
+</div></div><figcaption><b>B: recipe screen</b>A few lines of shared JSON per legacy bridge (which command, what reply means success) turn commands into buttons. Only needed for popular ones.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+ <div class="bar"><span class="bk">←</span><span class="lg" style="background:#5865F2">D</span>Discord setup</div>
+ <div class="card" style="background:#232838">✦ I'll connect Discord by asking the bridge for a QR code. Scan it with Discord on your phone. I never see passwords or tokens.</div>
+ <div style="align-self:flex-end;background:#1a5ad7;color:#fff;border-radius:14px;padding:6px 10px" class="mono">login-qr</div>
+ <div class="card" style="align-self:flex-start">QR code shown. Waiting…</div>
+ <div class="card" style="background:#232838">✦ Connected as gray#0420. Show your Discord servers as spaces?</div>
+ <div class="sp"></div>
+ <div style="display:flex;gap:6px"><button class="btn b1">Yes</button><button class="btn b2">Not now</button></div>
+ <p class="sub">Runs only commands listed in this bridge's help.</p>
+</div></div><figcaption><b>C: assistant</b>Optional "Help me" mode inside the same console: drives the commands and explains replies, for bridges with no recipe.</figcaption></figure>
+</div></section>
+
+<section id="access">
+<h2>Access and closing</h2>
+<div class="row">
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Seam's access</div>
+  <div class="card"><label class="kv"><span style="color:var(--phone-fg)">Let Seam manage my Railway project</span><span class="tg"></span></label></div>
+  <div class="card"><b>With access on</b><span class="sub">Automatic updates, restores, cost and limits shown here.</span></div>
+  <div class="card"><b>With access off</b><span class="sub">Your server keeps running and networks still work. No updates, restores or cost info in Seam. You can turn it back on any time.</span></div>
+  <p class="sub">Seam can only see the one project it created.</p>
+</div></div><figcaption><b>Access toggle</b>The honest version of "hand back the keys": the user can revoke, and sees exactly what stops.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:41</span><span>82%</span></div><div class="scr">
+  <div class="bar"><span class="bk">←</span>Delete server</div>
+  <p class="big">Delete your server?</p>
+  <p class="sub">This removes the Railway project, so billing stops. Your chats on WhatsApp, Signal and the other networks themselves aren't affected.</p>
+  <div class="card"><div class="kv"><span>Export first</span><b class="ok">Done today</b></div><div class="kv"><span>Railway project</span><b>Will be deleted</b></div><div class="kv"><span>Backups in Google Drive</span><b>Kept</b></div></div>
+  <div class="card"><span class="sub">Type <b style="color:var(--phone-fg)">gray.chat</b> to confirm</span><span class="mono">gray.ch▌</span></div>
+  <div class="sp"></div><button class="btn b3">Delete server</button>
+</div></div><figcaption><b>Delete</b>Pushes an export first and confirms by typing the address.</figcaption></figure>
+</div></section>
+</div>
