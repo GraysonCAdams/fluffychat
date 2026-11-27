@@ -1,5 +1,13 @@
 # Seam hosted servers: architecture
 
+> **Status: tabled on 2026-11-26.** Nothing was built, registered or spent. Confidence at that point: technically
+> feasible (about 70%), but income is unproven (about 35%) and Railway's acceptance of bridges under its fair-use
+> policy is unknown (about 50%). Before any further design or spending: (1) email Railway asking whether a
+> bridge template is allowed and whether usage inside Hobby's included $5 earns template kickback; (2) only then
+> decide D1 (a test account for milestone M0); (3) get a lawyer's view on platform claims
+> (see hosted-servers-disclaimers.md).
+
+
 Status: design, written 2026-11-26. Nothing is built, deployed or registered. This document is the
 build brief: agents work from it without asking Grayson. Where it says UNVERIFIED, the fact was not
 confirmed and the named check must run before code depends on it (list in section 16).
