@@ -97,9 +97,12 @@ class ChatInputRow extends StatelessWidget {
     ) {
       {
         if (recordingViewModel.isRecording) {
+          final (sendColor, onSendColor) = controller.sendButtonColors(context);
           return RecordingInputRow(
             state: recordingViewModel,
             onSend: controller.onVoiceMessageSend,
+            sendColor: sendColor,
+            onSendColor: onSendColor,
           );
         }
         return Row(

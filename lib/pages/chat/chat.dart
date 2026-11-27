@@ -448,20 +448,29 @@ class ChatController extends State<ChatPageWithRoom>
     addPendingAttachments(files);
   }
 
+  /// The colour of the user's bubbles for messages in [roomId] while
+  /// bubbles are coloured by network: in a merged contact's chat that of the
+  /// room's network, in any other bridged chat that of its own network.
+  /// Null for a plain Matrix room, a network without a colour, and with
+  /// network colours off, where the theme's bubble colour applies.
+  Color? networkColorFor(String roomId) {
+    if (!AppSettings.networkBubbleColors.value) return null;
+    final networks = mergedNetworks(MatrixLocals(L10n.of(context)));
+    if (networks != null) {
+      return networks
+          .firstWhereOrNull((network) => network.room.id == roomId)
+          ?.bubbleColor;
+    }
+    final chat = room.client.getRoomById(roomId) ?? room;
+    return NetworkColors.colorFor(NetworkColors.bridgeIdOfRoom(chat));
+  }
+
   /// The send button's background and foreground, the colours the
-  /// message's bubble will have: in a merged contact's chat those of the
-  /// network the message goes out on, as that network's bubbles do, else
-  /// the theme's own bubble colours.
+  /// message's bubble will have (see [networkColorFor]): the network's
+  /// colour in a bridged chat, else the theme's own bubble colours.
   (Color, Color) sendButtonColors(BuildContext context) {
     final theme = Theme.of(context);
-    Color? networkColor;
-    if (AppSettings.networkBubbleColors.value) {
-      final networks = mergedNetworks(MatrixLocals(L10n.of(context)));
-      final targetRoomId = composerTarget.roomId;
-      for (final network in networks ?? const <MergedNetwork>[]) {
-        if (network.room.id == targetRoomId) networkColor = network.bubbleColor;
-      }
-    }
+    final networkColor = networkColorFor(composerTarget.roomId);
     if (networkColor == null) return (theme.bubbleColor, theme.onBubbleColor);
     return (networkColor, NetworkColors.foregroundOn(networkColor));
   }
