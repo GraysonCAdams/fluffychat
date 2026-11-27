@@ -91,8 +91,7 @@ abstract final class LogcatMirror {
   ];
 
   /// [text] with access and refresh tokens and authorization values
-  /// replaced by `<redacted>`.
-  @visibleForTesting
+  /// replaced by `<redacted>`. Dev control's log tail scrubs with it too.
   static String scrub(String text) {
     var scrubbed = text;
     for (final (pattern, replacement) in _secrets) {
