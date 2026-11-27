@@ -8,8 +8,10 @@ import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
+import '../../widgets/render_pixels.dart';
 import 'chat_list_fakes.dart';
 
 void main() {
@@ -68,14 +70,44 @@ void main() {
 
     final shown = faces(tester, 'Trio');
     expect(shown.map((a) => a.name), ['Trio', 'Drew Andersen']);
-    // Two thirds of the row's avatar, the second down and to the right.
-    expect(shown.first.size, closeTo(Avatar.defaultSize * 2 / 3, 0.01));
+    // Two thirds of the row's avatar less a 2dp gap all round, the second
+    // down and to the right.
+    expect(shown.first.size, closeTo(Avatar.defaultSize * 2 / 3 - 4, 0.01));
     final first = tester.getTopLeft(find.byWidget(shown[0]));
     final second = tester.getTopLeft(find.byWidget(shown[1]));
     expect(second.dx - first.dx, closeTo(Avatar.defaultSize / 3, 0.01));
     expect(second.dy - first.dy, closeTo(Avatar.defaultSize / 3, 0.01));
 
     await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('the gap between two faces shows what lies behind them', (
+    tester,
+  ) async {
+    final room = addFakeChat(client, '!duo:x', 'Duo');
+    addMembers(room, ['Drew Andersen']);
+    // A hovered or highlighted row: lighter than the surface.
+    const behind = Color(0xFF2A2A2A);
+    final (pixels, width) = await renderPixels(
+      tester,
+      GroupAvatar(room: room, name: 'Duo'),
+      background: behind,
+      size: const Size.square(Avatar.defaultSize),
+    );
+    // The faces' centres are a third and two thirds of the way across. The
+    // second is cut 2dp wide out of the first: halfway across that gap, on
+    // the line between the centres, lies 15dp from the second centre.
+    const third = Avatar.defaultSize / 3;
+    const along = 15 / 1.4142135;
+    for (final offset in [0.0, 0.5]) {
+      final x = ((2 * third - along + offset) * 2).floor();
+      final i = (x * width + x) * 4;
+      expect(
+        [pixels[i], pixels[i + 1], pixels[i + 2]],
+        [0x2A, 0x2A, 0x2A],
+        reason: 'pixel ($x, $x)',
+      );
+    }
   });
 
   testWidgets('a larger group shows three members in a cluster', (

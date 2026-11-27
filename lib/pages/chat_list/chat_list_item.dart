@@ -324,9 +324,6 @@ class _ChatListItemState extends State<ChatListItem> {
                                   ? GroupAvatar(
                                       room: contact?.sendViaRoom ?? room,
                                       name: displayname,
-                                      outlineColor:
-                                          backgroundColor ??
-                                          theme.colorScheme.surface,
                                     )
                                   : Avatar(
                                       shapeBorder: room.isSpace

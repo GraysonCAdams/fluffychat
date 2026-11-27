@@ -313,12 +313,7 @@ class ChatHeaderAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final shown = contact?.sendViaRoom ?? room;
     return GroupAvatar.shows(shown)
-        ? GroupAvatar(
-            room: shown,
-            name: name,
-            size: 32,
-            outlineColor: Theme.of(context).colorScheme.surface,
-          )
+        ? GroupAvatar(room: shown, name: name, size: 32)
         : Avatar(
             mxContent: contact?.avatar ?? room.avatar,
             name: name,
