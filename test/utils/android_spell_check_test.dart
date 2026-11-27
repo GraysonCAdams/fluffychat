@@ -4,7 +4,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/utils/spell_check_ffi.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -28,7 +27,6 @@ class _FakeSpellCheckService implements SpellCheckService {
 void main() {
   testWidgets('tapping a misspelled word on Android leaves the corrections to '
       'the keyboard and keeps the long-press menu working', (tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
     final controller = TextEditingController();
     addTearDown(controller.dispose);
     await tester.pumpWidget(
@@ -66,7 +64,5 @@ void main() {
     await tester.longPressAt(at(4));
     await tester.pumpAndSettle();
     expect(find.text('Copy'), findsOneWidget);
-
-    debugDefaultTargetPlatformOverride = null;
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 }

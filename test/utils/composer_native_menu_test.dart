@@ -8,6 +8,7 @@ import 'dart:async';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/composer_native_menu.dart';
 import 'package:fluffychat/utils/native_context_menu.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -60,7 +61,10 @@ void main() {
     dictionary = _FakeDictionary();
   });
 
-  Future<EditableTextState> pumpField(WidgetTester tester) async {
+  Future<EditableTextState> pumpField(
+    WidgetTester tester, {
+    EditableTextContextMenuBuilder? contextMenuBuilder,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         localizationsDelegates: L10n.localizationsDelegates,
@@ -78,6 +82,7 @@ void main() {
                 child: TextField(
                   controller: controller,
                   focusNode: focusNode,
+                  contextMenuBuilder: contextMenuBuilder,
                   spellCheckConfiguration: SpellCheckConfiguration(
                     spellCheckService: _FakeSpellCheckService(),
                   ),
@@ -303,6 +308,32 @@ void main() {
       final ratio = tester.view.devicePixelRatio;
       expect(position, click * ratio);
     });
+
+    testWidgets('a real right-click on Windows opens the native menu for '
+        'the clicked word instead of a Flutter toolbar', (tester) async {
+      final state = await pumpField(
+        tester,
+        contextMenuBuilder: (context, editableTextState) => NativeComposerMenu(
+          composerContext: appContext,
+          editableTextState: editableTextState,
+          dictionary: dictionary,
+          extraItems: () => [],
+        ),
+      );
+      final renderEditable = state.renderEditable;
+      final click = renderEditable.localToGlobal(
+        renderEditable
+            .getLocalRectForCaret(const TextPosition(offset: 11))
+            .center,
+      );
+      answer = (items) => idOf(items, 'simple');
+      await tester.tapAt(click, buttons: kSecondaryButton);
+      await tester.pumpAndSettle();
+      expect(shown, hasLength(1));
+      expect(controller.text, 'Ths is a simple tset');
+      expect(find.byType(AdaptiveTextSelectionToolbar), findsNothing);
+      expect(state.selectionOverlay?.toolbarIsVisible ?? false, isFalse);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
     testWidgets('Shift+F10 and the Menu key open it at the caret', (
       tester,
