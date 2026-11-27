@@ -11,7 +11,10 @@ Android and Windows, then kept there as features land.
 | Xcode | 27.0 (27A266a), iOS 27.0 simulator runtime |
 | Flutter | 3.47.9 through `fvm` (`.fvmrc`); run as `fvm flutter ...` |
 | rsync | put `/usr/bin` first on `PATH`: Flutter's SwiftPM plugin copy fails with Homebrew rsync 3.4.4 (`mkdir ... SourcePackages ... No such file or directory`) |
-| Signing | no identities on the Mac yet; simulator and unsigned macOS debug builds only |
+| Signing | no identities on the Mac yet. iOS: simulator only. macOS: `FLUTTER_XCODE_CODE_SIGN_IDENTITY=- FLUTTER_XCODE_DEVELOPMENT_TEAM= FLUTTER_XCODE_CODE_SIGN_ENTITLEMENTS=<copy of DebugProfile.entitlements without keychain-access-groups>` in front of `fvm flutter build macos --debug` (that entitlement needs a development certificate) |
+| Native tools | `brew install cmake ninja` (webcrypto's build hook); `rustup target add aarch64-apple-ios aarch64-apple-ios-sim` (vodozemac) |
+| One build at a time | iOS and macOS builds share `.dart_tool` and the Swift package state; running both at once fails with unrelated errors |
+| Driving the app | build with `--dart-define=SEAM_DEV_CONTROL=true` and use `tools/devctl/devctl.py` with `DEVCTL_FILE` pointing at the app's `devctl.json` (docs/dev-control.md). The simulator is headless and `screencapture` has no Screen Recording permission over ssh, so this is also how macOS screenshots are taken |
 | Git | the Mac has no GitHub credentials: commit here, fetch from the laptop over ssh, push there |
 
 ## Phases
@@ -46,6 +49,9 @@ so). "Gate" is the Dart platform check that keeps the feature off Apple platform
 | `opus_codec_ios` / `_macos` keep `opus.xcframework` outside their Swift package | vendored under `third_party/`, framework moved inside the package |
 | No `ios/Podfile`; Flutter's template names a `RunnerTests` target that does not exist | committed `ios/Podfile` |
 | `ffmpeg_kit_flutter_new_min` (through `whisper_ggml`) has no arm64 simulator slice | vendored Android only under `third_party/` |
+| `webcrypto` does not link for the x86_64 simulator | `EXCLUDED_ARCHS[sdk=iphonesimulator*] = x86_64` in `ios/Flutter/*.xcconfig` |
+| Runner at iOS 15.0 while Swift packages need 15.6, extension at 18.5 | all iOS targets at 17.0 |
+| No `macos/Podfile`; the pub.dev `opus_codec_macos` framework lost its `Versions/Current` links | committed `macos/Podfile`; framework rebuilt as a versioned bundle in `third_party/` |
 
 ### Absent on Apple platforms, native work needed
 
@@ -76,11 +82,10 @@ Video poster frames (macOS gets none), gallery picker and camera (macOS is file 
 plain `HapticFeedback` calls (fine on iOS, nothing on macOS), macOS keychain access group is empty
 in both entitlements files.
 
-### To settle on the first run
+### Checked on the first run
 
-`loadDynamicPrimaryColor()` catches `PlatformException` only; `dynamic_color` has no iOS
-implementation and answers `getCorePalette` with not-implemented on macOS, which surfaces as
-`MissingPluginException`. If that escapes, startup never reaches `runApp`.
+`loadDynamicPrimaryColor()` does not stop startup on iOS: the app reaches the intro screen on the
+iOS 27 simulator (2026-11-27). No change made there.
 
 ### No gap (platform-neutral Dart)
 
@@ -90,4 +95,14 @@ typing indicators, read status, app lock, one-time-code detection.
 
 ## Log
 
-- 2026-11-27: repo cloned, Flutter 3.47.9 installed, first iOS simulator build started.
+- 2026-11-27: repo cloned, Flutter 3.47.9 installed. First green iOS simulator build and first
+  green macOS debug build; app launches on the iPhone 18 Pro simulator (iOS 27.0). Seam identity
+  applied to both projects. `feat/integration2` @ 4a52f278c (calls removed) and `feat/dev-control`
+  merged in.
+
+## Needs Grayson
+
+1. Push gateway decision (asked).
+2. A signing identity on the Mac (Xcode signed in to the 312.dev team, or development certificates
+   made through the App Store Connect API): needed for the macOS keychain, any run on a real
+   iPhone, push, and app groups on device.
