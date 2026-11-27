@@ -57,6 +57,7 @@ enum AppSettings<T> {
   sendOnEnter<bool>('chat.fluffy.send_on_enter', false),
   voiceMessages<bool>('chat.fluffy.voice_messages', true),
   convertEmoticons<bool>('chat.fluffy.convert_emoticons', true),
+  emojiSuggestions<bool>('chat.fluffy.emoji_suggestions', false),
   networkBubbleColors<bool>('chat.fluffy.network_bubble_colors', true),
   // The network and linked-chat badges on avatars in the main chat list
   // only; other lists keep theirs.

@@ -5,8 +5,8 @@
 
 import 'package:cross_file/cross_file.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
-import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
+import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
 import 'package:fluffychat/utils/composer_native_menu.dart';
@@ -32,12 +32,92 @@ import '../../widgets/avatar.dart';
 import '../../widgets/matrix.dart';
 import 'command_hints.dart';
 
-/// The lower case name of every emoji in a suggestion list, by index.
+/// The lower case keywords of every emoji in a suggestion list, by index.
 ///
 /// The lists hold thousands of emojis and are kept for as long as the chat
-/// uses the same locale, so the names are lowered once per list instead of
-/// on every keystroke of an emoji search.
-final Expando<List<String>> _lowerCaseEmojiNames = Expando();
+/// uses the same locale, so the keywords are split and lowered once per
+/// list instead of on every keystroke of an emoji search.
+final Expando<List<List<String>>> _lowerCaseEmojiKeywords = Expando();
+
+/// The emojis of [emojis] that [query] (lower case) finds, best first, each
+/// with the keyword it is listed under: emojis with a keyword that is the
+/// query, then that starts with it, then with a word of a keyword that
+/// starts with it, then that contains it. Among equals the list's own
+/// order decides, which puts faces and people first. The emoji data has no
+/// short names, only keywords in alphabetical order, so a row shows the
+/// keyword found, with two of the others to tell similar emoji apart.
+List<({Emoji emoji, String keyword})> rankEmojiSuggestions(
+  List<Emoji> emojis,
+  String query, {
+  int limit = 30,
+}) {
+  final keywords = _lowerCaseEmojiKeywords[emojis] ??= [
+    for (final emoji in emojis)
+      [for (final keyword in emoji.keywords) keyword.toLowerCase()],
+  ];
+  final found = <({int rank, int index, String keyword})>[];
+  for (var i = 0; i < emojis.length; i++) {
+    int? best;
+    String? bestKeyword;
+    for (final keyword in keywords[i]) {
+      final int rank;
+      if (keyword == query) {
+        rank = 0;
+      } else if (keyword.startsWith(query)) {
+        rank = 1;
+      } else if (keyword
+          .split(RegExp(r'[\s_-]'))
+          .any((word) => word.startsWith(query))) {
+        rank = 2;
+      } else if (keyword.contains(query)) {
+        rank = 3;
+      } else {
+        continue;
+      }
+      if (best == null ||
+          rank < best ||
+          (rank == best && keyword.length < bestKeyword!.length)) {
+        best = rank;
+        bestKeyword = keyword;
+      }
+    }
+    if (best != null) {
+      found.add((rank: best, index: i, keyword: bestKeyword!));
+    }
+  }
+  found.sort((a, b) {
+    final byRank = a.rank.compareTo(b.rank);
+    if (byRank != 0) return byRank;
+    return a.index.compareTo(b.index);
+  });
+  return [
+    for (final hit in found.take(limit))
+      (emoji: emojis[hit.index], keyword: hit.keyword),
+  ];
+}
+
+/// Lets the chat pick the highlighted composer suggestion with Enter or
+/// Tab, which the chat's own key handling sees before the suggestions do.
+class ComposerSuggestions {
+  VoidCallback? _pick;
+
+  /// Whether suggestions are showing.
+  bool get open => _pick != null;
+
+  /// Picks the highlighted suggestion. Returns false when none is showing.
+  bool pickHighlighted() {
+    final pick = _pick;
+    if (pick == null) return false;
+    pick();
+    return true;
+  }
+}
+
+/// At most this many suggestion rows show at once; the rest scroll.
+const _visibleSuggestions = 6;
+
+/// The height of a suggestion row.
+const double _suggestionRowHeight = 44;
 
 class InputBar extends StatelessWidget {
   final Room room;
@@ -64,6 +144,9 @@ class InputBar extends StatelessWidget {
   /// remembers the last conversion for Backspace to undo.
   final EmoticonFormatter? emoticonFormatter;
 
+  /// Hands the chat a way to pick the highlighted suggestion.
+  final ComposerSuggestions? suggestions;
+
   const InputBar({
     required this.room,
     this.minLines,
@@ -82,6 +165,7 @@ class InputBar extends StatelessWidget {
     required this.suggestionEmojis,
     this.undoController,
     this.emoticonFormatter,
+    this.suggestions,
     super.key,
   });
 
@@ -109,7 +193,17 @@ class InputBar extends StatelessWidget {
       r'(?:\s|^):(?:([\p{L}\p{N}_-]+)~)?([\p{L}\p{N}_-]+)$',
       unicode: true,
     ).firstMatch(searchText);
-    if (emojiMatch != null) {
+    // Emoji search is off unless the user turned it on. It needs two
+    // characters, one a letter, after the colon, as in Slack and Discord,
+    // and leaves an emoticon such as :D or :-P alone (see emoticons.dart),
+    // as it does anything in Markdown code.
+    final emojiWord = emojiMatch?[0]?.trimLeft();
+    if (emojiMatch != null &&
+        AppSettings.emojiSuggestions.value &&
+        emojiMatch[2]!.length >= 2 &&
+        RegExp(r'\p{L}', unicode: true).hasMatch(emojiMatch[2]!) &&
+        !isEmoticon(emojiWord!) &&
+        !inMarkdownCode(searchText, searchText.length - emojiWord.length)) {
       final packSearch = emojiMatch[1];
       final emoteSearch = emojiMatch[2]!.toLowerCase();
       final emotePacks = room.getImagePacks(ImagePackUsage.emoticon);
@@ -154,41 +248,23 @@ class InputBar extends StatelessWidget {
         }
       }
 
-      // aside of emote packs, also propose normal (tm) unicode emojis
-      final lowerCaseNames = _lowerCaseEmojiNames[suggestionEmojis] ??= [
-        for (final emoji in suggestionEmojis) emoji.name.toLowerCase(),
-      ];
-      final matchingUnicodeEmojis = [
-        for (var i = 0; i < suggestionEmojis.length; i++)
-          if (lowerCaseNames[i].contains(emoteSearch)) suggestionEmojis[i],
-      ];
-
-      // sort by the index of the search term in the name in order to have
-      // best matches first
-      // (thanks for the hint by github.com/nextcloud/circles devs)
-      matchingUnicodeEmojis.sort((a, b) {
-        final indexA = a.name.indexOf(emoteSearch);
-        final indexB = b.name.indexOf(emoteSearch);
-        if (indexA == -1 || indexB == -1) {
-          if (indexA == indexB) return 0;
-          if (indexA == -1) {
-            return 1;
-          } else {
-            return 0;
-          }
-        }
-        return indexA.compareTo(indexB);
-      });
-      for (final emoji in matchingUnicodeEmojis) {
+      // Aside of emote packs, also propose Unicode emojis.
+      for (final hit in rankEmojiSuggestions(
+        suggestionEmojis,
+        emoteSearch,
+        limit: maxResults + 1 - ret.length,
+      )) {
         ret.add({
           'type': 'emoji',
-          'emoji': emoji.emoji,
-          'label': emoji.name,
-          'current_word': ':$emoteSearch',
+          'emoji': hit.emoji.emoji,
+          'label': hit.keyword,
+          'others': hit.emoji.keywords
+              .where((keyword) => keyword.toLowerCase() != hit.keyword)
+              .take(2)
+              .join(' · '),
+          'query': emoteSearch,
+          'current_word': ':${emojiMatch[2]}',
         });
-        if (ret.length > maxResults) {
-          break;
-        }
       }
     }
     final userMatch = RegExp(r'(?:\s|^)@([-\w]+)$').firstMatch(searchText);
@@ -251,118 +327,147 @@ class InputBar extends StatelessWidget {
     return ret;
   }
 
+  /// One compact row of the suggestions: 44 high, with the emoji, emote or
+  /// avatar in a 32 box and one line of text, tinted while it is the
+  /// highlighted one that Enter or Tab picks.
   Widget buildSuggestion(
     BuildContext context,
     Map<String, String?> suggestion,
     void Function(Map<String, String?>) onSelected,
-    Client? client,
-  ) {
+    Client? client, {
+    bool highlighted = false,
+  }) {
     final theme = Theme.of(context);
-    const size = 30.0;
-    if (suggestion['type'] == 'command') {
-      final command = suggestion['name']!;
-      final hint = commandHint(L10n.of(context), command);
-      return Tooltip(
-        message: hint,
-        waitDuration: const Duration(days: 1), // don't show on hover
-        child: ListTile(
-          onTap: () => onSelected(suggestion),
-          title: Text(
-            commandExample(command),
-            style: const TextStyle(fontFamily: 'RobotoMono'),
-          ),
-          subtitle: Text(
-            hint,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall,
-          ),
-        ),
-      );
-    }
-    if (suggestion['type'] == 'emoji') {
-      final label = suggestion['label']!;
-      return Tooltip(
-        message: label,
-        waitDuration: const Duration(days: 1), // don't show on hover
-        child: ListTile(
-          onTap: () => onSelected(suggestion),
-          leading: SizedBox.square(
-            dimension: size,
-            child: Text(
-              suggestion['emoji']!,
-              style: const TextStyle(fontSize: 16),
-            ),
-          ),
-          title: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-        ),
-      );
-    }
-    if (suggestion['type'] == 'emote') {
-      return ListTile(
-        onTap: () => onSelected(suggestion),
-        leading: MxcImage(
-          // ensure proper ordering ...
-          key: ValueKey(suggestion['name']),
-          uri: suggestion['mxc'] is String
-              ? Uri.parse(suggestion['mxc'] ?? '')
-              : null,
-          width: size,
-          height: size,
-          isThumbnail: false,
-        ),
-        title: Row(
-          crossAxisAlignment: .center,
-          children: <Widget>[
-            Text(suggestion['name']!),
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Opacity(
-                  opacity: suggestion['pack_avatar_url'] != null ? 0.8 : 0.5,
-                  child: suggestion['pack_avatar_url'] != null
-                      ? Avatar(
-                          mxContent: Uri.tryParse(
-                            suggestion.tryGet<String>('pack_avatar_url') ?? '',
-                          ),
-                          name: suggestion.tryGet<String>('pack_display_name'),
-                          size: size * 0.9,
-                          client: client,
-                        )
-                      : Text(suggestion['pack_display_name']!),
-                ),
-              ),
-            ),
+    const size = 28.0;
+    final secondary = theme.textTheme.bodyMedium?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    Widget row(Widget leading, Widget text) => InkWell(
+      onTap: () => onSelected(suggestion),
+      child: Ink(
+        height: _suggestionRowHeight,
+        color: highlighted
+            ? theme.colorScheme.onSurface.withValues(alpha: 0.1)
+            : null,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            SizedBox.square(dimension: 32, child: Center(child: leading)),
+            const SizedBox(width: 12),
+            Expanded(child: text),
           ],
         ),
-      );
-    }
-    if (suggestion['type'] == 'user' || suggestion['type'] == 'room') {
-      final url = Uri.parse(suggestion['avatar_url'] ?? '');
-      return ListTile(
-        onTap: () => onSelected(suggestion),
-        leading: Avatar(
-          mxContent: url,
-          name:
-              suggestion.tryGet<String>('displayname') ??
-              suggestion.tryGet<String>('mxid'),
-          size: size,
-          client: client,
-        ),
-        title: Text(suggestion['displayname'] ?? suggestion['mxid']!),
+      ),
+    );
+    switch (suggestion['type']) {
+      case 'command':
+        final command = suggestion['name']!;
+        return row(
+          Icon(Icons.terminal, size: 20, color: secondary?.color),
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '/$command',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextSpan(
+                  text: '  ${commandHint(L10n.of(context), command)}',
+                  style: secondary,
+                ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        );
+      case 'emoji':
+        final label = suggestion['label']!;
+        final query = suggestion['query'] ?? '';
+        final at = label.indexOf(query);
+        return row(
+          Text(suggestion['emoji']!, style: const TextStyle(fontSize: 22)),
+          Text.rich(
+            TextSpan(
+              children: [
+                const TextSpan(text: ':'),
+                if (at < 0 || query.isEmpty)
+                  TextSpan(text: label)
+                else ...[
+                  TextSpan(text: label.substring(0, at)),
+                  TextSpan(
+                    text: label.substring(at, at + query.length),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  TextSpan(text: label.substring(at + query.length)),
+                ],
+                const TextSpan(text: ':'),
+                if (suggestion['others']?.isNotEmpty ?? false)
+                  TextSpan(text: '  ${suggestion['others']}', style: secondary),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        );
+      case 'emote':
+        return row(
+          MxcImage(
+            // ensure proper ordering ...
+            key: ValueKey(suggestion['name']),
+            uri: suggestion['mxc'] is String
+                ? Uri.parse(suggestion['mxc'] ?? '')
+                : null,
+            width: size,
+            height: size,
+            isThumbnail: false,
+          ),
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: ':${suggestion['name']!}:'),
+                TextSpan(
+                  text: '  ${suggestion['pack_display_name'] ?? ''}',
+                  style: secondary,
+                ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        );
+      case 'user':
+      case 'room':
+        final url = Uri.parse(suggestion['avatar_url'] ?? '');
+        final name = suggestion['displayname'] ?? suggestion['mxid']!;
         // A user is told apart by their ID, shortened in messenger mode.
         // The mention inserted keeps the full ID.
-        subtitle:
+        final id =
             suggestion['type'] == 'user' && suggestion['displayname'] != null
-            ? Text(
-                MatrixFeatures.forClient(
-                  room.client,
-                ).userLabel(suggestion['mxid']!, room: room),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              )
-            : null,
-      );
+            ? MatrixFeatures.forClient(
+                room.client,
+              ).userLabel(suggestion['mxid']!, room: room)
+            : null;
+        return row(
+          Avatar(
+            mxContent: url,
+            name:
+                suggestion.tryGet<String>('displayname') ??
+                suggestion.tryGet<String>('mxid'),
+            size: size,
+            client: client,
+          ),
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: name),
+                if (id != null) TextSpan(text: '  $id', style: secondary),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        );
     }
     return const SizedBox.shrink();
   }
@@ -386,10 +491,12 @@ class InputBar extends StatelessWidget {
     }
     if (suggestion['type'] == 'emoji') {
       insertText = '${suggestion['emoji']!} ';
-      startText = replaceText.replaceAllMapped(
-        suggestion['current_word']!,
-        (Match m) => insertText,
-      );
+      // Only the word being typed, which ends where the cursor is.
+      final word = suggestion['current_word']!;
+      startText = replaceText.endsWith(word)
+          ? replaceText.substring(0, replaceText.length - word.length) +
+                insertText
+          : replaceText;
     }
     if (suggestion['type'] == 'emote') {
       var isUnique = true;
@@ -452,7 +559,6 @@ class InputBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Autocomplete<Map<String, String?>>(
       key: Key('chat_input_field'),
       focusNode: focusNode,
@@ -569,26 +675,18 @@ class InputBar extends StatelessWidget {
           ),
         ),
       ),
-      optionsViewBuilder: (c, onSelected, s) {
-        final suggestions = s.toList();
-        return Material(
-          elevation: theme.appBarTheme.scrolledUnderElevation ?? 4,
-          shadowColor: theme.appBarTheme.shadowColor,
-          borderRadius: BorderRadius.circular(AppConfig.borderRadius),
-          clipBehavior: Clip.hardEdge,
-          child: ListView.builder(
-            padding: EdgeInsets.zero,
-            shrinkWrap: true,
-            itemCount: suggestions.length,
-            itemBuilder: (context, i) => buildSuggestion(
-              c,
-              suggestions[i],
-              onSelected,
-              Matrix.of(context).client,
-            ),
-          ),
-        );
-      },
+      optionsViewBuilder: (c, onSelected, s) => _SuggestionList(
+        suggestions: s.toList(),
+        onSelected: onSelected,
+        owner: suggestions,
+        buildRow: (context, suggestion, highlighted) => buildSuggestion(
+          context,
+          suggestion,
+          onSelected,
+          Matrix.of(context).client,
+          highlighted: highlighted,
+        ),
+      ),
       displayStringForOption: insertSuggestion,
       optionsViewOpenDirection: OptionsViewOpenDirection.up,
     );
@@ -613,4 +711,112 @@ class _InputTextScale extends StatelessWidget {
     ).copyWith(textScaler: TextScaler.linear(AppSettings.fontSizeFactor.value)),
     child: child,
   );
+}
+
+/// The composer's suggestions, as a compact Material menu just above it:
+/// at most six 44 high rows on the surface container, 16 corners, as wide
+/// as the composer on a phone and up to 360 beside it on a wide screen.
+/// Up and Down move the highlight, Enter or Tab picks it (through [owner]),
+/// Escape closes the list.
+class _SuggestionList extends StatefulWidget {
+  final List<Map<String, String?>> suggestions;
+  final void Function(Map<String, String?>) onSelected;
+  final ComposerSuggestions? owner;
+  final Widget Function(
+    BuildContext context,
+    Map<String, String?> suggestion,
+    bool highlighted,
+  )
+  buildRow;
+
+  const _SuggestionList({
+    required this.suggestions,
+    required this.onSelected,
+    required this.owner,
+    required this.buildRow,
+  });
+
+  @override
+  State<_SuggestionList> createState() => _SuggestionListState();
+}
+
+class _SuggestionListState extends State<_SuggestionList> {
+  final _scroll = ScrollController();
+
+  void _pick() {
+    final index = AutocompleteHighlightedOption.of(context);
+    if (index < widget.suggestions.length) {
+      widget.onSelected(widget.suggestions[index]);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.owner?._pick = _pick;
+  }
+
+  @override
+  void dispose() {
+    if (widget.owner?._pick == _pick) widget.owner?._pick = null;
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Scrolls the highlighted row into view as Up and Down move it.
+  void _reveal(int index) {
+    if (!_scroll.hasClients) return;
+    final top = index * _suggestionRowHeight + 8;
+    final position = _scroll.position;
+    if (top < position.pixels) {
+      _scroll.jumpTo(top - 8);
+    } else if (top + _suggestionRowHeight >
+        position.pixels + position.viewportDimension) {
+      _scroll.jumpTo(
+        top + _suggestionRowHeight + 8 - position.viewportDimension,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final highlighted = AutocompleteHighlightedOption.of(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _reveal(highlighted);
+    });
+    return Align(
+      alignment: AlignmentDirectional.bottomStart,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: FluffyThemes.isColumnMode(context) ? 360 : double.infinity,
+          maxHeight: _visibleSuggestions * _suggestionRowHeight + 16,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Material(
+            color: theme.colorScheme.surfaceContainerHigh,
+            elevation: 2,
+            shadowColor: theme.colorScheme.shadow,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(16)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: ListView.builder(
+              controller: _scroll,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              shrinkWrap: true,
+              itemExtent: _suggestionRowHeight,
+              itemCount: widget.suggestions.length,
+              itemBuilder: (context, i) => widget.buildRow(
+                context,
+                widget.suggestions[i],
+                i == highlighted,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

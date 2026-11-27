@@ -4154,5 +4154,13 @@
         "type": "int"
       }
     }
+  },
+  "emojiSuggestionsSetting": "Emoji suggestions when typing :",
+  "@emojiSuggestionsSetting": {
+    "description": "Setting in Settings > Chat > Writing: typing a colon and two letters in the message box lists matching emoji to pick from."
+  },
+  "emojiSuggestionsSettingDescription": "Typing a colon and two letters, as in :smi, lists matching emoji",
+  "@emojiSuggestionsSettingDescription": {
+    "description": "Subtitle of the setting that lists emoji while a colon and letters are typed."
   }
 }
