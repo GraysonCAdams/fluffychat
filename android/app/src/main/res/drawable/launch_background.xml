@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The launch screen before Android 12, and the window behind the system
+     splash screen from Android 12 on: the white Seam mark on Seam Cobalt. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <bitmap android:gravity="fill" android:src="@drawable/background"/>
-    </item>
+    <item android:drawable="@color/seam_cobalt" />
     <item>
         <bitmap android:gravity="center" android:src="@drawable/splash"/>
     </item>

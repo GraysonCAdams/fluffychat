@@ -6,7 +6,14 @@
 import 'package:fluffychat/config/themes.dart';
 import 'package:material_ui/material_ui.dart';
 
+/// The column-mode layout: [mainView] (the rail and chat list, or settings)
+/// on the base surface, and [sideView] as a floating card on
+/// surfaceContainerLow, inset from the right and bottom window edges.
 class TwoColumnLayout extends StatelessWidget {
+  /// Gap between the card and the right and bottom window edges.
+  static const double cardInset = 8.0;
+  static const double cardRadius = 16.0;
+
   final Widget mainView;
   final Widget sideView;
   final bool hasNavigationRail;
@@ -19,7 +26,7 @@ class TwoColumnLayout extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final cardTheme = FluffyThemes.cardPaneTheme(Theme.of(context));
 
     return ScaffoldMessenger(
       child: Scaffold(
@@ -33,8 +40,24 @@ class TwoColumnLayout extends StatelessWidget {
                   (hasNavigationRail ? FluffyThemes.navRailWidth : 0),
               child: mainView,
             ),
-            Container(width: 1.0, color: theme.dividerColor),
-            Expanded(child: ClipRRect(child: sideView)),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  right: cardInset,
+                  bottom: cardInset,
+                ),
+                child: Theme(
+                  data: cardTheme,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(cardRadius),
+                    child: Material(
+                      color: cardTheme.colorScheme.surface,
+                      child: sideView,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

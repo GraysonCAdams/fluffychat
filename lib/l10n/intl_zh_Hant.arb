@@ -685,18 +685,6 @@
         "type": "String",
         "placeholders": {}
     },
-    "inviteText": "{username} 邀請您使用 FluffyChat\n1. 安裝 FluffyChat：https://fluffychat.im\n2. 登入或註冊\n3. 打開該邀請網址：\n{link}",
-    "@inviteText": {
-        "type": "String",
-        "placeholders": {
-            "username": {
-                "type": "String"
-            },
-            "link": {
-                "type": "String"
-            }
-        }
-    },
     "isTyping": "正在輸入...…",
     "@isTyping": {
         "type": "String",
@@ -832,7 +820,7 @@
         "type": "String",
         "placeholders": {}
     },
-    "newMessageInFluffyChat": "💬 來自 FluffyChat 的新訊息",
+    "newMessageInFluffyChat": "💬 來自 Seam 的新訊息",
     "@newMessageInFluffyChat": {
         "type": "String",
         "placeholders": {}

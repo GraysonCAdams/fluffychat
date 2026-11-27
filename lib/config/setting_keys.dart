@@ -51,6 +51,11 @@ enum AppSettings<T> {
   // The network and linked-chat badges on avatars in the main chat list
   // only; other lists keep theirs.
   chatListNetworkBadges<bool>('chat.fluffy.chat_list_network_badges', true),
+  // Swiping a row in the main chat list. Each direction holds a
+  // ChatSwipeAction name: markRead, lowPriority, pin, mute, leave or none.
+  chatListSwipe<bool>('chat.fluffy.chat_list_swipe', true),
+  chatListSwipeRight<String>('chat.fluffy.chat_list_swipe_right', 'markRead'),
+  chatListSwipeLeft<String>('chat.fluffy.chat_list_swipe_left', 'lowPriority'),
   networkBubbleColorOverrides<String>(
     'chat.fluffy.network_bubble_color_overrides',
     '{}',
@@ -77,23 +82,29 @@ enum AppSettings<T> {
   // AppConfig-mirrored settings
   applicationName<String>('chat.fluffy.application_name', 'Seam'),
   defaultHomeserver<String>('chat.fluffy.default_homeserver', 'matrix.org'),
-  // colorSchemeSeed stored as ARGB int
-  colorSchemeSeedInt<int>('chat.fluffy.color_scheme_seed', 0xFF5625BA),
+  // colorSchemeSeed stored as ARGB int. The default is Seam Cobalt
+  // (AppConfig.primaryColor).
+  colorSchemeSeedInt<int>('chat.fluffy.color_scheme_seed', 0xFF1A5AD7),
   emojiSuggestionLocale<String>('emoji_suggestion_locale', ''),
   enableSoftLogout<bool>('chat.fluffy.enable_soft_logout', true),
   enableMatrixNativeOIDC<bool>('chat.fluffy.enable_matrix_native_oidc', true),
   presetHomeserver<String>('chat.fluffy.preset_homeserver', ''),
   welcomeText<String>('chat.fluffy.welcome_text', ''),
+
+  /// The client_uri this app registers with a homeserver for OIDC sign-in.
+  /// The mobile redirect scheme (AppConfig.appSsoUrlScheme, im.fluffychat.auth)
+  /// must be this host in reverse, so it stays fluffychat.im until the scheme
+  /// changes too. The app does not link to it.
   website<String>('chat.fluffy.website_url', 'https://fluffychat.im'),
-  logoUrl<String>(
-    'chat.fluffy.logo_url',
-    'https://fluffychat.im/assets/favicon.png',
-  ),
-  privacyPolicy<String>(
-    'chat.fluffy.privacy_policy_url',
-    'https://fluffychat.im/privacy',
-  ),
-  tos<String>('chat.fluffy.tos_url', 'https://fluffychat.im/tos'),
+
+  /// Sent with the OIDC registration when set, and must then be on the host
+  /// of [website] (the Matrix SDK enforces it). Settings and sign-in also
+  /// link to [privacyPolicy] when it is set. Seam has no logo, privacy policy
+  /// or terms on that host, so all three are empty unless a deployment
+  /// configures them.
+  logoUrl<String>('chat.fluffy.logo_url', ''),
+  privacyPolicy<String>('chat.fluffy.privacy_policy_url', ''),
+  tos<String>('chat.fluffy.tos_url', ''),
   sendTimelineEventTimeout<int>('chat.fluffy.send_timeline_event_timeout', 15),
   webNotificationSound<bool>('chat.fluffy.web_notification_sound', true),
   chatFilter<String>('chat.fluffy.chat_filter', 'allChats'),
@@ -143,6 +154,22 @@ enum AppSettings<T> {
 
   const AppSettings(this.key, this._defaultValue);
 
+  /// FluffyChat's purple, the default [colorSchemeSeedInt] before Seam Cobalt.
+  static const int legacyColorSchemeSeed = 0xFF5625BA;
+
+  /// Picking the system colour used to store the default seed, FluffyChat
+  /// purple. Treats that as unset so the user gets Seam Cobalt; any other
+  /// stored colour was picked on purpose and stays.
+  @visibleForTesting
+  static Future<void> dropLegacyColorSchemeSeed(SharedPreferences store) async {
+    final seed = Result(
+      () => store.getInt(AppSettings.colorSchemeSeedInt.key),
+    ).asValue?.value;
+    if (seed == legacyColorSchemeSeed) {
+      await store.remove(AppSettings.colorSchemeSeedInt.key);
+    }
+  }
+
   static SharedPreferences get store => _store!;
   static SharedPreferences? _store;
 
@@ -178,6 +205,8 @@ enum AppSettings<T> {
         await store.setDouble(AppSettings.fontSizeFactor.key, fontSizeFactor);
       }
     }
+
+    await dropLegacyColorSchemeSeed(store);
 
     if (store.getBool(AppSettings.sendOnEnter.key) == null) {
       await store.setBool(AppSettings.sendOnEnter.key, !PlatformInfos.isMobile);
