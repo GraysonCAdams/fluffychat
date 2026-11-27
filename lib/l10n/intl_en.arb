@@ -3585,11 +3585,35 @@
     "type": "String",
     "placeholders": {}
   },
-  "seenBy": "Seen by",
-  "@seenBy": {
+  "readAtTime": "Read {time}",
+  "@readAtTime": {
     "type": "String",
-    "description": "Before the faces of the group members who have read the user's last message",
-    "placeholders": {}
+    "description": "When someone read the user's message, shown when the read mark or a reader's face is tapped. The time is a time of day, or a date and a time of day.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "readYesterdayAtTime": "Read yesterday {time}",
+  "@readYesterdayAtTime": {
+    "type": "String",
+    "description": "When someone read the user's message, if that was yesterday. The time is a time of day.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "readByPeople": "{count, plural, =1{Read by 1 person} other{Read by {count} people}}",
+  "@readByPeople": {
+    "type": "String",
+    "description": "Spoken label of the faces of the group members who have read the user's newest message",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "countMembers": "{count, plural, =1{1 member} other{{count} members}}",
   "@countMembers": {

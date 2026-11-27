@@ -13,14 +13,12 @@ import 'package:fluffychat/pages/chat/encryption_info.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
 import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/pages/chat/message_context_menu.dart';
-import 'package:fluffychat/pages/chat/seen_by_row.dart';
 import 'package:fluffychat/pages/chat/typing_indicators.dart';
 import 'package:fluffychat/utils/account_config.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
-import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/mxc_image_viewer.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -170,7 +168,7 @@ class ChatEventList extends StatelessWidget {
               child: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (BuildContext context, int i) {
-                    // Footer to display typing indicator and read receipts:
+                    // Footer to display the typing indicator:
                     if (i == 0) {
                       if (timeline.canRequestFuture) {
                         return Center(
@@ -190,10 +188,6 @@ class ChatEventList extends StatelessWidget {
                       return Column(
                         mainAxisSize: .min,
                         children: [
-                          // A group shows who has read the user's newest
-                          // message under that message instead.
-                          if (events.isNotEmpty && !controller.room.isGroupChat)
-                            SeenByRow(event: events.first, timeline: timeline),
                           TypingIndicators(controller),
                           EncryptionInfo(room: controller.room),
                         ],
