@@ -482,12 +482,11 @@ packages:
     source: hosted
     version: "0.1.2"
   ffmpeg_kit_flutter_new_min:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: ffmpeg_kit_flutter_new_min
-      sha256: "1fce79b73ebbcf34e1063ed84cacc4920adfbb8631877e585302e68157b0ace3"
-      url: "https://pub.dev"
-    source: hosted
+      path: "third_party/ffmpeg_kit_flutter_new_min"
+      relative: true
+    source: path
     version: "2.1.0"
   ffmpeg_kit_flutter_platform_interface:
     dependency: transitive
@@ -1531,12 +1530,11 @@ packages:
     source: hosted
     version: "3.0.5"
   opus_codec_ios:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: opus_codec_ios
-      sha256: fdca5606410eaf14b9d1f1179f0b00b7994b6dbc64f0399e2955618b16ef9353
-      url: "https://pub.dev"
-    source: hosted
+      path: "third_party/opus_codec_ios"
+      relative: true
+    source: path
     version: "3.0.5"
   opus_codec_linux:
     dependency: transitive
@@ -1547,12 +1545,11 @@ packages:
     source: hosted
     version: "3.0.5"
   opus_codec_macos:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: opus_codec_macos
-      sha256: ff8012e5eb692a81151404bc5b43385794be0e7b779e60f7f9d7405bba69d693
-      url: "https://pub.dev"
-    source: hosted
+      path: "third_party/opus_codec_macos"
+      relative: true
+    source: path
     version: "3.0.5"
   opus_codec_platform_interface:
     dependency: transitive
