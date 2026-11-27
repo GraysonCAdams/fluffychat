@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:matrix/matrix.dart';
 
 /// Syncs that carry a typing update for any of [rooms].
@@ -16,10 +17,11 @@ Stream<SyncUpdate> typingUpdatesFor(List<Room> rooms) =>
       ),
     );
 
-/// Everyone typing in any of [rooms], other than the user.
+/// Everyone typing in any of [rooms], other than the user and the rooms'
+/// service members, such as a bridge bot.
 List<User> typingUsersIn(List<Room> rooms) => [
   for (final room in rooms)
-    ...room.typingUsers.where((u) => u.id != room.client.userID),
+    ...room.typingUsers.where((u) => room.countsAsPerson(u.id)),
 ];
 
 /// Whether the typing dots continue the run of the sender [senderId] of the

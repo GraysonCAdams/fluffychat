@@ -15,6 +15,7 @@ import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/new_chat/add_people.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/room_features.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/verified_room_extension.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/chat_settings_popup_menu.dart';
@@ -51,7 +52,7 @@ class ChatDetailsView extends StatelessWidget {
     }
 
     final directChatMatrixID = room.directChatMatrixID;
-    final roomAvatar = room.avatar;
+    final roomAvatar = room.chatAvatar;
     final features = MatrixFeatures.forClient(room.client);
     // A chat bridged to another network shows the person, not the Matrix
     // plumbing: no room address, permissions or member list for a direct
@@ -60,7 +61,7 @@ class ChatDetailsView extends StatelessWidget {
       MatrixFeature.roomPlumbing,
       room: room,
     );
-    final bridgedDirectChat = !plumbing && room.isDirectChat;
+    final bridgedDirectChat = !plumbing && room.isOneToOne;
     bool canChange(String type) =>
         room.canChangeStateEvent(type) &&
         (plumbing || RoomFeatures.of(room).allowsState(type));
@@ -72,7 +73,7 @@ class ChatDetailsView extends StatelessWidget {
     final networkSpace = spacesByChild(room.client)[room.id];
     final networkLabel =
         features.bridgeOf(room)?.network ??
-        networkSpace?.getLocalizedDisplayname(MatrixLocals(L10n.of(context)));
+        networkSpace?.chatDisplayname(MatrixLocals(L10n.of(context)));
     final hiddenBot = isGroup && !plumbing
         ? features.bridgeOf(room)?.bot
         : null;
@@ -102,7 +103,7 @@ class ChatDetailsView extends StatelessWidget {
         final avatarActions = [
           if (PlatformInfos.isMobile) AvatarAction.camera,
           AvatarAction.file,
-          if (room.avatar != null || room.toString().isEmpty)
+          if (room.chatAvatar != null || room.toString().isEmpty)
             AvatarAction.remove,
         ];
 
@@ -125,7 +126,7 @@ class ChatDetailsView extends StatelessWidget {
                 : 0);
         final canRequestMoreMembers = members.length < actualMembersCount;
         final iconColor = theme.textTheme.bodyLarge!.color;
-        final displayname = room.getLocalizedDisplayname(
+        final displayname = room.chatDisplayname(
           MatrixLocals(L10n.of(context)),
         );
         return Scaffold(
@@ -184,7 +185,7 @@ class ChatDetailsView extends StatelessWidget {
                                         size: Avatar.defaultSize * 2.5,
                                       )
                                     : Avatar(
-                                        mxContent: room.avatar,
+                                        mxContent: room.chatAvatar,
                                         name: displayname,
                                         size: Avatar.defaultSize * 2.5,
                                         animated: true,
@@ -197,7 +198,7 @@ class ChatDetailsView extends StatelessWidget {
                                             : null,
                                       ),
                               ),
-                              if (!room.isDirectChat &&
+                              if (!room.isOneToOne &&
                                   canChange(EventTypes.RoomAvatar))
                                 Positioned(
                                   bottom: 0,
@@ -269,12 +270,12 @@ class ChatDetailsView extends StatelessWidget {
                           child: Center(
                             child: TextButton.icon(
                               onPressed:
-                                  room.isDirectChat ||
+                                  room.isOneToOne ||
                                       !canChange(EventTypes.RoomName)
                                   ? null
                                   : controller.setDisplaynameAction,
                               icon:
-                                  room.isDirectChat ||
+                                  room.isOneToOne ||
                                       !canChange(EventTypes.RoomName)
                                   ? null
                                   : Icon(Icons.edit_outlined, size: 16),
@@ -454,7 +455,7 @@ class ChatDetailsView extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
                         ],
-                        if (!room.isDirectChat && plumbing) ...[
+                        if (!room.isOneToOne && plumbing) ...[
                           Divider(color: theme.dividerColor),
                           ListTile(
                             leading: CircleAvatar(
@@ -507,7 +508,7 @@ class ChatDetailsView extends StatelessWidget {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            trailing: room.isDirectChat
+                            trailing: room.isOneToOne
                                 ? null
                                 : switch (addMembersEntryOf(room)) {
                                     AddMembersEntry.invite => TextButton.icon(

@@ -142,6 +142,103 @@ void main() {
     expect(service.suggestions.value, isEmpty);
   });
 
+  test('a group listed in m.direct is never suggested', () async {
+    // Parla's iMessage chat gains another person: it is a group now, even
+    // though m.direct still lists it.
+    final group = client.getRoomById('!imsg-p:x')!;
+    group.setState(
+      StrippedStateEvent(
+        type: EventTypes.RoomMember,
+        content: {'membership': 'join', 'displayname': 'Ana'},
+        senderId: '@imessage_tel=3a+13125550199:x',
+        stateKey: '@imessage_tel=3a+13125550199:x',
+      ),
+    );
+    group.summary
+      ..mHeroes = [
+        '@imessage_tel=3a+13125550100:x',
+        '@imessage_tel=3a+13125550199:x',
+      ]
+      ..mJoinedMemberCount = 3;
+    await service.refresh();
+    expect(service.suggestions.value, isEmpty);
+  });
+
+  test('a bridge group room is never suggested', () async {
+    client
+        .getRoomById('!sms-p:x')!
+        .setState(
+          StrippedStateEvent(
+            type: 'm.bridge',
+            content: {
+              'bridgebot': '@gmessagesbot:x',
+              'com.beeper.room_type': 'group',
+            },
+            senderId: '@gmessagesbot:x',
+            stateKey: 'gmessages',
+          ),
+        );
+    await service.refresh();
+    expect(service.suggestions.value, isEmpty);
+  });
+
+  test('a direct chat that keeps its bridge bot is still suggested', () async {
+    final dm = client.getRoomById('!imsg-p:x')!;
+    dm.setState(
+      StrippedStateEvent(
+        type: EventTypes.RoomMember,
+        content: {'membership': 'join', 'displayname': 'iMessage bridge bot'},
+        senderId: '@imessagebot:x',
+        stateKey: '@imessagebot:x',
+      ),
+    );
+    dm.setState(
+      StrippedStateEvent(
+        type: 'io.element.functional_members',
+        content: {
+          'service_members': ['@imessagebot:x'],
+        },
+        senderId: '@imessagebot:x',
+        stateKey: '',
+      ),
+    );
+    dm.summary
+      ..mHeroes = ['@imessage_tel=3a+13125550100:x', '@imessagebot:x']
+      ..mJoinedMemberCount = 3;
+    await service.refresh();
+    expect(service.suggestions.value.map((s) => s.roomIds), [
+      ['!imsg-p:x', '!sms-p:x'],
+    ]);
+  });
+
+  test('a chat its bridge calls a dm is suggested without m.direct', () async {
+    // The SMS chat with Parla drops out of m.direct; its bridge state still
+    // says it is a one-to-one chat with her.
+    final direct = Map<String, Object?>.from(
+      client.accountData['m.direct']!.content,
+    )..remove('@gmessages_1.2:x');
+    client.accountData['m.direct'] = BasicEvent(
+      type: 'm.direct',
+      content: direct,
+    );
+    final sms = client.getRoomById('!sms-p:x')!;
+    sms.setState(
+      StrippedStateEvent(
+        type: 'm.bridge',
+        content: {'bridgebot': '@gmessagesbot:x', 'com.beeper.room_type': 'dm'},
+        senderId: '@gmessagesbot:x',
+        stateKey: 'gmessages',
+      ),
+    );
+    sms.summary
+      ..mHeroes = ['@gmessages_1.2:x', '@gmessagesbot:x']
+      ..mJoinedMemberCount = 3;
+    await service.refresh();
+    expect(service.suggestions.value.map((s) => s.roomIds), [
+      ['!imsg-p:x', '!sms-p:x'],
+    ]);
+  });
+
   test('turned off, nothing is suggested', () async {
     final off = MergeSuggestionService(
       client,

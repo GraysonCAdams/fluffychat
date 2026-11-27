@@ -16,6 +16,7 @@ import 'package:fluffychat/utils/merged_contacts/phone_number.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -81,7 +82,7 @@ class NewPrivateChatView extends StatelessWidget {
             ? null
             : spacesByChild(
                 client,
-              )[sendRoom.id]?.getLocalizedDisplayname(MatrixLocals(l10n))) ??
+              )[sendRoom.id]?.chatDisplayname(MatrixLocals(l10n))) ??
         l10n.writeAMessage;
     final checking =
         !controller.showNetworkSwitcher && controller.checkingNetworks;

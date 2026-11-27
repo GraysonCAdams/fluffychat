@@ -10,6 +10,7 @@ import 'package:fluffychat/utils/merged_contacts/phone_number.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/merged_contacts/suggester.dart';
 import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -134,14 +135,14 @@ class MergeSuggestionCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Avatar(
-                      mxContent: room.avatar,
-                      name: room.getLocalizedDisplayname(locals),
+                      mxContent: room.chatAvatar,
+                      name: room.chatDisplayname(locals),
                       size: 24,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '${room.getLocalizedDisplayname(locals)} '
+                        '${room.chatDisplayname(locals)} '
                         '(${networkName(room, spaces[room.id], locals)})',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

@@ -7,6 +7,7 @@ import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/phone_number.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:matrix/matrix.dart';
 
 /// The person in a bridged direct chat as one network knows them: the
@@ -29,7 +30,7 @@ class NetworkIdentity {
     final rooms = [
       for (final id in contact?.rooms ?? [room.id])
         if (client.getRoomById(id) case final chat?)
-          if (chat.membership == Membership.join && chat.isDirectChat) chat,
+          if (chat.membership == Membership.join && chat.isOneToOne) chat,
     ];
     if (rooms.isEmpty) rooms.add(room);
     final features = MatrixFeatures.forClient(client);
@@ -44,7 +45,7 @@ class NetworkIdentity {
             final phone? => formatPhoneForDisplay(phone.value),
             null =>
               MatrixFeatures.handleOf(chat.directChatMatrixID ?? '') ??
-                  chat.getLocalizedDisplayname(locals),
+                  chat.chatDisplayname(locals),
           },
         ),
     ];

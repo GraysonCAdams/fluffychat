@@ -8,6 +8,7 @@ import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/push_rule_state_cache.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:go_router/go_router.dart';
@@ -83,7 +84,7 @@ Future<void> showSpaceRailMenu(
   ];
   final unmute = chats.isNotEmpty && chats.every(_isMuted);
   return _showRailMenu(context, position, [
-    _heading(context, space.getLocalizedDisplayname(MatrixLocals(l10n))),
+    _heading(context, space.chatDisplayname(MatrixLocals(l10n))),
     _item(
       Icons.mark_chat_read_outlined,
       l10n.markAllAsRead,

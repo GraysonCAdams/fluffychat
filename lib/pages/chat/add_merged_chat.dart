@@ -9,6 +9,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merge_rules.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:go_router/go_router.dart';
@@ -74,7 +75,7 @@ class _AddMergedChatButtonState extends State<AddMergedChatButton> {
       await showOkAlertDialog(
         context: context,
         title: l10n.noChatsToAdd,
-        message: controller.room.isDirectChat
+        message: controller.room.isOneToOne
             ? l10n.noMatchingChatByNumber
             : l10n.noMatchingChatByGroupName,
       );
@@ -89,13 +90,11 @@ class _AddMergedChatButtonState extends State<AddMergedChatButton> {
             ? controller.mergedContact?.displayName(
                     MatrixLocals(L10n.of(context)),
                   ) ??
-                  controller.room.getLocalizedDisplayname(
+                  controller.room.chatDisplayname(
                     MatrixLocals(L10n.of(context)),
                   )
-            : controller.room.getLocalizedDisplayname(
-                MatrixLocals(L10n.of(context)),
-              ),
-        isGroup: !controller.room.isDirectChat,
+            : controller.room.chatDisplayname(MatrixLocals(L10n.of(context))),
+        isGroup: controller.room.isGroupChat,
         candidates: _candidates,
       ),
     );
@@ -231,11 +230,11 @@ class _AddChatSheet extends StatelessWidget {
                   ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 24),
                     leading: Avatar(
-                      name: room.getLocalizedDisplayname(locals),
-                      mxContent: room.avatar,
+                      name: room.chatDisplayname(locals),
+                      mxContent: room.chatAvatar,
                     ),
                     title: Text(
-                      room.getLocalizedDisplayname(locals),
+                      room.chatDisplayname(locals),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

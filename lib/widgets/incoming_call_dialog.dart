@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/pulsating_widget.dart';
 import 'package:go_router/go_router.dart';
@@ -70,8 +71,8 @@ class _IncomingCallDialogState extends State<IncomingCallDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final displayname = widget.event.room.getLocalizedDisplayname();
-    final avatar = widget.event.room.avatar;
+    final displayname = widget.event.room.chatDisplayname();
+    final avatar = widget.event.room.chatAvatar;
     final theme = Theme.of(context);
     return AlertDialog(
       title: Center(child: Text(L10n.of(context).incomingCall)),

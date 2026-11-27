@@ -16,6 +16,7 @@ import 'package:fluffychat/pages/call/utils/get_call_tiles.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -133,7 +134,7 @@ class CallPage extends StatelessWidget {
                   mainAxisSize: .min,
                   children: [
                     Text(
-                      room.getLocalizedDisplayname(),
+                      room.chatDisplayname(),
                       maxLines: 1,
                       overflow: .ellipsis,
                       style: mini

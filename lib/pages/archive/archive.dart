@@ -6,6 +6,7 @@
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/archive/archive_cache.dart';
 import 'package:fluffychat/pages/archive/archive_view.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -73,7 +74,7 @@ class ArchiveController extends State<Archive> {
     await showFutureLoadingDialog(
       context: context,
       future: () async {
-        Logs().v('Forget room ${archive[i].room.getLocalizedDisplayname()}');
+        Logs().v('Forget room ${archive[i].room.chatDisplayname()}');
         await archive[i].room.forget();
         _forgotten.add(archive[i].room.id);
         archive.removeAt(i);
@@ -104,9 +105,7 @@ class ArchiveController extends State<Archive> {
         final count = archive.length;
         while (archive.isNotEmpty) {
           onProgress(1 - (archive.length / count));
-          Logs().v(
-            'Forget room ${archive.last.room.getLocalizedDisplayname()}',
-          );
+          Logs().v('Forget room ${archive.last.room.chatDisplayname()}');
           await archive.last.room.forget();
           _forgotten.add(archive.last.room.id);
           archive.removeLast();

@@ -15,6 +15,7 @@ import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
 import 'package:fluffychat/pages/chat_list/unread_bubble.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/string_color.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -375,7 +376,7 @@ class _SpaceViewState extends State<SpaceView> {
 
     final room = Matrix.of(context).client.getRoomById(widget.spaceId);
     final displayname =
-        room?.getLocalizedDisplayname() ?? L10n.of(context).nothingFound;
+        room?.chatDisplayname() ?? L10n.of(context).nothingFound;
     const avatarSize = Avatar.defaultSize / 1.5;
     final isAdmin = room?.canChangeStateEvent(EventTypes.SpaceChild) == true;
     return Scaffold(
@@ -432,7 +433,7 @@ class _SpaceViewState extends State<SpaceView> {
                           suffixIcon: PopupMenuButton<SpaceActions>(
                             icon: Avatar(
                               size: avatarSize,
-                              mxContent: room.avatar,
+                              mxContent: room.chatAvatar,
                               name: displayname,
                               shapeBorder: RoundedSuperellipseBorder(
                                 side: BorderSide(
@@ -504,9 +505,10 @@ class _SpaceViewState extends State<SpaceView> {
                         final displayname =
                             item.name ??
                             item.canonicalAlias ??
-                            joinedRoom?.getLocalizedDisplayname() ??
+                            joinedRoom?.chatDisplayname() ??
                             L10n.of(context).emptyChat;
-                        final avatarUrl = item.avatarUrl ?? joinedRoom?.avatar;
+                        final avatarUrl =
+                            item.avatarUrl ?? joinedRoom?.chatAvatar;
                         if (!displayname.toLowerCase().contains(filter)) {
                           return const SizedBox.shrink();
                         }

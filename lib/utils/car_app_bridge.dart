@@ -15,6 +15,7 @@ import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/notification_avatar_extension.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -276,7 +277,7 @@ class CarAppBridge {
     final newest = rooms.first;
     final title =
         notificationConversationName(client, newest.id, locals) ??
-        newest.getLocalizedDisplayname(locals);
+        newest.chatDisplayname(locals);
 
     final messages = <CarMessage>[];
     for (final room in rooms) {
@@ -291,7 +292,7 @@ class CarAppBridge {
       'id': conversationId,
       'client': client.clientName,
       'title': title,
-      'group': !newest.isDirectChat,
+      'group': newest.isGroupChat,
       // Pictures and names are looked up in [_finish] once the
       // conversation makes the list.
       'icon': (

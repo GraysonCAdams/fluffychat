@@ -10,6 +10,7 @@ import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
 import 'package:fluffychat/pages/chat/typing_run.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/typing_animation.dart';
 import 'package:material_ui/material_ui.dart';
@@ -79,7 +80,7 @@ class TypingIndicatorRow extends StatefulWidget {
   /// senders' avatars and line up past them (see `Message`), and the
   /// typing row lines up with those.
   static bool oneToOneFor(List<Room> rooms) =>
-      rooms.every((room) => room.isDirectChat);
+      rooms.every((room) => room.isOneToOne);
 
   @override
   State<TypingIndicatorRow> createState() => _TypingIndicatorRowState();

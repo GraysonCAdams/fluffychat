@@ -27,6 +27,7 @@ import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/notification_media.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/start_push_foreground_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
@@ -225,8 +226,8 @@ Future<void> _tryPushHelper(
                 );
 
   // The person object for the android message style notification
-  final avatar = event.room.avatar;
-  final senderAvatar = event.room.isDirectChat
+  final avatar = event.room.chatAvatar;
+  final senderAvatar = event.room.isOneToOne
       ? avatar
       : event.senderFromMemoryOrFallback.avatarUrl;
 
@@ -289,12 +290,12 @@ Future<void> _tryPushHelper(
 
   final roomName =
       notificationConversationName(client, event.room.id, MatrixLocals(l10n)) ??
-      event.room.getLocalizedDisplayname(MatrixLocals(l10n));
+      event.room.chatDisplayname(MatrixLocals(l10n));
 
-  final notificationGroupId = event.room.isDirectChat
+  final notificationGroupId = event.room.isOneToOne
       ? 'directChats'
       : 'groupChats';
-  final groupName = event.room.isDirectChat ? l10n.directChats : l10n.groups;
+  final groupName = event.room.isOneToOne ? l10n.directChats : l10n.groups;
 
   final messageRooms = AndroidNotificationChannelGroup(
     notificationGroupId,
@@ -335,13 +336,11 @@ Future<void> _tryPushHelper(
                 : ByteArrayAndroidIcon(userAvatarFile),
             key: event.room.client.userID,
           ),
-          conversationTitle: event.room.isDirectChat ? null : roomName,
-          groupConversation: !event.room.isDirectChat,
+          conversationTitle: event.room.isOneToOne ? null : roomName,
+          groupConversation: !event.room.isOneToOne,
           messages: [newMessage],
         ),
-    ticker: event.room.isDirectChat
-        ? body
-        : l10n.senderMessage(senderName, body),
+    ticker: event.room.isOneToOne ? body : l10n.senderMessage(senderName, body),
     importance: Importance.high,
     priority: Priority.max,
     groupKey: client.clientName,
@@ -378,7 +377,7 @@ Future<void> _tryPushHelper(
     },
   );
   final iOSAttachmentPath = PlatformInfos.isIOS
-      ? await client.getIosNotificationAvatar(event.room.avatar)
+      ? await client.getIosNotificationAvatar(event.room.chatAvatar)
       : null;
   final iOSPlatformChannelSpecifics = DarwinNotificationDetails(
     threadIdentifier: '${notification.clientName}_$conversation',

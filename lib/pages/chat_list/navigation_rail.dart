@@ -13,6 +13,7 @@ import 'package:fluffychat/pages/chat_list/rail_menus.dart';
 import 'package:fluffychat/pages/chat_list/room_updates_builder.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:go_router/go_router.dart';
@@ -139,10 +140,9 @@ class SpacesNavigationRail extends StatelessWidget {
                           );
                         }
                         final space = allSpaces[i];
-                        final displayname = allSpaces[i]
-                            .getLocalizedDisplayname(
-                              MatrixLocals(L10n.of(context)),
-                            );
+                        final displayname = allSpaces[i].chatDisplayname(
+                          MatrixLocals(L10n.of(context)),
+                        );
                         final unreadCount = space.spaceChildren
                             .map((c) => c.roomId)
                             .toSet()

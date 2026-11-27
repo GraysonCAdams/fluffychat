@@ -9,6 +9,7 @@ library;
 
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:matrix/matrix.dart';
 
 /// Group rooms on one bridge whose people are the same.
@@ -34,9 +35,7 @@ List<SameGroup> findSameGroups(
   Map<String, Room>? spaces;
   final byKey = <String, List<Room>>{};
   for (final room in client.rooms) {
-    if (room.membership != Membership.join ||
-        room.isSpace ||
-        room.isDirectChat) {
+    if (room.membership != Membership.join || !room.isGroupChat) {
       continue;
     }
     final bot = features.bridgeOf(room)?.bot;
@@ -167,7 +166,7 @@ String liveGroupName(
       (a, b) => b.latestEventReceivedTime.compareTo(a.latestEventReceivedTime),
     );
   for (final room in newest) {
-    if (!groupNameIsBuilt(room)) return room.getLocalizedDisplayname(i18n);
+    if (!groupNameIsBuilt(room)) return room.chatDisplayname(i18n);
   }
   for (final room in newest) {
     final name = room.getState(EventTypes.RoomName)?.content['name'];
@@ -177,7 +176,7 @@ String liveGroupName(
   }
   final latest = newest.first;
   final names = (_memberNames(latest)?.toList() ?? [])..sort();
-  if (names.isEmpty) return latest.getLocalizedDisplayname(i18n);
+  if (names.isEmpty) return latest.chatDisplayname(i18n);
   return names.length <= 4
       ? names.join(', ')
       : '${names.take(3).join(', ')} +${names.length - 3} more';

@@ -61,7 +61,12 @@ class RoomBridge {
   /// The remote network's name, such as "iMessage", when the event names it.
   final String? network;
 
-  const RoomBridge({this.bot, this.network});
+  /// What the bridge says the room is on the remote network: `dm` for a
+  /// one-to-one chat or `group`, from the event's `com.beeper.room_type`.
+  /// Null when the event does not say.
+  final String? roomType;
+
+  const RoomBridge({this.bot, this.network, this.roomType});
 
   static const stateTypes = ['m.bridge', 'uk.half-shot.bridge'];
 
@@ -82,22 +87,30 @@ class RoomBridge {
     final bot = content['bridgebot'];
     final protocol = content['protocol'];
     final network = protocol is Map ? protocol['displayname'] : null;
+    final roomType = content['com.beeper.room_type'];
     return RoomBridge(
       bot: bot is String && bot.isNotEmpty ? bot : null,
       network: network is String && network.isNotEmpty ? network : null,
+      roomType: roomType is String && roomType.isNotEmpty ? roomType : null,
     );
   }
 
-  Map<String, String> toJson() => {'bot': ?bot, 'network': ?network};
+  Map<String, String> toJson() => {
+    'bot': ?bot,
+    'network': ?network,
+    'type': ?roomType,
+  };
 
   /// Reads the form written by [toJson].
   static RoomBridge fromJson(Object? json) {
     if (json is! Map) return const RoomBridge();
     final bot = json['bot'];
     final network = json['network'];
+    final roomType = json['type'];
     return RoomBridge(
       bot: bot is String ? bot : null,
       network: network is String ? network : null,
+      roomType: roomType is String ? roomType : null,
     );
   }
 }
@@ -171,6 +184,10 @@ class MatrixFeatures extends ChangeNotifier {
         client,
         storedState: scanStoredState ? _databaseState : null,
       );
+
+  /// The instance of [client] when one was created, without creating one:
+  /// for code that runs while a chat is drawn and must not start a scan.
+  static MatrixFeatures? startedFor(Client client) => _instances[client];
 
   /// Stops the instance of [client], if there is one, so the next
   /// [forClient] starts afresh.

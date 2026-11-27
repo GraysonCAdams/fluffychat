@@ -21,6 +21,7 @@ import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/one_time_code.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/room_status_extension.dart';
 import 'package:fluffychat/utils/room_unread.dart';
 import 'package:fluffychat/widgets/hover_builder.dart';
@@ -212,7 +213,7 @@ class _ChatListItemState extends State<ChatListItem> {
     final contact = widget.contact;
     final displayname =
         contact?.displayName(MatrixLocals(L10n.of(context))) ??
-        room.getLocalizedDisplayname(MatrixLocals(L10n.of(context)));
+        room.chatDisplayname(MatrixLocals(L10n.of(context)));
     final filter = widget.filter;
     final highlight = widget.highlight?.trim().isEmpty ?? true
         ? null
@@ -235,7 +236,7 @@ class _ChatListItemState extends State<ChatListItem> {
     final previewRoom = lastEvent?.room ?? room;
     final ownMessage = lastEvent?.senderId == room.client.userID;
     final directChatMatrixId = previewRoom.directChatMatrixID;
-    final isDirectChat = directChatMatrixId != null;
+    final isDirectChat = previewRoom.isOneToOne;
     final isUnread = contact?.isUnread ?? room.countsAsUnread;
     final notificationCount =
         contact?.notificationCount ?? room.notificationCount;
@@ -343,7 +344,8 @@ class _ChatListItemState extends State<ChatListItem> {
                                               AppConfig.spaceBorderRadius,
                                             )
                                           : null,
-                                      mxContent: contact?.avatar ?? room.avatar,
+                                      mxContent:
+                                          contact?.avatar ?? room.chatAvatar,
                                       size: Avatar.defaultSize,
                                       name: displayname,
                                       presenceUserId:
@@ -390,7 +392,7 @@ class _ChatListItemState extends State<ChatListItem> {
                                   ),
                                   mxContent: space.avatar,
                                   size: Avatar.defaultSize * 0.42,
-                                  name: space.getLocalizedDisplayname(),
+                                  name: space.chatDisplayname(),
                                 ),
                               ),
                           ],

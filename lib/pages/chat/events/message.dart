@@ -21,6 +21,7 @@ import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/routed_event.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/utils/message_effects.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/member_actions_popup_menu_button.dart';
@@ -210,7 +211,7 @@ class Message extends StatelessWidget {
     // of their run, and shows their avatar beside the last one; the bubbles
     // of the run line up 8dp past the avatar. A direct chat has no names or
     // avatars and its bubbles start at the edge.
-    final showSender = !ownMessage && !event.room.isDirectChat;
+    final showSender = !ownMessage && !event.room.isOneToOne;
     final firstOfRun = !nextEventSameSender;
     final lastOfRun = !previousEventSameSender;
     final bubbleIndent = showSender ? senderAvatarSize + 8 : 0.0;

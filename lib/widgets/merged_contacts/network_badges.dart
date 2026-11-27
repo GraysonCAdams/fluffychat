@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
@@ -82,7 +83,7 @@ class NetworkBadges extends StatelessWidget {
                 borderRadius: radius,
                 mxContent: badges[i].avatar,
                 size: size,
-                name: badges[i].getLocalizedDisplayname(),
+                name: badges[i].chatDisplayname(),
                 onTap: onTap,
               ),
             ),
@@ -129,7 +130,7 @@ class NetworkLogos extends StatelessWidget {
   NetworkLogos({required List<Room> networks, this.size = 18, super.key})
     : icons = [
         for (final network in networks)
-          (icon: network.avatar, name: network.getLocalizedDisplayname()),
+          (icon: network.avatar, name: network.chatDisplayname()),
       ];
 
   const NetworkLogos.icons({required this.icons, this.size = 18, super.key});

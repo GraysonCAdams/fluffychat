@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/pages/chat_list/push_rule_state_cache.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/room_unread.dart';
 import 'package:matrix/matrix.dart';
 
@@ -66,10 +67,10 @@ class MergedContact {
       userName ??
       (isGroup
           ? liveGroupName(rooms, i18n)
-          : sendViaRoom.getLocalizedDisplayname(i18n));
+          : sendViaRoom.chatDisplayname(i18n));
 
   /// Whether every room is a group chat.
-  bool get isGroup => rooms.every((room) => !room.isDirectChat);
+  bool get isGroup => rooms.every((room) => room.isGroupChat);
 
   /// The name the user gave the contact, or null. A group contact's stored
   /// name that was not set by a rename and is one of its rooms' own names
@@ -82,13 +83,12 @@ class MergedContact {
         name == liveGroupName(rooms) ||
         rooms.any(
           (room) =>
-              room.getLocalizedDisplayname() == name ||
-              isBuiltGroupName(name, room),
+              room.chatDisplayname() == name || isBuiltGroupName(name, room),
         );
     return shown ? null : name;
   }
 
-  Uri? get avatar => sendViaRoom.avatar;
+  Uri? get avatar => sendViaRoom.chatAvatar;
 
   /// The newest last event across the rooms.
   Event? get lastEvent {

@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/invitation_selection/invitation_selection_view.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:material_ui/material_ui.dart';
@@ -42,10 +43,11 @@ class InvitationSelectionController extends State<InvitationSelection> {
     participants.removeWhere(
       (u) => ![Membership.join, Membership.invite].contains(u.membership),
     );
-    final contacts = client.rooms
-        .where((r) => r.isDirectChat)
-        .map((r) => r.unsafeGetUserFromMemoryOrFallback(r.directChatMatrixID!))
-        .toList();
+    final contacts = [
+      for (final r in client.rooms)
+        if (r.oneToOnePartnerId case final partner?)
+          r.unsafeGetUserFromMemoryOrFallback(partner),
+    ];
     contacts.sort(
       (a, b) => a.calcDisplayname().toLowerCase().compareTo(
         b.calcDisplayname().toLowerCase(),

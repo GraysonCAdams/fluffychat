@@ -20,6 +20,7 @@ import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/push_helper.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/string_color.dart';
 import 'package:fluffychat/utils/windows_toast_identity.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -79,7 +80,7 @@ extension LocalNotificationsExtension on MatrixState {
           roomId,
           MatrixLocals(L10n.of(context)),
         ) ??
-        event.room.getLocalizedDisplayname(MatrixLocals(L10n.of(context)));
+        event.room.chatDisplayname(MatrixLocals(L10n.of(context)));
     // An effect that hides the message keeps it out of the notification.
     var body =
         effectPreviewOf(event, L10n.of(context)) ??
@@ -90,12 +91,12 @@ extension LocalNotificationsExtension on MatrixState {
           hideEdit: true,
           removeMarkdown: true,
         );
-    if (!event.room.isDirectChat) {
+    if (!event.room.isOneToOne) {
       final sender =
           await event.fetchSenderUser() ?? event.senderFromMemoryOrFallback;
       body = l10n.senderMessage(sender.calcDisplayname(), body);
     }
-    final avatarUrl = event.room.avatar;
+    final avatarUrl = event.room.chatAvatar;
 
     const size = 128;
     const thumbnailMethod = ThumbnailMethod.crop;

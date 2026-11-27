@@ -15,6 +15,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/sync_status_localization.dart';
 import 'package:fluffychat/utils/verified_room_extension.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -42,7 +43,7 @@ class ChatAppBarTitle extends StatelessWidget {
     final contact = controller.mergedContact;
     final title =
         contact?.displayName(MatrixLocals(L10n.of(context))) ??
-        room.getLocalizedDisplayname(MatrixLocals(L10n.of(context)));
+        room.chatDisplayname(MatrixLocals(L10n.of(context)));
     // The networks this chat reaches: each of a merged contact's, or the one
     // space a single chat belongs to.
     final networkSpaces = contact != null && controller.isMerged
@@ -132,9 +133,9 @@ class ChatAppBarTitle extends StatelessWidget {
                       return AnimatedSize(
                         duration: FluffyThemes.animationDuration,
                         child: hide
-                            ? room.isDirectChat
+                            ? room.isOneToOne
                                   ? PresenceBuilder(
-                                      userId: room.directChatMatrixID,
+                                      userId: room.oneToOnePartnerId,
                                       builder: (context, presence) {
                                         final statusMessage = presence
                                             ?.statusMsg
@@ -315,7 +316,7 @@ class ChatHeaderAvatar extends StatelessWidget {
     return GroupAvatar.shows(shown)
         ? GroupAvatar(room: shown, name: name, size: 32)
         : Avatar(
-            mxContent: contact?.avatar ?? room.avatar,
+            mxContent: contact?.avatar ?? room.chatAvatar,
             name: name,
             size: 32,
           );
@@ -391,7 +392,7 @@ class ChatNetworkIcons extends StatelessWidget {
     NetworkSwitcherOption option(Room space, String roomId) =>
         NetworkSwitcherOption(
           id: roomId,
-          name: space.getLocalizedDisplayname(locals),
+          name: space.chatDisplayname(locals),
           avatar: space.avatar,
         );
     final entries = <NetworkSwitcherOption>[];

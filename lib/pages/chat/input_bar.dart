@@ -19,6 +19,7 @@ import 'package:fluffychat/utils/media_adaptation.dart';
 import 'package:fluffychat/utils/native_context_menu.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/room_features.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/spell_check.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
 import 'package:flutter/services.dart';
@@ -238,7 +239,7 @@ class InputBar extends StatelessWidget {
           ret.add({
             'type': 'room',
             'mxid': (r.canonicalAlias.isNotEmpty) ? r.canonicalAlias : r.id,
-            'displayname': r.getLocalizedDisplayname(),
+            'displayname': r.chatDisplayname(),
             'avatar_url': r.avatar?.toString(),
           });
         }

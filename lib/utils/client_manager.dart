@@ -18,6 +18,7 @@ import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/network_error_log.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/windows_toast_identity.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -141,6 +142,8 @@ abstract class ClientManager {
         MatrixRtcCallMember.eventType,
         // To tell bridged chats from plain Matrix rooms (MatrixFeatures)
         ...RoomBridge.stateTypes,
+        // To leave bridge bots out of names, counts and typing (RoomKind)
+        RoomKind.functionalMembersType,
       },
       customImageResizer: PlatformInfos.supportsCustomImageResizer
           ? customImageResizer

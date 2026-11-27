@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:fluffychat/utils/fallback_avatar_image.dart';
 import 'package:fluffychat/utils/group_members_collage.dart';
 import 'package:fluffychat/utils/notification_avatar_extension.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:matrix/matrix.dart';
 
@@ -31,7 +32,7 @@ Future<Uint8List?> conversationShortcutIcon(
   Room room,
   String name,
 ) async {
-  final avatar = await client.tryDownloadNotificationAvatar(room.avatar);
+  final avatar = await client.tryDownloadNotificationAvatar(room.chatAvatar);
   if (avatar != null) return avatar;
   if (GroupAvatar.shows(room)) {
     final collage = await groupMembersCollage(

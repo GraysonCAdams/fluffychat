@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/l10n/l10n.dart';
-import 'package:fluffychat/utils/matrix_features.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:flutter/widgets.dart';
 import 'package:matrix/matrix.dart';
 
@@ -14,7 +14,7 @@ extension RoomStatusExtension on Room {
   String getLocalizedTypingText(BuildContext context) {
     var typingText = '';
     final typingUsers = this.typingUsers;
-    typingUsers.removeWhere((User u) => u.id == client.userID);
+    typingUsers.removeWhere((User u) => !countsAsPerson(u.id));
 
     if (AppConfig.hideTypingUsernames) {
       typingText = L10n.of(context).isTyping;
@@ -44,8 +44,8 @@ extension RoomStatusExtension on Room {
 
   /// The read receipts of the members who have read [event]: those whose
   /// receipt is on [event] or on a later event of this room in [timeline],
-  /// one per member, without the user's own, the sender's or the bridge
-  /// bot's.
+  /// one per member, without the user's own, the sender's or a service
+  /// member's such as the bridge bot (see [RoomKind.serviceMembers]).
   ///
   /// Only this room's events count, so in a merged contact's timeline a
   /// receipt on another network's room never marks [event] as read.
@@ -59,9 +59,8 @@ extension RoomStatusExtension on Room {
       }
       if (later.eventId == event.eventId) break;
     }
-    receipts.remove(client.userID);
     receipts.remove(event.senderId);
-    receipts.remove(RoomBridge.fromState(this)?.bot);
+    receipts.removeWhere((user, _) => !countsAsPerson(user));
     return receipts.values.toList();
   }
 }

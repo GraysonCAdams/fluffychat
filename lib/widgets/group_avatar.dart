@@ -3,15 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:fluffychat/utils/matrix_features.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
-
-extension GroupChatExtension on Room {
-  /// Whether this is a group chat: neither a direct chat nor a space.
-  bool get isGroupChat => !isDirectChat && !isSpace;
-}
 
 /// The picture of a group chat that has none of its own: its members as a
 /// collage, two overlapping or three in a cluster, as Google Messages shows
@@ -39,7 +35,7 @@ class GroupAvatar extends StatefulWidget {
   });
 
   /// Whether [room] is shown as a collage: a group without a picture.
-  static bool shows(Room room) => room.isGroupChat && room.avatar == null;
+  static bool shows(Room room) => room.isGroupChat && room.chatAvatar == null;
 
   /// The rooms of each client whose member list was loaded this session or
   /// is loading, by room ID.
@@ -72,12 +68,13 @@ class GroupAvatar extends StatefulWidget {
 
   /// The members the collage of [room] shows, at most [max] (three in the
   /// app): the sender of the newest message first, then the room's heroes,
-  /// then whoever else is in memory. The user and the chat's bridge bot are
-  /// left out.
+  /// then whoever else is in memory. The user, the chat's bridge bot and
+  /// its other service members are left out.
   static List<String> memberIds(Room room, {int max = 3}) {
     final skip = {
       room.client.userID,
       MatrixFeatures.forClient(room.client).bridgeOf(room)?.bot,
+      ...room.serviceMembers,
     };
     final ids = <String>[];
     void add(String? id) {

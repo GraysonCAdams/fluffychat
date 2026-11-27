@@ -15,6 +15,7 @@ import 'package:fluffychat/utils/message_search/message_search_indexer.dart';
 import 'package:fluffychat/utils/message_search/message_search_source.dart';
 import 'package:fluffychat/utils/message_search/server_message_search.dart';
 import 'package:fluffychat/utils/message_search/snippet.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -250,7 +251,7 @@ class _MessageSearchTile extends StatelessWidget {
     final contact = MergedContact.ofRoom(client, room.id);
     final roomName =
         contact?.displayName(MatrixLocals(l10n)) ??
-        room.getLocalizedDisplayname(MatrixLocals(l10n));
+        room.chatDisplayname(MatrixLocals(l10n));
     final String sender;
     if (hit.senderId == client.userID) {
       sender = l10n.you;
@@ -273,7 +274,7 @@ class _MessageSearchTile extends StatelessWidget {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       leading: Avatar(
-        mxContent: contact?.avatar ?? room.avatar,
+        mxContent: contact?.avatar ?? room.chatAvatar,
         name: roomName,
         client: client,
       ),

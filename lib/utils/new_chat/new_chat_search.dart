@@ -19,6 +19,7 @@ import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
 import 'package:fluffychat/utils/new_chat/bridge_directory.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_people.dart';
 import 'package:fluffychat/utils/new_chat/phone_contacts.dart';
+import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/merged_contacts/network_badges.dart';
 import 'package:matrix/matrix.dart';
 
@@ -85,7 +86,7 @@ List<ExistingChat> searchExistingChats(
       .where(keep ?? (_) => true)
       .toList();
   bool matches(Room room) =>
-      room.getLocalizedDisplayname(locals).toLowerCase().contains(needle) ||
+      room.chatDisplayname(locals).toLowerCase().contains(needle) ||
       (room.directChatMatrixID?.toLowerCase().contains(needle) ?? false);
   final store = MergedContactsStore.forClient(client);
   final named = <String>{
@@ -128,9 +129,8 @@ ChatPersonInput<ExistingChat> chatPersonInput(
   return ChatPersonInput(
     chat: chat,
     name:
-        chat.contact?.displayName(locals) ??
-        chat.room.getLocalizedDisplayname(locals),
-    avatar: chat.contact?.avatar ?? chat.room.avatar,
+        chat.contact?.displayName(locals) ?? chat.room.chatDisplayname(locals),
+    avatar: chat.contact?.avatar ?? chat.room.chatAvatar,
     phone: phoneOfChat(chat),
     userIds: [for (final room in rooms) ?room.directChatMatrixID],
     group: chat.contact == null && chat.room.directChatMatrixID == null,
@@ -138,7 +138,7 @@ ChatPersonInput<ExistingChat> chatPersonInput(
       for (final network in chat.networks)
         NetworkRef(
           key: network.id,
-          name: network.getLocalizedDisplayname(locals),
+          name: network.chatDisplayname(locals),
           icon: network.avatar,
         ),
     ],
