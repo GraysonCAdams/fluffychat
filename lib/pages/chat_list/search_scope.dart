@@ -5,6 +5,7 @@
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_filter_menu.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
+import 'package:fluffychat/pages/chat_list/header_menu.dart';
 import 'package:fluffychat/utils/message_search/message_search_hit.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -138,36 +139,40 @@ Future<void> showSearchScopeMenu(
   final origin = overlay.globalToLocal(
     box.localToGlobal(Offset(0, box.size.height + 4)),
   );
-  final picked = await showMenu<String>(
-    context: navigator.context,
-    position: RelativeRect.fromLTRB(
-      origin.dx,
-      origin.dy,
-      overlay.size.width - origin.dx,
-      0,
-    ),
-    // The metrics of the chat filter menu, see showChatFilterMenu.
-    constraints: const BoxConstraints(minWidth: 112, maxWidth: 280),
-    items: [
-      PopupMenuItem(
-        enabled: false,
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Text(
-          l10n.searchInTitle,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+  final picked = await HeaderMenu.show(
+    anchor: showSearchScopeMenu,
+    navigator: navigator,
+    showMenu: () => showMenu<String>(
+      context: navigator.context,
+      position: RelativeRect.fromLTRB(
+        origin.dx,
+        origin.dy,
+        overlay.size.width - origin.dx,
+        0,
+      ),
+      // The metrics of the chat filter menu, see showChatFilterMenu.
+      constraints: const BoxConstraints(minWidth: 112, maxWidth: 280),
+      items: [
+        PopupMenuItem(
+          enabled: false,
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            l10n.searchInTitle,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
-      ),
-      for (final scope in SearchScope.values)
-        chatMenuItem(
-          value: scope.name,
-          leading: Icon(scope.icon),
-          label: scope.label(l10n),
-          checked: scope == controller.searchScope,
-        ),
-    ],
+        for (final scope in SearchScope.values)
+          chatMenuItem(
+            value: scope.name,
+            leading: Icon(scope.icon),
+            label: scope.label(l10n),
+            checked: scope == controller.searchScope,
+          ),
+      ],
+    ),
   );
   if (!controller.mounted) return;
   if (picked != null) {

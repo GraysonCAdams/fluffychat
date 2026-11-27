@@ -383,4 +383,50 @@ void main() {
     expect(enabled(tester, 'Mark all as read'), isFalse);
     await finishFakeChatList(tester, client);
   });
+
+  testWidgets('tapping the title again closes the menu and turns the arrow '
+      'back', (tester) async {
+    await pump(tester);
+    double turns() => tester
+        .widget<RotationTransition>(
+          find.descendant(
+            of: title(),
+            matching: find.byType(RotationTransition),
+          ),
+        )
+        .turns
+        .value;
+    await open(tester);
+    expect(find.byType(PopupMenuItem<String>), findsWidgets);
+    expect(turns(), 0.5);
+    await tester.tap(title(), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.byType(PopupMenuItem<String>), findsNothing);
+    expect(turns(), 0);
+    await finishFakeChatList(tester, client);
+  });
+
+  testWidgets('with reduced motion the arrow turns at once', (tester) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await pump(tester);
+    await tester.tap(title());
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester
+          .widget<RotationTransition>(
+            find.descendant(
+              of: title(),
+              matching: find.byType(RotationTransition),
+            ),
+          )
+          .turns
+          .value,
+      0.5,
+    );
+    await tester.pumpAndSettle();
+    await finishFakeChatList(tester, client);
+  });
 }

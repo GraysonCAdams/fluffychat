@@ -14,6 +14,7 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_filter_menu.dart';
+import 'package:fluffychat/pages/chat_list/header_menu.dart';
 import 'package:fluffychat/pages/chat_list/title_bar_search.dart';
 import 'package:fluffychat/utils/windows_startup_entry.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -440,6 +441,7 @@ abstract final class WindowsDesktop {
 
   static const _runKey = r'Software\Microsoft\Windows\CurrentVersion\Run';
   static const _runValueName = seamRunValueName;
+
   /// The glyph alone, white on the dark taskbar and Seam's cobalt on a light
   /// one.
   static const _trayIcon = 'assets/seam/tray_icon.ico';
@@ -516,6 +518,7 @@ abstract final class WindowsDesktop {
         ..free(size);
     }
   }
+
   static const _regSz = 1;
 
   /// Restores the window, sets up the tray and shows the window unless the
@@ -738,16 +741,28 @@ class WindowsChrome extends StatefulWidget {
   State<WindowsChrome> createState() => _WindowsChromeState();
 }
 
-class _WindowsChromeState extends State<WindowsChrome> {
+class _WindowsChromeState extends State<WindowsChrome> with WindowListener {
   late final _search = TitleBarSearch(
     showChatList: () => widget.showChatList(),
   );
 
   @override
+  void initState() {
+    super.initState();
+    windowManager.addListener(this);
+  }
+
+  @override
   void dispose() {
+    windowManager.removeListener(this);
     _search.dispose();
     super.dispose();
   }
+
+  /// A menu from the bar or the chat list's header closes when the window
+  /// loses focus, as Windows menus do.
+  @override
+  void onWindowBlur() => HeaderMenu.close();
 
   @override
   Widget build(BuildContext context) {
@@ -774,12 +789,14 @@ class _WindowsChromeState extends State<WindowsChrome> {
           ),
           // An overlay of its own for the bar's tooltips and the search
           // field's menu, which the app's navigator below cannot host. It
-          // covers the window, but only the bar takes the pointer.
+          // covers the window, but only the bar takes the pointer. The
+          // menus of the bar and the header open below it, so their
+          // barrier does not reach the bar: it gets one of its own.
           Positioned.fill(
             child: Overlay.wrap(
               child: Align(
                 alignment: Alignment.topCenter,
-                child: _TitleBar(search: _search),
+                child: HeaderMenu.barrier(child: _TitleBar(search: _search)),
               ),
             ),
           ),

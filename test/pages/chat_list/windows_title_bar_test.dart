@@ -18,6 +18,7 @@ import 'package:fluffychat/pages/chat_list/title_bar_search.dart';
 import 'package:fluffychat/utils/windows_shell_ffi.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -521,5 +522,156 @@ void main() {
       FlutterError.onError = onError;
     }
     await finish(tester);
+  });
+
+  group('the title bar menus close as Windows menus do', () {
+    final windows = TargetPlatformVariant.only(TargetPlatform.windows);
+    final dropdown = find.byType(ChatFilterButton);
+    final account = find.byKey(const Key('accounts_and_settings_buttons'));
+
+    /// How many chat filter menus are open: each has one Groups row.
+    int filterMenus() => find
+        .descendant(
+          of: find.byType(PopupMenuItem<String>),
+          matching: find.text('Groups'),
+        )
+        .evaluate()
+        .length;
+
+    /// How many account menus are open: each has one Settings row.
+    int accountMenus() => find.text('Settings').evaluate().length;
+
+    Future<void> click(WidgetTester tester, Finder target) async {
+      await tester.tap(target, kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> clickAt(WidgetTester tester, Offset at) async {
+      await tester.tapAt(at, kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+    }
+
+    /// The account menu's long rows overflow in the test font, which is
+    /// not what these tests look at.
+    void ignoreOverflow() {
+      final onError = FlutterError.onError;
+      FlutterError.onError = (details) {
+        if (details.exceptionAsString().contains('overflowed')) return;
+        onError?.call(details);
+      };
+      addTearDown(() => FlutterError.onError = onError);
+    }
+
+    testWidgets('clicking the title again closes its menu', (tester) async {
+      await pumpWindow(tester, 1280);
+      await click(tester, dropdown);
+      expect(filterMenus(), 1);
+      await click(tester, dropdown);
+      expect(filterMenus(), 0);
+      // And it opens again on the next click.
+      await click(tester, dropdown);
+      expect(filterMenus(), 1);
+      await finish(tester);
+    }, variant: windows);
+
+    testWidgets('clicking the avatar again closes the account menu', (
+      tester,
+    ) async {
+      ignoreOverflow();
+      await pumpWindow(tester, 1280);
+      await click(tester, account);
+      expect(accountMenus(), 1);
+      await click(tester, account);
+      expect(accountMenus(), 0);
+      await finish(tester);
+    }, variant: windows);
+
+    testWidgets('a click on the empty bar closes the menu', (tester) async {
+      await pumpWindow(tester, 1280);
+      await click(tester, dropdown);
+      expect(filterMenus(), 1);
+      // Between the search field (380 to 900) and the account button: the
+      // part of the bar that moves the window.
+      await clickAt(tester, const Offset(1000, 24));
+      expect(filterMenus(), 0);
+      await finish(tester);
+    }, variant: windows);
+
+    testWidgets('a click on another bar button only closes the open menu', (
+      tester,
+    ) async {
+      ignoreOverflow();
+      await pumpWindow(tester, 1280);
+      await click(tester, dropdown);
+      await click(tester, account);
+      expect(filterMenus(), 0);
+      expect(accountMenus(), 0);
+      await click(tester, account);
+      await click(tester, dropdown);
+      expect(filterMenus(), 0);
+      expect(accountMenus(), 0);
+      await finish(tester);
+    }, variant: windows);
+
+    testWidgets('a click on the chat list closes the menu', (tester) async {
+      await pumpWindow(tester, 1280);
+      await click(tester, dropdown);
+      await clickAt(tester, const Offset(1000, 600));
+      expect(filterMenus(), 0);
+      await finish(tester);
+    }, variant: windows);
+
+    testWidgets('Escape closes the menu', (tester) async {
+      await pumpWindow(tester, 1280);
+      await click(tester, dropdown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(filterMenus(), 0);
+      await finish(tester);
+    }, variant: windows);
+
+    testWidgets('switching to another window closes the menu', (tester) async {
+      await pumpWindow(tester, 1280);
+      await click(tester, dropdown);
+      expect(filterMenus(), 1);
+      // What the window manager plugin sends on WM_NCACTIVATE off.
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        'window_manager',
+        const StandardMethodCodec().encodeMethodCall(
+          const MethodCall('onEvent', {'eventName': 'blur'}),
+        ),
+        (_) {},
+      );
+      await tester.pumpAndSettle();
+      expect(filterMenus(), 0);
+      await finish(tester);
+    }, variant: windows);
+
+    testWidgets('the arrow turns over while the menu is open', (tester) async {
+      await pumpWindow(tester, 1280);
+      double turns() => tester
+          .widget<RotationTransition>(
+            find.descendant(
+              of: dropdown,
+              matching: find.byType(RotationTransition),
+            ),
+          )
+          .turns
+          .value;
+      expect(turns(), 0);
+      await tester.tap(dropdown, kind: PointerDeviceKind.mouse);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(turns(), inExclusiveRange(0, 0.5));
+      await tester.pumpAndSettle();
+      expect(turns(), 0.5);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(turns(), inExclusiveRange(0, 0.5));
+      await tester.pumpAndSettle();
+      expect(turns(), 0);
+      await finish(tester);
+    }, variant: windows);
   });
 }

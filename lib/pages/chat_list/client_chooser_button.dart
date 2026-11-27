@@ -17,6 +17,7 @@ import 'package:matrix/matrix.dart' hide Result;
 
 import '../../utils/fluffy_share.dart';
 import 'chat_list.dart';
+import 'header_menu.dart';
 
 /// The own avatar, opening the account menu: accounts, status, snooze,
 /// settings and the like. Shown beside the chat list's search field, or in
@@ -74,7 +75,7 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
 
   /// Opens the menu below the button, as a PopupMenuButton places it, on
   /// the overlay of the chat list's navigator, which need not hold the
-  /// button.
+  /// button; or closes the header menu open (see [HeaderMenu]).
   Future<void> _openMenu() async {
     final controller = widget.controller;
     if (controller == null || !controller.mounted) return;
@@ -96,10 +97,14 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
       ),
       Offset.zero & overlay.size,
     );
-    final picked = await showMenu<Object>(
-      context: listContext,
-      position: position,
-      items: _bundleMenuItems(context),
+    final picked = await HeaderMenu.show(
+      anchor: ClientChooserButton,
+      navigator: Navigator.of(listContext),
+      showMenu: () => showMenu<Object>(
+        context: listContext,
+        position: position,
+        items: _bundleMenuItems(context),
+      ),
     );
     if (picked == null || !mounted || !controller.mounted) return;
     _clientSelected(picked, controller.context);

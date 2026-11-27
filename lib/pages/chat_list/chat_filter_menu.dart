@@ -4,6 +4,7 @@
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
+import 'package:fluffychat/pages/chat_list/header_menu.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -49,6 +50,9 @@ String chatFilterLabel(BuildContext context, ChatListController controller) {
 /// Last come the actions: Discover for a Matrix space (its room
 /// directory), and Mark all as read for the chats of the network shown, or
 /// all chats; it stays in the menu, disabled, while none of them is unread.
+///
+/// Called while any header menu is open, it closes that menu instead (see
+/// [HeaderMenu]), so a second click on the title closes its menu.
 Future<void> showChatFilterMenu(
   BuildContext anchor,
   ChatListController controller,
@@ -86,73 +90,78 @@ Future<void> showChatFilterMenu(
     ),
   );
 
-  final picked = await showMenu<String>(
-    context: navigator.context,
-    position: RelativeRect.fromLTRB(
-      origin.dx,
-      origin.dy,
-      overlay.size.width - origin.dx,
-      0,
-    ),
-    // Material menu metrics: 48 high rows, 12 side padding, and a width
-    // that follows the longest row between 112 and 280.
-    constraints: const BoxConstraints(minWidth: 112, maxWidth: 280),
-    items: [
-      chatMenuItem(
-        value: 'filter:${ActiveFilter.allChats.name}',
-        leading: const Icon(Icons.forum_outlined),
-        label: l10n.allChats,
-        checked: filter == ActiveFilter.allChats && network == null,
+  final picked = await HeaderMenu.show(
+    anchor: chatFilterMenuAnchor(controller),
+    navigator: navigator,
+    showMenu: () => showMenu<String>(
+      context: navigator.context,
+      position: RelativeRect.fromLTRB(
+        origin.dx,
+        origin.dy,
+        overlay.size.width - origin.dx,
+        0,
       ),
-      for (final (kind, icon) in [
-        (ActiveFilter.unread, Icons.mark_chat_unread_outlined),
-        (ActiveFilter.groups, Icons.group_outlined),
-        (ActiveFilter.messages, Icons.person_outlined),
-      ])
+      // Material menu metrics: 48 high rows, 12 side padding, and a width
+      // that follows the longest row between 112 and 280.
+      constraints: const BoxConstraints(minWidth: 112, maxWidth: 280),
+      items: [
         chatMenuItem(
-          value: 'filter:${kind.name}',
-          leading: Icon(icon),
-          label: kind.toLocalizedString(anchor),
-          checked: filter == kind,
+          value: 'filter:${ActiveFilter.allChats.name}',
+          leading: const Icon(Icons.forum_outlined),
+          label: l10n.allChats,
+          checked: filter == ActiveFilter.allChats && network == null,
         ),
-      if (networks.isNotEmpty) ...[
-        const PopupMenuDivider(),
-        heading(l10n.networks),
-        for (final space in networks)
+        for (final (kind, icon) in [
+          (ActiveFilter.unread, Icons.mark_chat_unread_outlined),
+          (ActiveFilter.groups, Icons.group_outlined),
+          (ActiveFilter.messages, Icons.person_outlined),
+        ])
           chatMenuItem(
-            value: 'network:${space.id}',
-            leading: _networkAvatar(space, locals),
-            label: space.getLocalizedDisplayname(locals),
-            checked: space.id == network?.id,
+            value: 'filter:${kind.name}',
+            leading: Icon(icon),
+            label: kind.toLocalizedString(anchor),
+            checked: filter == kind,
           ),
-      ],
-      if (tags.isNotEmpty) ...[
+        if (networks.isNotEmpty) ...[
+          const PopupMenuDivider(),
+          heading(l10n.networks),
+          for (final space in networks)
+            chatMenuItem(
+              value: 'network:${space.id}',
+              leading: _networkAvatar(space, locals),
+              label: space.getLocalizedDisplayname(locals),
+              checked: space.id == network?.id,
+            ),
+        ],
+        if (tags.isNotEmpty) ...[
+          const PopupMenuDivider(),
+          heading(l10n.chatFilterTags),
+          for (final tag in tags)
+            chatMenuItem(
+              value: 'tag:$tag',
+              leading: const Icon(Icons.label_outlined),
+              label: tag.replaceFirst('u.', ''),
+              checked:
+                  filter == ActiveFilter.tag && controller.activeTag == tag,
+            ),
+        ],
         const PopupMenuDivider(),
-        heading(l10n.chatFilterTags),
-        for (final tag in tags)
+        if (discover)
           chatMenuItem(
-            value: 'tag:$tag',
-            leading: const Icon(Icons.label_outlined),
-            label: tag.replaceFirst('u.', ''),
-            checked: filter == ActiveFilter.tag && controller.activeTag == tag,
+            value: 'action:discover',
+            leading: const Icon(Icons.explore_outlined),
+            label: l10n.discover,
+            checked: false,
           ),
-      ],
-      const PopupMenuDivider(),
-      if (discover)
         chatMenuItem(
-          value: 'action:discover',
-          leading: const Icon(Icons.explore_outlined),
-          label: l10n.discover,
+          value: 'action:markAllRead',
+          leading: const Icon(Icons.mark_chat_read_outlined),
+          label: l10n.markAllAsRead,
           checked: false,
+          enabled: controller.unreadChats(network).isNotEmpty,
         ),
-      chatMenuItem(
-        value: 'action:markAllRead',
-        leading: const Icon(Icons.mark_chat_read_outlined),
-        label: l10n.markAllAsRead,
-        checked: false,
-        enabled: controller.unreadChats(network).isNotEmpty,
-      ),
-    ],
+      ],
+    ),
   );
   if (picked == null || !controller.mounted) return;
   final separator = picked.indexOf(':');
@@ -228,6 +237,10 @@ PopupMenuItem<String> chatMenuItem({
   ),
 );
 
+/// The [HeaderMenu] anchor of the chat filter menu of [controller]'s list.
+Object chatFilterMenuAnchor(ChatListController controller) =>
+    (ChatFilterButton, controller);
+
 Widget _networkAvatar(Room space, MatrixLocals locals) => Avatar(
   mxContent: space.avatar,
   name: space.getLocalizedDisplayname(locals),
@@ -237,7 +250,8 @@ Widget _networkAvatar(Room space, MatrixLocals locals) => Avatar(
 
 /// The chat list's title as a dropdown: what the list shows (see
 /// [chatFilterLabel]) and an arrow, opening [showChatFilterMenu] on a tap,
-/// or on Enter or Space once focused. A screen reader hears it as a
+/// or on Enter or Space once focused, and closing it on another tap. The
+/// arrow turns over while the menu is open. A screen reader hears it as a
 /// button, "Filter chats, All chats selected".
 class ChatFilterButton extends StatelessWidget {
   final ChatListController controller;
@@ -294,9 +308,24 @@ class ChatFilterButton extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Icon(
-                    Icons.arrow_drop_down,
-                    color: textStyle?.color ?? theme.colorScheme.onSurface,
+                  ValueListenableBuilder(
+                    valueListenable: HeaderMenu.open,
+                    builder: (context, _, arrow) => AnimatedRotation(
+                      turns: HeaderMenu.isOpen(chatFilterMenuAnchor(controller))
+                          ? 0.5
+                          : 0,
+                      // Material's short standard motion: 200 ms, eased
+                      // in and out on the emphasized curve.
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 200),
+                      curve: Curves.easeInOutCubicEmphasized,
+                      child: arrow,
+                    ),
+                    child: Icon(
+                      Icons.arrow_drop_down,
+                      color: textStyle?.color ?? theme.colorScheme.onSurface,
+                    ),
                   ),
                 ],
               ),
