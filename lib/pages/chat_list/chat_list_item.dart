@@ -689,7 +689,20 @@ class _ChatListItemState extends State<ChatListItem> {
         onPointerMove: _pointerMove,
         onPointerUp: _pointerUp,
         onPointerCancel: _pointerCancel,
-        child: tile,
+        child: MediaQuery.disableAnimationsOf(context)
+            ? tile
+            // A row that changes height while on screen, such as a preview
+            // going from one line to two or a typing indicator taking its
+            // place, grows or shrinks over 250 ms and the rows below slide
+            // with it. A row's first layout, as it scrolls in, is not
+            // animated.
+            : AnimatedSize(
+                alignment: Alignment.topCenter,
+                duration: Durations.medium1,
+                curve: Easing.standard,
+                clipBehavior: Clip.hardEdge,
+                child: tile,
+              ),
       ),
     );
   }
