@@ -199,11 +199,22 @@ Future<VideoPlayerController> videoControllerForEvent(
     if (await file.exists() == false) {
       await file.writeAsBytes(videoFile.bytes);
     }
-    controller = VideoPlayerController.file(file);
+    controller = VideoPlayerController.file(file, viewType: eventVideoViewType);
   }
   await controller.initialize();
   return controller;
 }
+
+/// How a played video shows its frames.
+///
+/// On Android a Flutter texture loses most frames: ExoPlayer renders into the
+/// texture's ImageReader, finds its frames late and drops them, so a 60 fps
+/// clip plays at about 11 fps whatever its resolution. A platform view hands
+/// the decoder a SurfaceView and plays every frame. Elsewhere the texture
+/// keeps up.
+VideoViewType get eventVideoViewType => PlatformInfos.isAndroid
+    ? VideoViewType.platformView
+    : VideoViewType.textureView;
 
 /// The playback controls on top of [controller], an initialized video:
 /// playing at once with its controls hidden until a tap, looping when
