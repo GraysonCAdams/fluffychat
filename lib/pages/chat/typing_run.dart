@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:fluffychat/config/themes.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
 /// Syncs that carry a typing update for any of [rooms].
@@ -26,41 +24,9 @@ List<User> typingUsersIn(List<Room> rooms) => [
 
 /// Whether the typing dots continue the run of the sender [senderId] of the
 /// newest message: exactly one person is typing and it is that sender.
-/// The dots then carry the run's avatar and the newest message does not.
+/// The dots then sit as the run's next bubble, under the avatar on the
+/// newest message.
 bool typingContinuesRun(List<User> typingUsers, String? senderId) =>
     senderId != null &&
     typingUsers.length == 1 &&
     typingUsers.single.id == senderId;
-
-/// The avatar slot of a group message's last bubble, faded out while the
-/// typing dots continue the sender's run ([isNewest]: no newer message
-/// follows). The slot keeps its size, so the bubble does not move when the
-/// avatar leaves or returns.
-class RunAvatarSlot extends StatelessWidget {
-  final Room room;
-  final String senderId;
-  final bool isNewest;
-  final Widget child;
-
-  const RunAvatarSlot({
-    required this.room,
-    required this.senderId,
-    required this.isNewest,
-    required this.child,
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (!isNewest) return child;
-    return StreamBuilder<Object>(
-      stream: typingUpdatesFor([room]),
-      builder: (context, _) => AnimatedOpacity(
-        opacity: typingContinuesRun(typingUsersIn([room]), senderId) ? 0 : 1,
-        duration: FluffyThemes.animationDuration,
-        curve: FluffyThemes.animationCurve,
-        child: child,
-      ),
-    );
-  }
-}

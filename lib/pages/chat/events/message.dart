@@ -13,7 +13,6 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/effects/message_effect_bubble.dart';
 import 'package:fluffychat/pages/chat/effects/message_effect_replay_link.dart';
-import 'package:fluffychat/pages/chat/typing_run.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/file_description.dart';
@@ -532,29 +531,23 @@ class Message extends StatelessWidget {
                                     child: SizedBox(
                                       width: senderAvatarSize,
                                       child: lastOfRun
-                                          ? RunAvatarSlot(
-                                              room: event.room,
-                                              senderId: event.senderId,
-                                              isNewest: previousEvent == null,
-                                              child: SenderUserBuilder(
-                                                event: event,
-                                                builder: (context, fetchedUser) {
-                                                  final user =
-                                                      fetchedUser ?? sender;
-                                                  return Avatar(
-                                                    mxContent: user.avatarUrl,
-                                                    name: user
-                                                        .calcDisplayname(),
-                                                    onTap: () =>
-                                                        showMemberActionsPopupMenu(
-                                                          context: context,
-                                                          user: user,
-                                                          onMention: onMention,
-                                                        ),
-                                                    size: senderAvatarSize,
-                                                  );
-                                                },
-                                              ),
+                                          ? SenderUserBuilder(
+                                              event: event,
+                                              builder: (context, fetchedUser) {
+                                                final user =
+                                                    fetchedUser ?? sender;
+                                                return Avatar(
+                                                  mxContent: user.avatarUrl,
+                                                  name: user.calcDisplayname(),
+                                                  onTap: () =>
+                                                      showMemberActionsPopupMenu(
+                                                        context: context,
+                                                        user: user,
+                                                        onMention: onMention,
+                                                      ),
+                                                  size: senderAvatarSize,
+                                                );
+                                              },
                                             )
                                           : null,
                                     ),
