@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/archive/archive.dart';
 import 'package:fluffychat/pages/archive/archive_cache.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_swipe.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -125,6 +126,8 @@ void main() {
     );
 
     expect(find.text('The room name'), findsOneWidget);
+    // Left chats do not swipe.
+    expect(find.byType(ChatListSwipe), findsNothing);
     // The server is still being asked.
     expect(server.archiveSyncs, 1);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);

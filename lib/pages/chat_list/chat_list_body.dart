@@ -12,6 +12,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_swipe.dart';
 import 'package:fluffychat/pages/chat_list/dummy_chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/hold_then_drag.dart';
 import 'package:fluffychat/pages/chat_list/message_search_results.dart';
@@ -417,10 +418,25 @@ class ChatListViewBody extends StatelessWidget {
                               : null,
                           itemBuilder: (BuildContext context, int i) {
                             final room = shownRooms[i];
-                            return controller.chatListTile(
+                            final tile = controller.chatListTile(
                               room,
                               spaceDelegateCandidates[room.id],
                               spaces: spaceDelegateCandidates,
+                            );
+                            return ValueListenableBuilder(
+                              key: ValueKey(room.id),
+                              valueListenable: swipeActionsChanged,
+                              builder: (context, _, _) {
+                                final swipe = chatSwipeActions(
+                                  controller,
+                                  room,
+                                );
+                                return ChatListSwipe(
+                                  right: swipe.right,
+                                  left: swipe.left,
+                                  child: tile,
+                                );
+                              },
                             );
                           },
                         ),

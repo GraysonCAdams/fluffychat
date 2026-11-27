@@ -75,6 +75,7 @@ class FakeChatListRoom extends Room {
     required super.id,
     required super.client,
     super.notificationCount,
+    super.membership,
   });
 
   final calls = <String>[];
@@ -245,8 +246,8 @@ void addFakeBridge(
   ),
 );
 
-/// A joined chat named [name]; one-to-one with [partner] when given,
-/// else a group.
+/// A chat named [name], joined unless [membership] says otherwise;
+/// one-to-one with [partner] when given, else a group.
 FakeChatListRoom addFakeChat(
   Client client,
   String id,
@@ -254,11 +255,13 @@ FakeChatListRoom addFakeChat(
   String? partner,
   int notificationCount = 0,
   DateTime? lastMessageTime,
+  Membership membership = Membership.join,
 }) {
   final room = FakeChatListRoom(
     id: id,
     client: client,
     notificationCount: notificationCount,
+    membership: membership,
   );
   final sender = partner ?? '@someone:x';
   room.setState(

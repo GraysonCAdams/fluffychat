@@ -8,6 +8,7 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/active_call_indicator.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_swipe.dart';
 import 'package:fluffychat/pages/chat_list/message_preview_cache.dart';
 import 'package:fluffychat/pages/chat_list/push_rule_state_cache.dart';
 import 'package:fluffychat/pages/chat_list/unread_bubble.dart';
@@ -582,13 +583,19 @@ class _ChatListItemState extends State<ChatListItem> {
   /// long press stay its actions. It reads as selected while picked in the
   /// selection mode. The archive's delete button and the copy code button
   /// ([hasOwnActions]) are actions of their own, so a tile that has one is
-  /// left unmerged.
+  /// left unmerged. A swipeable row's actions (see [ChatListSwipe]) are
+  /// custom actions of the tile.
   Widget _mergeSemantics(
     Widget child, {
     bool hasOwnActions = false,
     bool selected = false,
   }) {
-    final tile = Semantics(selected: selected, child: child);
+    final swipeActions = ChatListSwipeSemantics.of(context);
+    final tile = Semantics(
+      selected: selected,
+      customSemanticsActions: swipeActions.isEmpty ? null : swipeActions,
+      child: child,
+    );
     return widget.onForget == null && !hasOwnActions
         ? MergeSemantics(child: tile)
         : tile;

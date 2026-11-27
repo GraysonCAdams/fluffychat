@@ -7,6 +7,7 @@ import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat_list/chat_list_swipe.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -19,6 +20,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'message_search_index_tile.dart';
 import 'settings_chat.dart';
+import 'settings_swipe_actions.dart';
 
 class SettingsChatView extends StatelessWidget {
   final SettingsChatController controller;
@@ -164,6 +166,18 @@ class SettingsChatView extends StatelessWidget {
                     }
                   },
                 ),
+              ValueListenableBuilder(
+                valueListenable: swipeActionsChanged,
+                builder: (context, _, _) => ListTile(
+                  title: Text(L10n.of(context).swipeActions),
+                  subtitle: Text(swipeActionsSummary(L10n.of(context))),
+                  onTap: () => context.go('/rooms/settings/chat/swipe_actions'),
+                  trailing: const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Icon(Icons.chevron_right_outlined),
+                  ),
+                ),
+              ),
               ListTile(
                 title: Text(L10n.of(context).mergedContacts),
                 subtitle: Text(L10n.of(context).mergedContactsDescription),

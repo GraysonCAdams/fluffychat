@@ -51,6 +51,11 @@ enum AppSettings<T> {
   // The network and linked-chat badges on avatars in the main chat list
   // only; other lists keep theirs.
   chatListNetworkBadges<bool>('chat.fluffy.chat_list_network_badges', true),
+  // Swiping a row in the main chat list. Each direction holds a
+  // ChatSwipeAction name: markRead, lowPriority, pin, mute, leave or none.
+  chatListSwipe<bool>('chat.fluffy.chat_list_swipe', true),
+  chatListSwipeRight<String>('chat.fluffy.chat_list_swipe_right', 'markRead'),
+  chatListSwipeLeft<String>('chat.fluffy.chat_list_swipe_left', 'lowPriority'),
   networkBubbleColorOverrides<String>(
     'chat.fluffy.network_bubble_color_overrides',
     '{}',
