@@ -219,7 +219,14 @@ class _FakeDelivery extends NewChatDelivery {
     void Function()? onUpdate,
   }) async => Timeline(
     room: chat.room,
-    chunk: TimelineChunk(events: history[chat.room.id] ?? []),
+    // A merged contact's chat is every network's messages in one, as
+    // MergedTimeline shows it.
+    chunk: TimelineChunk(
+      events: [
+        for (final room in chat.contact?.rooms ?? [chat.room])
+          ...?history[room.id],
+      ],
+    ),
   );
 }
 
@@ -974,6 +981,36 @@ void main() {
       expect(delivery.started, isEmpty);
       // A bubble looks its sender up in the database, whose transaction
       // holds a ten-second timer in the test's fake time.
+      await tester.pump(const Duration(seconds: 11));
+    });
+
+    testWidgets('a merged contact shows every network\'s messages; picking '
+        'a network changes only where the message goes', (tester) async {
+      addQuinnOnBoth();
+      setMergedContacts(client, {
+        'c_q': {
+          'rooms': ['!q-im:x', '!q-gm:x'],
+          'send_via': '!q-gm:x',
+          'updated': 1,
+        },
+      });
+      await pump(tester);
+      // The merged contact is suggested under its newest chat's name.
+      await pick(tester, 'quinn', 'Quinn Sms');
+      expect(networks, findsOneWidget);
+      expect(composerHint(tester), 'Google Messages');
+      expect(find.text('from sms'), findsOneWidget);
+      expect(find.text('from imessage'), findsOneWidget);
+
+      await tester.tap(network('iMessage'));
+      await tester.pumpAndSettle();
+      expect(composerHint(tester), 'iMessage');
+      expect(find.text('from sms'), findsOneWidget);
+      expect(find.text('from imessage'), findsOneWidget);
+
+      await sendMessage(tester, 'yo');
+      expect(delivery.sent, ['!q-im:x: yo']);
+      expect(delivery.started, isEmpty);
       await tester.pump(const Duration(seconds: 11));
     });
 

@@ -135,8 +135,12 @@ class NewPrivateChatController extends State<NewPrivateChat> {
   /// is none.
   ExistingChat? conversation;
 
-  /// The room the first message goes to in [conversation].
-  Room? get sendRoom => conversation?.sendRoom;
+  /// The room the first message goes to in [conversation]: for one person,
+  /// their chat on the selected network, which is null on a network they
+  /// have no chat on yet (the message then starts one there).
+  Room? get sendRoom => recipients.length == 1 && !recipients.single.group
+      ? selectedNetwork?.room
+      : conversation?.sendRoom;
 
   /// What the networks answered about each person in the To field, by
   /// [groupMemberKey].
@@ -893,12 +897,17 @@ class NewPrivateChatController extends State<NewPrivateChat> {
     } else if (first.group) {
       conversation = recipients.length == 1 ? first.chat : null;
     } else if (recipients.length == 1) {
-      final room = selectedNetwork?.room;
+      // A merged contact shows every network's messages in one whichever
+      // network is picked; the pick changes only where the message goes
+      // (see [sendRoom]).
+      final contact = _personChat?.contact;
+      final room =
+          selectedNetwork?.room ?? (contact == null ? null : _personChat?.room);
       conversation = room == null
           ? null
           : ExistingChat(
               room: room,
-              contact: null,
+              contact: contact,
               networks: [?spacesByChild(client)[room.id]],
             );
     } else if (groupBridge != null) {
