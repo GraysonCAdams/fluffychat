@@ -6,10 +6,9 @@ import 'dart:async';
 
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/utils/android_conversation_notifications.dart';
-import 'package:fluffychat/utils/fallback_avatar_image.dart';
+import 'package:fluffychat/utils/conversation_shortcut_icon.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
-import 'package:fluffychat/utils/notification_avatar_extension.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:matrix/matrix.dart';
 
@@ -173,13 +172,13 @@ class AndroidShareTargets {
           id: shortcut.id,
           name: shortcut.name,
           roomUrl: AppConfig.inviteLinkPrefix + shortcut.room.id,
-          // A chat without a picture gets its initials, as in the app;
-          // given no image, the share sheet shows an empty grey circle.
-          avatar:
-              await client.tryDownloadNotificationAvatar(
-                shortcut.room.avatar,
-              ) ??
-              await renderFallbackAvatar(shortcut.name),
+          // The same picture as the chat's notifications, which share
+          // this shortcut.
+          avatar: await conversationShortcutIcon(
+            client,
+            shortcut.room,
+            shortcut.name,
+          ),
           isImportant: shortcut.room.isFavourite,
         );
       } catch (e, s) {

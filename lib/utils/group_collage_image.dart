@@ -15,15 +15,18 @@ typedef CollageMember = ({String name, Uint8List? image});
 
 /// A transparent PNG of up to four [members] as small round avatars, the
 /// collage Google Messages shows for a group without a picture: two on a
-/// diagonal, three in a cluster, four in a grid. Returns null for fewer
+/// diagonal, three in a cluster, four in a grid. The faces take up the
+/// middle [fill] of the square, the rest left clear. Returns null for fewer
 /// than two members.
 Future<Uint8List?> renderGroupCollage(
   List<CollageMember> members, {
   int size = 128,
+  double fill = 1,
 }) async {
   if (members.length < 2) return null;
   final shown = members.take(4).toList();
-  final dimension = size.toDouble();
+  final dimension = size * fill;
+  final margin = Offset(1, 1) * ((size - dimension) / 2);
   final face = switch (shown.length) {
     2 => dimension * 0.62,
     3 => dimension * 0.52,
@@ -39,7 +42,7 @@ Future<Uint8List?> renderGroupCollage(
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
   for (final (i, member) in shown.indexed) {
-    final rect = (centers[i] & Size(face, face));
+    final rect = (centers[i] + margin) & Size(face, face);
     final circle = RRect.fromRectAndRadius(rect, Radius.circular(face / 2));
     canvas.save();
     canvas.clipRRect(circle, doAntiAlias: true);

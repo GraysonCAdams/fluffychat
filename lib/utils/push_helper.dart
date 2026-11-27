@@ -15,6 +15,7 @@ import 'package:fluffychat/utils/android_bubble.dart';
 import 'package:fluffychat/utils/android_conversation_notifications.dart';
 import 'package:fluffychat/utils/call_kit_params.dart';
 import 'package:fluffychat/utils/client_manager.dart';
+import 'package:fluffychat/utils/conversation_shortcut_icon.dart';
 import 'package:fluffychat/utils/fallback_avatar_image.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
@@ -216,12 +217,12 @@ Future<void> _tryPushHelper(
             // picture, not as the edit's own fallback text.
             (hasNotificationMedia(event) ? effectiveEvent(event) : event)
                 .calcLocalizedBody(
-              matrixLocals,
-              plaintextBody: true,
-              hideReply: true,
-              hideEdit: true,
-              removeMarkdown: true,
-            );
+                  matrixLocals,
+                  plaintextBody: true,
+                  hideReply: true,
+                  hideEdit: true,
+                  removeMarkdown: true,
+                );
 
   // The person object for the android message style notification
   final avatar = event.room.avatar;
@@ -234,7 +235,6 @@ Future<void> _tryPushHelper(
   final userAvatarFile = await client.tryDownloadNotificationAvatar(
     ownUser.avatarUrl,
   );
-  final roomAvatarFile = await client.tryDownloadNotificationAvatar(avatar);
   final senderAvatarFile = await client.tryDownloadNotificationAvatar(
     senderAvatar,
   );
@@ -403,10 +403,10 @@ Future<void> _tryPushHelper(
       id: conversation,
       name: roomName,
       roomUrl: AppConfig.inviteLinkPrefix + event.room.id,
-      // Without a picture the shortcut gets the chat's initials, as in the
-      // app; given none, its bubble and share target show the app's logo or
-      // an empty circle.
-      avatar: roomAvatarFile ?? await renderFallbackAvatar(roomName),
+      // The shortcut's picture is the conversation icon of this
+      // notification, so it is pushed with the chat list's picture before
+      // the notification is shown.
+      avatar: await conversationShortcutIcon(client, event.room, roomName),
       isImportant: event.room.isFavourite,
     );
   }
