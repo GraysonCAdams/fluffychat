@@ -2,6 +2,23 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:fluffychat/utils/message_effects.dart';
+import 'package:matrix/matrix.dart';
+
+/// The one-time passcode in [event], see [findOneTimeCode], when it is a
+/// text message or notice from someone else. A message sent with invisible
+/// ink keeps its text hidden outside its bubble, so it offers no code.
+String? oneTimeCodeOf(Event event) {
+  if (event.redacted ||
+      event.type != EventTypes.Message ||
+      event.senderId == event.room.client.userID ||
+      !{MessageTypes.Text, MessageTypes.Notice}.contains(event.messageType) ||
+      effectOf(event) == MessageEffect.invisibleInk) {
+    return null;
+  }
+  return findOneTimeCode(event.body);
+}
+
 /// Words that say a number nearby is a one-time passcode.
 final _keyword = RegExp(
   r'\b(?:codes?|otp|passcodes?|pass code|verification|verify|pin|'

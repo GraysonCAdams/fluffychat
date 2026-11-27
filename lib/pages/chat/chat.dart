@@ -49,6 +49,7 @@ import 'package:fluffychat/utils/ogg_opus_remuxer.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/pasted_file_type.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/utils/read_up_to.dart';
 import 'package:fluffychat/utils/room_features.dart';
 import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/room_unread.dart';
@@ -1821,8 +1822,26 @@ class ChatController extends State<ChatPageWithRoom>
     return copyString;
   }
 
+  /// Copies the selected messages. Copying a message reads it, so each room
+  /// they are in is marked read up to its newest copied one (see
+  /// [markReadUpTo]), also where [setReadMarker] holds back: opened at a
+  /// message, scrolled up, or with the window in the background.
   void copyEventsAction() {
     Clipboard.setData(ClipboardData(text: _getSelectedEventString()));
+    final newestPerRoom = <String, Event>{};
+    for (final event in selectedEvents) {
+      final newest = newestPerRoom[event.room.id];
+      if (newest == null ||
+          event.originServerTs.isAfter(newest.originServerTs)) {
+        newestPerRoom[event.room.id] = event;
+      }
+    }
+    for (final event in newestPerRoom.values) {
+      markReadUpTo(event).catchError(
+        (Object e, StackTrace s) =>
+            Logs().w('Unable to mark a copied message read', e, s),
+      );
+    }
     setState(() {
       showEmojiPicker = false;
       selectedEvents.clear();

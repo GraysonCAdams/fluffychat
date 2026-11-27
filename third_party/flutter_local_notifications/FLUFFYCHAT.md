@@ -14,9 +14,17 @@ The patch also grants `com.android.systemui` read access to a message's
 `createMessage` of `FlutterLocalNotificationsPlugin.java`, so the picture of a
 `MessagingStyle` message shows.
 
+The patch also adds `AndroidNotificationAction.clipboardText`: the action's
+intent carries the text, and `ActionBroadcastReceiver` copies it to the
+clipboard (as a sensitive clip on Android 13 and later) before handing the
+action to Dart, since the background isolate that handles actions has no
+activity for Flutter's clipboard.
+
 Patched spots are marked `FluffyChat:` in
 `lib/src/platform_specifics/android/notification_details.dart`,
 `lib/src/platform_specifics/android/method_channel_mappers.dart`,
-`android/.../models/NotificationDetails.java` and
+`android/.../models/NotificationDetails.java`,
+`android/.../models/NotificationAction.java`,
+`android/.../ActionBroadcastReceiver.java` and
 `android/.../FlutterLocalNotificationsPlugin.java`. To move to a newer
 release, copy it over this one and reapply those hunks.

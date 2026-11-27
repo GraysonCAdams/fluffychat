@@ -21,6 +21,7 @@ import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/one_time_code.dart';
+import 'package:fluffychat/utils/read_up_to.dart';
 import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/room_status_extension.dart';
 import 'package:fluffychat/utils/room_unread.dart';
@@ -36,21 +37,20 @@ import '../../utils/date_time_extension.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/group_avatar.dart';
 
-/// The one-time passcode a chat list row offers to copy, from the latest
-/// message of an unread chat when someone else sent it. Once the chat is
-/// read the button goes, so old codes do not linger.
-String? chatListOneTimeCode(Room room, [MergedContact? contact]) {
+/// The one-time passcode a chat list row offers to copy, and the message it
+/// is in: the latest message of an unread chat, when someone else sent it
+/// (see [oneTimeCodeOf]). Once the chat is read the button goes, so old
+/// codes do not linger.
+({String code, Event event})? chatListOneTimeCode(
+  Room room, [
+  MergedContact? contact,
+]) {
   if (room.membership != Membership.join) return null;
   if (!(contact?.isUnread ?? room.countsAsUnread)) return null;
   final event = contact?.lastEvent ?? room.lastEvent;
-  if (event == null ||
-      event.redacted ||
-      event.type != EventTypes.Message ||
-      event.senderId == room.client.userID ||
-      !{MessageTypes.Text, MessageTypes.Notice}.contains(event.messageType)) {
-    return null;
-  }
-  return findOneTimeCode(event.body);
+  if (event == null) return null;
+  final code = oneTimeCodeOf(event);
+  return code == null ? null : (code: code, event: event);
 }
 
 class ChatListItem extends StatefulWidget {
@@ -731,11 +731,21 @@ class _ChatListItemState extends State<ChatListItem> {
 }
 
 /// An outlined pill under the preview that copies a one-time passcode. As a
-/// button of its own it takes the tap, so the chat does not open.
+/// button of its own it takes the tap, so the chat does not open. Copying
+/// the code reads it, so the chat is marked read up to its message (in a
+/// merged contact, in the room the message came in).
 class _CopyCodeButton extends StatelessWidget {
-  final String code;
+  final ({String code, Event event}) oneTimeCode;
 
-  const _CopyCodeButton(this.code);
+  const _CopyCodeButton(this.oneTimeCode);
+
+  void _copy(BuildContext context) {
+    FluffyShare.share(oneTimeCode.code, context, copyOnly: true);
+    markReadUpTo(oneTimeCode.event).catchError(
+      (Object e, StackTrace s) =>
+          Logs().w('Unable to mark a copied code read', e, s),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -745,9 +755,9 @@ class _CopyCodeButton extends StatelessWidget {
       child: SizedBox(
         height: ChatListItem.oneTimeCodeHeight - 8,
         child: OutlinedButton.icon(
-          onPressed: () => FluffyShare.share(code, context, copyOnly: true),
+          onPressed: () => _copy(context),
           icon: const Icon(Icons.copy_outlined, size: 16),
-          label: Text(L10n.of(context).copyOneTimeCode(code)),
+          label: Text(L10n.of(context).copyOneTimeCode(oneTimeCode.code)),
           style: OutlinedButton.styleFrom(
             visualDensity: VisualDensity.compact,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,

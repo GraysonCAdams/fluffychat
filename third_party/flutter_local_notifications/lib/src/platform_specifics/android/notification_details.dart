@@ -59,6 +59,7 @@ class AndroidNotificationAction {
     this.cancelNotification = true,
     this.semanticAction = SemanticAction.none,
     this.invisible = false,
+    this.clipboardText,
   });
 
   /// This ID will be sent back in the action handler defined in
@@ -103,6 +104,12 @@ class AndroidNotificationAction {
 
   /// Sets the visibility of the action in the notification.
   final bool invisible;
+
+  /// FluffyChat: text the plugin copies to the clipboard when the action is
+  /// tapped, before the action reaches Dart. A background isolate cannot use
+  /// Flutter's clipboard, which needs an activity. The clip is flagged as
+  /// sensitive, so Android 13 and later do not preview it.
+  final String? clipboardText;
 }
 
 /// Contains notification details specific to Android.
