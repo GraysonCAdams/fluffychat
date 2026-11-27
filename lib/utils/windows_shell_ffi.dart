@@ -10,8 +10,8 @@ import 'dart:ui' as ui;
 
 import 'package:async/async.dart';
 import 'package:ffi/ffi.dart';
-import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
+import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_filter_menu.dart';
 import 'package:fluffychat/pages/chat_list/title_bar_search.dart';
@@ -629,11 +629,13 @@ class _TrayEvents with tray.TrayListener {
 
 /// The window's title bar on Windows, drawn by the app: the native one is
 /// hidden (see [WindowsDesktop.init]) so the bar can hold the chat list's
-/// search field and account button. It spans the window, [height] high, in
-/// every layout: the app icon and name at the left, the search field in the
+/// search field and account button. It is [height] high: the chat list's
+/// title ("Chats", its filter menu) at the left, the search field in the
 /// middle of the window, the account button and the window buttons at the
-/// right. Empty parts of the bar move the window, and a double click there
-/// maximises or restores it. [child] fills the window below the bar.
+/// right. In column mode it starts after the chat list's rail, which runs
+/// up beside it; otherwise it spans the window. Empty parts of the bar move
+/// the window, and a double click there maximises or restores it. [child]
+/// fills the whole window, with the bar's height as padding at its top.
 class WindowsChrome extends StatefulWidget {
   final Widget child;
 
@@ -664,8 +666,8 @@ class WindowsChrome extends StatefulWidget {
 
   /// Width of the search field, centred in a window [windowWidth] wide: 520
   /// in a wide window, else up to 360 while it stays 16 clear of the account
-  /// button, and so as far again from the app name. Zero where that leaves
-  /// no room.
+  /// button, and so as far again from the window's left edge. Zero where
+  /// that leaves no room.
   static double searchWidth(double windowWidth) {
     if (windowWidth >= wideWidth) return 520;
     final room = windowWidth - 2 * (avatarInset + avatarSize + 16);
@@ -690,18 +692,21 @@ class _WindowsChromeState extends State<WindowsChrome> {
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
-    final size = mediaQuery.size;
     return TitleBarSearchScope(
       search: _search,
       child: Stack(
         children: [
+          // The app takes the whole window, with the bar as padding at its
+          // top: app bars and safe areas keep clear of the bar, while the
+          // chat list's rail, which ignores that padding, runs up beside it.
           Positioned.fill(
-            top: WindowsChrome.height,
             child: MediaQuery(
               data: mediaQuery.copyWith(
-                size: ui.Size(
-                  size.width,
-                  math.max(0, size.height - WindowsChrome.height),
+                padding: mediaQuery.padding.copyWith(
+                  top: mediaQuery.padding.top + WindowsChrome.height,
+                ),
+                viewPadding: mediaQuery.viewPadding.copyWith(
+                  top: mediaQuery.viewPadding.top + WindowsChrome.height,
                 ),
               ),
               child: widget.child,
@@ -740,77 +745,59 @@ class _TitleBar extends StatelessWidget {
       builder: (context, list, _) {
         // Nothing to search or switch before sign in.
         final signedIn = list != null || (client?.isLogged() ?? false);
+        // In column mode the chat list's rail runs up through the band, so
+        // the bar, and the part of it that moves the window, start after it.
+        final left = list != null && FluffyThemes.isColumnModeByWidth(width)
+            ? FluffyThemes.navRailWidth
+            : 0.0;
+        // Transparent, so the band left of the bar takes no pointer and the
+        // rail's tiles there stay clickable.
         return Material(
-          color: theme.colorScheme.surface,
+          type: MaterialType.transparency,
           child: SizedBox(
             height: WindowsChrome.height,
             width: width,
             child: Stack(
               children: [
-                const Positioned.fill(
-                  child: DragToMoveArea(child: SizedBox.expand()),
-                ),
                 Positioned(
-                  left: 16,
+                  left: left,
                   top: 0,
+                  right: 0,
                   bottom: 0,
-                  child: Row(
-                    children: [
-                      // The app tile at half the rail's size, with its
-                      // corners rounded in the same proportion. It leaves
-                      // clicks to the drag area underneath.
-                      IgnorePointer(
-                        child: ClipRSuperellipse(
-                          borderRadius: BorderRadius.circular(
-                            AppConfig.spaceBorderRadius / 2,
-                          ),
-                          child: Image.asset(
-                            'assets/seam/seam_app_icon.png',
-                            width: 24,
-                            height: 24,
-                            filterQuality: FilterQuality.medium,
+                  child: ColoredBox(
+                    color: theme.colorScheme.surface,
+                    child: const DragToMoveArea(child: SizedBox.expand()),
+                  ),
+                ),
+                // The chat filter as the list column's title, its text level
+                // with the list's avatars 16 in from the column's edge.
+                if (list != null)
+                  Positioned(
+                    left: left + 16,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: ValueListenableBuilder(
+                        valueListenable: search.listState,
+                        builder: (context, _, _) => ChatFilterButton(
+                          controller: list,
+                          unfilteredText: L10n.of(context).chats,
+                          // Stops 16 short of the search field, or of the
+                          // account button when the field is folded away.
+                          maxWidth: math.max(
+                            0,
+                            (searchWidth > 0
+                                    ? (width - searchWidth) / 2
+                                    : width -
+                                          WindowsChrome.avatarInset -
+                                          WindowsChrome.avatarSize) -
+                                16 -
+                                (left + 16),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      // With a chat list up, the chat filter dropdown stands
-                      // where the app's name does otherwise, and the list
-                      // below needs no header of its own.
-                      if (list != null)
-                        ValueListenableBuilder(
-                          valueListenable: search.listState,
-                          builder: (context, _, _) => ChatFilterButton(
-                            controller: list,
-                            // Stops 16 short of the search field, or of the
-                            // account button when the field is folded away.
-                            maxWidth: math.max(
-                              0,
-                              (searchWidth > 0
-                                      ? (width - searchWidth) / 2
-                                      : width -
-                                            WindowsChrome.avatarInset -
-                                            WindowsChrome.avatarSize) -
-                                  16 -
-                                  (16 + 24 + 12),
-                            ),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface,
-                            ),
-                          ),
-                        )
-                      else
-                        IgnorePointer(
-                          child: Text(
-                            AppSettings.applicationName.value,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontSize: 12,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
-                ),
                 if (signedIn && searchWidth > 0)
                   Positioned(
                     top:

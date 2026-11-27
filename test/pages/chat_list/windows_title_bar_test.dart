@@ -4,14 +4,19 @@
 
 // ignore_for_file: depend_on_referenced_packages
 
+import 'dart:math' as math;
+
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_filter_menu.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_header.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
+import 'package:fluffychat/pages/chat_list/navi_rail_item.dart';
+import 'package:fluffychat/pages/chat_list/start_chat_fab.dart';
 import 'package:fluffychat/pages/chat_list/title_bar_search.dart';
 import 'package:fluffychat/utils/windows_shell_ffi.dart';
+import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -135,41 +140,42 @@ void main() {
       testWidgets('in a window $width wide', (tester) async {
         await pumpWindow(tester, width);
 
-        // The bar spans the window, 48 high, and the app starts below it.
+        // The app takes the whole window. In column mode (1280) the rail
+        // runs up beside the bar, which starts after it; a narrow window has
+        // no rail, and the bar spans it.
+        final left = width >= 1280 ? 80.0 : 0.0;
         expect(
           tester.getRect(find.byType(DragToMoveArea)),
-          Rect.fromLTWH(0, 0, width, 48),
+          Rect.fromLTWH(left, 0, width - left, 48),
         );
-        expect(tester.getTopLeft(find.byType(ChatList)), const Offset(0, 48));
+        expect(tester.getTopLeft(find.byType(ChatList)), Offset.zero);
 
-        // A 24 icon 16 in, the name 12 after it.
-        final icon = tester.getRect(
-          find.byWidgetPredicate(
-            (widget) =>
-                widget is Image &&
-                widget.width == 24 &&
-                widget.image is AssetImage &&
-                (widget.image as AssetImage).assetName ==
-                    'assets/seam/seam_app_icon.png',
-          ),
+        // No app tile and no app name: the list's title, "Chats", heads the
+        // list column 16 in.
+        // (The rail's first tile shows the app tile, left of the bar.)
+        final appTiles = find.byWidgetPredicate(
+          (widget) =>
+              widget is Image &&
+              widget.image is AssetImage &&
+              (widget.image as AssetImage).assetName ==
+                  'assets/seam/seam_app_icon.png',
         );
-        expect(icon, const Rect.fromLTWH(16, 12, 24, 24));
         expect(
-          find.ancestor(
-            of: find.byWidgetPredicate((w) => w is Image && w.width == 24),
-            matching: find.byType(ClipRSuperellipse),
+          appTiles.evaluate().where(
+            (element) =>
+                tester.getRect(find.byWidget(element.widget)).left >= left,
           ),
-          findsOneWidget,
+          isEmpty,
         );
-        // The chat filter dropdown stands where the app's name would.
         expect(find.text('Seam'), findsNothing);
+        expect(find.text('All chats'), findsNothing);
         final title = tester.getRect(
           find.descendant(
             of: find.byType(ChatFilterButton),
-            matching: find.text('All chats'),
+            matching: find.text('Chats'),
           ),
         );
-        expect(title.left, 16 + 24 + 12);
+        expect(title.left, left + 16);
         expect(title.center.dy, closeTo(24, 1));
 
         // Window buttons: three 46 wide, full height, at the right edge.
@@ -217,6 +223,61 @@ void main() {
         expect(left + field, lessThanOrEqualTo(width - 146 - 32 - 16));
       }
     });
+  });
+
+  testWidgets('the rail runs from the top, clickable beside the bar', (
+    tester,
+  ) async {
+    await pumpWindow(tester, 1280);
+    final tile = find.byType(NaviRailItem).first;
+    final rect = tester.getRect(tile);
+    expect(rect.top, lessThan(24));
+    expect(rect.center.dy, lessThan(48));
+    // A click there reaches the tile, not the window's drag area.
+    expect(tile.hitTestable(), findsOneWidget);
+    expect(tester.getRect(find.byType(DragToMoveArea)).left, 80);
+    await finish(tester);
+  });
+
+  testWidgets('the title lines up with the first pinned avatar', (
+    tester,
+  ) async {
+    // More pins than the row holds, so it starts at the list's edge rather
+    // than centring them; the list here runs the window's width.
+    for (var i = 0; i < 12; i++) {
+      addFakeChat(
+        client,
+        '!pin$i:x',
+        'Pin $i',
+        partner: '@pin$i:x',
+      ).pin(i.toDouble());
+    }
+    await pumpWindow(tester, 1280);
+    final avatars = find.byWidgetPredicate(
+      (widget) => widget is Avatar && widget.size == 76,
+    );
+    expect(avatars, findsWidgets);
+    final firstAvatar = avatars
+        .evaluate()
+        .map((element) => tester.getRect(find.byWidget(element.widget)).left)
+        .reduce(math.min);
+    final title = tester.getRect(
+      find.descendant(
+        of: find.byType(ChatFilterButton),
+        matching: find.text('Chats'),
+      ),
+    );
+    expect(title.left, 96);
+    expect(firstAvatar, 96);
+    // The pinned row starts right under the band.
+    expect(
+      avatars
+          .evaluate()
+          .map((e) => tester.getRect(find.byWidget(e.widget)).top)
+          .reduce(math.min),
+      lessThan(48 + 60),
+    );
+    await finish(tester);
   });
 
   testWidgets('the list has no header and the chats start under the bar', (
@@ -274,20 +335,43 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('selecting a chat puts the selection bar above the chats', (
+  testWidgets('selecting floats a toolbar over the list, which stays put', (
     tester,
   ) async {
     await pumpWindow(tester, 1280);
     final before = tester.getTopLeft(find.text('Squad Goals')).dy;
+    expect(find.byType(StartChatFab), findsOneWidget);
     await tester.longPress(find.text('Squad Goals'));
     await tester.pumpAndSettle();
-    expect(find.byType(ChatListSelectionBar), findsOneWidget);
-    // Right under the title bar.
+
+    expect(find.byType(ChatListSelectionBar), findsNothing);
+    final toolbar = find.byType(ChatListSelectionToolbar);
+    expect(toolbar, findsOneWidget);
+    expect(tester.getTopLeft(find.text('Squad Goals')).dy, before);
+    // In New chat's place: 64 high, 16 above the bottom, in the middle of
+    // the list, which runs from the 80 rail to the window's edge.
+    final rect = tester.getRect(toolbar);
+    expect(rect.height, closeTo(64, 0.01));
+    expect(rect.bottom, closeTo(800 - 16, 0.01));
+    expect(rect.center.dx, closeTo((80 + 1280) / 2, 1));
+    expect(find.byType(StartChatFab), findsNothing);
     expect(
-      tester.getRect(find.byTooltip('Clear selection')).center.dy,
-      48 + 24,
+      find.descendant(of: toolbar, matching: find.byTooltip('Clear selection')),
+      findsOneWidget,
     );
-    expect(tester.getTopLeft(find.text('Squad Goals')).dy, before + 48);
+    expect(
+      find.descendant(of: toolbar, matching: find.text('1')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: toolbar, matching: find.byTooltip('Leave')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Clear selection'));
+    await tester.pumpAndSettle();
+    expect(toolbar, findsNothing);
+    expect(find.byType(StartChatFab), findsOneWidget);
     await finish(tester);
   });
 
