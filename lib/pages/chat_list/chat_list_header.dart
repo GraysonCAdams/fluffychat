@@ -45,15 +45,21 @@ class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isColumnMode = FluffyThemes.isColumnMode(context);
+    // A phone's search keeps its field at the top while the results scroll
+    // under it, on the bar colour of a list scrolled under, which also
+    // fills in behind the status bar.
+    final phoneSearch = !isColumnMode && controller.isSearchMode;
 
     return SliverAppBar(
       floating: true,
       toolbarHeight: 72,
-      pinned: isColumnMode,
+      pinned: isColumnMode || phoneSearch,
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
       backgroundColor: isColumnMode
           ? theme.colorScheme.surface.withAlpha(240)
+          : phoneSearch
+          ? theme.colorScheme.surfaceContainer
           : chatListBarColor(theme.colorScheme),
       automaticallyImplyLeading: false,
       // The account button sits beside the search field, not inside it. On a
@@ -77,6 +83,9 @@ class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
               ],
             )
           : _PhoneTitle(
+              // The bar is rebuilt when search pins it, and the key carries
+              // the title, its animation and the focused field over.
+              key: controller.phoneTitleKey,
               controller: controller,
               searching: controller.isSearchMode,
               globalSearch: globalSearch,
@@ -101,7 +110,9 @@ class ChatListHeader extends StatelessWidget implements PreferredSizeWidget {
 /// start in the first 30% of it, and the account button shrinks, turns a
 /// quarter and fades while the close button turns in. Closing runs the same
 /// motion back in 250 ms (medium 1), emphasized accelerate. With animations
-/// turned off in the system settings, both happen at once.
+/// turned off in the system settings, both happen at once, and so does the
+/// close behind a chat opened from the search (see
+/// [ChatListController.closesSearchInstantly]).
 class _PhoneTitle extends StatefulWidget {
   final ChatListController controller;
   final bool searching;
@@ -109,6 +120,7 @@ class _PhoneTitle extends StatefulWidget {
 
   const _PhoneTitle({
     required this.controller,
+    super.key,
     required this.searching,
     required this.globalSearch,
   });
@@ -156,7 +168,8 @@ class _PhoneTitleState extends State<_PhoneTitle>
   void didUpdateWidget(_PhoneTitle oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.searching == oldWidget.searching) return;
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (MediaQuery.disableAnimationsOf(context) ||
+        widget.controller.closesSearchInstantly) {
       _open.value = widget.searching ? 1 : 0;
     } else if (widget.searching) {
       _open.forward();
