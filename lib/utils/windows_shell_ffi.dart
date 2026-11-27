@@ -737,6 +737,18 @@ class WindowsChrome extends StatefulWidget {
     return room < avatarSize ? 0 : math.min(room, 360);
   }
 
+  /// How far each edge of a window at [window] lies outside [workArea],
+  /// the part of its monitor that the taskbar and docked bars leave free:
+  /// the parts of the window they cover. Both are in logical pixels on the
+  /// desktop.
+  static EdgeInsets obscuredInsets(Rect window, Rect workArea) =>
+      EdgeInsets.fromLTRB(
+        math.max(0, workArea.left - window.left),
+        math.max(0, workArea.top - window.top),
+        math.max(0, window.right - workArea.right),
+        math.max(0, window.bottom - workArea.bottom),
+      );
+
   @override
   State<WindowsChrome> createState() => _WindowsChromeState();
 }
@@ -746,11 +758,68 @@ class _WindowsChromeState extends State<WindowsChrome> with WindowListener {
     showChatList: () => widget.showChatList(),
   );
 
+  /// The parts of the window that the taskbar covers, which menus keep
+  /// clear of (see [MenuObscuredInsets]).
+  EdgeInsets _obscured = EdgeInsets.zero;
+
   @override
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    _measureObscured();
   }
+
+  /// Measures [_obscured] against the work area of the monitor that holds
+  /// most of the window. A maximized window fills its work area, while its
+  /// frame, which the app does not draw in, hangs past it.
+  Future<void> _measureObscured() async {
+    var obscured = EdgeInsets.zero;
+    try {
+      if (!await windowManager.isMaximized()) {
+        final window = await windowManager.getBounds();
+        final displays = await screenRetriever.getAllDisplays();
+        Rect? workArea;
+        var bestOverlap = 0.0;
+        for (final display in displays) {
+          final area =
+              (display.visiblePosition ?? Offset.zero) &
+              (display.visibleSize ?? display.size);
+          final overlap = area.intersect(window);
+          final size = overlap.isEmpty ? 0.0 : overlap.width * overlap.height;
+          if (size > bestOverlap) {
+            bestOverlap = size;
+            workArea = area;
+          }
+        }
+        if (workArea != null) {
+          obscured = WindowsChrome.obscuredInsets(window, workArea);
+        }
+      }
+    } catch (e, s) {
+      Logs().w('Unable to measure the window against the work area', e, s);
+    }
+    if (mounted && obscured != _obscured) {
+      setState(() => _obscured = obscured);
+    }
+  }
+
+  @override
+  void onWindowMoved() => _measureObscured();
+
+  @override
+  void onWindowResized() => _measureObscured();
+
+  @override
+  void onWindowMaximize() => _measureObscured();
+
+  @override
+  void onWindowUnmaximize() => _measureObscured();
+
+  @override
+  void onWindowRestore() => _measureObscured();
+
+  @override
+  void onWindowFocus() => _measureObscured();
 
   @override
   void dispose() {
@@ -769,38 +838,41 @@ class _WindowsChromeState extends State<WindowsChrome> with WindowListener {
     final mediaQuery = MediaQuery.of(context);
     return TitleBarSearchScope(
       search: _search,
-      child: Stack(
-        children: [
-          // The app takes the whole window, with the bar as padding at its
-          // top: app bars and safe areas keep clear of the bar, while the
-          // chat list's rail, which ignores that padding, runs up beside it.
-          Positioned.fill(
-            child: MediaQuery(
-              data: mediaQuery.copyWith(
-                padding: mediaQuery.padding.copyWith(
-                  top: mediaQuery.padding.top + WindowsChrome.height,
+      child: MenuObscuredInsets(
+        insets: _obscured,
+        child: Stack(
+          children: [
+            // The app takes the whole window, with the bar as padding at its
+            // top: app bars and safe areas keep clear of the bar, while the
+            // chat list's rail, which ignores that padding, runs up beside it.
+            Positioned.fill(
+              child: MediaQuery(
+                data: mediaQuery.copyWith(
+                  padding: mediaQuery.padding.copyWith(
+                    top: mediaQuery.padding.top + WindowsChrome.height,
+                  ),
+                  viewPadding: mediaQuery.viewPadding.copyWith(
+                    top: mediaQuery.viewPadding.top + WindowsChrome.height,
+                  ),
                 ),
-                viewPadding: mediaQuery.viewPadding.copyWith(
-                  top: mediaQuery.viewPadding.top + WindowsChrome.height,
-                ),
-              ),
-              child: widget.child,
-            ),
-          ),
-          // An overlay of its own for the bar's tooltips and the search
-          // field's menu, which the app's navigator below cannot host. It
-          // covers the window, but only the bar takes the pointer. The
-          // menus of the bar and the header open below it, so their
-          // barrier does not reach the bar: it gets one of its own.
-          Positioned.fill(
-            child: Overlay.wrap(
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: HeaderMenu.barrier(child: _TitleBar(search: _search)),
+                child: widget.child,
               ),
             ),
-          ),
-        ],
+            // An overlay of its own for the bar's tooltips and the search
+            // field's menu, which the app's navigator below cannot host. It
+            // covers the window, but only the bar takes the pointer. The
+            // menus of the bar and the header open below it, so their
+            // barrier does not reach the bar: it gets one of its own.
+            Positioned.fill(
+              child: Overlay.wrap(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: HeaderMenu.barrier(child: _TitleBar(search: _search)),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
