@@ -64,6 +64,7 @@ The app already carries these assets; after changing the mark, rebuild the kit a
 | `assets/seam/seam_app_icon.png`, `seam_glyph.png`, `tray_icon.ico` | in-app logo (also the icon in the Windows title bar the app draws), tinted logo and the Windows tray icon |
 | `windows/runner/resources/app_icon.ico` | `windows/app_icon.ico` (the exe, taskbar and Alt+Tab) |
 | `web/icons/`, `web/favicon.png` | the app icon at the matching sizes |
+| Loading animation (`lib/widgets/seam_stitch_loader.dart`) | not copied: the mark is drawn in code from the `source/seam_mark.py` geometry, so a change to the mark has to be made there too. The start screen (`lib/widgets/seam_startup.dart`) draws it white on Seam Cobalt with the icon artboard at 192 dp, centred, which is where the Android 12+ splash screen has the launcher foreground; the desktop's empty pane draws it in the glyph's colour at the size of `seam_glyph.png` |
 
 ## Rules
 
