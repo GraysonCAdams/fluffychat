@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:cross_file/cross_file.dart';
+import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/effects/message_effect_picker.dart'
@@ -12,6 +13,7 @@ import 'package:fluffychat/pages/chat/gallery_picker/media_grid_sheet.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/picked_media.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/send_preview.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/thumbnail_cache.dart';
+import 'package:fluffychat/utils/emoticons.dart';
 import 'package:fluffychat/utils/message_effects.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -227,7 +229,9 @@ class _GalleryPickerPageState extends State<GalleryPickerPage> {
       Navigator.of(context).pop(
         GalleryPickerResult(
           files: files,
-          caption: _caption.text.trim(),
+          caption: AppSettings.convertEmoticons.value
+              ? convertTrailingEmoticon(_caption.text.trim())
+              : _caption.text.trim(),
           effect: effect,
         ),
       );

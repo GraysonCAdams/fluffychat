@@ -30,6 +30,7 @@ import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/android_direct_share.dart';
 import 'package:fluffychat/utils/chat_windows/chat_windows.dart';
 import 'package:fluffychat/utils/clipboard_gif.dart';
+import 'package:fluffychat/utils/emoticons.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/file_selector.dart';
 import 'package:fluffychat/utils/matrix_live_kit_calls/matrix_live_kit_call.dart';
@@ -506,6 +507,9 @@ class ChatController extends State<ChatPageWithRoom>
   int emojiPickerInitialTab = 0;
 
   final UndoHistoryController undoController = UndoHistoryController();
+
+  /// Converts emoticons in the composer as they are typed.
+  final EmoticonFormatter emoticonFormatter = EmoticonFormatter();
 
   String? get threadLastEventId {
     final threadId = activeThreadId;
@@ -1426,6 +1430,17 @@ class ChatController extends State<ChatPageWithRoom>
   /// typed with staged attachments is their caption and goes out on the
   /// last of them, with the reply, as one message (see [sendAttachments]).
   Future<void> send({MessageEffect? effect}) async {
+    // An emoticon the message ends with, which no space after it has
+    // converted yet.
+    if (AppSettings.convertEmoticons.value) {
+      final text = convertTrailingEmoticon(sendController.text);
+      if (text != sendController.text) {
+        sendController.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+      }
+    }
     // Taken once: the reply, edit or picked network can change while the
     // dialogs below are open, and the message must go where the composer
     // showed when the user pressed send.

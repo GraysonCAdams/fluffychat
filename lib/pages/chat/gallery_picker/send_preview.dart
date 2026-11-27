@@ -8,6 +8,7 @@ import 'dart:typed_data';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/picked_media.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/thumbnail_cache.dart';
+import 'package:fluffychat/utils/emoticons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -59,6 +60,9 @@ class SendPreview extends StatefulWidget {
 }
 
 class _SendPreviewState extends State<SendPreview> {
+  /// Converts emoticons in the caption as they are typed.
+  final _emoticons = EmoticonFormatter();
+
   /// Below 1 so the neighbouring cards peek in from the sides, hinting that
   /// the carousel can be swiped.
   static const double _viewportFraction = 0.82;
@@ -220,6 +224,7 @@ class _SendPreviewState extends State<SendPreview> {
                 Expanded(
                   child: TextField(
                     controller: widget.caption,
+                    inputFormatters: [_emoticons],
                     minLines: 1,
                     maxLines: 4,
                     keyboardType: TextInputType.multiline,
