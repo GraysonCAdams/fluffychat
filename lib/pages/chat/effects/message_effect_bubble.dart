@@ -470,6 +470,10 @@ class _MessageEffectBubbleState extends State<MessageEffectBubble>
     final effect = effectOf(widget.event);
     // Invisible ink has nothing to play: it is simply always on.
     if (effect == null || effect == MessageEffect.invisibleInk) return;
+    // A screen effect plays over the chat. Where a message is shown with
+    // nothing to play it over (the compose screen's history), it is left
+    // to play when the chat shows the message.
+    if (effect.isScreen && ScreenEffectHost.maybeOf(context) == null) return;
     if (!PlayedMessageEffects.shouldAutoPlay(widget.event)) return;
     if (_appVisible) {
       PlayedMessageEffects.markPlayed(widget.event);

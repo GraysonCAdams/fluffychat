@@ -198,6 +198,155 @@ void main() {
       tester.state<ScreenEffectHostState>(find.byType(ScreenEffectHost));
 
   group('a received screen effect', () {
+    testWidgets('shown first where nothing can play it, still plays in the '
+        'chat', (tester) async {
+      final event = effectEvent(MessageEffect.echo, body: 'Test');
+      // The compose screen's history shows the conversation's messages
+      // without an area for screen effects to play over.
+      final timeline = Timeline(
+        room: room,
+        chunk: TimelineChunk(events: [event]),
+      );
+      final scrollController = ScrollController();
+      addTearDown(scrollController.dispose);
+      await tester.pumpWidget(
+        Provider<MatrixState>.value(
+          value: _FakeMatrix(client),
+          child: MaterialApp(
+            localizationsDelegates: L10n.localizationsDelegates,
+            supportedLocales: L10n.supportedLocales,
+            home: Scaffold(
+              body: ListView(
+                controller: scrollController,
+                children: [
+                  Message(
+                    event,
+                    bigEmojis: const {},
+                    onSelect: (_) {},
+                    onInfoTab: (_) {},
+                    scrollToEventId: (_) {},
+                    onSwipe: () {},
+                    onMention: () {},
+                    onEdit: () {},
+                    enterThread: null,
+                    singleSelected: false,
+                    hideReactionPicker: true,
+                    timeline: timeline,
+                    scrollController: scrollController,
+                    colors: const [Colors.blue, Colors.blue],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await pumpUntilBuilt(tester);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(PlayedMessageEffects.hasPlayed(event), isFalse);
+
+      // Then the chat opens.
+      await pumpMessage(tester, event);
+      await tester.pump();
+      expect(host(tester).plays, 1);
+      expect(host(tester).playing, MessageEffect.echo);
+      await tester.pump(const Duration(seconds: 4));
+    });
+
+    for (final effect in [
+      MessageEffect.echo,
+      MessageEffect.fireworks,
+      MessageEffect.balloons,
+    ]) {
+      testWidgets('${effect.name} plays when it arrives in an open chat', (
+        tester,
+      ) async {
+        final events = <Event>[
+          effectEvent(MessageEffect.loud, id: '\$earlier', body: 'Testy'),
+        ];
+        final timeline = Timeline(
+          room: room,
+          chunk: TimelineChunk(events: events),
+        );
+        final scrollController = ScrollController();
+        addTearDown(scrollController.dispose);
+        late StateSetter update;
+        await tester.pumpWidget(
+          Provider<MatrixState>.value(
+            value: _FakeMatrix(client),
+            child: MaterialApp(
+              localizationsDelegates: L10n.localizationsDelegates,
+              supportedLocales: L10n.supportedLocales,
+              home: Scaffold(
+                body: ScreenEffectHost(
+                  child: StatefulBuilder(
+                    builder: (context, setState) {
+                      update = setState;
+                      return ListView.builder(
+                        reverse: true,
+                        controller: scrollController,
+                        itemCount: events.length,
+                        itemBuilder: (context, i) {
+                          final event = events[i];
+                          return KeyedSubtree(
+                            key: ValueKey(event.eventId),
+                            child: Message(
+                              event,
+                              animateIn: event.eventId == '\$arrived',
+                              previousEvent: i > 0 ? events[i - 1] : null,
+                              nextEvent: i + 1 < events.length
+                                  ? events[i + 1]
+                                  : null,
+                              bigEmojis: const {},
+                              onSelect: (_) {},
+                              selected: false,
+                              longPressSelect: false,
+                              timeRevealed: false,
+                              onToggleTime: (_) {},
+                              onInfoTab: (_) {},
+                              scrollToEventId: (_) {},
+                              onSwipe: () {},
+                              onMention: () {},
+                              onEdit: () {},
+                              enterThread: null,
+                              singleSelected: false,
+                              hideReactionPicker: true,
+                              timeline: timeline,
+                              scrollController: scrollController,
+                              colors: const [Colors.blue, Colors.blue],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await pumpUntilBuilt(tester);
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 3));
+        final before = host(tester).plays;
+
+        update(
+          () => events.insert(
+            0,
+            effectEvent(effect, id: '\$arrived', body: 'Test'),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+        expect(host(tester).plays, before + 1);
+        expect(host(tester).playing, effect);
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(host(tester).playing, effect);
+        await tester.pump(const Duration(seconds: 8));
+      });
+    }
+
     testWidgets('plays once and not again on rebuild', (tester) async {
       final event = effectEvent(MessageEffect.fireworks);
       late VoidCallback rebuild;
