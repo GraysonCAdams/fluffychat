@@ -21,6 +21,7 @@ import 'package:fluffychat/pages/chat/effects/message_effect_picker.dart'
 import 'package:fluffychat/pages/chat/event_info_dialog.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
 import 'package:fluffychat/pages/chat/gallery_picker/gallery_picker_page.dart';
+import 'package:fluffychat/pages/chat/input_bar.dart';
 import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/pages/chat/start_poll_bottom_sheet.dart';
 import 'package:fluffychat/pages/chat/trust_user_key_dialog.dart';
@@ -511,6 +512,9 @@ class ChatController extends State<ChatPageWithRoom>
   /// Converts emoticons in the composer as they are typed.
   final EmoticonFormatter emoticonFormatter = EmoticonFormatter();
 
+  /// The composer's suggestions, for Enter and Tab to pick from.
+  final ComposerSuggestions composerSuggestions = ComposerSuggestions();
+
   String? get threadLastEventId {
     final threadId = activeThreadId;
     if (threadId == null) return null;
@@ -772,6 +776,16 @@ class ChatController extends State<ChatPageWithRoom>
   }
 
   KeyEventResult _customEnterKeyHandling(FocusNode node, KeyEvent evt) {
+    // Enter or Tab picks the highlighted suggestion while the composer
+    // shows suggestions, rather than sending or moving focus.
+    if (composerSuggestions.open &&
+        !HardwareKeyboard.instance.isShiftPressed &&
+        (evt.logicalKey == LogicalKeyboardKey.enter ||
+            evt.logicalKey == LogicalKeyboardKey.numpadEnter ||
+            evt.logicalKey == LogicalKeyboardKey.tab)) {
+      if (evt is KeyDownEvent) composerSuggestions.pickHighlighted();
+      return KeyEventResult.handled;
+    }
     if (evt is KeyDownEvent &&
         evt.logicalKey == LogicalKeyboardKey.arrowUp &&
         !PlatformInfos.isMobile &&
