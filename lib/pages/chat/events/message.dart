@@ -17,6 +17,7 @@ import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/edited_mark.dart';
 import 'package:fluffychat/utils/file_description.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/routed_event.dart';
@@ -268,6 +269,14 @@ class Message extends StatelessWidget {
 
     final enterThread = this.enterThread;
     final sender = event.senderFromMemoryOrFallback;
+    // A moderator or admin badge before the sender's name, except where
+    // roles mean little, such as a bridged chat whose bridge makes its bot
+    // and puppets admins (see MatrixFeature.roleBadges).
+    final showRoleBadge =
+        sender.powerLevel.role != PowerLevelRole.user &&
+        MatrixFeatures.forClient(
+          event.room.client,
+        ).isRelevant(MatrixFeature.roleBadges, room: event.room);
 
     final wallpaperTextShadow = !wallpaperMode
         ? null
@@ -502,8 +511,7 @@ class Message extends StatelessWidget {
                                   ),
                                   child: Row(
                                     children: [
-                                      if (sender.powerLevel.role !=
-                                          PowerLevelRole.user)
+                                      if (showRoleBadge)
                                         Padding(
                                           padding: const EdgeInsets.only(
                                             right: 2.0,
@@ -574,9 +582,9 @@ class Message extends StatelessWidget {
                                       alignment: alignment,
                                       // Reactions sit on the bubble's bottom corner
                                       // away from the sender's side, as a chip that
-                                      // overlaps the bubble edge. The data
-                                      // detector chips hang under the sender's
-                                      // side (see MessageDetections).
+                                      // overlaps the bubble edge.
+                                      // The data detector chips hang under the
+                                      // sender's side (see MessageDetections).
                                       child: MessageDetections(
                                         event: event,
                                         enabled: !longPressSelect,

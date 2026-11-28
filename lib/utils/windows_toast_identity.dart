@@ -80,14 +80,14 @@ Future<void> retireOldToastIdentities({RegistryRunner run = _reg}) async {
 
 /// The icon Windows shows in a toast's header, a path that stays valid
 /// when the app is updated or moved: [bundledIcon] copied into [directory]
-/// (the Windows toast registry holds this path). Falls back to [bundledIcon]
-/// itself when the copy cannot be made.
+/// (the Windows toast registry holds this path) under its own file name.
+/// Falls back to [bundledIcon] itself when the copy cannot be made.
 String stableToastIconPath({
   required String bundledIcon,
   required Directory directory,
 }) {
   try {
-    final target = File(path.join(directory.path, 'seam_app_icon.png'));
+    final target = File(path.join(directory.path, path.basename(bundledIcon)));
     final source = File(bundledIcon);
     if (!target.existsSync() ||
         !listEquals(target.readAsBytesSync(), source.readAsBytesSync())) {
@@ -101,21 +101,95 @@ String stableToastIconPath({
   }
 }
 
-/// [stableToastIconPath] for the Seam icon the app ships, kept under
-/// `%LOCALAPPDATA%\Seam`.
-String windowsToastIcon() {
+/// The glyph a toast shows on a light or a dark Windows theme: the duotone
+/// Seam glyph as in the tray, white on dark, cobalt on light. A toast of an
+/// unpackaged app has one registered icon, so the app swaps it with the
+/// theme (see [refreshToastIcon]); the theme is in the file name so a
+/// registration cache keyed by path cannot serve the other theme's glyph.
+String toastIconAsset({required bool lightTheme}) =>
+    lightTheme ? 'toast_icon_light.png' : 'toast_icon_dark.png';
+
+/// Whether `reg query` output for `SystemUsesLightTheme` (the Windows mode
+/// the taskbar, Start and toasts follow) says light; null when it says
+/// nothing.
+bool? parseLightTheme(String regQueryOutput) {
+  final match = RegExp(
+    r'SystemUsesLightTheme\s+REG_DWORD\s+0x([0-9a-fA-F]+)',
+  ).firstMatch(regQueryOutput);
+  final value = int.tryParse(match?.group(1) ?? '', radix: 16);
+  return value == null ? null : value != 0;
+}
+
+const _personalizeKey =
+    r'HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize';
+
+/// Runs `reg.exe` (or a stand-in) and waits for it.
+typedef RegistryRunnerSync = ProcessResult Function(List<String> arguments);
+
+ProcessResult _regSync(List<String> arguments) =>
+    Process.runSync('reg', arguments);
+
+/// Whether Windows is in light mode; dark when it cannot be read, as
+/// Windows is unless set otherwise.
+bool systemUsesLightTheme({RegistryRunnerSync run = _regSync}) {
+  try {
+    final result = run(['query', _personalizeKey, '/v', 'SystemUsesLightTheme']);
+    return result.exitCode == 0 && (parseLightTheme('${result.stdout}') ?? false);
+  } catch (e, s) {
+    Logs().w('Unable to read the Windows theme', e, s);
+    return false;
+  }
+}
+
+/// The theme the registered toast icon is for.
+bool? _registeredLightTheme;
+
+/// The toast icon for the current Windows theme: the glyph of
+/// [toastIconAsset] shipped with the app, kept under `%LOCALAPPDATA%\Seam`.
+String windowsToastIcon({bool? lightTheme, Directory? directory}) {
+  final light = lightTheme ?? systemUsesLightTheme();
+  _registeredLightTheme = light;
   final bundled = path.join(
     File(Platform.resolvedExecutable).parent.path,
     'data',
     'flutter_assets',
     'assets',
     'seam',
-    'seam_app_icon.png',
+    toastIconAsset(lightTheme: light),
   );
   final base = Platform.environment['LOCALAPPDATA'];
-  if (base == null) return bundled;
+  if (base == null && directory == null) return bundled;
   return stableToastIconPath(
     bundledIcon: bundled,
-    directory: Directory(path.join(base, 'Seam')),
+    directory: directory ?? Directory(path.join(base!, 'Seam')),
   );
+}
+
+/// Points the toast icon at the glyph for the current Windows theme if the
+/// theme changed since it was registered. Called before a toast goes out,
+/// so a switch between light and dark shows in the next toast whether or not
+/// the app restarted. Never throws.
+Future<void> refreshToastIcon({
+  bool? lightTheme,
+  Directory? directory,
+  RegistryRunner run = _reg,
+}) async {
+  try {
+    final light = lightTheme ?? systemUsesLightTheme();
+    if (light == _registeredLightTheme) return;
+    final icon = windowsToastIcon(lightTheme: light, directory: directory);
+    await run([
+      'add',
+      '$_aumidKey\\${AppConfig.seamApplicationId}',
+      '/v',
+      'IconUri',
+      '/t',
+      'REG_SZ',
+      '/d',
+      icon,
+      '/f',
+    ]);
+  } catch (e, s) {
+    Logs().w('Unable to change the toast icon for the Windows theme', e, s);
+  }
 }

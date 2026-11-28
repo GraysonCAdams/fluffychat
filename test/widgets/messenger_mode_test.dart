@@ -206,7 +206,11 @@ void main() {
       await tester.tap(find.text('Always hide'));
       await tester.pumpAndSettle();
       expect(features.mode, MatrixFeaturesMode.alwaysHide);
-      expect(find.text('Hidden · Always hide'), findsNWidgets(6));
+      // Every feature but status, which the user chose to show.
+      expect(
+        find.text('Hidden · Always hide'),
+        findsNWidgets(MatrixFeature.values.length - 1),
+      );
     });
   });
 }
