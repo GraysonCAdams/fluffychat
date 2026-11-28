@@ -4171,5 +4171,15 @@
   "emojiSuggestionsSettingDescription": "Typing a colon and two letters, as in :smi, lists matching emoji",
   "@emojiSuggestionsSettingDescription": {
     "description": "Subtitle of the setting that lists emoji while a colon and letters are typed."
+  },
+  "moreStateEvents": "{count, plural, other{+{count} more}}",
+  "@moreStateEvents": {
+    "description": "Faint line above a folded run of system events in a chat (members joining, the chat being renamed), counting the events folded behind the one shown.",
+    "type": "String",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }
