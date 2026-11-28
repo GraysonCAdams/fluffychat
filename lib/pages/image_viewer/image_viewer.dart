@@ -3,15 +3,20 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
+
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/image_viewer/image_viewer_view.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/share_items.dart';
+import 'package:fluffychat/utils/windows_shell.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../utils/matrix_sdk_extensions/event_extension.dart';
 
@@ -51,8 +56,10 @@ Future<void> showImageViewer(
 
 /// The full screen media viewer: one picture or video at a time, paged
 /// through all of the chat's media, under a top bar naming the sender and
-/// time and above a strip of thumbnails and the actions. A tap shows or
-/// hides those; a drag down puts the picture back.
+/// time and above a strip of thumbnails and the actions. On a phone a tap
+/// shows or hides those and a drag down puts the picture back; on the
+/// desktop they hide while the mouse rests, and the viewer covers the whole
+/// window, title bar included.
 class ImageViewer extends StatefulWidget {
   final Event event;
   final Timeline? timeline;
@@ -79,6 +86,11 @@ class ImageViewer extends StatefulWidget {
     this.onShowInChat,
     super.key,
   });
+
+  /// Whether the viewer takes its desktop layout, for tests; the platform
+  /// decides when null.
+  @visibleForTesting
+  static bool? debugDesktopLayout;
 
   @override
   ImageViewerController createState() => ImageViewerController();
@@ -123,6 +135,16 @@ class ImageViewerController extends State<ImageViewer>
     if (index < 0) index = 0;
     currentIndex = index;
     pageController = PageController(initialPage: index);
+    if (desktopLayout) {
+      _restartIdleTimer();
+      if (PlatformInfos.isWindows) {
+        // After this frame: the title bar rebuilds when told.
+        SchedulerBinding.instance.addPostFrameCallback(
+          (_) => WindowsChrome.covers.value++,
+        );
+        _coversTitleBar = true;
+      }
+    }
     _dragReturn =
         AnimationController(
           vsync: this,
@@ -146,6 +168,34 @@ class ImageViewerController extends State<ImageViewer>
 
   /// Whether the top bar, the thumbnails and the actions show.
   bool chromeVisible = true;
+
+  /// Whether the viewer takes its desktop layout: the bars over the picture,
+  /// hiding while the mouse rests, and the actions in the top bar.
+  bool get desktopLayout =>
+      ImageViewer.debugDesktopLayout ?? PlatformInfos.isDesktop;
+
+  /// Whether the strip of the chat's media shows, on the desktop.
+  bool filmstripVisible = true;
+
+  /// How far the picture shown is zoomed, against it fitted to the window.
+  double zoomScale = 1;
+
+  /// Whether the window is in full screen mode, which the viewer turned on.
+  bool fullScreen = false;
+
+  bool _coversTitleBar = false;
+
+  /// The players of the videos paged to, by event ID, for the desktop's
+  /// controls.
+  final _videos = <String, VideoPlayerController>{};
+
+  final _zoomKeys = <String, GlobalKey<ZoomableMediaState>>{};
+
+  /// How long the mouse rests before the desktop's bars hide.
+  static const idleDelay = Duration(milliseconds: 2500);
+
+  Timer? _idleTimer;
+  bool _pointerOnChrome = false;
 
   /// Whether the picture shown is zoomed in, which keeps a drag panning it
   /// rather than paging or dismissing.
@@ -178,16 +228,115 @@ class ImageViewerController extends State<ImageViewer>
         close();
         break;
     }
+    if (!desktopLayout) return;
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.space:
+        togglePlay();
+      case LogicalKeyboardKey.keyF:
+        toggleFilmstrip();
+      case LogicalKeyboardKey.f11:
+        toggleFullScreen();
+      case LogicalKeyboardKey.digit0:
+      case LogicalKeyboardKey.numpad0:
+        zoomFit();
+      case LogicalKeyboardKey.equal:
+      case LogicalKeyboardKey.add:
+      case LogicalKeyboardKey.numpadAdd:
+        zoomIn();
+      case LogicalKeyboardKey.minus:
+      case LogicalKeyboardKey.numpadSubtract:
+        zoomOut();
+    }
+    onPointerActivity();
+  }
+
+  /// Shows the desktop's bars, and hides them again once the mouse has
+  /// rested for [idleDelay] off them.
+  void onPointerActivity() {
+    if (!chromeVisible) setState(() => chromeVisible = true);
+    _restartIdleTimer();
+  }
+
+  void _restartIdleTimer() {
+    _idleTimer?.cancel();
+    _idleTimer = Timer(idleDelay, () {
+      if (!mounted || _pointerOnChrome) return;
+      setState(() => chromeVisible = false);
+    });
+  }
+
+  /// Keeps the bars up while the mouse is on them.
+  void onPointerOnChrome(bool on) {
+    _pointerOnChrome = on;
+    onPointerActivity();
+  }
+
+  /// The player of the video shown, once it is ready.
+  VideoPlayerController? get currentVideo => _videos[currentEvent.eventId];
+
+  /// Keeps the player of [event]'s video for the controls, or drops it when
+  /// [controller] is null.
+  void onVideoController(Event event, VideoPlayerController? controller) {
+    if (controller == null) {
+      // The page went with its player; nothing shows it any more.
+      _videos.remove(event.eventId);
+      return;
+    }
+    setState(() => _videos[event.eventId] = controller);
+  }
+
+  void togglePlay() {
+    final video = currentVideo;
+    if (video == null) return;
+    video.value.isPlaying ? video.pause() : video.play();
+  }
+
+  void toggleFilmstrip() =>
+      setState(() => filmstripVisible = !filmstripVisible);
+
+  Future<void> toggleFullScreen() async {
+    if (!PlatformInfos.isWindows) return;
+    final on = !fullScreen;
+    await WindowFullScreen.set(on);
+    if (mounted) setState(() => fullScreen = on);
+  }
+
+  /// The zoom of the picture on page [index], which [zoomIn], [zoomOut] and
+  /// [zoomFit] work through.
+  GlobalKey<ZoomableMediaState> zoomKey(Event event) =>
+      _zoomKeys.putIfAbsent(event.eventId, GlobalKey.new);
+
+  ZoomableMediaState? get _zoom =>
+      _zoomKeys[currentEvent.eventId]?.currentState;
+
+  /// How far a zoom step goes.
+  static const zoomStep = 1.25;
+
+  void zoomIn() => _zoom?.zoomBy(zoomStep);
+
+  void zoomOut() => _zoom?.zoomBy(1 / zoomStep);
+
+  void zoomFit() => _zoom?.fit();
+
+  void onScaleChanged(Event event, double scale) {
+    if (event.eventId != currentEvent.eventId || scale == zoomScale) return;
+    setState(() => zoomScale = scale);
   }
 
   void close() => Navigator.of(context).pop();
 
   void toggleChrome() => setState(() => chromeVisible = !chromeVisible);
 
-  void onPageChanged(int index) => setState(() {
-    currentIndex = index;
-    zoomed = false;
-  });
+  void onPageChanged(int index) {
+    // Pauses the video paged away from; the one paged to plays.
+    _videos[currentEvent.eventId]?.pause();
+    setState(() {
+      currentIndex = index;
+      zoomed = false;
+      zoomScale = 1;
+    });
+    _videos[currentEvent.eventId]?.play();
+  }
 
   void onZoomChanged(bool zoomed) {
     if (zoomed == this.zoomed) return;
@@ -293,6 +442,14 @@ class ImageViewerController extends State<ImageViewer>
 
   @override
   void dispose() {
+    _idleTimer?.cancel();
+    if (fullScreen) WindowFullScreen.set(false);
+    if (_coversTitleBar) {
+      // After this frame: the tree is locked while it disposes.
+      SchedulerBinding.instance.addPostFrameCallback(
+        (_) => WindowsChrome.covers.value--,
+      );
+    }
     _dragReturn.dispose();
     focusNode.dispose();
     pageController.dispose();

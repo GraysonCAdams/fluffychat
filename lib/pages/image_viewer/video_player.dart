@@ -6,6 +6,8 @@
 import 'dart:io';
 
 import 'package:chewie/chewie.dart';
+import 'package:fluffychat/pages/chat/events/video_player.dart'
+    show sentVideoAspectRatio;
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/event_extension.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -19,7 +21,12 @@ import 'package:video_player/video_player.dart';
 import '../../../utils/error_reporter.dart';
 import '../../widgets/mxc_image.dart';
 
-/// A video in the image viewer, filling its height and looping.
+/// A video in the image viewer, looping, at its upright shape (see
+/// [uprightVideoAspectRatio]).
+///
+/// On a phone it fills the viewer's height under Chewie's controls. With
+/// [desktop] it fits the space it gets, letterboxed, with no controls of its
+/// own: the viewer draws those, and gets the player from [onController].
 class EventVideoPlayer extends StatefulWidget {
   final Event event;
 
@@ -27,7 +34,27 @@ class EventVideoPlayer extends StatefulWidget {
   /// message. Without it the video starts at the beginning.
   final Duration? startAt;
 
-  const EventVideoPlayer(this.event, {this.startAt, super.key});
+  final bool desktop;
+
+  /// Told the player once it is ready, and null when it goes.
+  final void Function(VideoPlayerController? controller)? onController;
+
+  const EventVideoPlayer(
+    this.event, {
+    this.startAt,
+    this.desktop = false,
+    this.onController,
+    super.key,
+  });
+
+  /// Downloads [event]'s video and opens a player on it. Tests swap in a
+  /// fake.
+  @visibleForTesting
+  static Future<VideoPlayerController> Function(
+    Event event,
+    void Function(double? progress) onProgress,
+  )
+  load = videoControllerForEvent;
 
   @override
   EventVideoPlayerState createState() => EventVideoPlayerState();
@@ -48,12 +75,11 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
     }
 
     try {
-      final videoPlayerController = await videoControllerForEvent(
-        widget.event,
-        (progress) {
-          if (mounted) setState(() => _downloadProgress = progress);
-        },
-      );
+      final videoPlayerController = await EventVideoPlayer.load(widget.event, (
+        progress,
+      ) {
+        if (mounted) setState(() => _downloadProgress = progress);
+      });
       if (!mounted) {
         videoPlayerController.dispose();
         return;
@@ -65,12 +91,26 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
 
       final startAt = widget.startAt;
       if (startAt != null) await videoPlayerController.seekTo(startAt);
+      if (!mounted) return;
+
+      if (widget.desktop) {
+        await videoPlayerController.setLooping(true);
+        await videoPlayerController.play();
+        if (!mounted) return;
+        setState(() {});
+        widget.onController?.call(videoPlayerController);
+        return;
+      }
 
       // Create a ChewieController on top.
       setState(() {
         _chewieController = videoChewieController(
           videoPlayerController,
           looping: true,
+          aspectRatio: uprightVideoAspectRatio(
+            widget.event,
+            videoPlayerController.value,
+          ),
         );
       });
     } on IOException catch (e) {
@@ -93,6 +133,7 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
 
   @override
   void dispose() {
+    if (_videoPlayerController != null) widget.onController?.call(null);
     _disposeControllers();
     super.dispose();
   }
@@ -107,19 +148,68 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
 
   static const String fallbackBlurHash = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 
-  @override
-  Widget build(BuildContext context) {
-    final hasThumbnail = widget.event.hasThumbnail;
+  /// The video's first frame or its blur hash, under a spinner, until the
+  /// player is ready.
+  Widget _poster({required double width, required double height}) {
     final blurHash =
         (widget.event.infoMap as Map<String, dynamic>).tryGet<String>(
           'xyz.amorgan.blurhash',
         ) ??
         fallbackBlurHash;
-    final infoMap = widget.event.content.tryGetMap<String, Object?>('info');
-    final videoWidth = infoMap?.tryGet<int>('w') ?? 400;
-    final videoHeight = infoMap?.tryGet<int>('h') ?? 300;
+    return Stack(
+      children: [
+        Center(
+          child: Hero(
+            tag: widget.event.eventId,
+            child: widget.event.hasThumbnail
+                ? MxcImage(
+                    event: widget.event,
+                    isThumbnail: true,
+                    width: width,
+                    height: height,
+                    fit: BoxFit.cover,
+                    placeholder: (context) => BlurHash(
+                      blurhash: blurHash,
+                      width: width,
+                      height: height,
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                : BlurHash(blurhash: blurHash, width: width, height: height),
+          ),
+        ),
+        Center(
+          child: CircularProgressIndicator.adaptive(value: _downloadProgress),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final aspectRatio =
+        uprightVideoAspectRatio(widget.event, _videoPlayerController?.value) ??
+        4 / 3;
+
+    if (widget.desktop) {
+      final controller = _videoPlayerController;
+      return Center(
+        child: AspectRatio(
+          aspectRatio: aspectRatio,
+          child: controller != null
+              ? VideoPlayer(controller)
+              : LayoutBuilder(
+                  builder: (context, constraints) => _poster(
+                    width: constraints.maxWidth,
+                    height: constraints.maxHeight,
+                  ),
+                ),
+        ),
+      );
+    }
+
     final height = MediaQuery.sizeOf(context).height - 52;
-    final width = videoWidth * (height / videoHeight);
+    final width = aspectRatio * height;
 
     final chewieController = _chewieController;
     return chewieController != null
@@ -130,40 +220,26 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
               child: Chewie(controller: chewieController),
             ),
           )
-        : Stack(
-            children: [
-              Center(
-                child: Hero(
-                  tag: widget.event.eventId,
-                  child: hasThumbnail
-                      ? MxcImage(
-                          event: widget.event,
-                          isThumbnail: true,
-                          width: width,
-                          height: height,
-                          fit: BoxFit.cover,
-                          placeholder: (context) => BlurHash(
-                            blurhash: blurHash,
-                            width: width,
-                            height: height,
-                            fit: BoxFit.cover,
-                          ),
-                        )
-                      : BlurHash(
-                          blurhash: blurHash,
-                          width: width,
-                          height: height,
-                        ),
-                ),
-              ),
-              Center(
-                child: CircularProgressIndicator.adaptive(
-                  value: _downloadProgress,
-                ),
-              ),
-            ],
-          );
+        : _poster(width: width, height: height);
   }
+}
+
+/// The shape [event]'s video shows at, width over height: as the event
+/// states it (see [sentVideoAspectRatio]), else the player's frame size
+/// turned by its rotation correction.
+///
+/// The event comes first because the player's size is not always upright.
+/// A phone stores a portrait clip as landscape frames plus a rotation, and
+/// on Windows video_player_media_kit reports mpv's raw frame size without
+/// that rotation, while media_kit still draws the frame upright, fitted
+/// into whatever box it is given.
+double? uprightVideoAspectRatio(Event event, VideoPlayerValue? value) {
+  final sent = sentVideoAspectRatio(event);
+  if (sent != null) return sent;
+  if (value == null || value.size.isEmpty) return null;
+  final quarterTurns = value.rotationCorrection ~/ 90;
+  final size = quarterTurns.isOdd ? value.size.flipped : value.size;
+  return size.width / size.height;
 }
 
 /// Downloads [event]'s video and returns an initialized player for it,
@@ -218,17 +294,20 @@ VideoViewType get eventVideoViewType => PlatformInfos.isAndroid
 
 /// The playback controls on top of [controller], an initialized video:
 /// playing at once with its controls hidden until a tap, looping when
-/// [looping]. The image viewer and a video staged in the composer use it.
+/// [looping], shaped [aspectRatio] (the player's own frame size without
+/// one). The phone's image viewer and a video staged in the composer use
+/// it.
 ChewieController videoChewieController(
   VideoPlayerController controller, {
   required bool looping,
+  double? aspectRatio,
 }) => ChewieController(
   videoPlayerController: controller,
   showControlsOnInitialize: false,
   autoPlay: true,
   autoInitialize: true,
   looping: looping,
-  aspectRatio: controller.value.aspectRatio,
+  aspectRatio: aspectRatio ?? controller.value.aspectRatio,
   // Chewie's options open as a bottom sheet, which suits phones but spans
   // the whole window on desktop. Desktop gets a speed menu on the control
   // bar instead, opening next to its button.

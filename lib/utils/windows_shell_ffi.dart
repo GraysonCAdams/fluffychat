@@ -715,6 +715,11 @@ class WindowsChrome extends StatefulWidget {
 
   static const double height = 48;
 
+  /// How many pages cover the whole window, title bar included: the media
+  /// viewer on the desktop. While any do, the bar fades out and lets the
+  /// pointer through to them, and they draw the window buttons themselves.
+  static final covers = ValueNotifier<int>(0);
+
   /// Width of each window button. The three of them run the bar's height.
   static const double captionButtonWidth = 46;
 
@@ -868,7 +873,21 @@ class _WindowsChromeState extends State<WindowsChrome> with WindowListener {
               child: Overlay.wrap(
                 child: Align(
                   alignment: Alignment.topCenter,
-                  child: HeaderMenu.barrier(child: _TitleBar(search: _search)),
+                  child: ValueListenableBuilder(
+                    valueListenable: WindowsChrome.covers,
+                    builder: (context, covers, bar) => IgnorePointer(
+                      ignoring: covers > 0,
+                      child: AnimatedOpacity(
+                        opacity: covers > 0 ? 0 : 1,
+                        duration: FluffyThemes.animationDuration,
+                        curve: FluffyThemes.animationCurve,
+                        child: bar,
+                      ),
+                    ),
+                    child: HeaderMenu.barrier(
+                      child: _TitleBar(search: _search),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -971,7 +990,7 @@ class _TitleBar extends StatelessWidget {
                       size: WindowsChrome.avatarSize,
                     ),
                   ),
-                const Positioned(top: 0, right: 0, child: _WindowButtons()),
+                const Positioned(top: 0, right: 0, child: WindowButtons()),
               ],
             ),
           ),
@@ -981,14 +1000,17 @@ class _TitleBar extends StatelessWidget {
   }
 }
 
-class _WindowButtons extends StatefulWidget {
-  const _WindowButtons();
+/// The window's minimise, maximise (or restore) and close buttons, as the
+/// title bar draws them at its right end. A page that covers the title bar,
+/// such as the media viewer, shows them itself.
+class WindowButtons extends StatefulWidget {
+  const WindowButtons({super.key});
 
   @override
-  State<_WindowButtons> createState() => _WindowButtonsState();
+  State<WindowButtons> createState() => _WindowButtonsState();
 }
 
-class _WindowButtonsState extends State<_WindowButtons> with WindowListener {
+class _WindowButtonsState extends State<WindowButtons> with WindowListener {
   bool _maximized = false;
 
   @override
@@ -1043,6 +1065,37 @@ class _WindowButtonsState extends State<_WindowButtons> with WindowListener {
         ),
       ],
     );
+  }
+}
+
+/// Moves the window when dragged and maximises or restores it on a double
+/// click, for the empty parts of a bar that stands in for the title bar.
+class WindowMoveArea extends StatelessWidget {
+  final Widget child;
+
+  const WindowMoveArea({required this.child, super.key});
+
+  @override
+  Widget build(BuildContext context) => DragToMoveArea(child: child);
+}
+
+/// The window's full screen mode, where it covers the taskbar.
+abstract final class WindowFullScreen {
+  static Future<bool> get isOn async {
+    try {
+      return await windowManager.isFullScreen();
+    } catch (e, s) {
+      Logs().w('Unable to read whether the window is full screen', e, s);
+      return false;
+    }
+  }
+
+  static Future<void> set(bool on) async {
+    try {
+      await windowManager.setFullScreen(on);
+    } catch (e, s) {
+      Logs().w('Unable to set full screen', e, s);
+    }
   }
 }
 

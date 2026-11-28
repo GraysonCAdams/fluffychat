@@ -15,12 +15,14 @@ import 'package:fluffychat/widgets/mxc_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
+import 'desktop_image_viewer_view.dart';
 import 'image_viewer.dart';
 
-/// The media viewer's layout, after the photo viewer of Apple's Messages
-/// and Photos: the picture edge to edge on black, a top bar with the
-/// sender and time, a strip of the chat's other media and a row of actions
-/// at the bottom. Drawn in the app's dark theme.
+/// The media viewer's layout on a phone, after the photo viewer of Apple's
+/// Messages and Photos: the picture edge to edge on black, a top bar with
+/// the sender and time, a strip of the chat's other media and a row of
+/// actions at the bottom. Drawn in the app's dark theme. The desktop has a
+/// layout of its own, [DesktopImageViewerView].
 class ImageViewerView extends StatelessWidget {
   final ImageViewerController controller;
 
@@ -28,6 +30,7 @@ class ImageViewerView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (controller.desktopLayout) return DesktopImageViewerView(controller);
     final theme = FluffyThemes.buildTheme(context, Brightness.dark);
     final progress = controller.dragProgress;
     final chrome = controller.chromeVisible && controller.dragOffset == 0;
@@ -489,18 +492,25 @@ class ZoomableMedia extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;
   final ValueChanged<bool> onZoomChanged;
+
+  /// Told the scale against the fitted picture on every change, 1 when it
+  /// fits.
+  final ValueChanged<double>? onScaleChanged;
   final GestureScaleEndCallback? onInteractionEnd;
 
   const ZoomableMedia({
     required this.child,
     required this.onTap,
     required this.onZoomChanged,
+    this.onScaleChanged,
     this.onInteractionEnd,
     super.key,
   });
 
   /// How far a double tap zooms in.
   static const doubleTapScale = 2.5;
+
+  static const maxScale = 10.0;
 
   @override
   State<ZoomableMedia> createState() => ZoomableMediaState();
@@ -535,40 +545,61 @@ class ZoomableMediaState extends State<ZoomableMedia>
   }
 
   void _onTransform() {
-    final zoomed = transform.value.getMaxScaleOnAxis() > 1.01;
+    final scale = transform.value.getMaxScaleOnAxis();
+    widget.onScaleChanged?.call(scale);
+    final zoomed = scale > 1.01;
     if (zoomed == _zoomed) return;
     _zoomed = zoomed;
     widget.onZoomChanged(zoomed);
   }
 
   /// Zooms in around the double tap, or back out when zoomed in.
-  void _onDoubleTap() {
-    final Matrix4 target;
-    if (_zoomed) {
-      target = Matrix4.identity();
-    } else {
-      const s = ZoomableMedia.doubleTapScale;
-      final p = _doubleTapAt;
-      // Scales by s about p: x' = s * x - (s - 1) * p.
-      target = Matrix4(
-        s,
-        0,
-        0,
-        0, //
-        0,
-        s,
-        0,
-        0, //
-        0,
-        0,
-        1,
-        0, //
-        -(s - 1) * p.dx,
-        -(s - 1) * p.dy,
+  void _onDoubleTap() => _animateTo(
+    _zoomed ? 1 : ZoomableMedia.doubleTapScale,
+    about: _doubleTapAt,
+  );
+
+  /// Zooms by [factor] about the middle of the view, within 1 and
+  /// [ZoomableMedia.maxScale].
+  void zoomBy(double factor) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final scale = (transform.value.getMaxScaleOnAxis() * factor).clamp(
+      1.0,
+      ZoomableMedia.maxScale,
+    );
+    // The point of the picture now in the middle stays there.
+    final middle = transform.toScene(box.size.center(Offset.zero));
+    final target = Matrix4.identity()
+      ..translateByDouble(
+        box.size.width / 2 - middle.dx * scale,
+        box.size.height / 2 - middle.dy * scale,
         0,
         1,
-      );
-    }
+      )
+      ..scaleByDouble(scale, scale, 1, 1);
+    _animateToMatrix(scale <= 1 ? Matrix4.identity() : target);
+  }
+
+  /// Fits the picture to the view again.
+  void fit() => _animateToMatrix(Matrix4.identity());
+
+  /// Scales the unzoomed picture by [scale] about [about].
+  void _animateTo(double scale, {required Offset about}) {
+    // Scales by s about p: x' = s * x - (s - 1) * p.
+    _animateToMatrix(
+      Matrix4.identity()
+        ..translateByDouble(
+          -(scale - 1) * about.dx,
+          -(scale - 1) * about.dy,
+          0,
+          1,
+        )
+        ..scaleByDouble(scale, scale, 1, 1),
+    );
+  }
+
+  void _animateToMatrix(Matrix4 target) {
     _tween = Matrix4Tween(begin: transform.value, end: target).animate(
       CurvedAnimation(parent: _animation, curve: FluffyThemes.animationCurve),
     );
@@ -584,7 +615,9 @@ class ZoomableMediaState extends State<ZoomableMedia>
     child: InteractiveViewer(
       transformationController: transform,
       minScale: 1.0,
-      maxScale: 10.0,
+      maxScale: ZoomableMedia.maxScale,
+      // One notch of a mouse wheel (120) zooms about 1.2 times.
+      scaleFactor: 600,
       panEnabled: _zoomed,
       onInteractionEnd: widget.onInteractionEnd,
       child: Center(child: widget.child),

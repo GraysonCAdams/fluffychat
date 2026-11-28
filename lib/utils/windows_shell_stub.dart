@@ -27,8 +27,32 @@ class WindowsChrome extends StatelessWidget {
 
   static const double height = 0;
 
+  static final covers = ValueNotifier<int>(0);
+
   @override
   Widget build(BuildContext context) => child;
+}
+
+class WindowButtons extends StatelessWidget {
+  const WindowButtons({super.key});
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
+class WindowMoveArea extends StatelessWidget {
+  final Widget child;
+
+  const WindowMoveArea({required this.child, super.key});
+
+  @override
+  Widget build(BuildContext context) => child;
+}
+
+abstract final class WindowFullScreen {
+  static Future<bool> get isOn async => false;
+
+  static Future<void> set(bool on) async {}
 }
 
 Future<void> updateWindowsTaskbarBadge(

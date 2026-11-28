@@ -30,6 +30,10 @@ void main() {
   late FakeChatListClient client;
   late FakeChatListRoom room;
 
+  // The phone's layout, whatever the machine running the tests.
+  setUpAll(() => ImageViewer.debugDesktopLayout = false);
+  tearDownAll(() => ImageViewer.debugDesktopLayout = null);
+
   setUp(() async {
     client = await setUpFakeChatList('edited media chat');
     room = addFakeChat(client, '!fam:x', 'Family', partner: '@bridge:x');
