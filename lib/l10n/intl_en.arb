@@ -4616,5 +4616,223 @@
   "recoveryKeyMismatch": "That key doesn't match this account. Check it for typos.",
   "@recoveryKeyMismatch": {
     "description": "Error under the recovery key field when the key or passphrase is wrong."
+  },
+  "isThisYouSigningIn": "Is this you signing in?",
+  "@isThisYouSigningIn": {
+    "description": "Title on a trusted device when another of the account's devices asks to be confirmed."
+  },
+  "onlyContinueIfYouSignedIn": "Only continue if you just signed in. Approving lets that device read your messages.",
+  "@onlyContinueIfYouSignedIn": {
+    "description": "Body under the device name when another device asks to be confirmed."
+  },
+  "yesItsMe": "Yes, it's me",
+  "@yesItsMe": {
+    "description": "Accepts the confirmation request from another of the account's devices."
+  },
+  "noThatWasntMe": "No, that wasn't me",
+  "@noThatWasntMe": {
+    "description": "Rejects the confirmation request from another of the account's devices."
+  },
+  "wantsToVerifyYou": "{name} wants to verify you",
+  "@wantsToVerifyYou": {
+    "description": "Title when another person asks to verify.",
+    "type": "String",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "verifyRequestBody": "You'll compare a few emoji together, in person or on a call, to make sure no one is in between.",
+  "@verifyRequestBody": {
+    "description": "Body when another person asks to verify."
+  },
+  "verifyPersonTitle": "Verify {name}",
+  "@verifyPersonTitle": {
+    "description": "Title while waiting for another person to accept verification.",
+    "type": "String",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "waitingForPersonBody": "Waiting for {name} to accept. They need to have Seam or another Matrix app open.",
+  "@waitingForPersonBody": {
+    "description": "Body while waiting for another person to accept verification.",
+    "type": "String",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chooseHowToVerifyTitle": "Scan or compare",
+  "@chooseHowToVerifyTitle": {
+    "description": "Title when both devices are ready and a QR code can be used."
+  },
+  "scanThisCodeBody": "Scan this code with the other device's camera. It's quicker than comparing emoji.",
+  "@scanThisCodeBody": {
+    "description": "Next to the QR code to be scanned."
+  },
+  "scanTheirCode": "Scan their code",
+  "@scanTheirCode": {
+    "description": "Button that opens the camera to scan the other device's QR code."
+  },
+  "compareEmojiInstead": "Compare emoji instead",
+  "@compareEmojiInstead": {
+    "description": "Button that switches from QR to emoji comparison."
+  },
+  "scanCodeTitle": "Scan code",
+  "@scanCodeTitle": {
+    "description": "Title of the camera page that scans a verification QR code."
+  },
+  "pointCameraAtCode": "Point the camera at the code on the other device.",
+  "@pointCameraAtCode": {
+    "description": "Hint on the camera page."
+  },
+  "notAVerificationCode": "That isn't a verification code. Scan the code Seam shows on the other device.",
+  "@notAVerificationCode": {
+    "description": "Error when the scanned QR code is not a Matrix verification code."
+  },
+  "codeScannedTitle": "Code scanned",
+  "@codeScannedTitle": {
+    "description": "Title on the scanning device after a good scan."
+  },
+  "codeScannedBody": "Confirm on {device} that it shows this was scanned.",
+  "@codeScannedBody": {
+    "description": "Body on the scanning device after a good scan.",
+    "type": "String",
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "didTheyScanTitle": "Was this code scanned?",
+  "@didTheyScanTitle": {
+    "description": "Title on the device that showed the QR code, once the other side scanned it."
+  },
+  "didTheyScanBody": "Check that {device} says it scanned your code. Only confirm if it does.",
+  "@didTheyScanBody": {
+    "description": "Body on the device that showed the QR code.",
+    "type": "String",
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "yesItWasScanned": "Yes, it was scanned",
+  "@yesItWasScanned": {
+    "description": "Confirms the QR scan on the device that showed the code."
+  },
+  "doTheseMatch": "Do these match?",
+  "@doTheseMatch": {
+    "description": "Title of the emoji or number comparison."
+  },
+  "compareEmojiOwnBody": "Check that {device} shows the same emoji in the same order. Only continue if you started this.",
+  "@compareEmojiOwnBody": {
+    "description": "Body of the emoji comparison with one's own other device.",
+    "type": "String",
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "compareEmojiPersonBody": "Compare with {name} in person or on a call. Don't send them in a message.",
+  "@compareEmojiPersonBody": {
+    "description": "Body of the emoji comparison with another person.",
+    "type": "String",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "compareNumbersBody": "Check that the other side shows the same numbers.",
+  "@compareNumbersBody": {
+    "description": "Body of the number comparison."
+  },
+  "waitingForOtherSide": "Waiting for {name} to confirm",
+  "@waitingForOtherSide": {
+    "description": "Next to a spinner after confirming a match.",
+    "type": "String",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "thisDeviceIsConfirmed": "This device is confirmed",
+  "@thisDeviceIsConfirmed": {
+    "description": "Title after confirming one of one's own devices."
+  },
+  "otherDeviceConfirmedBody": "Both devices now trust each other and share your message keys.",
+  "@otherDeviceConfirmedBody": {
+    "description": "Body after confirming one of one's own devices."
+  },
+  "personIsVerified": "{name} is verified",
+  "@personIsVerified": {
+    "description": "Title after verifying another person.",
+    "type": "String",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "personVerifiedBody": "Messages with {name} show a shield. If their security ever changes, Seam tells you.",
+  "@personVerifiedBody": {
+    "description": "Body after verifying another person.",
+    "type": "String",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "verificationStoppedTitle": "Verification stopped",
+  "@verificationStoppedTitle": {
+    "description": "Title when verification was cancelled."
+  },
+  "verificationMismatchBody": "The emoji or code didn't match, so nothing was shared. If you didn't start this, change your password and check your devices.",
+  "@verificationMismatchBody": {
+    "description": "Body when the comparison did not match."
+  },
+  "verificationTimeoutTitle": "No reply",
+  "@verificationTimeoutTitle": {
+    "description": "Title when verification timed out."
+  },
+  "verificationTimeoutBody": "The other side didn't answer in time. Make sure Seam is open there, then try again.",
+  "@verificationTimeoutBody": {
+    "description": "Body when verification timed out."
+  },
+  "verificationCancelledBody": "The other side stopped the verification. Nothing was shared.",
+  "@verificationCancelledBody": {
+    "description": "Body when the other side cancelled."
+  },
+  "verificationErrorBody": "Something went wrong ({code}). Nothing was shared.",
+  "@verificationErrorBody": {
+    "description": "Body for any other verification error; code is the Matrix cancel code.",
+    "type": "String",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "unlockToVerifyTitle": "Unlock to verify",
+  "@unlockToVerifyTitle": {
+    "description": "Title when the recovery key is needed to sign another person's key."
+  },
+  "unlockToVerifyBody": "To verify someone, this device needs your recovery key or passphrase.",
+  "@unlockToVerifyBody": {
+    "description": "Body when the recovery key is needed to verify another person."
+  },
+  "done": "Done",
+  "@done": {
+    "description": "Closes a finished verification."
   }
 }

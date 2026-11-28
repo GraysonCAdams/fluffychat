@@ -4,23 +4,29 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:convert';
-import 'dart:ui';
 
 import 'package:fluffychat/l10n/l10n.dart';
-import 'package:fluffychat/widgets/adaptive_dialogs/adaptive_dialog_action.dart';
-import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
+import 'package:fluffychat/pages/key_verification/key_verification_scanner.dart';
+import 'package:fluffychat/utils/matrix_sdk_extensions/device_extension.dart';
+import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
-import 'package:fluffychat/widgets/future_loading_dialog.dart';
+import 'package:fluffychat/widgets/onboarding/onboarding_step.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/encryption.dart';
 import 'package:matrix/matrix.dart';
+import 'package:pretty_qr_code/pretty_qr_code.dart';
 
+/// Device verification as full pages: confirming one of your own devices,
+/// or verifying another person. One page per step of the [request]: accept
+/// it, wait, scan or show a QR code or compare emoji (numbers when the
+/// other side cannot show emoji), then verified or why it stopped.
+///
+/// [show] pushes it over the current page and completes with true once
+/// the other side is verified.
 class KeyVerificationDialog extends StatefulWidget {
-  Future<bool?> show(BuildContext context) => showAdaptiveDialog<bool>(
-    context: context,
-    builder: (context) => this,
-    barrierDismissible: false,
+  Future<bool?> show(BuildContext context) => Navigator.of(context).push<bool>(
+    MaterialPageRoute(fullscreenDialog: true, builder: (context) => this),
   );
 
   final KeyVerification request;
@@ -33,370 +39,506 @@ class KeyVerificationDialog extends StatefulWidget {
 
 class KeyVerificationPageState extends State<KeyVerificationDialog> {
   void Function()? originalOnUpdate;
-  late final List<dynamic> sasEmoji;
+  List<dynamic>? sasEmoji;
+  Profile? profile;
+  final TextEditingController keyController = TextEditingController();
+  Object? keyError;
+  String? scanError;
+
+  KeyVerification get request => widget.request;
+
+  /// Whether this confirms one of the account's own devices rather than
+  /// verifying another person.
+  bool get ownDevice => request.userId == request.client.userID;
 
   @override
   void initState() {
-    originalOnUpdate = widget.request.onUpdate;
-    widget.request.onUpdate = () {
-      originalOnUpdate?.call();
-      setState(() {});
-    };
-    widget.request.client.getProfileFromUserId(widget.request.userId).then((p) {
-      profile = p;
-      setState(() {});
-    });
-    rootBundle.loadString('assets/sas-emoji.json').then((e) {
-      sasEmoji = json.decode(e);
-      setState(() {});
-    });
     super.initState();
+    originalOnUpdate = request.onUpdate;
+    request.onUpdate = () {
+      originalOnUpdate?.call();
+      if (mounted) setState(() {});
+    };
+    if (!ownDevice) {
+      request.client.getProfileFromUserId(request.userId).then((p) {
+        if (mounted) setState(() => profile = p);
+      });
+    }
+    rootBundle.loadString('assets/sas-emoji.json').then((e) {
+      if (mounted) setState(() => sasEmoji = json.decode(e));
+    });
   }
 
   @override
   void dispose() {
-    widget.request.onUpdate =
-        originalOnUpdate; // don't want to get updates anymore
+    request.onUpdate = originalOnUpdate;
     if (![
       KeyVerificationState.error,
       KeyVerificationState.done,
-    ].contains(widget.request.state)) {
-      widget.request.cancel('m.user');
+    ].contains(request.state)) {
+      request.cancel('m.user');
     }
-    textEditingController?.dispose();
+    keyController.dispose();
     super.dispose();
   }
 
-  Profile? profile;
+  void _close([bool? verified]) => Navigator.of(context).pop(verified);
 
-  Future<void> checkInput(String input) async {
-    if (input.isEmpty) return;
+  /// The other side: a device name for your own devices, a name for people.
+  String get otherName {
+    if (ownDevice) {
+      final deviceId = request.deviceId;
+      final device = deviceId == null
+          ? null
+          : request.client.userDeviceKeys[request.userId]?.deviceKeys[deviceId];
+      return device?.displayname ?? deviceId ?? request.userId;
+    }
+    return profile?.displayName ?? request.userId.localpart ?? request.userId;
+  }
 
-    final valid = await showFutureLoadingDialog(
-      context: context,
-      future: () async {
-        // make sure the loading spinner shows before we test the keys
-        await Future.delayed(const Duration(milliseconds: 100));
-        var valid = false;
-        try {
-          await widget.request.openSSSS(keyOrPassphrase: input);
-          valid = true;
-        } catch (_) {
-          valid = false;
-        }
-        return valid;
-      },
-    );
-    if (valid.error != null) {
-      if (!mounted) return;
-      await showOkAlertDialog(
-        useRootNavigator: false,
-        context: context,
-        title: L10n.of(context).incorrectPassphraseOrKey,
-      );
+  Future<void> _unlock() async {
+    setState(() => keyError = null);
+    try {
+      await request.openSSSS(keyOrPassphrase: keyController.text.trim());
+    } catch (e) {
+      if (mounted) setState(() => keyError = e);
     }
   }
 
-  TextEditingController? textEditingController;
+  Future<void> _scan() async {
+    final payload = await Navigator.of(context).push<Uint8List?>(
+      MaterialPageRoute(builder: (_) => const KeyVerificationScanner()),
+    );
+    if (payload == null || !mounted) return;
+    setState(() => scanError = null);
+    await request.continueVerification(
+      EventTypes.Reciprocate,
+      qrDataRawBytes: payload,
+    );
+    if (mounted && request.state == KeyVerificationState.askChoice) {
+      setState(() => scanError = L10n.of(context).notAVerificationCode);
+    }
+  }
+
+  Widget _avatar() => ownDevice
+      ? const OnboardingHeroIcon(Icons.devices_outlined)
+      : Avatar(mxContent: profile?.avatarUrl, name: otherName, size: 72);
+
+  Widget _waiting(String text) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        const SizedBox.square(
+          dimension: 18,
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(color: colorScheme.onSurfaceVariant),
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final l10n = L10n.of(context);
+    final close = CloseButton(onPressed: _close);
+    final name = otherName;
 
-    User? user;
-    final directChatId = widget.request.client.getDirectChatFromUserId(
-      widget.request.userId,
-    );
-    if (directChatId != null) {
-      user = widget.request.client
-          .getRoomById(directChatId)!
-          .unsafeGetUserFromMemoryOrFallback(widget.request.userId);
-    }
-    final displayName =
-        user?.calcDisplayname() ?? widget.request.userId.localpart!;
-    var title = Text(L10n.of(context).verifyTitle);
-    Widget body;
-    final buttons = <Widget>[];
-
-    switch (widget.request.state) {
-      case KeyVerificationState.showQRSuccess:
-      case KeyVerificationState.confirmQRScan:
-        throw 'Not implemented';
-      case KeyVerificationState.askSSSS:
-        // prompt the user for their ssss passphrase / key
-        textEditingController = TextEditingController();
-        String input;
-        body = Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8.0),
-          child: Column(
-            mainAxisSize: .min,
-            children: <Widget>[
-              Text(
-                L10n.of(context).askSSSSSign,
-                style: const TextStyle(fontSize: 20),
-              ),
-              Container(height: 10),
-              TextField(
-                controller: textEditingController,
-                autofocus: false,
-                autocorrect: false,
-                onSubmitted: (s) {
-                  input = s;
-                  checkInput(input);
-                },
-                minLines: 1,
-                maxLines: 1,
-                obscureText: true,
-                decoration: InputDecoration(
-                  hintText: L10n.of(context).passphraseOrKey,
-                  prefixStyle: TextStyle(color: theme.colorScheme.primary),
-                  suffixStyle: TextStyle(color: theme.colorScheme.primary),
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-        );
-        buttons.add(
-          AdaptiveDialogAction(
-            child: Text(L10n.of(context).submit),
-            onPressed: () => checkInput(textEditingController!.text),
-          ),
-        );
-        buttons.add(
-          AdaptiveDialogAction(
-            child: Text(L10n.of(context).skip),
-            onPressed: () => widget.request.openSSSS(skip: true),
-          ),
-        );
-        break;
+    switch (request.state) {
       case KeyVerificationState.askAccept:
-        title = Text(L10n.of(context).newVerificationRequest);
-        body = Column(
-          mainAxisSize: .min,
-          children: [
-            const SizedBox(height: 16),
-            Avatar(
-              mxContent: user?.avatarUrl,
-              name: displayName,
-              size: Avatar.defaultSize * 2,
+        return OnboardingStep(
+          leading: close,
+          hero: ownDevice
+              ? const OnboardingHeroIcon(Icons.phonelink_lock_outlined)
+              : _avatar(),
+          headline: ownDevice
+              ? l10n.isThisYouSigningIn
+              : l10n.wantsToVerifyYou(name),
+          body: ownDevice
+              ? '$name\n\n${l10n.onlyContinueIfYouSignedIn}'
+              : l10n.verifyRequestBody,
+          primary: FilledButton(
+            onPressed: request.acceptVerification,
+            child: Text(ownDevice ? l10n.yesItsMe : l10n.accept),
+          ),
+          secondary: [
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: () async {
+                await request.rejectVerification();
+                _close(false);
+              },
+              child: Text(ownDevice ? l10n.noThatWasntMe : l10n.reject),
             ),
-            const SizedBox(height: 16),
-            Text(L10n.of(context).askVerificationRequest(displayName)),
           ],
         );
-        buttons.add(
-          AdaptiveDialogAction(
-            onPressed: () => widget.request.rejectVerification().then((_) {
-              if (!context.mounted) return;
-              Navigator.of(context, rootNavigator: false).pop(false);
-            }),
-            child: Text(
-              L10n.of(context).reject,
-              style: TextStyle(color: theme.colorScheme.error),
+
+      case KeyVerificationState.waitingAccept:
+        return OnboardingStep(
+          leading: close,
+          hero: _avatar(),
+          headline: ownDevice
+              ? l10n.openSeamOnOtherDevice
+              : l10n.verifyPersonTitle(name),
+          body: ownDevice ? null : l10n.waitingForPersonBody(name),
+          content: [_waiting(l10n.waitingForReply)],
+          secondary: [TextButton(onPressed: _close, child: Text(l10n.cancel))],
+        );
+
+      case KeyVerificationState.askChoice:
+        final qrCode = request.qrCode;
+        final canShow =
+            qrCode != null &&
+            request.possibleMethods.contains(EventTypes.QRShow);
+        final canScan =
+            request.possibleMethods.contains(EventTypes.QRScan) &&
+            PlatformInfos.isMobile;
+        final canCompare = request.possibleMethods.contains(EventTypes.Sas);
+        final scanError = this.scanError;
+        return OnboardingStep(
+          leading: close,
+          headline: l10n.chooseHowToVerifyTitle,
+          content: [
+            if (scanError != null) ...[
+              OnboardingNotice(
+                icon: Icons.error_outline,
+                tone: OnboardingTone.error,
+                text: scanError,
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (canShow) _QrCard(bytes: qrCode.qrDataRawBytes),
+          ],
+          primary: canScan
+              ? FilledButton.icon(
+                  onPressed: _scan,
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: Text(l10n.scanTheirCode),
+                )
+              : null,
+          secondary: [
+            if (canCompare)
+              OutlinedButton(
+                onPressed: () => request.continueVerification(EventTypes.Sas),
+                child: Text(l10n.compareEmojiInstead),
+              ),
+          ],
+        );
+
+      case KeyVerificationState.showQRSuccess:
+        return OnboardingStep(
+          leading: close,
+          centered: true,
+          hero: const Padding(
+            padding: EdgeInsets.only(top: 48),
+            child: OnboardingHeroIcon(
+              Icons.qr_code_2,
+              tone: OnboardingTone.success,
+              size: 96,
             ),
           ),
+          headline: l10n.codeScannedTitle,
+          body: l10n.codeScannedBody(name),
+          content: [_waiting(l10n.waitingForOtherSide(name))],
         );
-        buttons.add(
-          AdaptiveDialogAction(
-            onPressed: () => widget.request.acceptVerification(),
-            child: Text(L10n.of(context).accept),
+
+      case KeyVerificationState.confirmQRScan:
+        return OnboardingStep(
+          leading: close,
+          hero: const OnboardingHeroIcon(Icons.qr_code_2),
+          headline: l10n.didTheyScanTitle,
+          body: l10n.didTheyScanBody(name),
+          primary: FilledButton(
+            onPressed: request.acceptQRScanConfirmation,
+            child: Text(l10n.yesItWasScanned),
           ),
+          secondary: [
+            OutlinedButton(
+              onPressed: () => request.cancel('m.user'),
+              child: Text(l10n.cancel),
+            ),
+          ],
         );
-        break;
-      case KeyVerificationState.askChoice:
-      case KeyVerificationState.waitingAccept:
-        body = Center(
-          child: Column(
-            children: <Widget>[
-              const SizedBox(height: 16),
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  Avatar(mxContent: user?.avatarUrl, name: displayName),
-                  const SizedBox(
-                    width: Avatar.defaultSize + 2,
-                    height: Avatar.defaultSize + 2,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+
+      case KeyVerificationState.askSSSS:
+        final keyError = this.keyError;
+        return OnboardingStep(
+          leading: close,
+          headline: l10n.unlockToVerifyTitle,
+          body: l10n.unlockToVerifyBody,
+          content: [
+            TextField(
+              controller: keyController,
+              obscureText: true,
+              autocorrect: false,
+              onSubmitted: (_) => _unlock(),
+              decoration: InputDecoration(
+                labelText: l10n.recoveryKeyOrPassphrase,
+                errorText: keyError == null
+                    ? null
+                    : l10n.incorrectPassphraseOrKey,
+              ),
+            ),
+          ],
+          primary: FilledButton(onPressed: _unlock, child: Text(l10n.unlock)),
+          secondary: [
+            TextButton(
+              onPressed: () => request.openSSSS(skip: true),
+              child: Text(l10n.skip),
+            ),
+          ],
+        );
+
+      case KeyVerificationState.askSas:
+      case KeyVerificationState.waitingSas:
+        final waiting = request.state == KeyVerificationState.waitingSas;
+        final emoji = request.sasTypes.contains('emoji');
+        return OnboardingStep(
+          leading: close,
+          headline: l10n.doTheseMatch,
+          body: !emoji
+              ? l10n.compareNumbersBody
+              : ownDevice
+              ? l10n.compareEmojiOwnBody(name)
+              : l10n.compareEmojiPersonBody(name),
+          content: [
+            if (emoji)
+              SasEmojiGrid(emojis: request.sasEmojis, translations: sasEmoji)
+            else
+              SasNumbers(numbers: request.sasNumbers),
+            if (waiting) ...[
+              const SizedBox(height: 24),
+              _waiting(l10n.waitingForOtherSide(name)),
+            ],
+          ],
+          primary: waiting
+              ? null
+              : FilledButton(
+                  onPressed: request.acceptSas,
+                  child: Text(l10n.theyMatch),
+                ),
+          secondary: waiting
+              ? [TextButton(onPressed: _close, child: Text(l10n.cancel))]
+              : [
+                  OutlinedButton(
+                    onPressed: request.rejectSas,
+                    child: Text(l10n.theyDontMatch),
                   ),
                 ],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                L10n.of(context).waitingPartnerAcceptRequest,
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        );
-        buttons.add(
-          AdaptiveDialogAction(
-            onPressed: () => widget.request.cancel(),
-            child: Text(L10n.of(context).cancel),
-          ),
         );
 
-        break;
-      case KeyVerificationState.askSas:
-        TextSpan compareWidget;
-        // maybe add a button to switch between the two and only determine default
-        // view for if "emoji" is a present sasType or not?
-
-        if (widget.request.sasTypes.contains('emoji')) {
-          title = Text(
-            L10n.of(context).compareEmojiMatch,
-            maxLines: 1,
-            style: const TextStyle(fontSize: 16),
-          );
-          compareWidget = TextSpan(
-            children: widget.request.sasEmojis
-                .map((e) => WidgetSpan(child: _Emoji(e, sasEmoji)))
-                .toList(),
-          );
-        } else {
-          title = Text(L10n.of(context).compareNumbersMatch);
-          final numbers = widget.request.sasNumbers;
-          final numbstr = '${numbers.first}-${numbers[1]}-${numbers[2]}';
-          compareWidget = TextSpan(
-            text: numbstr,
-            style: const TextStyle(fontSize: 40),
-          );
-        }
-        body = Column(
-          mainAxisSize: .min,
-          children: <Widget>[
-            Text.rich(compareWidget, textAlign: TextAlign.center),
-          ],
-        );
-        buttons.add(
-          AdaptiveDialogAction(
-            onPressed: () => widget.request.rejectSas(),
-            child: Text(
-              L10n.of(context).theyDontMatch,
-              style: TextStyle(color: theme.colorScheme.error),
-            ),
-          ),
-        );
-        buttons.add(
-          AdaptiveDialogAction(
-            onPressed: () => widget.request.acceptSas(),
-            child: Text(L10n.of(context).theyMatch),
-          ),
-        );
-        break;
-      case KeyVerificationState.waitingSas:
-        final acceptText = widget.request.sasTypes.contains('emoji')
-            ? L10n.of(context).waitingPartnerEmoji
-            : L10n.of(context).waitingPartnerNumbers;
-        body = Column(
-          mainAxisSize: .min,
-          children: <Widget>[
-            const SizedBox(height: 16),
-            const CircularProgressIndicator.adaptive(strokeWidth: 2),
-            const SizedBox(height: 16),
-            Text(acceptText, textAlign: TextAlign.center),
-          ],
-        );
-        break;
       case KeyVerificationState.done:
-        title = Text(L10n.of(context).verifySuccess);
-        body = const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Icon(
-            Icons.verified_outlined,
-            color: Colors.green,
-            size: 128.0,
-          ),
-        );
-        buttons.add(
-          AdaptiveDialogAction(
-            child: Text(L10n.of(context).close),
-            onPressed: () =>
-                Navigator.of(context, rootNavigator: false).pop(true),
-          ),
-        );
-        break;
-      case KeyVerificationState.error:
-        title = const Text('');
-        body = Column(
-          mainAxisSize: .min,
-          children: <Widget>[
-            const SizedBox(height: 16),
-            Icon(Icons.cancel, color: theme.colorScheme.error, size: 64.0),
-            const SizedBox(height: 16),
-            // TODO: Add better error UI to user
-            Text(
-              'Error ${widget.request.canceledCode}: ${widget.request.canceledReason}',
-              textAlign: TextAlign.center,
+        return OnboardingStep(
+          centered: true,
+          hero: const Padding(
+            padding: EdgeInsets.only(top: 64),
+            child: OnboardingHeroIcon(
+              Icons.verified_user_rounded,
+              tone: OnboardingTone.success,
+              size: 96,
             ),
-          ],
-        );
-        buttons.add(
-          AdaptiveDialogAction(
-            child: Text(L10n.of(context).close),
-            onPressed: () =>
-                Navigator.of(context, rootNavigator: false).pop(false),
+          ),
+          headline: ownDevice
+              ? l10n.thisDeviceIsConfirmed
+              : l10n.personIsVerified(name),
+          body: ownDevice
+              ? l10n.otherDeviceConfirmedBody
+              : l10n.personVerifiedBody(name),
+          primary: FilledButton(
+            onPressed: () => _close(true),
+            child: Text(l10n.done),
           ),
         );
-        break;
-    }
 
-    return AlertDialog.adaptive(
-      title: title,
-      content: SizedBox(
-        height: 256,
-        width: 256,
-        child: ListView(children: [body]),
+      case KeyVerificationState.error:
+        final code = request.canceledCode ?? '';
+        final (headline, body) = switch (code) {
+          'm.mismatched_sas' || 'm.key_mismatch' || 'm.mismatched_commitment' =>
+            (l10n.verificationStoppedTitle, l10n.verificationMismatchBody),
+          'm.timeout' => (
+            l10n.verificationTimeoutTitle,
+            l10n.verificationTimeoutBody,
+          ),
+          'm.user' => (
+            l10n.verificationStoppedTitle,
+            l10n.verificationCancelledBody,
+          ),
+          _ => (
+            l10n.verificationStoppedTitle,
+            l10n.verificationErrorBody(code),
+          ),
+        };
+        return OnboardingStep(
+          leading: close,
+          hero: const OnboardingHeroIcon(
+            Icons.gpp_bad_outlined,
+            tone: OnboardingTone.error,
+          ),
+          headline: headline,
+          body: body,
+          primary: FilledButton(
+            onPressed: () => _close(false),
+            child: Text(l10n.close),
+          ),
+        );
+    }
+  }
+}
+
+/// This device's verification QR code, for the other device to scan.
+class _QrCard extends StatelessWidget {
+  final List<int> bytes;
+  const _QrCard({required this.bytes});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
       ),
-      actions: buttons,
+      child: Column(
+        children: [
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.all(12),
+            child: SizedBox.square(
+              dimension: 200,
+              child: PrettyQrView(
+                qrImage: QrImage(
+                  QrCode.fromUint8List(
+                    data: Uint8List.fromList(bytes),
+                    errorCorrectLevel: QrErrorCorrectLevel.L,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            L10n.of(context).scanThisCodeBody,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: colorScheme.onSurface),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _Emoji extends StatelessWidget {
-  final KeyVerificationEmoji emoji;
-  final List<dynamic>? sasEmoji;
+/// The seven emoji to compare, four over three, each with its name.
+class SasEmojiGrid extends StatelessWidget {
+  final List<KeyVerificationEmoji> emojis;
 
-  const _Emoji(this.emoji, this.sasEmoji);
+  /// assets/sas-emoji.json, for the names in the app's language.
+  final List<dynamic>? translations;
 
-  String getLocalizedName() {
-    final sasEmoji = this.sasEmoji;
-    if (sasEmoji == null) {
-      // asset is still being loaded
-      return emoji.name;
-    }
-    final translations = Map<String, String?>.from(
-      sasEmoji[emoji.number]['translated_descriptions'],
+  const SasEmojiGrid({required this.emojis, this.translations, super.key});
+
+  String _name(BuildContext context, KeyVerificationEmoji emoji) {
+    final translations = this.translations;
+    if (translations == null) return emoji.name;
+    final descriptions = Map<String, dynamic>.from(
+      translations[emoji.number]['translated_descriptions'],
     );
-    translations['en'] = emoji.name;
-    for (final locale in PlatformDispatcher.instance.locales) {
-      final wantLocaleParts = locale.toString().split('_');
-      final wantLanguage = wantLocaleParts.removeAt(0);
-      for (final haveLocale in translations.keys) {
-        final haveLocaleParts = haveLocale.split('_');
-        final haveLanguage = haveLocaleParts.removeAt(0);
-        if (haveLanguage == wantLanguage &&
-            (Set.from(haveLocaleParts)..removeAll(wantLocaleParts)).isEmpty &&
-            (translations[haveLocale]?.isNotEmpty ?? false)) {
-          return translations[haveLocale]!;
-        }
-      }
-    }
-    return emoji.name;
+    final locale = Localizations.localeOf(context);
+    return descriptions['${locale.languageCode}_${locale.countryCode}']
+            as String? ??
+        descriptions[locale.languageCode] as String? ??
+        emoji.name;
   }
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    Widget tile(KeyVerificationEmoji emoji) => Container(
+      width: 70,
+      height: 92,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(emoji.emoji, style: const TextStyle(fontSize: 38)),
+          const SizedBox(height: 6),
+          Text(
+            _name(context, emoji),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12.5,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
     return Column(
-      mainAxisSize: .min,
-      children: <Widget>[
-        Text(emoji.emoji, style: const TextStyle(fontSize: 50)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4.0),
-          child: Text(getLocalizedName()),
+      spacing: 8,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          spacing: 8,
+          children: [for (final emoji in emojis.take(4)) tile(emoji)],
         ),
-        const SizedBox(height: 10, width: 5),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          spacing: 8,
+          children: [for (final emoji in emojis.skip(4)) tile(emoji)],
+        ),
       ],
+    );
+  }
+}
+
+/// The three numbers to compare when emoji are not available.
+class SasNumbers extends StatelessWidget {
+  final List<int> numbers;
+  const SasNumbers({required this.numbers, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          for (final number in numbers)
+            Flexible(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '$number',
+                    style: TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

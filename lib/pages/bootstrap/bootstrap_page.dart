@@ -12,7 +12,6 @@ import 'package:fluffychat/widgets/onboarding/onboarding_step.dart';
 import 'package:fluffychat/widgets/seam_stitch_loader.dart';
 import 'package:fluffychat/widgets/view_model_builder.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:matrix/encryption.dart';
 
 /// Encryption setup after sign-in: a new account creates and saves its
 /// recovery key; a new device of an existing account is confirmed by
@@ -47,11 +46,13 @@ class BootstrapStepView extends StatelessWidget {
       );
     }
     final keyVerification = viewModel.value.keyVerification;
+    // The verification itself runs in its own pages over this step, from
+    // the moment the request goes out.
     if (step == BootstrapStep.waitingForDevice &&
-        keyVerification?.state == KeyVerificationState.askSas &&
-        viewModel.takeSasPrompt()) {
+        keyVerification != null &&
+        viewModel.takeVerificationPrompt()) {
       WidgetsBinding.instance.addPostFrameCallback(
-        (_) => KeyVerificationDialog(request: keyVerification!).show(context),
+        (_) => KeyVerificationDialog(request: keyVerification).show(context),
       );
     }
 

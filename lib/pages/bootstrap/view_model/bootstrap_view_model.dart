@@ -215,16 +215,15 @@ class BootstrapViewModel extends ValueNotifier<BootstrapViewModelState> {
     enterPassphraseOrRecovController.text = text.trim();
   }
 
-  KeyVerification? _sasPromptShownFor;
+  KeyVerification? _verificationShownFor;
 
-  /// True once per verification request, when its emoji are ready to
-  /// compare, so the comparison opens a single time.
-  bool takeSasPrompt() {
+  /// True once per verification request, so its pages open a single time.
+  bool takeVerificationPrompt() {
     final request = value.keyVerification;
-    if (request == null || identical(request, _sasPromptShownFor)) {
+    if (request == null || identical(request, _verificationShownFor)) {
       return false;
     }
-    _sasPromptShownFor = request;
+    _verificationShownFor = request;
     return true;
   }
 
