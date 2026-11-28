@@ -121,6 +121,50 @@ class FakeChatListRoom extends Room {
   @override
   Future<void> leave({bool waitForSync = false}) async => calls.add('leave');
 
+  /// Whether [sendFileEvent] records the files in [sentFiles] instead of
+  /// sending them, with their local echo, as a room does.
+  bool recordFiles = false;
+
+  /// The files [sendFileEvent] was asked to send while [recordFiles], with
+  /// the event each one replies to and its extra content, such as a caption.
+  final sentFiles =
+      <({String name, String? inReplyTo, Map<String, dynamic>? extra})>[];
+
+  @override
+  Future<String?> sendFileEvent(
+    MatrixFile file, {
+    String? txid,
+    Event? inReplyTo,
+    String? editEventId,
+    int? shrinkImageMaxDimension,
+    MatrixImageFile? thumbnail,
+    Map<String, dynamic>? extraContent,
+    String? threadRootEventId,
+    String? threadLastEventId,
+    bool displayPendingEvent = true,
+  }) async {
+    if (!recordFiles) {
+      return super.sendFileEvent(
+        file,
+        txid: txid,
+        inReplyTo: inReplyTo,
+        editEventId: editEventId,
+        shrinkImageMaxDimension: shrinkImageMaxDimension,
+        thumbnail: thumbnail,
+        extraContent: extraContent,
+        threadRootEventId: threadRootEventId,
+        threadLastEventId: threadLastEventId,
+        displayPendingEvent: displayPendingEvent,
+      );
+    }
+    sentFiles.add((
+      name: file.name,
+      inReplyTo: inReplyTo?.eventId,
+      extra: extraContent,
+    ));
+    return '\$file${sentFiles.length}';
+  }
+
   /// The messages [getTimeline] returns, oldest first, instead of the
   /// database's, when set.
   List<Event>? timelineEvents;

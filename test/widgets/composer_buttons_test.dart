@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 void main() {
-  testWidgets('the attach and emoji icons sit 16dp apart, 40dp targets', (
+  testWidgets('the attach and emoji icons sit 24dp apart, 48dp targets', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -19,7 +19,6 @@ void main() {
           body: Align(
             alignment: Alignment.topLeft,
             child: ComposerLeadingButtons(
-              textMessageOnly: false,
               attachmentPanelOpen: false,
               onAttach: () {},
               showEmojiButton: true,
@@ -39,12 +38,12 @@ void main() {
     );
     expect(
       icon(emoji).left - icon(attach).right,
-      moreOrLessEquals(16, epsilon: 1),
+      moreOrLessEquals(24, epsilon: 1),
     );
     for (final button in [attach, emoji]) {
       final size = tester.getSize(button);
-      expect(size.width, greaterThanOrEqualTo(40));
-      expect(size.height, greaterThanOrEqualTo(40));
+      expect(size.width, greaterThanOrEqualTo(48));
+      expect(size.height, greaterThanOrEqualTo(48));
     }
   });
 }
