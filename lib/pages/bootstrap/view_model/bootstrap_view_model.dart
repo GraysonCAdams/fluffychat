@@ -277,7 +277,7 @@ class BootstrapViewModel extends ValueNotifier<BootstrapViewModelState> {
       const max = 10;
       while (value.cryptoIdentityState?.connected != true) {
         Logs().d('Waiting for secrets... [$tries/$max]');
-        if (tries >= max) return;
+        if (tries >= max) break;
         await Future.delayed(const Duration(seconds: 1));
         value.cryptoIdentityState = await crypto.state();
         tries++;

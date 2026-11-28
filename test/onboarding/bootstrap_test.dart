@@ -11,6 +11,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../utils/message_search/search_test_client.dart';
 
+/// A confirmation request another device has accepted and finished.
+class _FinishedRequest extends Fake implements KeyVerification {
+  @override
+  KeyVerificationState state = KeyVerificationState.done;
+  @override
+  void Function()? onUpdate;
+}
+
+/// An existing identity whose secrets never arrive on this device.
+class _NoSecrets extends _ExistingIdentity {
+  _NoSecrets(super.client);
+  final request = _FinishedRequest();
+
+  @override
+  Future<KeyVerification?> requestVerification() async => request;
+}
+
 /// A new account: no crypto identity yet.
 class _NewAccount extends BootstrapCrypto {
   _NewAccount(super.client);
@@ -147,4 +164,20 @@ void main() {
     expect(viewModel.step, BootstrapStep.confirmIdentity);
     viewModel.dispose();
   });
+
+  test(
+    'when the other device sends no secrets, the wait ends and says so',
+    () async {
+      final crypto = _NoSecrets(client);
+      final viewModel = await settled(crypto);
+      await viewModel.useAnotherDevice();
+      crypto.request.onUpdate!();
+      // The wait checks once a second, ten times.
+      await Future<void>.delayed(const Duration(seconds: 12));
+      expect(viewModel.value.waitingForSecrets, isFalse);
+      expect(viewModel.value.noSecretsreceived, isTrue);
+      viewModel.dispose();
+    },
+    timeout: const Timeout(Duration(seconds: 40)),
+  );
 }
