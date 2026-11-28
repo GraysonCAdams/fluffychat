@@ -117,6 +117,11 @@ typing indicators, read status, app lock, one-time-code detection.
   other apps come from a scripted XCUITest driver kept outside the repo
   (`~/.cache/seam-apple/uidriver`).
 
+- 2026-11-28 (overnight): privacy manifests `ios/Runner/PrivacyInfo.xcprivacy` and
+  `ios/Seam Share/PrivacyInfo.xcprivacy`: no tracking, no collected data types, `UserDefaults`
+  reasons CA92.1 (the app's own) and 1C8F.1 (the app group). The collected data answer must match
+  the App Store privacy labels (stores session to confirm). macOS has none yet.
+
 ## Needs Grayson
 
 1. Push gateway decision (asked).
