@@ -3,6 +3,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:math';
+
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/pages/chat/events/media_sending_indicator.dart';
@@ -14,6 +16,18 @@ import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
 import '../../../widgets/blur_hash.dart';
+
+/// The size of an image bubble for a picture of [aspectRatio] (width over
+/// height): [maxSize] along its longer side and its own shape, but never
+/// thinner than 32. Without an aspect ratio it is a [maxSize] square.
+Size imageBubbleSize(double? aspectRatio, {double maxSize = 256}) {
+  if (aspectRatio == null || !aspectRatio.isFinite || aspectRatio <= 0) {
+    return Size.square(maxSize);
+  }
+  return aspectRatio > 1
+      ? Size(maxSize, max(32, maxSize / aspectRatio))
+      : Size(max(32, maxSize * aspectRatio), maxSize);
+}
 
 class ImageBubble extends StatelessWidget {
   final Event event;

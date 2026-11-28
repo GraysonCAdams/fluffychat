@@ -4899,5 +4899,21 @@
   "openItsChats": "Open its chats",
   "@openItsChats": {
     "description": "Primary button after adding another account."
+  },
+  "waitingForAttachment": "Waiting for attachment",
+  "@waitingForAttachment": {
+    "description": "Read aloud for a photo or video a bridge has announced but not delivered yet."
+  },
+  "photoDidNotArrive": "Photo didn't arrive",
+  "@photoDidNotArrive": {
+    "description": "Under the tile of a photo a bridge failed to transfer."
+  },
+  "videoDidNotArrive": "Video didn't arrive",
+  "@videoDidNotArrive": {
+    "description": "Under the tile of a video a bridge failed to transfer."
+  },
+  "attachmentDidNotArrive": "Attachment didn't arrive",
+  "@attachmentDidNotArrive": {
+    "description": "Under the tile of a file a bridge failed to transfer."
   }
 }

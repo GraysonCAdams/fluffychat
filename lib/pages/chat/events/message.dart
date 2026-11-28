@@ -22,6 +22,7 @@ import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/routed_event.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/utils/message_effects.dart';
+import 'package:fluffychat/utils/pending_media.dart';
 import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -211,14 +212,18 @@ class Message extends StatelessWidget {
     final firstOfRun = !nextEventSameSender;
     final lastOfRun = !previousEventSameSender;
     final bubbleIndent = showSender ? senderAvatarSize + 8 : 0.0;
+    // A bridge's placeholder for an attachment shows as a media tile, and
+    // then as the media its edit brings, so it sits outside a bubble too.
+    final fromPendingMedia = PendingMedia.of(event) != null;
     final noBubble =
+        fromPendingMedia ||
         ({
-          MessageTypes.Video,
-          MessageTypes.Image,
-          MessageTypes.Sticker,
-        }.contains(event.messageType) &&
-        event.fileDescription == null &&
-        !event.redacted);
+              MessageTypes.Video,
+              MessageTypes.Image,
+              MessageTypes.Sticker,
+            }.contains(event.messageType) &&
+            event.fileDescription == null &&
+            !event.redacted);
 
     if (ownMessage) {
       color = displayEvent.status.isError
@@ -813,6 +818,8 @@ class Message extends StatelessWidget {
                                                               ),
                                                             MessageContent(
                                                               displayEvent,
+                                                              fromPendingMedia:
+                                                                  fromPendingMedia,
                                                               textColor:
                                                                   textColor,
                                                               linkColor:
