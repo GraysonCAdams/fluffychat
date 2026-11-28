@@ -1331,9 +1331,17 @@ class _AnimateIn extends StatefulWidget {
 class __AnimateInState extends State<_AnimateIn> {
   bool _animationFinished = false;
 
+  /// Whether this message has animated in. It keeps its [AnimatedSize]
+  /// once [_AnimateIn.animateIn] turns off again, as it does when the next
+  /// event arrives; dropping it would rebuild the message's whole subtree
+  /// and lose its state, such as a pending attachment's swap to the media
+  /// a bridge's edit brings.
+  bool _animated = false;
+
   @override
   Widget build(BuildContext context) {
-    if (!widget.animateIn) return widget.child;
+    if (widget.animateIn) _animated = true;
+    if (!_animated) return widget.child;
     if (!_animationFinished) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         setState(() {
