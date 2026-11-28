@@ -386,22 +386,32 @@ class _Suggestions extends StatelessWidget {
                 contact.userId.localpart ??
                 contact.userId;
             // A Matrix user is on none of the networks a group starts on.
-            return ListTile(
+            final detail = groupNetwork == null
+                ? features.userLabel(contact.userId)
+                : L10n.of(
+                    context,
+                  ).notOnNetwork(groupNetwork.bridge.displayName);
+            // One stop for a screen reader, as NewChatPersonTile is.
+            return Semantics(
+              container: true,
+              button: true,
               enabled: groupNetwork == null,
-              leading: Avatar(
-                name: displayname,
-                mxContent: contact.avatarUrl,
-                presenceUserId: contact.userId,
+              label: '$displayname, $detail',
+              onTap: groupNetwork == null
+                  ? () => controller.pickProfile(contact)
+                  : null,
+              excludeSemantics: true,
+              child: ListTile(
+                enabled: groupNetwork == null,
+                leading: Avatar(
+                  name: displayname,
+                  mxContent: contact.avatarUrl,
+                  presenceUserId: contact.userId,
+                ),
+                title: Text(displayname),
+                subtitle: Text(detail),
+                onTap: () => controller.pickProfile(contact),
               ),
-              title: Text(displayname),
-              subtitle: Text(
-                groupNetwork == null
-                    ? features.userLabel(contact.userId)
-                    : L10n.of(
-                        context,
-                      ).notOnNetwork(groupNetwork.bridge.displayName),
-              ),
-              onTap: () => controller.pickProfile(contact),
             );
           },
         );
@@ -451,39 +461,56 @@ class NewChatPersonTile extends StatelessWidget {
     final room = chat is ExistingChat && chat.contact == null
         ? chat.room
         : null;
-    return ListTile(
+    // One stop for a screen reader: the name, then why the person cannot
+    // be picked or how they are reached, then their networks. The avatar's
+    // initials and the network logos only repeat these.
+    final label = [
+      person.name,
+      reason ?? (detail == person.name ? null : detail),
+      for (final network in person.networks) network.name,
+    ].whereType<String>().join(', ');
+    return Semantics(
+      container: true,
+      button: true,
       enabled: reason == null,
       selected: picked,
-      leading: person.typed
-          ? CircleAvatar(
-              backgroundColor: theme.colorScheme.secondaryContainer,
-              foregroundColor: theme.colorScheme.onSecondaryContainer,
-              child: Icon(
-                typedEmail
-                    ? Icons.alternate_email_outlined
-                    : Icons.dialpad_outlined,
+      label: label,
+      onTap: reason == null ? onTap : null,
+      excludeSemantics: true,
+      child: ListTile(
+        enabled: reason == null,
+        selected: picked,
+        leading: person.typed
+            ? CircleAvatar(
+                backgroundColor: theme.colorScheme.secondaryContainer,
+                foregroundColor: theme.colorScheme.onSecondaryContainer,
+                child: Icon(
+                  typedEmail
+                      ? Icons.alternate_email_outlined
+                      : Icons.dialpad_outlined,
+                ),
+              )
+            : room != null && GroupAvatar.shows(room)
+            ? GroupAvatar(room: room, name: person.name)
+            : Avatar(name: person.name, mxContent: person.avatar),
+        title: Text(person.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: reason != null
+            ? Text(reason, maxLines: 1, overflow: TextOverflow.ellipsis)
+            : detail == null || detail == person.name
+            ? null
+            : Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis),
+        trailing: picked
+            ? const Icon(Icons.check_circle)
+            : person.networks.isEmpty
+            ? null
+            : NetworkLogos.icons(
+                icons: [
+                  for (final network in person.networks)
+                    (icon: network.icon, name: network.name),
+                ],
               ),
-            )
-          : room != null && GroupAvatar.shows(room)
-          ? GroupAvatar(room: room, name: person.name)
-          : Avatar(name: person.name, mxContent: person.avatar),
-      title: Text(person.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: reason != null
-          ? Text(reason, maxLines: 1, overflow: TextOverflow.ellipsis)
-          : detail == null || detail == person.name
-          ? null
-          : Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: picked
-          ? const Icon(Icons.check_circle)
-          : person.networks.isEmpty
-          ? null
-          : NetworkLogos.icons(
-              icons: [
-                for (final network in person.networks)
-                  (icon: network.icon, name: network.name),
-              ],
-            ),
-      onTap: onTap,
+        onTap: onTap,
+      ),
     );
   }
 }

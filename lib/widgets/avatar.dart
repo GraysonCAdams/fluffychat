@@ -138,8 +138,12 @@ class Avatar extends StatelessWidget {
                                   fallbackLetters.avatarColors.onFill,
                               size: (size / 2).roundToDouble(),
                             )
+                          // The initials only stand for the name, which a
+                          // screen reader hears from the row or button the
+                          // avatar sits in.
                           : Text(
                               fallbackLetters,
+                              semanticsLabel: '',
                               textAlign: TextAlign.center,
                               // The theme's font, as everywhere else.
                               style: TextStyle(
