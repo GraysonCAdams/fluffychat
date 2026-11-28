@@ -4919,5 +4919,13 @@
   "attachment": "Attachment",
   "@attachment": {
     "description": "Preview of an attachment a bridge has announced whose name says nothing about it."
+  },
+  "matrixFeatureRoleBadges": "Moderator and admin badges on names",
+  "@matrixFeatureRoleBadges": {
+    "description": "A Matrix feature in Settings > Matrix features: the small moderator or admin icon before a sender's name in a chat."
+  },
+  "matrixFeatureTriggerRoleBadges": "shows in plain Matrix rooms, not bridged chats",
+  "@matrixFeatureTriggerRoleBadges": {
+    "description": "Why the moderator and admin badges show in auto mode: they are decided per chat."
   }
 }
