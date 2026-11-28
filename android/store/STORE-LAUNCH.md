@@ -161,7 +161,7 @@ in "SDKs in the Play build" below.
 
 Linked only while `play-fcm.ps1` has FCM in the tree, through `fcm_shared_isolate` 4.0.0, which
 pulls in the FlutterFire `firebase_core` plugin and `com.google.firebase:firebase-messaging` from
-the Firebase BoM. From the merged manifest of that build, the components it registers are
+the Firebase BoM. From the merged release manifest of that build, the components it registers are
 Firebase Messaging, Firebase Installations, Firebase common (`FirebaseInitProvider`,
 `ComponentDiscoveryService`), Firebase's data transport (`firebase-datatransport`, the
 `com.google.android.datatransport` runtime) and Play services' cloud messaging and base
@@ -175,7 +175,11 @@ POM depends on `firebase-common` 23.0.0, `firebase-installations` 20.0.0,
 notification events to Analytics only when Analytics is linked, which it is not), and
 `play-services-base`, `-basement` 18.9.0, `-tasks` 18.4.0, `-cloud-messaging` 17.4.0 and
 `-stats` 17.0.2. These are all direct dependencies of `firebase-messaging`, so none is excluded:
-its classes refer to them.
+its classes refer to them. `:app:dependencies --configuration releaseRuntimeClasspath` resolves
+exactly these, plus `firebase-annotations` 18.0.0.
+
+One Google library is in the Play build without FCM: `play-services-location` 21.2.0, from
+`geolocator_android`. The F-Droid recipe strips it; the Play build keeps it.
 
 ## Release identity
 
@@ -228,8 +232,8 @@ type other than `shortService`.
 | Launcher badge permissions (Samsung, HTC, Sony, Huawei, Oppo, Apex and others) | badge plugin | Unread count on the launcher icon | none |
 | `com.google.android.c2dm.permission.RECEIVE` | Firebase Messaging | Receiving FCM pushes; in the Play build with FCM only (see below) | none |
 
-The FCM row is from the merged manifest of the first Play build with FCM linked (a debug build,
-2026-11-28); everything else in that manifest matches the table.
+The FCM row is from the merged release manifest of the Play build with FCM linked
+(`processReleaseMainManifest`, 2026-11-28); every other permission in it matches the table.
 
 Removed from the manifest because nothing starts them: `light_compressor_v2`'s
 `CompressionForegroundService` with `FOREGROUND_SERVICE_DATA_SYNC` (the app never asks it for
