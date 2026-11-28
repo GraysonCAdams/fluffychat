@@ -70,6 +70,14 @@ abstract class AppConfig {
   static String get pushNotificationsAppId =>
       usesSeamIdentity ? seamApplicationId : 'chat.fluffy.fluffychat';
 
+  /// The pusher app id of an iOS install, before the device id is added.
+  /// The gateway holds one APNs key per environment, each bound to its own
+  /// APNs host, and picks between them by this id: a debug build's token is
+  /// only valid in the sandbox, a TestFlight or App Store build's only in
+  /// production.
+  static String applePushAppId({required bool sandbox}) =>
+      '$seamApplicationId.${sandbox ? 'ios-sandbox' : 'ios'}';
+
   /// URL scheme for deep links. On Android it must match the appUrlScheme
   /// manifest placeholder, on iOS the CFBundleURLSchemes in
   /// ios/Runner/Info.plist.

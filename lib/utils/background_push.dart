@@ -161,6 +161,7 @@ class BackgroundPush {
     required Client client,
     String? gatewayUrl,
     String? token,
+    String? appIdBase,
   }) async {
     if (PlatformInfos.isIOS) {
       //<GOOGLE_SERVICES>await firebase.requestPermission();
@@ -182,7 +183,8 @@ class BackgroundPush {
         [];
 
     // we need the deviceAppId to remove potential legacy pusher
-    var deviceAppId = '${AppConfig.pushNotificationsAppId}.${client.deviceID}';
+    var deviceAppId =
+        '${appIdBase ?? AppConfig.pushNotificationsAppId}.${client.deviceID}';
     // appId may only be up to 64 chars as per spec
     if (deviceAppId.length > 64) {
       deviceAppId = deviceAppId.substring(0, 64);
@@ -357,6 +359,7 @@ class BackgroundPush {
       client: client,
       gatewayUrl: gatewayUrl,
       token: registration.token,
+      appIdBase: AppConfig.applePushAppId(sandbox: registration.isSandbox),
     );
   }
 
