@@ -57,14 +57,14 @@ so). "Gate" is the Dart platform check that keeps the feature off Apple platform
 
 | Area | Android / Windows today | iOS today | macOS today | Apple route |
 |---|---|---|---|---|
-| Push delivery | UnifiedPush | none: `setupPush` ends in the no-FCM dialog | none (local only) | APNs token channel, `setupPusher` to the gateway |
+| Push delivery | UnifiedPush | **app side built**: `ApnsTokenChannel.swift`, `lib/utils/apple_push.dart`, `setupApplePush`; inert until `SEAM_PUSH_GATEWAY_URL` is set; not yet run against APNs | none (local only) | APNs token channel, `setupPusher` to the gateway |
 | Notification content | `MessagingStyle`, `Person`, sender icons | extension sets room name and avatar, body is a placeholder (no decryption) | plain text while a window is open | decrypt in the Notification Service Extension; `INSendMessageIntent` communication notifications |
 | Notification actions | reply, mark read, mute, copy code | none | none | `UNNotificationCategory`, `UNTextInputNotificationAction` |
 | Photos in notifications | Android | none | none | `UNNotificationAttachment` from the extension |
 | Group collage icon | Android shortcut icon, Windows toast | room avatar only | none | collage rendered for the intent's `INImage` |
 | Conversation shortcuts, direct share | Android | none | none | `INInteraction` donation, share suggestions |
 | Unread badge | Windows taskbar | extension sets it | never cleared | `NSApp.dockTile.badgeLabel` from sync |
-| Effect haptics | `effect_haptics.dart` (Android channel) | none | n/a | Core Haptics patterns behind the same channel |
+| Effect haptics | `effect_haptics.dart` (Android channel) | **built**: `ios/Runner/EffectHaptics.swift` answers the same channel; not yet felt on a device | n/a | Core Haptics patterns behind the same channel |
 | Voice transcripts | whisper (`isAndroid \|\| isWindows`) | hidden | hidden | Speech framework, on device |
 | Contacts import | Android | hidden | hidden | `flutter_contacts` gate plus purpose string |
 | Spell check | Android and Windows bridges | Flutter default (`UITextChecker`) | none | `NSSpellChecker` |
