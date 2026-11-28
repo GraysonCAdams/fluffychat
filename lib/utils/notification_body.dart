@@ -27,3 +27,8 @@ String notificationBodyOf(Event event, L10n l10n) =>
           hideEdit: true,
           removeMarkdown: true,
         );
+
+/// Whether a notification shows [event]'s sender as a bot: a notice (an
+/// `m.notice`), the message type bots send.
+bool notificationSenderIsBot(Event event) =>
+    event.messageType == MessageTypes.Notice;

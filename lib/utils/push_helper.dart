@@ -237,7 +237,7 @@ Future<void> _tryPushHelper(
     event,
     body: body,
     person: Person(
-      bot: event.messageType == MessageTypes.Notice,
+      bot: notificationSenderIsBot(event),
       key: event.senderId,
       name: senderName,
       icon: senderIcon == null ? null : ByteArrayAndroidIcon(senderIcon),
