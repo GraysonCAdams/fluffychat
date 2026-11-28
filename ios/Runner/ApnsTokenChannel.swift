@@ -34,9 +34,8 @@ final class ApnsTokenChannel {
     let token = deviceToken.map { String(format: "%02x", $0) }.joined()
     answer([
       "token": token,
-      // A debug build is signed for the APNs sandbox, where a production
-      // token would be rejected, so the gateway needs to know which one this
-      // is.
+      // A sandbox token is rejected by the production APNs host and the
+      // other way round, so the gateway needs to know which one this is.
       "environment": ApnsTokenChannel.environment,
     ])
   }
@@ -59,11 +58,33 @@ final class ApnsTokenChannel {
     }
   }
 
+  /// The APNs environment this install's token belongs to, which is set by
+  /// how the app was signed and not by how it was compiled.
+  ///
+  /// A simulator only ever talks to the sandbox. On a device the
+  /// provisioning profile says so in its `aps-environment` entitlement:
+  /// `development` for a build run from Xcode, `production` for an ad hoc
+  /// build. TestFlight and App Store builds carry no profile and are
+  /// production.
   private static var environment: String {
-    #if DEBUG
+    #if targetEnvironment(simulator)
       return "sandbox"
     #else
-      return "production"
+      guard
+        let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+        let data = try? Data(contentsOf: url),
+        // The profile is a signed envelope around a plist; the plist itself
+        // is plain text inside it.
+        let text = String(data: data, encoding: .isoLatin1),
+        let start = text.range(of: "<plist"),
+        let end = text.range(of: "</plist>"),
+        let plist = try? PropertyListSerialization.propertyList(
+          from: Data(text[start.lowerBound..<end.upperBound].utf8), options: [], format: nil)
+          as? [String: Any],
+        let entitlements = plist["Entitlements"] as? [String: Any],
+        let aps = entitlements["aps-environment"] as? String
+      else { return "production" }
+      return aps == "development" ? "sandbox" : "production"
     #endif
   }
 }

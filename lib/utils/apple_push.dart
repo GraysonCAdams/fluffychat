@@ -10,8 +10,9 @@ class ApnsRegistration {
   /// The device token as lowercase hex, the form APNs' HTTP/2 API takes.
   final String token;
 
-  /// `sandbox` for a debug build, `production` otherwise. A token only works
-  /// against the APNs host of its own environment.
+  /// `sandbox` on a simulator or under a development provisioning profile,
+  /// `production` otherwise. A token only works against the APNs host of its
+  /// own environment.
   final String environment;
 
   const ApnsRegistration({required this.token, required this.environment});

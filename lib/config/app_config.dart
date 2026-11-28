@@ -72,9 +72,9 @@ abstract class AppConfig {
 
   /// The pusher app id of an iOS install, before the device id is added.
   /// The gateway holds one APNs key per environment, each bound to its own
-  /// APNs host, and picks between them by this id: a debug build's token is
-  /// only valid in the sandbox, a TestFlight or App Store build's only in
-  /// production.
+  /// APNs host, and picks between them by this id: a token from a
+  /// simulator or a development-signed build is only valid in the sandbox, a
+  /// TestFlight or App Store build's only in production.
   static String applePushAppId({required bool sandbox}) =>
       '$seamApplicationId.${sandbox ? 'ios-sandbox' : 'ios'}';
 
