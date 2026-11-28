@@ -58,7 +58,7 @@ so). "Gate" is the Dart platform check that keeps the feature off Apple platform
 | Area | Android / Windows today | iOS today | macOS today | Apple route |
 |---|---|---|---|---|
 | Push delivery | UnifiedPush | **app side built**: `ApnsTokenChannel.swift`, `lib/utils/apple_push.dart`, `setupApplePush`; inert until `SEAM_PUSH_GATEWAY_URL` is set; not yet run against APNs | none (local only) | APNs token channel, `setupPusher` to the gateway |
-| Notification content | `MessagingStyle`, `Person`, sender icons | extension sets room name and avatar, body is a placeholder (no decryption) | plain text while a window is open | decrypt in the Notification Service Extension; `INSendMessageIntent` communication notifications |
+| Notification content | `MessagingStyle`, `Person`, sender icons | **decryption built**: `ios/seam_nse_crypto` + `EventDecryptor.swift` set sender and text; not yet run against a real database; communication notifications still to do | plain text while a window is open | decrypt in the Notification Service Extension; `INSendMessageIntent` communication notifications |
 | Notification actions | reply, mark read, mute, copy code | none | none | `UNNotificationCategory`, `UNTextInputNotificationAction` |
 | Photos in notifications | Android | none | none | `UNNotificationAttachment` from the extension |
 | Group collage icon | Android shortcut icon, Windows toast | room avatar only | none | collage rendered for the intent's `INImage` |
@@ -100,9 +100,15 @@ typing indicators, read status, app lock, one-time-code detection.
   applied to both projects. `feat/integration2` @ 4a52f278c (calls removed) and `feat/dev-control`
   merged in.
 
+- 2026-11-27 (later): `feat/integration2` @ 587616abb merged. APNs token channel, Core Haptics
+  effect haptics, Seam icons and launch screen, megolm decryption in the notification extension.
+  All compile; none of the four has run with a signed-in account or on a device.
+
 ## Needs Grayson
 
 1. Push gateway decision (asked).
 2. A signing identity on the Mac (Xcode signed in to the 312.dev team, or development certificates
    made through the App Store Connect API): needed for the macOS keychain, any run on a real
    iPhone, push, and app groups on device.
+3. An account to sign in with on the simulator and the Mac (the only test account is the store
+   reviewer's `@seam-review:matrix.org`, which has no bridges).
