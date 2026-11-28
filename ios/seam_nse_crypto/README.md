@@ -124,24 +124,25 @@ event JSON and the plaintext.
 
 ## Integration
 
-1. Add `ios/Notification Service Extension/EventDecryptor.swift` to the
-   Notification Service Extension target.
-2. In the extension target, add a Run Script build phase before Compile
-   Sources:
+1. `ios/Notification Service Extension/EventDecryptor.swift` is in the
+   extension target because the target takes every file of that folder.
+2. The extension target has a Run Script build phase, "Build SeamNseCrypto",
+   ahead of Compile Sources:
    ```sh
    "$SRCROOT/seam_nse_crypto/build_xcframework.sh"
    ```
-   with output file `$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/Info.plist`.
-   The project already has `ENABLE_USER_SCRIPT_SANDBOXING = NO`, which the
-   script needs to write the xcframework.
-3. Add `seam_nse_crypto/SeamNseCrypto.xcframework` to the extension's
-   Frameworks and Libraries as "Do Not Embed" (it is static). Xcode puts its
-   `Headers` directory, which holds the module map, on the search path, so no
-   bridging header is needed and `EventDecryptor.swift` imports
-   `SeamNseCrypto`. Run the script once by hand before the first build so
-   the xcframework exists when Xcode plans the build.
-4. In `NotificationService.didReceive`, replace the final
-   `contentHandler(bestAttemptContent)` with:
+   Its outputs are the two `libseam_nse_crypto.a` slices. The project has
+   `ENABLE_USER_SCRIPT_SANDBOXING = NO`, which the script needs to write
+   them.
+3. The target links the static library by path, not as a listed
+   `.xcframework`: Xcode reports a dependency cycle when a target lists an
+   xcframework that one of its own script phases produces. The build
+   settings are `LIBRARY_SEARCH_PATHS` per SDK (the `ios-arm64` and
+   `ios-arm64-simulator` slice directories), `OTHER_LDFLAGS`
+   `-lseam_nse_crypto`, and `SWIFT_INCLUDE_PATHS` at
+   `seam_nse_crypto/include`, where the module map lives, so
+   `EventDecryptor.swift` imports `SeamNseCrypto` with no bridging header.
+4. `NotificationService.didReceive` ends with:
    ```swift
    Task {
        do {
@@ -175,10 +176,12 @@ event JSON and the plaintext.
   (Swift 5 and 6 modes), and an arm64 simulator executable linking the
   xcframework decrypts a vodozemac pickle and ciphertext when run with
   `xcrun simctl spawn` on an iOS 27 simulator.
+- The extension target builds and links the library in a simulator debug
+  build of the app.
 - Not verified: the database reads and the HTTP fetch against a real Seam
-  database and homeserver (no logged-in simulator database exists yet), and
-  the Xcode target integration above. A logged-in simulator with an
-  encrypted room would settle both: copy its `<clientName>.sqlite` and check
+  database and homeserver (no logged-in simulator database exists yet). A
+  logged-in simulator with an encrypted room would settle it: copy its
+  `<clientName>.sqlite` and check
   that `box_client` and `box_inbound_group_session` hold the values above.
 - The NSE opens the database with `immutable=1`, which ignores a `-wal`
   file. I have not checked which journal mode the app's connection uses; if

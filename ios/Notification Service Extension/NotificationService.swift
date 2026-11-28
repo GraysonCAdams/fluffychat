@@ -147,7 +147,29 @@ class NotificationService: UNNotificationServiceExtension {
             }
         }
 
-        contentHandler(bestAttemptContent)
+        // The push carries only ids. Fetch the event and decrypt it here so
+        // the banner shows who wrote and what; when that fails the banner
+        // keeps the placeholder body set above.
+        Task {
+            do {
+                let event = try await EventDecryptor(database: database)
+                    .event(roomId: roomId, eventId: eventId)
+                let sender =
+                    getUserFromDatabase(database: database, userId: event.senderId, roomId: roomId)?
+                    .content.displayname ?? event.senderId
+                let text =
+                    event.isReaction
+                    ? event.relation?.key
+                    : (event.isEdit ? event.newContentBody : nil) ?? event.body
+                if let text {
+                    bestAttemptContent.subtitle = sender
+                    bestAttemptContent.body = text
+                }
+            } catch {
+                os_log("[SeamPush] Unable to load event: %{public}@", type: .error, String(describing: error))
+            }
+            contentHandler(bestAttemptContent)
+        }
     }
 
     override func serviceExtensionTimeWillExpire() {

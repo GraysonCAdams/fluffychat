@@ -291,6 +291,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C146955E2E642D400075F2F7 /* Build configuration list for PBXNativeTarget "Notification Service Extension" */;
 			buildPhases = (
+				5EA4A9050000000000000012 /* Build SeamNseCrypto */,
 				C146954E2E642D400075F2F7 /* Sources */,
 				C146954F2E642D400075F2F7 /* Frameworks */,
 				C14695502E642D400075F2F7 /* Resources */,
@@ -456,6 +457,27 @@
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
+		};
+		5EA4A9050000000000000012 /* Build SeamNseCrypto */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/seam_nse_crypto/Cargo.toml",
+				"$(SRCROOT)/seam_nse_crypto/Cargo.lock",
+				"$(SRCROOT)/seam_nse_crypto/src/lib.rs",
+				"$(SRCROOT)/seam_nse_crypto/include/seam_nse_crypto.h",
+				"$(SRCROOT)/seam_nse_crypto/build_xcframework.sh",
+			);
+			name = "Build SeamNseCrypto";
+			outputPaths = (
+				"$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64/libseam_nse_crypto.a",
+				"$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64-simulator/libseam_nse_crypto.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$SRCROOT/seam_nse_crypto/build_xcframework.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -936,6 +958,13 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.threeonetwo.seam.nse;
+				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = "$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64";
+				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64-simulator";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lseam_nse_crypto",
+				);
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/seam_nse_crypto/include";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
@@ -978,6 +1007,13 @@
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.threeonetwo.seam.nse;
+				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = "$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64";
+				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64-simulator";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lseam_nse_crypto",
+				);
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/seam_nse_crypto/include";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1018,6 +1054,13 @@
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.threeonetwo.seam.nse;
+				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = "$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64";
+				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64-simulator";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lseam_nse_crypto",
+				);
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/seam_nse_crypto/include";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
