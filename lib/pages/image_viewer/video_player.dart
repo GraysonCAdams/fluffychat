@@ -29,6 +29,15 @@ class EventVideoPlayer extends StatefulWidget {
 
   const EventVideoPlayer(this.event, {this.startAt, super.key});
 
+  /// Downloads [event]'s video and opens a player on it. Tests swap in a
+  /// fake.
+  @visibleForTesting
+  static Future<VideoPlayerController> Function(
+    Event event,
+    void Function(double? progress) onProgress,
+  )
+  load = videoControllerForEvent;
+
   @override
   EventVideoPlayerState createState() => EventVideoPlayerState();
 }
@@ -48,7 +57,7 @@ class EventVideoPlayerState extends State<EventVideoPlayer> {
     }
 
     try {
-      final videoPlayerController = await videoControllerForEvent(
+      final videoPlayerController = await EventVideoPlayer.load(
         widget.event,
         (progress) {
           if (mounted) setState(() => _downloadProgress = progress);
