@@ -39,11 +39,7 @@ class IntroPage extends StatefulWidget {
     required this.hasPresetHomeserver,
     required this.welcomeText,
     required this.login,
-    this.addingAccount = false,
   });
-
-  /// Shown from Settings to add an account next to one already signed in.
-  final bool addingAccount;
 
   /// Whether this run of the app has already shown the morph.
   @visibleForTesting
@@ -262,18 +258,6 @@ class _WelcomeBody extends StatelessWidget {
                           ],
                         ),
                       ),
-                      if (!page.isLoading && page.addingAccount)
-                        PositionedDirectional(
-                          top: padding.top + 4,
-                          start: 4,
-                          child: Opacity(
-                            opacity: rest,
-                            child: CloseButton(
-                              color: Colors.white,
-                              onPressed: () => context.go('/rooms'),
-                            ),
-                          ),
-                        ),
                       if (!page.isLoading)
                         PositionedDirectional(
                           top: padding.top + 4,

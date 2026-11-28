@@ -4834,5 +4834,43 @@
   "done": "Done",
   "@done": {
     "description": "Closes a finished verification."
+  },
+  "accounts": "Accounts",
+  "@accounts": {
+    "description": "Title of Settings > Accounts and of its row in Settings."
+  },
+  "settingsAccountsSummary": "Switch, or sign in to another account",
+  "@settingsAccountsSummary": {
+    "description": "Subtitle of the Accounts row in Settings."
+  },
+  "addAccountAnyServer": "On this server or another one",
+  "@addAccountAnyServer": {
+    "description": "Subtitle of Add account in Settings > Accounts."
+  },
+  "alreadySignedInHere": "You're already signed in to this account on this device.",
+  "@alreadySignedInHere": {
+    "description": "Notice on the add-account server step when the typed Matrix ID is already signed in."
+  },
+  "switchToIt": "Switch",
+  "@switchToIt": {
+    "description": "Action of the already-signed-in notice: switches to that account."
+  },
+  "accountAddedTitle": "Account added",
+  "@accountAddedTitle": {
+    "description": "Headline after adding another account."
+  },
+  "accountAddedBody": "{userId} is ready. Switch accounts from your picture in the chat list, or in Settings > Accounts.",
+  "@accountAddedBody": {
+    "description": "Body after adding another account.",
+    "type": "String",
+    "placeholders": {
+      "userId": {
+        "type": "String"
+      }
+    }
+  },
+  "openItsChats": "Open its chats",
+  "@openItsChats": {
+    "description": "Primary button after adding another account."
   }
 }

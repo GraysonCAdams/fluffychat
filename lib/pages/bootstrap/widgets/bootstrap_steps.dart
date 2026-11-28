@@ -361,18 +361,23 @@ class CheckKeyStep extends StatelessWidget {
   }
 }
 
-/// A status step that ends the flow: set up, or this device confirmed.
+/// A status step that ends the flow: set up, this device confirmed, or
+/// an account added.
 class FinishedStep extends StatelessWidget {
   final BootstrapViewModel viewModel;
   final String headline;
   final String body;
   final IconData icon;
 
+  /// The button's label; Start chatting unless given.
+  final String? actionLabel;
+
   const FinishedStep(
     this.viewModel, {
     required this.headline,
     required this.body,
     required this.icon,
+    this.actionLabel,
     super.key,
   });
 
@@ -387,7 +392,7 @@ class FinishedStep extends StatelessWidget {
     body: body,
     primary: FilledButton(
       onPressed: () => viewModel.goToRoomsPageAfterSuccess(context),
-      child: Text(L10n.of(context).startChatting),
+      child: Text(actionLabel ?? L10n.of(context).startChatting),
     ),
   );
 }

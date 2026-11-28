@@ -16,29 +16,56 @@ import 'package:material_ui/material_ui.dart';
 /// Encryption setup after sign-in: a new account creates and saves its
 /// recovery key; a new device of an existing account is confirmed by
 /// another device or the recovery key. [reset] starts over with a new
-/// identity (from Settings, or "Can't confirm?").
+/// identity (from Settings, or "Can't confirm?"). After [accountAdded]
+/// (signing in next to another account) the steps end on "Account added".
 class BootstrapPage extends StatelessWidget {
   final bool reset;
-  const BootstrapPage({required this.reset, super.key});
+  final bool accountAdded;
+  const BootstrapPage({
+    required this.reset,
+    this.accountAdded = false,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ViewModelBuilder(
       create: () =>
           BootstrapViewModel(client: Matrix.of(context).client, reset: reset),
-      builder: (context, viewModel, _) => BootstrapStepView(viewModel),
+      builder: (context, viewModel, _) =>
+          BootstrapStepView(viewModel, accountAdded: accountAdded),
     );
   }
 }
 
 class BootstrapStepView extends StatelessWidget {
   final BootstrapViewModel viewModel;
-  const BootstrapStepView(this.viewModel, {super.key});
+  final bool accountAdded;
+  const BootstrapStepView(
+    this.viewModel, {
+    this.accountAdded = false,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final step = viewModel.step;
+
+    if (accountAdded &&
+        const {
+          BootstrapStep.setupDone,
+          BootstrapStep.confirmed,
+          BootstrapStep.leave,
+        }.contains(step)) {
+      return FinishedStep(
+        viewModel,
+        icon: Icons.person_add_alt_1_rounded,
+        headline: l10n.accountAddedTitle,
+        body: l10n.accountAddedBody(viewModel.client.userID ?? ''),
+        actionLabel: l10n.openItsChats,
+      );
+    }
 
     if (step == BootstrapStep.leave) {
       WidgetsBinding.instance.addPostFrameCallback(

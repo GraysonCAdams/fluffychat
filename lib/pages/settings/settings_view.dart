@@ -153,12 +153,11 @@ class SettingsView extends StatelessWidget {
                                 );
                               },
                             ),
-                            SettingsTile(
-                              leading: const Icon(Icons.person_add_outlined),
-                              title: Text(l10n.addAccount),
-                              subtitle: Text(l10n.settingsAddAccountSummary),
-                              onTap: () =>
-                                  context.go('/rooms/settings/addaccount'),
+                            page(
+                              Icons.switch_account_outlined,
+                              l10n.accounts,
+                              l10n.settingsAccountsSummary,
+                              '/rooms/settings/accounts',
                             ),
                           ],
                         ),

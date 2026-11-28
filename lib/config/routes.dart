@@ -25,6 +25,7 @@ import 'package:fluffychat/pages/new_group/new_group.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
 import 'package:fluffychat/pages/settings/settings.dart';
 import 'package:fluffychat/pages/settings_3pid/settings_3pid.dart';
+import 'package:fluffychat/pages/settings_accounts/settings_accounts.dart';
 import 'package:fluffychat/pages/settings_chat/settings_chat.dart';
 import 'package:fluffychat/pages/settings_chat/settings_swipe_actions.dart';
 import 'package:fluffychat/pages/settings_emotes/settings_emotes.dart';
@@ -138,7 +139,10 @@ abstract class AppRoutes {
       pageBuilder: (context, state) => onboardingPageBuilder(
         context,
         state,
-        BootstrapPage(reset: state.uri.queryParameters['reset'] == 'true'),
+        BootstrapPage(
+          reset: state.uri.queryParameters['reset'] == 'true',
+          accountAdded: state.uri.queryParameters['added'] == 'true',
+        ),
       ),
     ),
     ShellRoute(
@@ -347,7 +351,7 @@ abstract class AppRoutes {
                       pageBuilder: (context, state) => onboardingPageBuilder(
                         context,
                         state,
-                        const IntroPagePresenter(),
+                        SignInPage(signUp: false),
                       ),
                       routes: [
                         GoRoute(
@@ -397,6 +401,15 @@ abstract class AppRoutes {
                           redirect: loggedOutRedirect,
                         ),
                       ],
+                    ),
+                    GoRoute(
+                      path: 'accounts',
+                      pageBuilder: (context, state) => defaultPageBuilder(
+                        context,
+                        state,
+                        const SettingsAccounts(),
+                      ),
+                      redirect: loggedOutRedirect,
                     ),
                     GoRoute(
                       path: 'homeserver',

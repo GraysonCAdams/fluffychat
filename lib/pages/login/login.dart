@@ -128,7 +128,7 @@ class LoginController extends State<Login> {
         initialDeviceDisplayName: PlatformInfos.appDisplayName,
       );
       if (mounted) {
-        context.go('/backup');
+        context.go(Matrix.of(context).afterSignInLocation);
       }
     } catch (exception, s) {
       Logs().d('Password sign-in failed', exception, s);

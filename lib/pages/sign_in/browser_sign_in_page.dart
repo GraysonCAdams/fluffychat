@@ -9,6 +9,7 @@ import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/sign_in_flows/oidc_login.dart';
 import 'package:fluffychat/utils/sign_in_flows/sign_in_method.dart';
 import 'package:fluffychat/utils/sign_in_flows/sso_login.dart';
+import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/onboarding/onboarding_step.dart';
 import 'package:fluffychat/widgets/onboarding/server_chip.dart';
 import 'package:fluffychat/widgets/seam_stitch_loader.dart';
@@ -89,7 +90,7 @@ class BrowserSignInPageState extends State<BrowserSignInPage> {
       if (attempt != _attempt || !mounted) return;
       await AppSettings.defaultHomeserver.setItem(widget.args.homeserverInput);
       if (!mounted || kIsWeb) return;
-      context.go('/backup');
+      context.go(Matrix.of(context).afterSignInLocation);
     } catch (e, s) {
       if (attempt != _attempt || !mounted) return;
       // Closing the browser without finishing is not an error.

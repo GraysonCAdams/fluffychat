@@ -6,6 +6,7 @@
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/intro/flows/restore_backup_flow.dart';
 import 'package:fluffychat/pages/sign_in/view_model/model/public_homeserver_data.dart';
 import 'package:fluffychat/pages/sign_in/view_model/sign_in_state.dart';
 import 'package:fluffychat/pages/sign_in/view_model/sign_in_view_model.dart';
@@ -28,16 +29,22 @@ class SignInPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final matrix = Matrix.of(context);
-    final signedInUserId = matrix.widget.clients
+    final signedIn = matrix.widget.clients
         .where((client) => client.isLogged())
-        .firstOrNull
-        ?.userID;
+        .toList();
     return ViewModelBuilder(
       create: () => SignInViewModel(matrix, signUp: signUp),
       builder: (context, viewModel, _) => ServerStepView(
         viewModel: viewModel,
         signUp: signUp,
-        signedInUserId: signedInUserId,
+        signedInUserId: signedIn.isEmpty ? null : matrix.client.userID,
+        signedInUserIds: {for (final client in signedIn) ?client.userID},
+        onSwitchAccount: (userId) {
+          matrix.setActiveClient(
+            signedIn.firstWhere((client) => client.userID == userId),
+          );
+          context.go('/rooms');
+        },
       ),
     );
   }
@@ -47,13 +54,20 @@ class ServerStepView extends StatelessWidget {
   final SignInViewModel viewModel;
   final bool signUp;
 
-  /// The account already signed in, when this adds another one.
+  /// The account in use, when this adds another one.
   final String? signedInUserId;
+
+  /// Every account signed in on this device, so typing one of them offers
+  /// to switch to it instead.
+  final Set<String> signedInUserIds;
+  final void Function(String userId)? onSwitchAccount;
 
   const ServerStepView({
     required this.viewModel,
     required this.signUp,
     this.signedInUserId,
+    this.signedInUserIds = const {},
+    this.onSwitchAccount,
     super.key,
   });
 
@@ -66,7 +80,9 @@ class ServerStepView extends StatelessWidget {
     final loading =
         state.loginLoading.connectionState == ConnectionState.waiting;
     final input = lookup.input;
-    final found = lookup.status == ServerLookupStatus.found;
+    final alreadySignedIn =
+        input?.matrixId != null && signedInUserIds.contains(input!.matrixId);
+    final found = lookup.status == ServerLookupStatus.found && !alreadySignedIn;
     // The server signed in to last; the default server until then,
     // except in the Play build, which recommends none.
     final remembered =
@@ -113,6 +129,20 @@ class ServerStepView extends StatelessWidget {
             )
           : BackButton(onPressed: Navigator.of(context).pop),
       appBarTitle: signedInUserId != null ? l10n.addAccount : null,
+      actions: [
+        // Restoring a backup file stays on hand when adding an account, as
+        // on the welcome page.
+        if (signedInUserId != null)
+          PopupMenuButton(
+            tooltip: l10n.moreOptions,
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                onTap: () => restoreBackupFlow(context),
+                child: Text(l10n.hydrate),
+              ),
+            ],
+          ),
+      ],
       headline: headline,
       body: body,
       content: [
@@ -160,7 +190,14 @@ class ServerStepView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        if (lookup.status == ServerLookupStatus.checking && input != null)
+        if (alreadySignedIn)
+          OnboardingNotice(
+            icon: Icons.info_outline,
+            text: l10n.alreadySignedInHere,
+            actionLabel: l10n.switchToIt,
+            onAction: () => onSwitchAccount?.call(input.matrixId!),
+          )
+        else if (lookup.status == ServerLookupStatus.checking && input != null)
           OnboardingNotice(
             icon: Icons.travel_explore,
             text: l10n.lookingForServer(input.label),
@@ -217,7 +254,7 @@ class ServerStepView extends StatelessWidget {
                 ? null
                 : () => context.go(
                     signUp
-                        ? '/rooms/settings/addaccount/sign_in'
+                        ? '/rooms/settings/addaccount'
                         : '/rooms/settings/addaccount/sign_up',
                   ),
             child: Text(

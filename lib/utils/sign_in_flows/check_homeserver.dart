@@ -51,11 +51,14 @@ Future<void> connectToHomeserverFlow(
     if (!context.mounted) return;
 
     // The next step lives beside this one: /home/sign_in leads to
-    // /home/login, /rooms/settings/addaccount/sign_in to .../login.
+    // /home/login, /rooms/settings/addaccount (or its sign_up) to
+    // /rooms/settings/addaccount/login.
     final pathSegments = List.of(
       GoRouter.of(context).routeInformationProvider.value.uri.pathSegments,
     );
-    if (pathSegments.last != 'home') pathSegments.removeLast();
+    if (const {'sign_in', 'sign_up'}.contains(pathSegments.last)) {
+      pathSegments.removeLast();
+    }
     final basePath = '/${pathSegments.join('/')}';
 
     if (method.usesBrowser) {
