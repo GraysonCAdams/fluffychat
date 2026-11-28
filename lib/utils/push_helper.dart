@@ -19,9 +19,9 @@ import 'package:fluffychat/utils/fallback_avatar_image.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
-import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/utils/notification_avatar_extension.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
+import 'package:fluffychat/utils/notification_body.dart';
 import 'package:fluffychat/utils/notification_media.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/one_time_code.dart';
@@ -198,23 +198,9 @@ Future<void> _tryPushHelper(
     return;
   }
 
-  final matrixLocals = MatrixLocals(l10n);
-
-  // Calculate the body
   final body = event.type == EventTypes.Encrypted
       ? l10n.newMessageInFluffyChat
-      // An effect that hides the message keeps it out of the notification.
-      : effectPreviewOf(event, l10n) ??
-            // A picture that comes as an edit of a placeholder reads as the
-            // picture, not as the edit's own fallback text.
-            (hasNotificationMedia(event) ? effectiveEvent(event) : event)
-                .calcLocalizedBody(
-                  matrixLocals,
-                  plaintextBody: true,
-                  hideReply: true,
-                  hideEdit: true,
-                  removeMarkdown: true,
-                );
+      : notificationBodyOf(event, l10n);
 
   // The person object for the android message style notification
   final avatar = event.room.chatAvatar;
