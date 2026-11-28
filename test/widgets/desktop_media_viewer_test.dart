@@ -156,11 +156,7 @@ void main() {
   /// list under the title bar, and the viewer open over it on the video
   /// (or, with [video] false, the photo) of a picture, a video and a
   /// picture.
-  Future<void> open(
-    WidgetTester tester,
-    Size size, {
-    bool video = true,
-  }) async {
+  Future<void> open(WidgetTester tester, Size size, {bool video = true}) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
@@ -200,7 +196,10 @@ void main() {
       media(2, MessageTypes.Video),
       media(1, MessageTypes.Image),
     ];
-    final timeline = Timeline(room: room, chunk: TimelineChunk(events: events));
+    final timeline = Timeline(
+      room: room,
+      chunk: TimelineChunk(events: events),
+    );
     unawaited(
       showImageViewer(
         tester.element(find.byType(ChatList)),
@@ -212,9 +211,10 @@ void main() {
   }
 
   Future<void> finish(WidgetTester tester) async {
-    for (final controller in tester
-        .widgetList<VideoPlayer>(find.byType(VideoPlayer))
-        .map((player) => player.controller)) {
+    for (final controller
+        in tester
+            .widgetList<VideoPlayer>(find.byType(VideoPlayer))
+            .map((player) => player.controller)) {
       await controller.pause();
     }
     debugDefaultTargetPlatformOverride = null;
@@ -295,8 +295,7 @@ void main() {
           matching: find.byWidgetPredicate(
             (widget) =>
                 widget is CustomPaint &&
-                widget.painter.runtimeType.toString() ==
-                    '_CaptionGlyphPainter',
+                widget.painter.runtimeType.toString() == '_CaptionGlyphPainter',
           ),
         );
         expect(glyphs, findsNWidgets(3));

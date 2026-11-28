@@ -88,7 +88,11 @@ void main() {
   late Room room;
   late _FakeVideoPlayerPlatform platform;
 
+  // The phone's layout, whatever the machine running the tests.
+  tearDownAll(() => ImageViewer.debugDesktopLayout = null);
+
   setUpAll(() async {
+    ImageViewer.debugDesktopLayout = false;
     // Blur hashes stand in for posters, which would need a real file.
     SharedPreferences.setMockInitialValues({
       AppSettings.showThumbnailsInTimeline.key: false,

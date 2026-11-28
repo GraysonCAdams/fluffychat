@@ -22,6 +22,10 @@ void main() {
   late FakeChatListClient client;
   late FakeChatListRoom room;
 
+  // The phone's layout, whatever the machine running the tests.
+  setUpAll(() => ImageViewer.debugDesktopLayout = false);
+  tearDownAll(() => ImageViewer.debugDesktopLayout = null);
+
   setUp(() async {
     client = await setUpFakeChatList('media viewer');
     room = addFakeChat(client, '!mia:x', 'Mia', partner: '@mia:x');
@@ -127,11 +131,7 @@ void main() {
     ]);
     expect(viewer.currentIndex, 1);
 
-    await tester.fling(
-      find.byType(PageView),
-      const Offset(-600, 0),
-      2000,
-    );
+    await tester.fling(find.byType(PageView), const Offset(-600, 0), 2000);
     await settle(tester);
     expect(viewer.currentIndex, 2);
 

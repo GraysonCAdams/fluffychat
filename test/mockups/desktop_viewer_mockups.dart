@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// ignore_for_file: deprecated_member_use
+
 // Mockups of a desktop media viewer, three layouts of the same parts, drawn
 // with the app's dark theme and Material widgets. Nothing here is wired to
 // a player or a timeline: [MockViewerState] holds what a frame shows, and

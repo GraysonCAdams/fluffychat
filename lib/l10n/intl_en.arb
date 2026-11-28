@@ -4927,5 +4927,49 @@
   "matrixFeatureTriggerRoleBadges": "shows in plain Matrix rooms, not bridged chats",
   "@matrixFeatureTriggerRoleBadges": {
     "description": "Why the moderator and admin badges show in auto mode: they are decided per chat."
+  },
+  "zoomIn": "Zoom in",
+  "@zoomIn": {
+    "description": "Tooltip of the media viewer's button that enlarges the picture."
+  },
+  "zoomOut": "Zoom out",
+  "@zoomOut": {
+    "description": "Tooltip of the media viewer's button that shrinks the picture."
+  },
+  "fitToWindow": "Fit to window",
+  "@fitToWindow": {
+    "description": "Tooltip of the media viewer's zoom percentage, a click on which fits the picture to the window again."
+  },
+  "fitShort": "Fit",
+  "@fitShort": {
+    "description": "Shown in place of a zoom percentage in the media viewer while the picture fits the window. Keep it very short."
+  },
+  "showThumbnails": "Show thumbnails",
+  "@showThumbnails": {
+    "description": "Tooltip of the media viewer's button that shows the strip of the chat's pictures and videos."
+  },
+  "hideThumbnails": "Hide thumbnails",
+  "@hideThumbnails": {
+    "description": "Tooltip of the media viewer's button that hides the strip of the chat's pictures and videos."
+  },
+  "playbackSpeed": "Playback speed",
+  "@playbackSpeed": {
+    "description": "Tooltip of the media viewer's menu of video speeds."
+  },
+  "fullScreen": "Full screen",
+  "@fullScreen": {
+    "description": "Tooltip of the media viewer's button that makes the window cover the whole screen."
+  },
+  "exitFullScreen": "Exit full screen",
+  "@exitFullScreen": {
+    "description": "Tooltip of the media viewer's button that takes the window out of full screen."
+  },
+  "mediaPosition": "{index} of {count}",
+  "@mediaPosition": {
+    "description": "Which of the chat's pictures and videos the media viewer shows, as in 3 of 12.",
+    "placeholders": {
+      "index": {"type": "int"},
+      "count": {"type": "int"}
+    }
   }
 }
