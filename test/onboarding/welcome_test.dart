@@ -73,8 +73,11 @@ void main() {
     // As the start screen left it: the mark at the loader's size, centred.
     expect(markSize(tester), SeamStartup.loaderSize);
     expect(tester.getCenter(find.byType(SeamMark)), const Offset(180, 400));
-    // All white, as the loader draws it.
-    expect(tester.widget<SeamMark>(find.byType(SeamMark)).pale, Colors.white);
+    // In the duotone, as the loader draws it.
+    expect(
+      tester.widget<SeamMark>(find.byType(SeamMark)).pale,
+      SeamStitchPainter.periwinkle,
+    );
     await tester.pumpAndSettle();
     // The mark keeps the loader's size and rises above the sheet.
     expect(markSize(tester), SeamStartup.loaderSize);

@@ -20,12 +20,13 @@ import 'package:material_ui/material_ui.dart';
 /// [onLanded] and crossfades to [settled] (if given). With reduced motion
 /// it shows the logo pose and does not move.
 ///
-/// The mark is drawn in one [color], with stitches and gaps cut out so that
+/// The mark is drawn in [color], with stitches and gaps cut out so that
 /// whatever is behind shows through: white on Seam Cobalt for the start
 /// screen, as the app icon has it, or the glyph's faint colour on the
-/// surface for the desktop's empty pane. [pale] optionally fills the upper
-/// piece of fabric in a second colour (the two-tone mark of the design
-/// prototype, [SeamStitchPainter.periwinkle]).
+/// surface for the desktop's empty pane. [pale] fills the piece of fabric
+/// above the seam, as the brand's two-tone mark has it: see
+/// [SeamStitchPainter.periwinkle], [SeamStitchPainter.lighter] and
+/// [SeamStitchPainter.faded] for the colour to pass.
 ///
 /// The mark is laid out as in the app icon and the glyph assets: a square
 /// [size] box holds the icon's 432-unit artboard, so `seam_glyph.png` at the
@@ -382,9 +383,13 @@ class SeamStitchMotion {
 
 /// Paints [motion]'s current pose.
 ///
-/// Everything is painted in one ink in a layer of its own, and outlines,
+/// Everything is painted in [ink] in a layer of its own, and outlines,
 /// stitches and gaps are erased from it, so whatever is behind shows
 /// through. [pale], when given, fills the bubble above the seam.
+///
+/// The colours follow brand/BRAND.md: [periwinkle] with a white bubble on
+/// cobalt, [lighter] with a coloured bubble on a surface, [faded] with a
+/// neutral glyph that stands in for a tinted `seam_glyph.png`.
 class SeamStitchPainter extends CustomPainter {
   final SeamStitchMotion motion;
   final Color ink;
@@ -397,7 +402,19 @@ class SeamStitchPainter extends CustomPainter {
     super.repaint,
   });
 
+  /// Seam Pale: the piece above the seam when the bubble is white.
   static const Color periwinkle = Color(0xFF9ABAF0);
+
+  /// The piece above the seam for a bubble in [ink]: [ink] 30% of the way
+  /// to white on a light surface (cobalt gives the brand's #5F8CE3), 45% on
+  /// a dark one, where the theme's primary is already light.
+  static Color lighter(Color ink, {required bool dark}) =>
+      Color.lerp(ink, Colors.white, dark ? .45 : .3)!;
+
+  /// The piece above the seam for a one-colour glyph: [ink] at 55% opacity,
+  /// as the glyph assets draw it, so the mark matches `seam_glyph.png`
+  /// tinted the same colour.
+  static Color faded(Color ink) => ink.withValues(alpha: ink.a * .55);
 
   static final Path _ellipse = Path()
     ..addOval(
@@ -413,13 +430,14 @@ class SeamStitchPainter extends CustomPainter {
     _ellipse,
     _tailShape,
   );
-  static final Path _pale = Path()
+  // the region below the seam (BELOW in brand/source/seam_mark.py)
+  static final Path _below = Path()
     ..moveTo(86, 212)
     ..cubicTo(150, 226, 196, 214, 230, 200)
     ..cubicTo(266, 186, 316, 178, 346, 188)
     ..lineTo(470, 188)
-    ..lineTo(470, -20)
-    ..lineTo(-20, -20)
+    ..lineTo(470, 470)
+    ..lineTo(-20, 470)
     ..lineTo(-20, 212)
     ..close();
   static final Path _needle = () {
@@ -521,13 +539,17 @@ class SeamStitchPainter extends CustomPainter {
     canvas.drawPath(_shape, erase);
     canvas.drawPath(_ellipse, stroke(erase, 30));
     canvas.drawPath(_tailShape, stroke(erase, 30));
-    // bubble
-    canvas.drawPath(_shape, ink);
+    // bubble: with [pale], the whole bubble in pale and the piece below the
+    // seam over it in ink, so a translucent pale replaces the ink above the
+    // seam rather than tinting it, and the halves meet without a hairline
     final pale = this.pale;
-    if (pale != null) {
+    if (pale == null) {
+      canvas.drawPath(_shape, ink);
+    } else {
+      canvas.drawPath(_shape, Paint()..color = pale);
       canvas.save();
-      canvas.clipPath(_shape);
-      canvas.drawPath(_pale, Paint()..color = pale);
+      canvas.clipPath(_below);
+      canvas.drawPath(_shape, ink);
       canvas.restore();
     }
     // stitches, cut out as far as each has been drawn

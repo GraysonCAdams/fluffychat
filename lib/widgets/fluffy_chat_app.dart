@@ -17,6 +17,7 @@ import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/windows_shell.dart';
 import 'package:fluffychat/widgets/app_lock.dart';
 import 'package:fluffychat/widgets/chat_windows_host.dart';
+import 'package:fluffychat/widgets/mac_menu_bar.dart';
 import 'package:fluffychat/widgets/theme_builder.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
@@ -149,6 +150,9 @@ class FluffyChatApp extends StatelessWidget {
             // displaying dialogs
             child: Matrix(clients: clients, store: store, child: content),
           );
+          if (PlatformInfos.isMacOS) {
+            return MacMenuBar(router: router, child: app);
+          }
           if (!PlatformInfos.isWindows) return app;
           return WindowsTitleBarSync(child: app);
         },

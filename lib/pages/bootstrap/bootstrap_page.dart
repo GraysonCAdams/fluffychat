@@ -91,6 +91,10 @@ class BootstrapStepView extends StatelessWidget {
           child: SeamStitchLoader(
             size: 120,
             color: Theme.of(context).colorScheme.primary,
+            pale: SeamStitchPainter.lighter(
+              Theme.of(context).colorScheme.primary,
+              dark: Theme.of(context).brightness == Brightness.dark,
+            ),
           ),
         ),
         headline: l10n.loadingPleaseWait,

@@ -9,6 +9,7 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/seam_mark.dart';
+import 'package:fluffychat/widgets/seam_stitch_loader.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -73,7 +74,10 @@ class LoginScaffold extends StatelessWidget {
                 child: IgnorePointer(
                   child: Opacity(
                     opacity: theme.brightness == Brightness.dark ? .07 : .10,
-                    child: const SeamMark(size: 620),
+                    child: SeamMark(
+                      size: 620,
+                      pale: SeamStitchPainter.faded(Colors.white),
+                    ),
                   ),
                 ),
               ),

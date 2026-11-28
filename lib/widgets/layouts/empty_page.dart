@@ -14,7 +14,7 @@ import 'package:matrix/matrix.dart';
 /// The pane beside the chat list when no chat is open: the Seam glyph, faint
 /// on the surface. While the client has not finished its first sync (when
 /// the chat list shows its loading rows) the glyph sews, as a
-/// [SeamStitchLoader] in the glyph's colour; when the sync is done it finishes its pass and
+/// [SeamStitchLoader] in the glyph's colours; when the sync is done it finishes its pass and
 /// crossfades to the still glyph.
 class EmptyPage extends StatefulWidget {
   static const double _width = 400;
@@ -82,6 +82,9 @@ class _EmptyPageState extends State<EmptyPage> {
             ? SeamStitchLoader(
                 size: width,
                 color: theme.colorScheme.surfaceContainerHigh,
+                pale: SeamStitchPainter.faded(
+                  theme.colorScheme.surfaceContainerHigh,
+                ),
                 loading: _loading,
                 settled: glyph,
               )

@@ -350,18 +350,24 @@ class MatrixState extends State<Matrix> {
         client: c,
       ),
     );
-    if (PlatformInfos.isWindows) {
+    if (PlatformInfos.isWindows || PlatformInfos.isMacOS) {
       onTaskbarBadge[name] ??= c.onSync.stream.listen(
         (_) => _updateTaskbarBadge(),
       );
     }
   }
 
+  /// Shows the number of unread chats on the Windows taskbar button or the
+  /// macOS Dock icon.
   void _updateTaskbarBadge() {
     if (!mounted) return;
     final unreadChats = widget.clients
         .map((c) => c.rooms.where((r) => r.isUnreadOrInvited).length)
         .sum;
+    if (PlatformInfos.isMacOS) {
+      updateAppBadge(unreadChats);
+      return;
+    }
     updateWindowsTaskbarBadge(context, unreadChats);
   }
 

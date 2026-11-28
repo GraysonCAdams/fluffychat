@@ -353,7 +353,7 @@ class _TwoPaneWelcome extends StatelessWidget {
 /// it, or, while signing in, the stitch loader and what it is waiting for.
 ///
 /// [rest] runs from 0 to 1 as the words come in: at 0 only the mark shows,
-/// all white as the loader leaves it.
+/// as the loader leaves it.
 class _WelcomeHero extends StatelessWidget {
   final IntroPage page;
   final double markSize, rest;
@@ -386,14 +386,13 @@ class _WelcomeHero extends StatelessWidget {
         SizedBox.square(
           dimension: markSize,
           child: page.isLoading
-              ? SeamStitchLoader(size: markSize)
+              ? SeamStitchLoader(
+                  size: markSize,
+                  pale: SeamStitchPainter.periwinkle,
+                )
               : SeamMark(
                   size: markSize,
-                  pale: Color.lerp(
-                    Colors.white,
-                    SeamStitchPainter.periwinkle,
-                    rest,
-                  ),
+                  pale: SeamStitchPainter.periwinkle,
                 ),
         ),
         if (page.isLoading)

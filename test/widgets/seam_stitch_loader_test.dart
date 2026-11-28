@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:fluffychat/widgets/layouts/empty_page.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -48,7 +49,100 @@ Widget host(Widget child, {bool reduced = false}) => MaterialApp(
   ),
 );
 
+/// The colour at ([x], [y]) of the still mark painted at 432 px (one pixel per
+/// artboard unit) over [background].
+Future<Color> markPixel(
+  Color background,
+  Color ink,
+  Color? pale,
+  int x,
+  int y,
+) async {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(
+    recorder,
+  )..drawRect(const Rect.fromLTWH(0, 0, 432, 432), Paint()..color = background);
+  SeamStitchPainter(
+    motion: SeamStitchMotion()..land(),
+    ink: ink,
+    pale: pale,
+  ).paint(canvas, const Size.square(432));
+  final image = await recorder.endRecording().toImage(432, 432);
+  final data = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+  final i = (y * 432 + x) * 4;
+  return Color.fromARGB(
+    data.getUint8(i + 3),
+    data.getUint8(i),
+    data.getUint8(i + 1),
+    data.getUint8(i + 2),
+  );
+}
+
 void main() {
+  group('two tones', () {
+    const cobalt = Color(0xFF1A5AD7);
+    // artboard (216, 150) above the seam and (216, 260) below it, through the
+    // mark's .81 frame
+    const above = (216, 171), below = (216, 260);
+
+    test('the piece above the seam takes pale, the rest the ink', () async {
+      final up = await markPixel(
+        cobalt,
+        Colors.white,
+        SeamStitchPainter.periwinkle,
+        above.$1,
+        above.$2,
+      );
+      final down = await markPixel(
+        cobalt,
+        Colors.white,
+        SeamStitchPainter.periwinkle,
+        below.$1,
+        below.$2,
+      );
+      expect(up, SeamStitchPainter.periwinkle);
+      expect(down, Colors.white);
+    });
+
+    test('a faded pale replaces the ink rather than tinting it', () async {
+      const surface = Color(0xFF000000);
+      final up = await markPixel(
+        surface,
+        Colors.white,
+        SeamStitchPainter.faded(Colors.white),
+        above.$1,
+        above.$2,
+      );
+      // white at 55% over black, not white
+      expect((up.r * 255).round(), closeTo(140, 2));
+    });
+
+    test('without pale the mark is one colour', () async {
+      final up = await markPixel(
+        cobalt,
+        Colors.white,
+        null,
+        above.$1,
+        above.$2,
+      );
+      expect(up, Colors.white);
+    });
+
+    test('lighter is cobalt 30% to white on light, 45% on dark', () {
+      expect(
+        SeamStitchPainter.lighter(cobalt, dark: false).toARGB32(),
+        0xFF5F8CE3,
+      );
+      expect(
+        SeamStitchPainter.lighter(
+          const Color(0xFF84AAFF),
+          dark: true,
+        ).toARGB32(),
+        0xFFBBD0FF,
+      );
+    });
+  });
+
   group('motion', () {
     test('the logo pose has every stitch drawn and nothing moving', () {
       final m = SeamStitchMotion()..land();
@@ -206,18 +300,20 @@ void main() {
       expect(find.byType(Image), findsOneWidget);
     });
 
-    testWidgets('sews in the glyph colour until the first sync is done', (
+    testWidgets('sews in the glyph colours until the first sync is done', (
       tester,
     ) async {
       await pumpPane(tester);
       final loader = tester.widget<SeamStitchLoader>(
         find.byType(SeamStitchLoader),
       );
-      expect(loader.pale, isNull);
-      expect(
-        loader.color,
-        ThemeData(useMaterial3: true).colorScheme.surfaceContainerHigh,
-      );
+      final glyph = ThemeData(
+        useMaterial3: true,
+      ).colorScheme.surfaceContainerHigh;
+      expect(loader.color, glyph);
+      // the upper half fainter, as seam_glyph.png draws it
+      expect(loader.pale, SeamStitchPainter.faded(glyph));
+      expect(loader.pale!.a, closeTo(glyph.a * .55, 1e-6));
       expect(loader.loading, isTrue);
 
       client.finishSync();

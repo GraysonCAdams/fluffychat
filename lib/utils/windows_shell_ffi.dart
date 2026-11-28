@@ -442,8 +442,9 @@ abstract final class WindowsDesktop {
   static const _runKey = r'Software\Microsoft\Windows\CurrentVersion\Run';
   static const _runValueName = seamRunValueName;
 
-  /// The glyph alone, white on the dark taskbar and Seam's cobalt on a light
-  /// one.
+  /// The needle-free glyph in two tones: white with a fainter upper half on
+  /// the dark taskbar, Seam's cobalt with a lighter cobalt upper half on a
+  /// light one.
   static const _trayIcon = 'assets/seam/tray_icon.ico';
   static const _trayIconLightTaskbar =
       'assets/seam/tray_icon_light_taskbar.ico';
