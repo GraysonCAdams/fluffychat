@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -105,7 +105,6 @@ class _ReadOnlyConversationState extends State<ReadOnlyConversation> {
     if (events.isEmpty) {
       return ConversationEmptyHistory(text: L10n.of(context).noMessagesYet);
     }
-    final colors = [theme.secondaryBubbleColor, theme.bubbleColor];
     final now = DateTime.now();
     return ListView.builder(
       key: widget.listKey,
@@ -162,8 +161,8 @@ class _ReadOnlyConversationState extends State<ReadOnlyConversation> {
                 singleSelected: false,
                 hideReactionPicker: true,
                 timeline: timeline,
-                scrollController: _scrollController,
-                colors: colors,
+                // The user's bubbles take the colour they have in the chat.
+                networkColor: NetworkColors.bubbleColorOf(event.room),
               ),
             ),
           ],

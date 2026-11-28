@@ -9,7 +9,6 @@ import 'package:fluffychat/pages/chat/chat_input_row.dart';
 import 'package:fluffychat/pages/chat/composer_attachments.dart';
 import 'package:fluffychat/pages/chat/network_switcher_chips.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
-import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/new_chat/new_chat_search.dart';
 import 'package:fluffychat/utils/new_chat/new_group.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -467,10 +466,9 @@ class ComposeBar extends StatelessWidget {
     final networkColor = AppSettings.networkBubbleColors.value
         ? controller.selectedNetwork?.color
         : null;
-    final sendBackground = networkColor ?? theme.bubbleColor;
-    final sendForeground = networkColor == null
-        ? theme.onBubbleColor
-        : NetworkColors.foregroundOn(networkColor);
+    final (sendBackground, sendForeground) = theme.ownBubbleColors(
+      networkColor,
+    );
     return SafeArea(
       top: false,
       child: Padding(

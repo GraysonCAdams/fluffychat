@@ -146,8 +146,6 @@ void main() {
                     singleSelected: false,
                     hideReactionPicker: true,
                     timeline: timeline,
-                    scrollController: scrollController,
-                    colors: const [Colors.blue, Colors.blue],
                   ),
                 ],
               ),

@@ -4,7 +4,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:math';
-import 'dart:ui' as ui;
 
 import 'package:collection/collection.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
@@ -75,15 +74,14 @@ class Message extends StatelessWidget {
   final bool highlightMarker;
   final bool animateIn;
   final bool wallpaperMode;
-  final ScrollController scrollController;
-  final List<Color> colors;
 
   /// Shown beside the time in a merged contact's chat when this message is
   /// on a different network than the one before it.
   final Widget? networkBadge;
 
-  /// In a merged contact's chat, the colour of the network this message was
-  /// sent on. Replaces the theme's colour on the user's own bubbles, so the
+  /// The colour of the network this message was sent on, from
+  /// [NetworkColors.bubbleColorOf], or null for the theme's. The user's own
+  /// bubble is this one flat colour, so in a merged contact's chat the
   /// thread shows at a glance which network each of their messages used.
   final Color? networkColor;
   final Set<String> bigEmojis;
@@ -121,8 +119,6 @@ class Message extends StatelessWidget {
     this.animateIn = false,
     this.wallpaperMode = false,
     required this.onMention,
-    required this.scrollController,
-    required this.colors,
     this.networkBadge,
     this.networkColor,
     required this.enterThread,
@@ -176,8 +172,11 @@ class Message extends StatelessWidget {
     final onNetworkColor = networkColor == null
         ? null
         : NetworkColors.foregroundOn(networkColor);
+    final (ownBubbleColor, onOwnBubbleColor) = theme.ownBubbleColors(
+      networkColor,
+    );
     final textColor = ownMessage
-        ? onNetworkColor ?? theme.onBubbleColor
+        ? onOwnBubbleColor
         : theme.colorScheme.onSurface;
 
     final linkColor =
@@ -228,9 +227,7 @@ class Message extends StatelessWidget {
             !event.redacted);
 
     if (ownMessage) {
-      color = displayEvent.status.isError
-          ? Colors.redAccent
-          : networkColor ?? theme.bubbleColor;
+      color = displayEvent.status.isError ? Colors.redAccent : ownBubbleColor;
     }
 
     final sentReactions = <String>{};
@@ -734,126 +731,109 @@ class Message extends StatelessWidget {
                                                       ),
                                                       clipBehavior:
                                                           Clip.antiAlias,
-                                                      child: BubbleBackground(
-                                                        // One flat colour for a network bubble,
-                                                        // not the theme's gradient.
-                                                        colors:
-                                                            networkColor == null
-                                                            ? colors
-                                                            : [
-                                                                networkColor,
-                                                                networkColor,
-                                                              ],
-                                                        ignore:
-                                                            noBubble ||
-                                                            !ownMessage ||
-                                                            MediaQuery.highContrastOf(
-                                                              context,
-                                                            ),
-                                                        scrollController:
-                                                            scrollController,
-                                                        child: BubbleHighlight(
-                                                          active:
-                                                              highlightMarker,
-                                                          overContent: noBubble,
-                                                          child: Container(
-                                                            decoration: BoxDecoration(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    AppConfig
-                                                                        .borderRadius,
-                                                                  ),
-                                                            ),
-                                                            constraints:
-                                                                const BoxConstraints(
-                                                                  maxWidth: 325,
+                                                      child: BubbleHighlight(
+                                                        active: highlightMarker,
+                                                        overContent: noBubble,
+                                                        child: Container(
+                                                          decoration: BoxDecoration(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  AppConfig
+                                                                      .borderRadius,
                                                                 ),
-                                                            child: Column(
-                                                              mainAxisSize:
-                                                                  .min,
-                                                              crossAxisAlignment:
-                                                                  CrossAxisAlignment
-                                                                      .start,
-                                                              children: <Widget>[
-                                                                if (event.inReplyToEventId(
-                                                                      includingFallback:
-                                                                          false,
-                                                                    ) !=
-                                                                    null)
-                                                                  ReplyEventBuilder(
-                                                                    event:
-                                                                        event,
-                                                                    timeline:
-                                                                        timeline,
-                                                                    builder:
-                                                                        (
-                                                                          context,
-                                                                          foundReplyEvent,
-                                                                        ) {
-                                                                          final replyEvent =
-                                                                              foundReplyEvent ??
-                                                                              Event(
-                                                                                eventId:
-                                                                                    event.inReplyToEventId() ??
-                                                                                    '\$fake_event_id',
-                                                                                content: {
-                                                                                  'msgtype': 'm.text',
-                                                                                  'body': '...',
-                                                                                },
-                                                                                senderId: event.senderId,
-                                                                                type: 'm.room.message',
-                                                                                room: event.room,
-                                                                                status: EventStatus.sent,
-                                                                                originServerTs: DateTime.now(),
-                                                                              );
-                                                                          return Padding(
-                                                                            padding: const EdgeInsets.only(
-                                                                              left: 16,
-                                                                              right: 16,
-                                                                              top: 8,
-                                                                            ),
-                                                                            child: Material(
-                                                                              color: Colors.transparent,
+                                                          ),
+                                                          constraints:
+                                                              const BoxConstraints(
+                                                                maxWidth: 325,
+                                                              ),
+                                                          child: Column(
+                                                            mainAxisSize: .min,
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: <Widget>[
+                                                              if (event.inReplyToEventId(
+                                                                    includingFallback:
+                                                                        false,
+                                                                  ) !=
+                                                                  null)
+                                                                ReplyEventBuilder(
+                                                                  event: event,
+                                                                  timeline:
+                                                                      timeline,
+                                                                  builder:
+                                                                      (
+                                                                        context,
+                                                                        foundReplyEvent,
+                                                                      ) {
+                                                                        final replyEvent =
+                                                                            foundReplyEvent ??
+                                                                            Event(
+                                                                              eventId:
+                                                                                  event.inReplyToEventId() ??
+                                                                                  '\$fake_event_id',
+                                                                              content: {
+                                                                                'msgtype': 'm.text',
+                                                                                'body': '...',
+                                                                              },
+                                                                              senderId: event.senderId,
+                                                                              type: 'm.room.message',
+                                                                              room: event.room,
+                                                                              status: EventStatus.sent,
+                                                                              originServerTs: DateTime.now(),
+                                                                            );
+                                                                        return Padding(
+                                                                          padding: const EdgeInsets.only(
+                                                                            left:
+                                                                                16,
+                                                                            right:
+                                                                                16,
+                                                                            top:
+                                                                                8,
+                                                                          ),
+                                                                          child: Material(
+                                                                            color:
+                                                                                Colors.transparent,
+                                                                            borderRadius:
+                                                                                ReplyContent.borderRadius,
+                                                                            child: InkWell(
                                                                               borderRadius: ReplyContent.borderRadius,
-                                                                              child: InkWell(
-                                                                                borderRadius: ReplyContent.borderRadius,
-                                                                                onTap: () => scrollToEventId(
-                                                                                  replyEvent.eventId,
-                                                                                ),
-                                                                                child: AbsorbPointer(
-                                                                                  child: ReplyContent(
-                                                                                    replyEvent,
-                                                                                    ownMessage: ownMessage,
-                                                                                    foregroundColor: onNetworkColor,
-                                                                                    timeline: timeline,
-                                                                                  ),
+                                                                              onTap: () => scrollToEventId(
+                                                                                replyEvent.eventId,
+                                                                              ),
+                                                                              child: AbsorbPointer(
+                                                                                child: ReplyContent(
+                                                                                  replyEvent,
+                                                                                  ownMessage: ownMessage,
+                                                                                  foregroundColor: onNetworkColor,
+                                                                                  timeline: timeline,
                                                                                 ),
                                                                               ),
                                                                             ),
-                                                                          );
-                                                                        },
-                                                                  ),
-                                                                MessageContent(
-                                                                  displayEvent,
-                                                                  fromPendingMedia:
-                                                                      fromPendingMedia,
-                                                                  textColor:
-                                                                      textColor,
-                                                                  linkColor:
-                                                                      linkColor,
-                                                                  onInfoTab:
-                                                                      onInfoTab,
-                                                                  borderRadius:
-                                                                      borderRadius,
-                                                                  timeline:
-                                                                      timeline,
-                                                                  selected:
-                                                                      selected,
-                                                                  bigEmojis:
-                                                                      bigEmojis,
+                                                                          ),
+                                                                        );
+                                                                      },
                                                                 ),
-                                                              ],
-                                                            ),
+                                                              MessageContent(
+                                                                displayEvent,
+                                                                fromPendingMedia:
+                                                                    fromPendingMedia,
+                                                                textColor:
+                                                                    textColor,
+                                                                linkColor:
+                                                                    linkColor,
+                                                                onInfoTab:
+                                                                    onInfoTab,
+                                                                borderRadius:
+                                                                    borderRadius,
+                                                                timeline:
+                                                                    timeline,
+                                                                selected:
+                                                                    selected,
+                                                                bigEmojis:
+                                                                    bigEmojis,
+                                                              ),
+                                                            ],
                                                           ),
                                                         ),
                                                       ),
@@ -1192,83 +1172,6 @@ class Message extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class BubbleBackground extends StatelessWidget {
-  const BubbleBackground({
-    super.key,
-    required this.scrollController,
-    required this.colors,
-    required this.ignore,
-    required this.child,
-  });
-
-  final ScrollController scrollController;
-  final List<Color> colors;
-  final bool ignore;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (ignore) return child;
-    return CustomPaint(
-      painter: BubblePainter(
-        repaint: scrollController,
-        colors: colors,
-        context: context,
-      ),
-      // The gradient follows the bubble's position on screen, so the painter
-      // repaints on every scroll frame. The boundary keeps that from
-      // re-recording the message content too. There is deliberately no
-      // boundary around the CustomPaint itself: the gradient must also
-      // repaint whenever the rest of the message does, for example when
-      // reactions appear under a bubble and move it without any scrolling.
-      child: RepaintBoundary(child: child),
-    );
-  }
-}
-
-class BubblePainter extends CustomPainter {
-  BubblePainter({
-    required this.context,
-    required this.colors,
-    required super.repaint,
-  });
-
-  final BuildContext context;
-  final List<Color> colors;
-  ScrollableState? _scrollable;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final scrollable = _scrollable ??= Scrollable.of(context);
-    final scrollableBox = scrollable.context.findRenderObject() as RenderBox;
-    final scrollableRect = Offset.zero & scrollableBox.size;
-    final bubbleBox = context.findRenderObject() as RenderBox;
-
-    final origin = bubbleBox.localToGlobal(
-      Offset.zero,
-      ancestor: scrollableBox,
-    );
-    final paint = Paint()
-      ..shader = ui.Gradient.linear(
-        scrollableRect.topCenter,
-        scrollableRect.bottomCenter,
-        colors,
-        [0.0, 1.0],
-        TileMode.clamp,
-        Matrix4.translationValues(-origin.dx, -origin.dy, 0.0).storage,
-      );
-    canvas.drawRect(Offset.zero & size, paint);
-  }
-
-  @override
-  bool shouldRepaint(BubblePainter oldDelegate) {
-    final scrollable = Scrollable.of(context);
-    final oldScrollable = _scrollable;
-    _scrollable = scrollable;
-    return scrollable.position != oldScrollable?.position;
   }
 }
 

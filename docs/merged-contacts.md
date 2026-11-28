@@ -639,9 +639,11 @@ with a `SharedDraft` (`lib/utils/share_items.dart`) as the route's `extra`.
   that network's bubble colour.
 - Bubbles: with "One color per network" on (`networkBubbleColors`, the
   default),
-  the user's own bubbles take the colour of the network each message went
-  out on (`MergedNetwork.bubbleColor`, passed to `Message` as
-  `networkColor`), so the network of every message shows at a glance. With
+  the user's own bubbles are one flat colour, that of the network each
+  message went out on (`NetworkColors.bubbleColorOf`, passed to `Message`
+  as `networkColor`), so the network of every message shows at a glance.
+  The chat list's peek and the compose screen's history colour them the
+  same way. With
   it off, a message from a different network than the one before it (the
   older message above it) carries the network's name under the bubble
   instead.
