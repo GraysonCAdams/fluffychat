@@ -1,1 +1,1 @@
-Seam's first release: your Matrix chats and the networks you bridge in one place, merged contacts across networks, and voice message transcripts made on your device.
+Seam's first release. Every chat on your Matrix account and your own bridges, in one place, with one thread per person.
