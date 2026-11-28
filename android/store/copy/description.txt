@@ -1,6 +1,6 @@
 Seam is a messaging app for the Matrix network, built around one idea: your conversations belong in one place.
 
-One inbox for every network
+All your chats in one place
 
 Seam signs in to a Matrix account on a homeserver you choose. If you or your server's operator run bridges to other networks, for example Telegram, WhatsApp, Signal or Discord, those chats arrive in Seam next to your Matrix rooms. Seam includes no bridges, runs no servers and is not affiliated with any of those networks: it works with the bridges you set up yourself.
 

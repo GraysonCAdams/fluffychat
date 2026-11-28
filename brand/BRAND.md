@@ -1,7 +1,10 @@
 # Seam brand
 
-**Seam** is this app's name. Tagline: **Where your threads meet.** One inbox for every network,
-each conversation a thread, sewn together.
+**Seam** is this app's name. Tagline: **Where all your threads meet.** All your chats in one
+place, each conversation a thread, sewn together.
+
+Never call Seam an inbox. App and store wording derive from the site copy, `src/copy.ts` in the
+seam-site repo.
 
 ![Brand preview](preview.png)
 

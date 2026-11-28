@@ -1,1 +1,1 @@
-Your Matrix chats and the networks you bridge, together in one inbox.
+Where all your threads meet. An open source Matrix client for Android.
