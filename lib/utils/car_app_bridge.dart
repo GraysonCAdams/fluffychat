@@ -8,13 +8,13 @@ import 'dart:ui';
 import 'package:collection/collection.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat_list/message_preview.dart';
 import 'package:fluffychat/utils/fallback_avatar_image.dart';
 import 'package:fluffychat/utils/group_members_collage.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/notification_avatar_extension.dart';
-import 'package:fluffychat/utils/pending_media.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/group_avatar.dart';
@@ -83,7 +83,8 @@ String carReplyRoom(
 /// timestamp), the [body] to show, and whether it counts as [read].
 typedef CarMessage = ({Event event, String body, bool read});
 
-/// The newest messages of [room] for the car, oldest first.
+/// The newest messages of [room] for the car, newest first, as the database
+/// lists them.
 ///
 /// A bridge sends a placeholder ("Waiting for attachment ...") and then
 /// edits it into the real message, so the newest edit by the sender
@@ -130,19 +131,21 @@ Future<List<CarMessage>> carRoomMessages(
         ? Event.fromJson({...event.toJson(), 'content': newContent}, room)
         : event;
     final own = event.senderId == client.userID;
+    final text = shown.calcLocalizedBody(
+      locals,
+      plaintextBody: true,
+      hideReply: true,
+      hideEdit: true,
+      removeMarkdown: true,
+    );
     messages.add((
       event: event,
-      // A bridge's placeholder for an attachment reads as the photo or
-      // video it stands for, as in the chat list.
-      body:
-          PendingMedia.of(shown)?.previewText(locals.l10n) ??
-          shown.calcLocalizedBody(
-            locals,
-            plaintextBody: true,
-            hideReply: true,
-            hideEdit: true,
-            removeMarkdown: true,
-          ),
+      // Media reads as in the chat list ("Photo", "Video 0:09", and a
+      // bridge's placeholder as the media it stands for); a text message,
+      // a lone link included, keeps its own words.
+      body: shown.messageType == MessageTypes.Text
+          ? text
+          : mediaPreviewOf(shown, locals.l10n, text)?.text ?? text,
       read: own || unread <= 0,
     ));
     if (!own) unread--;

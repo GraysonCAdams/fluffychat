@@ -4,7 +4,9 @@
 
 import 'dart:convert';
 
+import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/pending_media.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:matrix/matrix.dart';
 
@@ -118,6 +120,49 @@ void main() {
         ),
       )!;
       expect(media.kind, PendingMediaKind.file);
+    });
+  });
+
+  group('a name without an extension', () {
+    // Google Messages often names an attachment by a number.
+    const name = '4308013893108320279';
+
+    test('takes its kind from the debug data\'s MIME type', () {
+      final media = PendingMedia.of(
+        notice(
+          'Waiting for attachment $name',
+          extra: {
+            PendingMedia.pendingKey: true,
+            PendingMedia.rawDebugDataKey: rawDebugData([
+              mediaContent(name: name, mimeType: 'video/mp4'),
+            ]),
+          },
+        ),
+      )!;
+      expect(media.kind, PendingMediaKind.video);
+    });
+
+    test('reads Attachment without it, never the number', () async {
+      final l10n = await L10n.delegate.load(const Locale('en'));
+      final media = PendingMedia.of(
+        notice(
+          'Waiting for attachment $name',
+          extra: {PendingMedia.pendingKey: true},
+        ),
+      )!;
+      expect(media.kind, PendingMediaKind.file);
+      expect(media.previewText(l10n), 'Attachment');
+    });
+
+    test('a file with an extension still reads by its name', () async {
+      final l10n = await L10n.delegate.load(const Locale('en'));
+      final media = PendingMedia.of(
+        notice(
+          'Waiting for attachment contact.vcf',
+          extra: {PendingMedia.pendingKey: true},
+        ),
+      )!;
+      expect(media.previewText(l10n), 'contact.vcf');
     });
   });
 

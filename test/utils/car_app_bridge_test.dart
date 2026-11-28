@@ -128,7 +128,7 @@ void main() {
       expect(messages, hasLength(2));
       // Newest first, as the database lists them.
       expect(messages.first.body, isNot(contains('Waiting for attachment')));
-      expect(messages.first.body, contains('sent a picture'));
+      expect(messages.first.body, 'Photo');
       // It keeps the placeholder's place in the order.
       expect(messages.first.event.eventId, notice);
       expect(
@@ -165,6 +165,39 @@ void main() {
       expect(messages.map((m) => m.body), [
         "Photo didn't arrive",
         'Video',
+        'Photo',
+      ]);
+    });
+
+    test('arrived media reads as in the chat list', () async {
+      await sync([
+        event(r'$photo', {
+          'msgtype': 'm.image',
+          'body': 'PXL_1.jpg',
+          'url': 'mxc://fakeServer.notExisting/photo',
+        }, 0),
+        event(r'$video', {
+          'msgtype': 'm.video',
+          'body': 'PXL_2.mp4',
+          'info': {'duration': 9000},
+          'url': 'mxc://fakeServer.notExisting/video',
+        }, 1),
+        event(r'$text', {
+          'msgtype': 'm.text',
+          'body': 'https://example.com/a',
+        }, 2),
+      ]);
+
+      final messages = await carRoomMessages(
+        client,
+        client.getRoomById(roomId)!,
+        locals,
+      );
+
+      // Newest first; a text message keeps its own words.
+      expect(messages.map((m) => m.body), [
+        'https://example.com/a',
+        'Video 0:09',
         'Photo',
       ]);
     });

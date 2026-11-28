@@ -366,6 +366,22 @@ void main() {
       expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
     });
 
+    testWidgets('a placeholder named by a number reads Attachment', (
+      tester,
+    ) async {
+      await show(
+        tester,
+        chat('@khai:x', {
+          'msgtype': MessageTypes.Notice,
+          'body': 'Waiting for attachment 4308013893108320279',
+          'fi.mau.gmessages.media_pending': true,
+        }),
+      );
+      expect(texts(tester), contains('${_icon}Attachment'));
+      expect(find.byIcon(Icons.attach_file), findsOneWidget);
+      expect(texts(tester).where((t) => t.contains('4308')), isEmpty);
+    });
+
     testWidgets('the same notice from another sender stays text', (
       tester,
     ) async {

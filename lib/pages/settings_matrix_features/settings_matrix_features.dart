@@ -23,6 +23,7 @@ class SettingsMatrixFeatures extends StatelessWidget {
         MatrixFeature.explore => l10n.matrixFeatureExplore,
         MatrixFeature.roomPlumbing => l10n.matrixFeatureRoomPlumbing,
         MatrixFeature.customEmotes => l10n.matrixFeatureCustomEmotes,
+        MatrixFeature.roleBadges => l10n.matrixFeatureRoleBadges,
       };
 
   /// What makes [feature] show in auto mode.
@@ -37,6 +38,7 @@ class SettingsMatrixFeatures extends StatelessWidget {
         MatrixFeature.spaces => l10n.matrixFeatureTriggerSpaces,
         MatrixFeature.roomPlumbing => l10n.matrixFeatureTriggerRoomPlumbing,
         MatrixFeature.customEmotes => l10n.matrixFeatureTriggerCustomEmotes,
+        MatrixFeature.roleBadges => l10n.matrixFeatureTriggerRoleBadges,
       };
 
   /// The state of [feature] and why, such as "Hidden · shows after your
@@ -51,7 +53,8 @@ class SettingsMatrixFeatures extends StatelessWidget {
     final perChat =
         override == null &&
         mode == MatrixFeaturesMode.auto &&
-        feature == MatrixFeature.roomPlumbing;
+        (feature == MatrixFeature.roomPlumbing ||
+            feature == MatrixFeature.roleBadges);
     final shown = features.isRelevant(feature);
     final state = perChat
         ? l10n.matrixFeaturePerChat

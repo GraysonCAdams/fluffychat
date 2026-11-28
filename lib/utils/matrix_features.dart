@@ -39,6 +39,11 @@ enum MatrixFeature {
 
   /// Custom emoji and sticker packs.
   customEmotes,
+
+  /// The moderator and admin badge before a sender's name in a chat. Decided
+  /// per chat: only plain Matrix rooms show it, since a bridge makes its bot
+  /// and puppets admins, where the badge only adds noise.
+  roleBadges,
 }
 
 /// How [MatrixFeatures] decides features that have no override.
@@ -300,7 +305,7 @@ class MatrixFeatures extends ChangeNotifier {
       MatrixFeature.explore => !signals.messengerMode,
       MatrixFeature.spaces => signals.hasSpaces,
       MatrixFeature.customEmotes => signals.hasCustomEmotes,
-      MatrixFeature.roomPlumbing =>
+      MatrixFeature.roomPlumbing || MatrixFeature.roleBadges =>
         room == null ? !signals.messengerMode : !isBridged(room),
     };
   }
