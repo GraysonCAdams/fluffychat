@@ -76,20 +76,34 @@ class _SignInTermsGateState extends State<SignInTermsGate> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       mainAxisSize: .min,
       crossAxisAlignment: .stretch,
       children: [
-        CheckboxListTile(
-          key: const Key('terms_agree_checkbox'),
-          value: _agreed,
-          onChanged: (value) => setState(() => _agreed = value ?? false),
-          controlAffinity: ListTileControlAffinity.leading,
-          contentPadding: EdgeInsets.zero,
-          title: Text(l10n.agreeToTermsOfUse),
+        Material(
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.hardEdge,
+          child: Column(
+            mainAxisSize: .min,
+            crossAxisAlignment: .stretch,
+            children: [
+              CheckboxListTile(
+                key: const Key('terms_agree_checkbox'),
+                value: _agreed,
+                onChanged: (value) => setState(() => _agreed = value ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: const EdgeInsetsDirectional.only(start: 4),
+                title: Text(l10n.agreeToTermsOfUse),
+              ),
+              const Padding(
+                padding: EdgeInsetsDirectional.only(start: 48, bottom: 4),
+                child: TermsLinks(alignment: WrapAlignment.start),
+              ),
+            ],
+          ),
         ),
-        const TermsLinks(),
-        const SizedBox(height: 8),
         widget.builder(context, _gate),
       ],
     );

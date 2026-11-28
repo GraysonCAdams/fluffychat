@@ -115,6 +115,17 @@ abstract class ClientManager {
           ),
         );
 
+  /// How this device verifies: emoji (numbers for clients without them),
+  /// showing a QR code and answering a scanned one everywhere, and
+  /// scanning where there is a camera to scan with (Android and iOS).
+  static Set<KeyVerificationMethod> get verificationMethods => {
+    KeyVerificationMethod.numbers,
+    KeyVerificationMethod.emoji,
+    KeyVerificationMethod.qrShow,
+    KeyVerificationMethod.reciprocate,
+    if (PlatformInfos.isMobile) KeyVerificationMethod.qrScan,
+  };
+
   static Future<Client> createClient(
     String clientName,
     SharedPreferences store,
@@ -125,11 +136,7 @@ abstract class ClientManager {
     final client = Client(
       clientName,
       httpClient: CustomHttpClient.createHTTPClient(),
-      verificationMethods: {
-        KeyVerificationMethod.numbers,
-        if (kIsWeb || PlatformInfos.isMobile || PlatformInfos.isLinux)
-          KeyVerificationMethod.emoji,
-      },
+      verificationMethods: verificationMethods,
       // A reaction becomes a room's latest event, so the chat list can
       // preview it and count it as unread.
       roomPreviewLastEvents: {EventTypes.Reaction},

@@ -59,25 +59,12 @@ SPDX-License-Identifier = "Apache-2.0"
 # App Logo
 [[annotations]]
 path = [
-    "assets/logo/*/logo**",
-    "ios/Runner/Assets.xcassets/AppIcon.appiconset/**",
-    "macos/Runner/Assets.xcassets/AppIcon.appiconset/**",
     "web/splash/**",
     "snap/gui/*.png",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2017-Present Fabiyamada"
 SPDX-License-Identifier = "CC-BY-4.0"
-
-# Artwork
-[[annotations]]
-path = [
-    "assets/logo/*/mascot.**",
-    "assets/logo/*/banner.**",
-]
-precedence = "aggregate"
-SPDX-FileCopyrightText = "2026-Present Christian Kußowski"
-SPDX-License-Identifier = "LicenseRef-All-Rights-Reserved"
 
 [[annotations]]
 path = [
@@ -91,6 +78,9 @@ path = [
     "web/icons/**",
     "web/favicon.png",
     "windows/runner/resources/app_icon.ico",
+    "ios/Runner/Assets.xcassets/AppIcon.appiconset/**",
+    "ios/Runner/Assets.xcassets/LaunchImage.imageset/**",
+    "macos/Runner/Assets.xcassets/AppIcon.appiconset/**",
     "android/store/icon-512.png",
     "android/store/play/*.png",
     "android/store/play/screenshots/*.png",

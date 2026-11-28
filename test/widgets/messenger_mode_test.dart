@@ -84,14 +84,13 @@ void main() {
         expect(find.text('Snooze notifications'), findsOneWidget);
         expect(find.text('Set status'), findsNothing);
         expect(find.text('Invite contact'), findsNothing);
-        expect(find.text('Add account'), findsNothing);
+        // Add account stays: a second account is not a Matrix-only idea.
+        expect(find.text('Add account'), findsOneWidget);
       });
       await finishFakeChatList(tester, client);
     });
 
-    testWidgets('leaves Create group and Mark all as read out', (
-      tester,
-    ) async {
+    testWidgets('leaves Create group and Mark all as read out', (tester) async {
       addFakeChat(client, '!kim:x', 'Kim', partner: '@kim:matrix.org');
       await pumpFakeChatList(tester, client);
       await inAccountMenu(tester, () {
@@ -118,8 +117,8 @@ void main() {
       await inAccountMenu(tester, () {
         expect(find.text('Set status'), findsOneWidget);
         expect(find.text('Invite contact'), findsOneWidget);
-        // Add account lives in Settings > Advanced either way.
-        expect(find.text('Add account'), findsNothing);
+        // Add account is in this menu as well as Settings > Accounts.
+        expect(find.text('Add account'), findsOneWidget);
       });
       await finishFakeChatList(tester, client);
     });

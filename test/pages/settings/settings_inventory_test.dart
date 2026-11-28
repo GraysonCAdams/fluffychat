@@ -140,7 +140,7 @@ void main() {
       l10n.devices,
       l10n.security,
       l10n.aboutHomeserver('x'),
-      l10n.addAccount,
+      l10n.accounts,
       l10n.about,
       l10n.logout,
     ]);
@@ -160,7 +160,7 @@ void main() {
       l10n.devices: '/rooms/settings/devices',
       l10n.security: '/rooms/settings/security',
       l10n.aboutHomeserver('x'): '/rooms/settings/homeserver',
-      l10n.addAccount: '/rooms/settings/addaccount',
+      l10n.accounts: '/rooms/settings/accounts',
     });
     await expectOpens(tester, [
       FakeSettingsClient.displayName,

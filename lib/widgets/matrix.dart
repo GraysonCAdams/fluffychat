@@ -148,6 +148,16 @@ class MatrixState extends State<Matrix> {
   AudioPlayer? audioPlayer;
   final ValueNotifier<String?> voiceMessageEventId = ValueNotifier(null);
 
+  /// Where a sign-in goes next: encryption setup, marked as an added
+  /// account when another account was already signed in here.
+  String get afterSignInLocation => setupLocation(
+    accountAdded:
+        widget.clients.where((client) => client.isLogged()).length > 1,
+  );
+
+  static String setupLocation({required bool accountAdded}) =>
+      accountAdded ? '/backup?added=true' : '/backup';
+
   Future<Client> getLoginClient() async {
     if (widget.clients.isNotEmpty && !client.isLogged()) {
       return client;
@@ -171,7 +181,7 @@ class MatrixState extends State<Matrix> {
                 _registerSubs(_loginClientCandidate!.clientName);
                 setActiveClient(_loginClientCandidate);
                 _loginClientCandidate = null;
-                FluffyChatApp.router.go('/backup');
+                FluffyChatApp.router.go(afterSignInLocation);
               });
     if (widget.clients.isEmpty) widget.clients.add(candidate);
     return candidate;

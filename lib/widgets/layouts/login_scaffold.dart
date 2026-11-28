@@ -8,10 +8,17 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
+import 'package:fluffychat/widgets/seam_mark.dart';
+import 'package:fluffychat/widgets/seam_stitch_loader.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:particles_network/particles_network.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+/// The frame of every sign-in and setup page.
+///
+/// On a phone it is a plain [Scaffold]. On a wide window the page sits in a
+/// card [cardWidth] dp wide, centred on Seam Cobalt (a deep navy in dark
+/// mode) with a large, faint Seam mark in the corner, and the Terms of use,
+/// Privacy policy, Help and About links underneath.
 class LoginScaffold extends StatelessWidget {
   final Widget body;
   final AppBar? appBar;
@@ -23,6 +30,15 @@ class LoginScaffold extends StatelessWidget {
     this.appBar,
     this.bottomNavigationBar,
   });
+
+  static const double cardWidth = 440;
+  static const double cardMaxHeight = 680;
+
+  /// The brand background's two gradient stops, top left to bottom right.
+  static (Color, Color) backgroundColors(Brightness brightness) =>
+      brightness == Brightness.dark
+      ? (const Color(0xFF0B1F4D), const Color(0xFF07142F))
+      : (AppConfig.primaryColor, const Color(0xFF1449B3));
 
   @override
   Widget build(BuildContext context) {
@@ -41,26 +57,30 @@ class LoginScaffold extends StatelessWidget {
             bottomNavigationBar: bottomNavigationBar,
           );
         }
-        return Container(
+        final (start, end) = backgroundColors(theme.brightness);
+        return DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                theme.colorScheme.surfaceContainerLow,
-                theme.colorScheme.surfaceContainer,
-                theme.colorScheme.surfaceContainerHighest,
-              ],
+              colors: [start, end],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
           ),
           child: Stack(
             children: [
-              if (!MediaQuery.disableAnimationsOf(context))
-                ParticleNetwork(
-                  maxSpeed: 0.25,
-                  particleColor: theme.colorScheme.primary,
-                  lineColor: theme.colorScheme.secondary,
+              PositionedDirectional(
+                end: -120,
+                bottom: -140,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: theme.brightness == Brightness.dark ? .07 : .10,
+                    child: SeamMark(
+                      size: 620,
+                      pale: SeamStitchPainter.faded(Colors.white),
+                    ),
+                  ),
                 ),
+              ),
               Column(
                 children: [
                   const SizedBox(height: 16),
@@ -69,20 +89,16 @@ class LoginScaffold extends StatelessWidget {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         child: Material(
-                          borderRadius: BorderRadius.circular(
-                            AppConfig.borderRadius,
-                          ),
+                          color: theme.colorScheme.surface,
+                          borderRadius: BorderRadius.circular(28),
                           clipBehavior: Clip.hardEdge,
-                          elevation:
-                              theme.appBarTheme.scrolledUnderElevation ?? 4,
-                          shadowColor: theme.appBarTheme.shadowColor,
+                          elevation: 8,
+                          shadowColor: Colors.black54,
                           child: ConstrainedBox(
-                            constraints: isMobileMode
-                                ? const BoxConstraints()
-                                : const BoxConstraints(
-                                    maxWidth: 480,
-                                    maxHeight: 640,
-                                  ),
+                            constraints: const BoxConstraints(
+                              maxWidth: cardWidth,
+                              maxHeight: cardMaxHeight,
+                            ),
                             child: Scaffold(
                               key: const Key('LoginScaffold'),
                               appBar: appBar,
@@ -94,7 +110,7 @@ class LoginScaffold extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const _PrivacyButtons(mainAxisAlignment: .center),
+                  const _FooterLinks(),
                 ],
               ),
             ],
@@ -105,38 +121,46 @@ class LoginScaffold extends StatelessWidget {
   }
 }
 
-class _PrivacyButtons extends StatelessWidget {
-  final MainAxisAlignment mainAxisAlignment;
-  const _PrivacyButtons({required this.mainAxisAlignment});
+class _FooterLinks extends StatelessWidget {
+  const _FooterLinks();
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final shadowTextStyle = TextStyle(color: theme.colorScheme.secondary);
+    final l10n = L10n.of(context);
+    final style = TextButton.styleFrom(foregroundColor: Colors.white70);
+    void open(String url) =>
+        launchUrlString(url, mode: LaunchMode.externalApplication);
     return SizedBox(
       height: 64,
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Row(
-          mainAxisAlignment: mainAxisAlignment,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextButton(
-              onPressed: () => launchUrlString(AppConfig.sourceCodeUrl),
-              child: Text(L10n.of(context).website, style: shadowTextStyle),
+              style: style,
+              onPressed: () => open(AppSettings.termsOfUseUrl.value),
+              child: Text(l10n.termsOfUse),
             ),
             TextButton(
-              onPressed: () => launchUrlString(AppConfig.supportUrl),
-              child: Text(L10n.of(context).help, style: shadowTextStyle),
+              style: style,
+              onPressed: () => open(AppSettings.privacyPolicyPageUrl.value),
+              child: Text(l10n.privacyPolicy),
             ),
-            if (AppSettings.privacyPolicy.value.isNotEmpty)
-              TextButton(
-                onPressed: () =>
-                    launchUrlString(AppSettings.privacyPolicy.value),
-                child: Text(L10n.of(context).privacy, style: shadowTextStyle),
-              ),
             TextButton(
+              style: style,
+              onPressed: () => open(AppConfig.sourceCodeUrl),
+              child: Text(l10n.website),
+            ),
+            TextButton(
+              style: style,
+              onPressed: () => open(AppConfig.supportUrl),
+              child: Text(l10n.help),
+            ),
+            TextButton(
+              style: style,
               onPressed: () => PlatformInfos.showDialog(context),
-              child: Text(L10n.of(context).about, style: shadowTextStyle),
+              child: Text(l10n.about),
             ),
           ],
         ),

@@ -285,6 +285,16 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
               ),
             ),
       ],
+      PopupMenuItem(
+        value: SettingsAction.addAccount,
+        child: Row(
+          children: [
+            const Icon(Icons.person_add_outlined),
+            const SizedBox(width: 18),
+            Text(L10n.of(context).addAccount),
+          ],
+        ),
+      ),
     ];
   }
 
@@ -333,6 +343,9 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
         case SettingsAction.archive:
           context.go('/rooms/archive');
           break;
+        case SettingsAction.addAccount:
+          controller.addAccountAction();
+          break;
         case SettingsAction.setStatus:
           controller.setStatus();
           break;
@@ -344,4 +357,4 @@ class _ClientChooserButtonState extends State<ClientChooserButton> {
   }
 }
 
-enum SettingsAction { setStatus, snooze, invite, settings, archive }
+enum SettingsAction { setStatus, snooze, invite, settings, archive, addAccount }

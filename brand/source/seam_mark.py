@@ -1,19 +1,32 @@
 # Seam brand mark: app icon, glyph and Android icon layers, all drawn from one geometry.
-# A round speech bubble with a normal tail at the lower left, with a gentle S seam sewn as four running stitches
-# (cut-outs through a single-colour bubble). The thread starts as a free end hanging out and down from
+# A round speech bubble with a normal tail at the lower left, split by a gentle S seam into two pieces of fabric:
+# the piece above the seam in a paler tone, the piece below in the solid colour. The seam is sewn as four running
+# stitches cut out of the bubble. The thread starts as a free end hanging out and down from
 # the first stitch hole at the left; the working thread runs from the last stitch at the right to the eye
 # of a needle that sits behind the bubble with its eye out at the top right.
 # Usage: seam_mark.py <out_dir> [scale] [tail]   (defaults: .81, down: the locked design)
+#        seam_mark.py <out_dir> layers           (the layers for Apple's Icon Composer, nothing else)
 import sys,os,math
 out=sys.argv[1]; os.makedirs(out,exist_ok=True)
-SCALE=float(sys.argv[2]) if len(sys.argv)>2 else .81
+LAYERS=len(sys.argv)>2 and sys.argv[2]=='layers'
+SCALE=float(sys.argv[2]) if len(sys.argv)>2 and not LAYERS else .81
 BG,W='#1A5AD7','#FFFFFF'
+# The paler piece above the seam, by what the bubble is drawn in:
+#   P   Seam Pale, with a white bubble (on cobalt or a dark background)
+#   PL  Seam Pale on light, with a cobalt bubble on a white or light background: cobalt 30% of the way to
+#       white, the lightest tint that keeps 3:1 against a light Windows taskbar (#EEEEEE) at 16 px
+#   A   with a one-colour glyph (white, dark, currentColor, or a layer the system tints by its alpha):
+#       the same colour at this opacity
+P,PL,A='#9ABAF0','#5F8CE3',.55
 CX,CY,RX,RY=216,206,132,108
 BODY=f'<ellipse cx="{CX}" cy="{CY}" rx="{RX}" ry="{RY}"/>'
 TAIL='<path d="M112,262 C110,292 98,320 72,342 C118,340 156,320 180,294 Z"/>'
 SHAPE=BODY+TAIL
 SEAM=[(86,212),(150,226),(196,214),(230,200),(266,186),(316,178),(346,188)]
 SEAM_D='M{0},{1} C{2},{3} {4},{5} {6},{7} C{8},{9} {10},{11} {12},{13}'.format(*[c for p in SEAM for c in p])
+# the region above the seam, clipped to the bubble for the paler piece; BELOW is the rest
+PALE=SEAM_D+' L470,188 L470,-20 L-20,-20 L-20,212 Z'
+BELOW=SEAM_D+' L470,188 L470,470 L-20,470 L-20,212 Z'
 def bez(p0,p1,p2,p3,t): return tuple((1-t)**3*a+3*(1-t)**2*t*b+3*(1-t)*t**2*c+t**3*d for a,b,c,d in zip(p0,p1,p2,p3))
 def seam_points(n):
     segs=[SEAM[0:4],SEAM[3:7]]; o=[]
@@ -52,21 +65,51 @@ TAIL_SHAPES={
 TAILTHREAD=TAIL_SHAPES[sys.argv[3] if len(sys.argv)>3 else 'down']
 GAP=30; TW=11
 H='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432">'
-def mark(fill):
+def mark(fill,pale=None,pale_a=1,needle_on=True):
+    # pale: colour of the piece above the seam (None: one colour), at opacity pale_a. The bubble is drawn
+    # whole in pale and the piece below the seam over it in fill, so the halves meet without a hairline.
+    # needle_on=False leaves off the needle and thread: the status-bar and tray silhouette.
     th=f'fill="none" stroke="{fill}" stroke-width="{TW}" stroke-linecap="round"'
+    if pale: cloth=f'<g fill="{pale}" fill-opacity="{pale_a}">{SHAPE}</g><g clip-path="url(#lo)" fill="{fill}">{SHAPE}</g>'
+    else: cloth=f'<g fill="{fill}">{SHAPE}</g>'
+    behind=f'<g mask="url(#behind)">{needle(fill)}<path d="{THREAD}" {th}/><path d="{TAILTHREAD}" {th}/></g>' if needle_on else ''
+    ends=f'<g clip-path="url(#ends)"><path d="{THREAD}" {th}/><path d="{TAILTHREAD}" {th}/></g>' if needle_on else ''
     return f'''<defs><clipPath id="b">{SHAPE}</clipPath>
+<clipPath id="lo"><path d="{BELOW}"/></clipPath>
 <clipPath id="ends"><circle cx="{FIRST[0]:.1f}" cy="{FIRST[1]:.1f}" r="22"/><circle cx="{LAST[0]:.1f}" cy="{LAST[1]:.1f}" r="22"/></clipPath>
 <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="432" height="432"><rect width="432" height="432" fill="#fff"/><g stroke="#000" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">{STITCHES}</g></mask>
 <mask id="behind" maskUnits="userSpaceOnUse" x="0" y="0" width="432" height="432"><rect width="432" height="432" fill="#fff"/><g fill="#000">{SHAPE}</g><g fill="none" stroke="#000" stroke-width="{GAP}" stroke-linejoin="round">{SHAPE}</g></mask></defs>
 <g transform="translate(216 216) scale({SCALE}) translate(-216 -206)">
-<g mask="url(#behind)">{needle(fill)}<path d="{THREAD}" {th}/><path d="{TAILTHREAD}" {th}/></g>
-<g mask="url(#cut)"><g fill="{fill}">{SHAPE}</g></g>
-<g clip-path="url(#ends)"><path d="{THREAD}" {th}/><path d="{TAILTHREAD}" {th}/></g></g>'''
-open(os.path.join(out,'seam-app-icon.svg'),'w').write(H+f'<rect width="432" height="432" fill="{BG}"/>'+mark(W)+'</svg>')
-open(os.path.join(out,'seam-mark.svg'),'w').write(H+mark(W)+'</svg>')            # for dark or cobalt backgrounds
-open(os.path.join(out,'seam-mark-on-light.svg'),'w').write(H+mark(BG)+'</svg>')   # for white or light backgrounds
+{behind}
+<g mask="url(#cut)">{cloth}</g>
+{ends}</g>'''
+def svg(name,body): open(os.path.join(out,name+'.svg'),'w').write(H+body+'</svg>')
+if LAYERS:
+    # Icon Composer stacks these over its own background fill (set it to Seam Cobalt) and lights each
+    # layer as glass: the solid piece with the needle and thread, and the paler piece above the seam
+    svg('background',f'<rect width="432" height="432" fill="{BG}"/>')
+    svg('cloth-below-needle-thread',mark(W,W,0))
+    # clipped to the region above the seam, so nothing of this layer sits under the solid piece
+    up=f'<path d="{PALE}" transform="translate(216 216) scale({SCALE}) translate(-216 -206)"/>'
+    svg('cloth-above',f'<defs><clipPath id="up">{up}</clipPath></defs><g clip-path="url(#up)">{mark("none",P)}</g>')
+    sys.exit(0)
+svg('seam-app-icon',f'<rect width="432" height="432" fill="{BG}"/>'+mark(W,P))
+svg('seam-mark',mark(W,P))                    # for dark or cobalt backgrounds
+svg('seam-mark-on-light',mark(BG,PL))         # for white or light backgrounds
 ADAPT='<g transform="translate(216 216) scale(0.6667) translate(-216 -216)">{}</g>'
-open(os.path.join(out,'android-foreground.svg'),'w').write(H+ADAPT.format(mark(W))+'</svg>')
-open(os.path.join(out,'android-monochrome.svg'),'w').write(H+ADAPT.format(mark('#FFFFFF'))+'</svg>')
+svg('android-foreground',ADAPT.format(mark(W,P)))
+# Android's themed icon tints this layer by its alpha, so the paler piece is the same white, fainter
+svg('android-monochrome',ADAPT.format(mark(W,W,A)))
+# web maskable icon: the mark inside the 80% safe circle, on cobalt to the edges
+svg('web-maskable',f'<rect width="432" height="432" fill="{BG}"/>'+ADAPT.format(mark(W,P)))
+# Windows tray: the needle-free glyph, white on a dark taskbar, cobalt on a light one
+svg('tray-dark',mark(W,W,A,needle_on=False)); svg('tray-light',mark(BG,PL,needle_on=False))
+# macOS: Apple's icon grid, an 824 px rounded square on a 1024 canvas. The 16 px icon has the needle-free
+# glyph, larger, since the needle's eye and the thread blur into the bubble at that size.
+def mac(body,k):
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><rect x="100" y="100" width="824" height="824" rx="185.4" fill="{BG}"/>'
+            f'<g transform="translate(512 512) scale({k:.4f}) translate(-216 -216)">{body}</g></svg>')
+open(os.path.join(out,'macos-icon.svg'),'w').write(mac(mark(W,P),824/432))
+open(os.path.join(out,'macos-icon-small.svg'),'w').write(mac(mark(W,P,needle_on=False),824/432*1.12))
 for tag,c in (('','currentColor'),('-white','#FFFFFF'),('-dark','#1F1F1F')):
-    open(os.path.join(out,f'seam-glyph{tag}.svg'),'w').write(H+mark(c)+'</svg>')
+    svg(f'seam-glyph{tag}',mark(c,c,A))         # tinted by the app or the system; also the tinted iOS icon

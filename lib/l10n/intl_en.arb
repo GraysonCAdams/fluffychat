@@ -4181,5 +4181,706 @@
         "type": "int"
       }
     }
+  },
+  "welcomeTagline": "Where your threads meet.",
+  "@welcomeTagline": {
+    "description": "Tagline under the app name on the welcome page."
+  },
+  "welcomeBody": "One inbox for every network. Sign in to your own Matrix server and its bridges bring iMessage, WhatsApp and the rest here.",
+  "@welcomeBody": {
+    "description": "Body text on the welcome page."
+  },
+  "createAnAccount": "Create an account",
+  "@createAnAccount": {
+    "description": "Text button on the welcome page that starts sign-up."
+  },
+  "moreOptions": "More options",
+  "@moreOptions": {
+    "description": "Tooltip of the overflow menu button on the welcome page."
+  },
+  "serverStepTitle": "Where is your account?",
+  "@serverStepTitle": {
+    "description": "Headline of the server step when signing in."
+  },
+  "serverStepBody": "Enter your server address or your full Matrix ID. Your server (homeserver) is where your account and your bridges live.",
+  "@serverStepBody": {
+    "description": "Body of the server step when signing in. Glosses the term homeserver."
+  },
+  "serverStepSignUpTitle": "Where should your account live?",
+  "@serverStepSignUpTitle": {
+    "description": "Headline of the server step when creating an account."
+  },
+  "serverStepSignUpBody": "Enter the server you want to join. Your server (homeserver) keeps your account and runs your bridges.",
+  "@serverStepSignUpBody": {
+    "description": "Body of the server step when creating an account."
+  },
+  "addAnotherAccount": "Add another account",
+  "@addAnotherAccount": {
+    "description": "Headline of the server step when adding an account."
+  },
+  "addAccountBody": "You stay signed in as {userId}. The new account can be on any server.",
+  "@addAccountBody": {
+    "description": "Body of the server step when adding an account.",
+    "type": "String",
+    "placeholders": {
+      "userId": {
+        "type": "String"
+      }
+    }
+  },
+  "serverOrMatrixId": "Server or Matrix ID",
+  "@serverOrMatrixId": {
+    "description": "Label of the server field."
+  },
+  "serverFieldHint": "example.org or @you:example.org",
+  "@serverFieldHint": {
+    "description": "Hint inside the empty server field."
+  },
+  "serverFieldHelper": "Ask whoever runs your server if you are not sure.",
+  "@serverFieldHelper": {
+    "description": "Helper text under the empty server field."
+  },
+  "lookingForServer": "Looking for a Matrix server at {server}",
+  "@lookingForServer": {
+    "description": "Shown while the typed server is being checked.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "serverSignsInOnItsPage": "Signs in on its own page",
+  "@serverSignsInOnItsPage": {
+    "description": "How a found server signs in: OIDC or SSO in the browser."
+  },
+  "serverSignsInWithPassword": "Signs in with a password",
+  "@serverSignsInWithPassword": {
+    "description": "How a found server signs in: username and password."
+  },
+  "serverUnreachable": "Can't reach {server}. Check the spelling and your connection.",
+  "@serverUnreachable": {
+    "description": "Error under the server field when the server does not answer.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "serverNotMatrix": "{server} isn't a Matrix server. Try the address your server admin gave you.",
+  "@serverNotMatrix": {
+    "description": "Error under the server field when the address answers but is not a Matrix server.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "recentServers": "Recent",
+  "@recentServers": {
+    "description": "Heading over the chips of servers signed in to before."
+  },
+  "browsePublicServers": "No server yet? Browse public servers",
+  "@browsePublicServers": {
+    "description": "Text button on the server step that opens the list of public servers."
+  },
+  "publicServersDescription": "Public servers anyone can join. Bridges to other networks usually need your own server.",
+  "@publicServersDescription": {
+    "description": "Text at the top of the public server list."
+  },
+  "useServer": "Use {server}",
+  "@useServer": {
+    "description": "Button in the public server list.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "createAccountInstead": "Create a new account instead",
+  "@createAccountInstead": {
+    "description": "Text button on the add-account server step."
+  },
+  "signInInstead": "Sign in to an existing account instead",
+  "@signInInstead": {
+    "description": "Text button on the add-account server step when creating an account."
+  },
+  "signInOnServerPageTitle": "Sign in on your server's page",
+  "@signInOnServerPageTitle": {
+    "description": "Headline of the step before the browser opens for OIDC or SSO sign-in."
+  },
+  "signInOnServerPageBody": "{server} has its own sign-in page. Seam opens it in your browser, then brings you straight back.",
+  "@signInOnServerPageBody": {
+    "description": "Body of the step before the browser opens for sign-in.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeysWorkThere": "Passkeys and your password manager work there.",
+  "@passkeysWorkThere": {
+    "description": "Benefit line on the browser sign-in step."
+  },
+  "seamNeverSeesPassword": "Seam never sees your password.",
+  "@seamNeverSeesPassword": {
+    "description": "Benefit line on the browser sign-in step."
+  },
+  "continueToSignInPage": "Continue to sign-in page",
+  "@continueToSignInPage": {
+    "description": "Button that opens the server's sign-in page in the browser."
+  },
+  "chooseHowToSignIn": "Choose how to sign in",
+  "@chooseHowToSignIn": {
+    "description": "Headline when the server offers several single sign-on providers."
+  },
+  "serverOffersTheseOptions": "{server} offers these sign-in options.",
+  "@serverOffersTheseOptions": {
+    "description": "Body when the server offers several single sign-on providers.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "continueWithProvider": "Continue with {provider}",
+  "@continueWithProvider": {
+    "description": "Button for one single sign-on provider, such as GitHub.",
+    "type": "String",
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "finishSigningInBrowser": "Finish signing in in your browser",
+  "@finishSigningInBrowser": {
+    "description": "Headline while waiting for the browser sign-in to come back."
+  },
+  "waitingForServerBody": "Seam is waiting for {server}. Come back here when the page says you are done.",
+  "@waitingForServerBody": {
+    "description": "Body while waiting for the browser sign-in.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "openSignInPageAgain": "Open the sign-in page again",
+  "@openSignInPageAgain": {
+    "description": "Button that reopens the browser sign-in."
+  },
+  "changeServer": "Change server",
+  "@changeServer": {
+    "description": "Tooltip of the server chip on the sign-in steps."
+  },
+  "usernameLabel": "Username",
+  "@usernameLabel": {
+    "description": "Label of the username field on the password step."
+  },
+  "forgotPasswordQuestion": "Forgot password?",
+  "@forgotPasswordQuestion": {
+    "description": "Text button on the password step."
+  },
+  "wrongUsernameOrPassword": "Wrong username or password. Check both, or reset your password.",
+  "@wrongUsernameOrPassword": {
+    "description": "Error under the password field when the server rejects the sign-in."
+  },
+  "tooManyTries": "Too many tries. Wait a moment before signing in again.",
+  "@tooManyTries": {
+    "description": "Notice when the server rate-limits sign-in."
+  },
+  "tryAgainIn": "Try again in {time}",
+  "@tryAgainIn": {
+    "description": "Sign-in button label while rate-limited; time is like 0:28.",
+    "type": "String",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "cantReachServerNow": "Can't reach {server} right now.",
+  "@cantReachServerNow": {
+    "description": "Notice when the server does not answer during sign-in.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "protectMessagesTitle": "Protect your messages",
+  "@protectMessagesTitle": {
+    "description": "Headline of the step that sets up recovery for a new account."
+  },
+  "protectMessagesBody": "Your chats are end-to-end encrypted: only your devices can read them. A recovery key unlocks them if you ever lose this device.",
+  "@protectMessagesBody": {
+    "description": "Body of the recovery setup step."
+  },
+  "protectBenefitHistory": "Read your message history on a new phone or computer.",
+  "@protectBenefitHistory": {
+    "description": "Benefit line on the recovery setup step."
+  },
+  "protectBenefitSignIns": "Approve new sign-ins as yours. (This is called cross-signing.)",
+  "@protectBenefitSignIns": {
+    "description": "Benefit line on the recovery setup step; glosses cross-signing once."
+  },
+  "protectBenefitServer": "Your server stores only an encrypted backup it cannot read.",
+  "@protectBenefitServer": {
+    "description": "Benefit line on the recovery setup step."
+  },
+  "createRecoveryKey": "Create recovery key",
+  "@createRecoveryKey": {
+    "description": "Primary button on the recovery setup step."
+  },
+  "usePassphraseInstead": "Use a passphrase instead",
+  "@usePassphraseInstead": {
+    "description": "Text button on the recovery setup step that leads to choosing a passphrase."
+  },
+  "skipRecoveryTitle": "Skip recovery for now?",
+  "@skipRecoveryTitle": {
+    "description": "Title of the sheet shown on Not now."
+  },
+  "skipRecoveryBody": "If you lose this device without a recovery key, you cannot read your encrypted messages anywhere. You can set it up later from Chat backup in Settings.",
+  "@skipRecoveryBody": {
+    "description": "Body of the sheet shown on Not now."
+  },
+  "setItUpNow": "Set it up now",
+  "@setItUpNow": {
+    "description": "Button in the skip sheet that keeps setting up recovery."
+  },
+  "skipForNow": "Skip for now",
+  "@skipForNow": {
+    "description": "Button in the skip sheet that skips recovery."
+  },
+  "choosePassphraseTitle": "Choose a passphrase",
+  "@choosePassphraseTitle": {
+    "description": "Headline of the optional passphrase step."
+  },
+  "choosePassphraseBody": "A passphrase you can remember works like the recovery key. Seam still makes a key as well.",
+  "@choosePassphraseBody": {
+    "description": "Body of the optional passphrase step."
+  },
+  "saveRecoveryKeyTitle": "Save your recovery key",
+  "@saveRecoveryKeyTitle": {
+    "description": "Headline of the step that shows the new recovery key."
+  },
+  "saveRecoveryKeyBody": "Keep it somewhere only you can get to, like a password manager. Seam cannot show it again or reset it for you.",
+  "@saveRecoveryKeyBody": {
+    "description": "Body of the step that shows the new recovery key."
+  },
+  "copied": "Copied",
+  "@copied": {
+    "description": "Copy button after copying."
+  },
+  "keepInKeystore": "Also keep it in this device's secure storage",
+  "@keepInKeystore": {
+    "description": "Switch that stores the recovery key in the Android KeyStore, Apple Keychain or Windows credential store."
+  },
+  "keepInKeystoreSubtitle": "Unlocks this device without typing it",
+  "@keepInKeystoreSubtitle": {
+    "description": "Subtitle of the secure storage switch."
+  },
+  "iveSavedIt": "I've saved it",
+  "@iveSavedIt": {
+    "description": "Primary button after saving the recovery key."
+  },
+  "checkYouHaveItTitle": "Check you have it",
+  "@checkYouHaveItTitle": {
+    "description": "Headline of the step that asks for one group of the recovery key."
+  },
+  "checkYouHaveItBody": "Type the highlighted group from your saved key. This makes sure the copy you kept is complete.",
+  "@checkYouHaveItBody": {
+    "description": "Body of the recovery key check step."
+  },
+  "groupNOfM": "Group {n} of {total}",
+  "@groupNOfM": {
+    "description": "Under the recovery key check: which group is asked for.",
+    "type": "String",
+    "placeholders": {
+      "n": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "groupDoesNotMatch": "That group doesn't match. Look at your saved key again.",
+  "@groupDoesNotMatch": {
+    "description": "Error when the typed group is wrong."
+  },
+  "confirm": "Confirm",
+  "@confirm": {
+    "description": "Primary button of the recovery key check."
+  },
+  "showMyKeyAgain": "Show my key again",
+  "@showMyKeyAgain": {
+    "description": "Text button that goes back to the recovery key."
+  },
+  "allSetTitle": "You're all set",
+  "@allSetTitle": {
+    "description": "Headline when recovery is set up."
+  },
+  "allSetBody": "Your messages are backed up and new sign-ins need your approval. Chat backup in Settings manages it from now on.",
+  "@allSetBody": {
+    "description": "Body when recovery is set up."
+  },
+  "startChatting": "Start chatting",
+  "@startChatting": {
+    "description": "Primary button that opens the chat list after setup."
+  },
+  "confirmItsYouTitle": "Confirm it's you",
+  "@confirmItsYouTitle": {
+    "description": "Headline when an existing account signs in on a new device."
+  },
+  "confirmItsYouBody": "Your messages are locked to your devices. Unlock them here by approving this sign-in from another device, or with your recovery key.",
+  "@confirmItsYouBody": {
+    "description": "Body of the confirm-it's-you step."
+  },
+  "useAnotherDevice": "Use another device",
+  "@useAnotherDevice": {
+    "description": "Option on the confirm-it's-you step."
+  },
+  "useRecoveryKey": "Use recovery key",
+  "@useRecoveryKey": {
+    "description": "Option on the confirm-it's-you step."
+  },
+  "useRecoveryKeySubtitle": "The key you saved when you set up Seam",
+  "@useRecoveryKeySubtitle": {
+    "description": "Subtitle of the Use recovery key option."
+  },
+  "cantConfirmReset": "Can't confirm? Reset your digital identity",
+  "@cantConfirmReset": {
+    "description": "Text button that leads to resetting the cryptographic identity."
+  },
+  "resetIdentityTitle": "Reset your digital identity?",
+  "@resetIdentityTitle": {
+    "description": "Title of the reset confirmation."
+  },
+  "resetIdentityBody": "Only do this if you have no other signed-in device and no recovery key.\n\n- Your account, contacts and chats stay.\n- Encrypted history kept only on the server is lost.\n- People you chat with see that you reset.\n- Your other devices must be confirmed again.",
+  "@resetIdentityBody": {
+    "description": "Body of the reset confirmation, listing what a reset does."
+  },
+  "enterRecoveryKeyTitle": "Enter your recovery key",
+  "@enterRecoveryKeyTitle": {
+    "description": "Headline of the step that unlocks with the recovery key."
+  },
+  "enterRecoveryKeyBody": "Paste it, type it, or open the file you saved. Spaces don't matter.",
+  "@enterRecoveryKeyBody": {
+    "description": "Body of the recovery key entry step."
+  },
+  "recoveryKeyOrPassphrase": "Recovery key or passphrase",
+  "@recoveryKeyOrPassphrase": {
+    "description": "Label of the recovery key field."
+  },
+  "savedKeyFound": "A recovery key is saved on this device.",
+  "@savedKeyFound": {
+    "description": "Notice when secure storage holds the recovery key."
+  },
+  "useIt": "Use it",
+  "@useIt": {
+    "description": "Action of the saved-key notice."
+  },
+  "paste": "Paste",
+  "@paste": {
+    "description": "Chip that pastes from the clipboard."
+  },
+  "openSeamOnOtherDevice": "Open Seam on your other device",
+  "@openSeamOnOtherDevice": {
+    "description": "Headline while waiting for another device to accept verification."
+  },
+  "requestSentTo": "We sent a request to {devices}. Accept it on any of them.",
+  "@requestSentTo": {
+    "description": "Body while waiting for another device; devices is a list of device names.",
+    "type": "String",
+    "placeholders": {
+      "devices": {
+        "type": "String"
+      }
+    }
+  },
+  "waitingForReply": "Waiting for a reply",
+  "@waitingForReply": {
+    "description": "Next to a spinner while waiting for another device."
+  },
+  "useRecoveryKeyInstead": "Use recovery key instead",
+  "@useRecoveryKeyInstead": {
+    "description": "Text button while waiting for another device."
+  },
+  "deviceConfirmedTitle": "This device is confirmed",
+  "@deviceConfirmedTitle": {
+    "description": "Headline after this device was confirmed."
+  },
+  "deviceConfirmedBody": "Your messages are unlocking now. Older ones can take a moment to appear.",
+  "@deviceConfirmedBody": {
+    "description": "Body after this device was confirmed."
+  },
+  "recoveryKeyMismatch": "That key doesn't match this account. Check it for typos.",
+  "@recoveryKeyMismatch": {
+    "description": "Error under the recovery key field when the key or passphrase is wrong."
+  },
+  "isThisYouSigningIn": "Is this you signing in?",
+  "@isThisYouSigningIn": {
+    "description": "Title on a trusted device when another of the account's devices asks to be confirmed."
+  },
+  "onlyContinueIfYouSignedIn": "Only continue if you just signed in. Approving lets that device read your messages.",
+  "@onlyContinueIfYouSignedIn": {
+    "description": "Body under the device name when another device asks to be confirmed."
+  },
+  "yesItsMe": "Yes, it's me",
+  "@yesItsMe": {
+    "description": "Accepts the confirmation request from another of the account's devices."
+  },
+  "noThatWasntMe": "No, that wasn't me",
+  "@noThatWasntMe": {
+    "description": "Rejects the confirmation request from another of the account's devices."
+  },
+  "wantsToVerifyYou": "{name} wants to verify you",
+  "@wantsToVerifyYou": {
+    "description": "Title when another person asks to verify.",
+    "type": "String",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "verifyRequestBody": "You'll compare a few emoji together, in person or on a call, to make sure no one is in between.",
+  "@verifyRequestBody": {
+    "description": "Body when another person asks to verify."
+  },
+  "verifyPersonTitle": "Verify {name}",
+  "@verifyPersonTitle": {
+    "description": "Title while waiting for another person to accept verification.",
+    "type": "String",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "waitingForPersonBody": "Waiting for {name} to accept. They need to have Seam or another Matrix app open.",
+  "@waitingForPersonBody": {
+    "description": "Body while waiting for another person to accept verification.",
+    "type": "String",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chooseHowToVerifyTitle": "Scan or compare",
+  "@chooseHowToVerifyTitle": {
+    "description": "Title when both devices are ready and a QR code can be used."
+  },
+  "scanThisCodeBody": "Scan this code with the other device's camera. It's quicker than comparing emoji.",
+  "@scanThisCodeBody": {
+    "description": "Next to the QR code to be scanned."
+  },
+  "scanTheirCode": "Scan their code",
+  "@scanTheirCode": {
+    "description": "Button that opens the camera to scan the other device's QR code."
+  },
+  "compareEmojiInstead": "Compare emoji instead",
+  "@compareEmojiInstead": {
+    "description": "Button that switches from QR to emoji comparison."
+  },
+  "scanCodeTitle": "Scan code",
+  "@scanCodeTitle": {
+    "description": "Title of the camera page that scans a verification QR code."
+  },
+  "pointCameraAtCode": "Point the camera at the code on the other device.",
+  "@pointCameraAtCode": {
+    "description": "Hint on the camera page."
+  },
+  "notAVerificationCode": "That isn't a verification code. Scan the code Seam shows on the other device.",
+  "@notAVerificationCode": {
+    "description": "Error when the scanned QR code is not a Matrix verification code."
+  },
+  "codeScannedTitle": "Code scanned",
+  "@codeScannedTitle": {
+    "description": "Title on the scanning device after a good scan."
+  },
+  "codeScannedBody": "Confirm on {device} that it shows this was scanned.",
+  "@codeScannedBody": {
+    "description": "Body on the scanning device after a good scan.",
+    "type": "String",
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "didTheyScanTitle": "Was this code scanned?",
+  "@didTheyScanTitle": {
+    "description": "Title on the device that showed the QR code, once the other side scanned it."
+  },
+  "didTheyScanBody": "Check that {device} says it scanned your code. Only confirm if it does.",
+  "@didTheyScanBody": {
+    "description": "Body on the device that showed the QR code.",
+    "type": "String",
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "yesItWasScanned": "Yes, it was scanned",
+  "@yesItWasScanned": {
+    "description": "Confirms the QR scan on the device that showed the code."
+  },
+  "doTheseMatch": "Do these match?",
+  "@doTheseMatch": {
+    "description": "Title of the emoji or number comparison."
+  },
+  "compareEmojiOwnBody": "Check that {device} shows the same emoji in the same order. Only continue if you started this.",
+  "@compareEmojiOwnBody": {
+    "description": "Body of the emoji comparison with one's own other device.",
+    "type": "String",
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "compareEmojiPersonBody": "Compare with {name} in person or on a call. Don't send them in a message.",
+  "@compareEmojiPersonBody": {
+    "description": "Body of the emoji comparison with another person.",
+    "type": "String",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "compareNumbersBody": "Check that the other side shows the same numbers.",
+  "@compareNumbersBody": {
+    "description": "Body of the number comparison."
+  },
+  "waitingForOtherSide": "Waiting for {name} to confirm",
+  "@waitingForOtherSide": {
+    "description": "Next to a spinner after confirming a match.",
+    "type": "String",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "thisDeviceIsConfirmed": "This device is confirmed",
+  "@thisDeviceIsConfirmed": {
+    "description": "Title after confirming one of one's own devices."
+  },
+  "otherDeviceConfirmedBody": "Both devices now trust each other and share your message keys.",
+  "@otherDeviceConfirmedBody": {
+    "description": "Body after confirming one of one's own devices."
+  },
+  "personIsVerified": "{name} is verified",
+  "@personIsVerified": {
+    "description": "Title after verifying another person.",
+    "type": "String",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "personVerifiedBody": "Messages with {name} show a shield. If their security ever changes, Seam tells you.",
+  "@personVerifiedBody": {
+    "description": "Body after verifying another person.",
+    "type": "String",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "verificationStoppedTitle": "Verification stopped",
+  "@verificationStoppedTitle": {
+    "description": "Title when verification was cancelled."
+  },
+  "verificationMismatchBody": "The emoji or code didn't match, so nothing was shared. If you didn't start this, change your password and check your devices.",
+  "@verificationMismatchBody": {
+    "description": "Body when the comparison did not match."
+  },
+  "verificationTimeoutTitle": "No reply",
+  "@verificationTimeoutTitle": {
+    "description": "Title when verification timed out."
+  },
+  "verificationTimeoutBody": "The other side didn't answer in time. Make sure Seam is open there, then try again.",
+  "@verificationTimeoutBody": {
+    "description": "Body when verification timed out."
+  },
+  "verificationCancelledBody": "The other side stopped the verification. Nothing was shared.",
+  "@verificationCancelledBody": {
+    "description": "Body when the other side cancelled."
+  },
+  "verificationErrorBody": "Something went wrong ({code}). Nothing was shared.",
+  "@verificationErrorBody": {
+    "description": "Body for any other verification error; code is the Matrix cancel code.",
+    "type": "String",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "unlockToVerifyTitle": "Unlock to verify",
+  "@unlockToVerifyTitle": {
+    "description": "Title when the recovery key is needed to sign another person's key."
+  },
+  "unlockToVerifyBody": "To verify someone, this device needs your recovery key or passphrase.",
+  "@unlockToVerifyBody": {
+    "description": "Body when the recovery key is needed to verify another person."
+  },
+  "done": "Done",
+  "@done": {
+    "description": "Closes a finished verification."
+  },
+  "accounts": "Accounts",
+  "@accounts": {
+    "description": "Title of Settings > Accounts and of its row in Settings."
+  },
+  "settingsAccountsSummary": "Switch, or sign in to another account",
+  "@settingsAccountsSummary": {
+    "description": "Subtitle of the Accounts row in Settings."
+  },
+  "addAccountAnyServer": "On this server or another one",
+  "@addAccountAnyServer": {
+    "description": "Subtitle of Add account in Settings > Accounts."
+  },
+  "alreadySignedInHere": "You're already signed in to this account on this device.",
+  "@alreadySignedInHere": {
+    "description": "Notice on the add-account server step when the typed Matrix ID is already signed in."
+  },
+  "switchToIt": "Switch",
+  "@switchToIt": {
+    "description": "Action of the already-signed-in notice: switches to that account."
+  },
+  "accountAddedTitle": "Account added",
+  "@accountAddedTitle": {
+    "description": "Headline after adding another account."
+  },
+  "accountAddedBody": "{userId} is ready. Switch accounts from your picture in the chat list, or in Settings > Accounts.",
+  "@accountAddedBody": {
+    "description": "Body after adding another account.",
+    "type": "String",
+    "placeholders": {
+      "userId": {
+        "type": "String"
+      }
+    }
+  },
+  "openItsChats": "Open its chats",
+  "@openItsChats": {
+    "description": "Primary button after adding another account."
   }
 }
