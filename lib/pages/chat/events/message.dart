@@ -73,8 +73,6 @@ class Message extends StatelessWidget {
   final bool wallpaperMode;
   final ScrollController scrollController;
   final List<Color> colors;
-  final void Function()? onExpand;
-  final bool isCollapsed;
 
   /// Shown beside the time in a merged contact's chat when this message is
   /// on a different network than the one before it.
@@ -121,11 +119,9 @@ class Message extends StatelessWidget {
     required this.onMention,
     required this.scrollController,
     required this.colors,
-    this.onExpand,
     this.networkBadge,
     this.networkColor,
     required this.enterThread,
-    this.isCollapsed = false,
     this.timeRevealed = false,
     this.onToggleTime,
     this.showDeliveryStatus = false,
@@ -144,7 +140,7 @@ class Message extends StatelessWidget {
       if (event.type.startsWith('m.call.')) {
         return const SizedBox.shrink();
       }
-      return StateMessage(event, onExpand: onExpand, isCollapsed: isCollapsed);
+      return StateMessage(event);
     }
 
     if (event.type == EventTypes.Message &&
