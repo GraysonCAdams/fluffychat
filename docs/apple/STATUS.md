@@ -63,7 +63,7 @@ so). "Gate" is the Dart platform check that keeps the feature off Apple platform
 | Photos in notifications | Android | none | none | `UNNotificationAttachment` from the extension |
 | Group collage icon | Android shortcut icon, Windows toast | room avatar only | none | collage rendered for the intent's `INImage` |
 | Conversation shortcuts, direct share | Android | none | none | `INInteraction` donation, share suggestions |
-| Unread badge | Windows taskbar | extension sets it | never cleared | `NSApp.dockTile.badgeLabel` from sync |
+| Unread badge | Windows taskbar | extension sets it | **built**: the Dock icon shows the unread chat count on every sync (`_updateTaskbarBadge` in `lib/widgets/matrix.dart`); not yet seen with an account | `NSApp.dockTile.badgeLabel` from sync |
 | Effect haptics | `effect_haptics.dart` (Android channel) | **built**: `ios/Runner/EffectHaptics.swift` answers the same channel; not yet felt on a device | n/a | Core Haptics patterns behind the same channel |
 | Voice transcripts | whisper (`isAndroid \|\| isWindows`) | hidden | hidden | Speech framework, on device |
 | Contacts import | Android | hidden | hidden | `flutter_contacts` gate plus purpose string |
@@ -71,6 +71,7 @@ so). "Gate" is the Dart platform check that keeps the feature off Apple platform
 | Context menus | Windows native menu | Flutter menu | Flutter menu | `SystemContextMenu` on iOS, `NSMenu` on macOS |
 | Chat windows | Windows | n/a | hidden | one `NSWindow` per chat |
 | Stay running, launch at login | Windows tray | n/a | quits with the last window | keep running after close, `SMAppService`, `NSStatusItem` |
+| Menu bar | n/a | n/a | **built**: `lib/widgets/mac_menu_bar.dart` (Settings, New chat, New group, Edit commands, Chats, Window); menu read back from the running app, items not yet exercised signed in; File/Edit/View/Window/Undo/Redo titles are English only | `PlatformMenuBar` |
 | Title bar with search | `WindowsChrome` | n/a | standard | unified `NSToolbar` title bar |
 | Data detectors | Android `TextClassifier` (not on integration2 yet) | none | none | `NSDataDetector`, native menus |
 | Share-to | Android intents | upstream share extension | none | macOS share extension |
@@ -103,6 +104,9 @@ typing indicators, read status, app lock, one-time-code detection.
 - 2026-11-27 (later): `feat/integration2` @ 587616abb merged. APNs token channel, Core Haptics
   effect haptics, Seam icons and launch screen, megolm decryption in the notification extension.
   All compile; none of the four has run with a signed-in account or on a device.
+
+- 2026-11-27 (night): macOS menu bar and Dock badge wiring; macOS debug build green. `dart analyze`
+  cannot run here: the `dart_code_linter` analyzer plugin fails to resolve (`version "latest"`).
 
 ## Needs Grayson
 
