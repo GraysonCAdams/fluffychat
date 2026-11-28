@@ -79,7 +79,7 @@ void main() {
     test('has the picture inline under the text and the avatar as logo', () {
       final xml = xmlOf(media: Uri.file(r'C:\media\photo.jpg', windows: true));
 
-      final images = RegExp('<image [^>]*>').allMatches(xml).toList();
+      final images = RegExp(r'<image\b[^>]*>').allMatches(xml).toList();
       expect(images, hasLength(2));
       expect(images[0][0], contains('placement="appLogoOverride"'));
       expect(images[0][0], contains('hint-crop="circle"'));
@@ -91,7 +91,7 @@ void main() {
 
     test('has only the avatar without a picture', () {
       final xml = xmlOf();
-      expect(RegExp('<image ').allMatches(xml), hasLength(1));
+      expect(RegExp(r'<image\b').allMatches(xml), hasLength(1));
       expect(xml, contains('appLogoOverride'));
     });
   });
