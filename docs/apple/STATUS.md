@@ -58,8 +58,8 @@ so). "Gate" is the Dart platform check that keeps the feature off Apple platform
 
 | Area | Android / Windows today | iOS today | macOS today | Apple route |
 |---|---|---|---|---|
-| Push delivery | UnifiedPush | **app side built**: `ApnsTokenChannel.swift`, `lib/utils/apple_push.dart`, `setupApplePush`; inert until `SEAM_PUSH_GATEWAY_URL` is set; not yet run against APNs | none (local only) | APNs token channel, `setupPusher` to the gateway |
-| Notification content | `MessagingStyle`, `Person`, sender icons | **decryption built**: `ios/seam_nse_crypto` + `EventDecryptor.swift` set sender and text; not yet run against a real database; communication notifications still to do | plain text while a window is open | decrypt in the Notification Service Extension; `INSendMessageIntent` communication notifications |
+| Push delivery | UnifiedPush | **seen on the simulator**: `ApnsTokenChannel.swift` gets a real APNs sandbox token (80 bytes there, so the pushkey is 160 hex characters), `setupApplePush` registers the pusher as `dev.threeonetwo.seam.ios-sandbox.<device>` (production: `.ios.<device>`), and a push sent to Apple's sandbox with the Seam sandbox key arrives. Needs `--dart-define=SEAM_PUSH_GATEWAY_URL=...`; the gateway itself (a Cloudflare Worker, `~/repos/seam-push` on the laptop) is not deployed, so no push has gone homeserver to gateway to Apple yet. Not tried on a device or with the production key | none (local only) | APNs token channel, `setupPusher` to the gateway |
+| Notification content | `MessagingStyle`, `Person`, sender icons | **seen on the simulator**: for a real APNs push the extension shows the chat name and the message text, for a plain event and for a megolm-encrypted one (decrypted with `ios/seam_nse_crypto` from the app's database). It reads `event_id`, `room_id`, `unread_count` and `client_name` from the payload. A message whose megolm session the app has not synced yet keeps the placeholder text. Communication notifications (sender avatar) still to do | plain text while a window is open | `INSendMessageIntent` communication notifications |
 | Notification actions | reply, mark read, mute, copy code | none | none | `UNNotificationCategory`, `UNTextInputNotificationAction` |
 | Photos in notifications | Android | none | none | `UNNotificationAttachment` from the extension |
 | Group collage icon | Android shortcut icon, Windows toast | room avatar only | none | collage rendered for the intent's `INImage` |
@@ -135,6 +135,13 @@ typing indicators, read status, app lock, one-time-code detection.
   Symbols gets the same refusal in this session, where another app (a KVM viewer) holds the front
   and Seam cannot be made frontmost over ssh. So the Character Viewer and the emoji landing in
   the composer still need a look at the Mac in person.
+
+- 2026-11-28 (overnight): first real pushes. `simctl push` does not start the notification
+  extension, so the test sends to Apple's sandbox API with the Seam sandbox key (through
+  sandbroker) and the simulator's own APNs token. Found and fixed on the way: the extension only
+  understood FluffyChat's gateway payload (`counts` and `devices` JSON strings) and fell back to
+  "New message - open app to read"; Runner defines no `DEBUG` condition, so the APNs environment
+  was reported as production on a simulator.
 
 ## Needs Grayson
 

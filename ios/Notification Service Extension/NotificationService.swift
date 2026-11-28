@@ -38,6 +38,8 @@ class NotificationService: UNNotificationServiceExtension {
             )
         {
             unread = counts.unread
+        } else if let count = bestAttemptContent.userInfo["unread_count"] as? NSNumber {
+            unread = count.intValue
         }
         if let unread = unread {
             bestAttemptContent.badge = NSNumber(integerLiteral: unread)
@@ -66,22 +68,6 @@ class NotificationService: UNNotificationServiceExtension {
             comment: "Default notification title"
         )
 
-        // Fetch the client_name:
-        guard
-            let devicesJson = bestAttemptContent.userInfo["devices"] as? String,
-            let devices = try? JSONDecoder().decode(
-                [NotificationDevice].self,
-                from: devicesJson.data(using: .utf8)!
-            ),
-            let clientName = devices.first?.data.client_name
-        else {
-            bestAttemptContent.userInfo["error"] = "No client_name found in Push Notification!"
-            contentHandler(bestAttemptContent)
-            return
-        }
-
-        bestAttemptContent.threadIdentifier = "\(clientName)_\(roomId)"
-
         // Create database path:
         guard let containerPath = FileManager.default.containerURL(
                 forSecurityApplicationGroupIdentifier: "group.dev.threeonetwo.seam"
@@ -90,18 +76,50 @@ class NotificationService: UNNotificationServiceExtension {
                 contentHandler(bestAttemptContent)
                 return
         }
-        let databasePath = containerPath.appendingPathComponent("\(clientName).sqlite").path
-        
+
+        // The account the push is for names its database. A gateway that
+        // relays the pusher's data sends it as `client_name`, or inside the
+        // `devices` list as a JSON string; without either, the databases in
+        // the app group are tried in turn, which is right for one account.
+        var clientNames: [String] = []
+        if let name = bestAttemptContent.userInfo["client_name"] as? String {
+            clientNames = [name]
+        } else if let devicesJson = bestAttemptContent.userInfo["devices"] as? String,
+            let devices = try? JSONDecoder().decode(
+                [NotificationDevice].self,
+                from: devicesJson.data(using: .utf8)!
+            ),
+            let name = devices.first?.data.client_name
+        {
+            clientNames = [name]
+        } else {
+            let files = (try? FileManager.default.contentsOfDirectory(atPath: containerPath.path)) ?? []
+            // `<account>.search.sqlite` is the message search index.
+            clientNames = files.filter { $0.hasSuffix(".sqlite") && !$0.hasSuffix(".search.sqlite") }
+                .map { String($0.dropLast(".sqlite".count)) }
+                .sorted()
+        }
+
         // Open database:
-        let database: SqlCipherDatabase
-        do {
-            database = try getDatabase(path: databasePath)
-        } catch {
-            os_log("[SeamPush] Unable to open database: %{public}@", type: .error, String(describing: error))
-            bestAttemptContent.userInfo["error"] = String(describing: error)
+        var opened: (name: String, database: SqlCipherDatabase)?
+        var openError = "No account database in the app group"
+        for name in clientNames {
+            do {
+                let path = containerPath.appendingPathComponent("\(name).sqlite").path
+                opened = (name, try getDatabase(path: path))
+                break
+            } catch {
+                openError = String(describing: error)
+            }
+        }
+        guard let (clientName, database) = opened else {
+            os_log("[SeamPush] Unable to open database: %{public}@", type: .error, openError)
+            bestAttemptContent.userInfo["error"] = openError
             contentHandler(bestAttemptContent)
             return
         }
+
+        bestAttemptContent.threadIdentifier = "\(clientName)_\(roomId)"
 
         // Get room name:
         var roomName = getRoomNameFromDatabase(
@@ -162,7 +180,11 @@ class NotificationService: UNNotificationServiceExtension {
                     ? event.relation?.key
                     : (event.isEdit ? event.newContentBody : nil) ?? event.body
                 if let text {
-                    bestAttemptContent.subtitle = sender
+                    // In a chat with one other person the title already is
+                    // their name.
+                    if sender != bestAttemptContent.title {
+                        bestAttemptContent.subtitle = sender
+                    }
                     bestAttemptContent.body = text
                 }
             } catch {
