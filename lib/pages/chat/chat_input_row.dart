@@ -206,12 +206,15 @@ class ChatInputRow extends StatelessWidget {
               : <Widget>[
                   // Files attach to whatever is being written, a reply or
                   // an edit included, so the attach button always shows.
-                  ComposerLeadingButtons(
-                    attachmentPanelOpen: controller.showAttachmentPanel,
-                    onAttach: controller.toggleAttachmentPanel,
-                    showEmojiButton: controller.emojiButtonShown,
-                    emojiPickerOpen: controller.showEmojiPicker,
-                    onEmoji: controller.emojiButtonAction,
+                  ComposerIconButton(
+                    buttonKey: const ValueKey('composer-attach'),
+                    tooltip: L10n.of(context).addAttachment,
+                    icon: Icon(
+                      controller.showAttachmentPanel
+                          ? Icons.close
+                          : Icons.add_circle_outline,
+                    ),
+                    onPressed: controller.toggleAttachmentPanel,
                   ),
                   if (Matrix.of(context).isMultiAccount &&
                       Matrix.of(context).hasComplexBundles &&
@@ -243,12 +246,12 @@ class ChatInputRow extends StatelessWidget {
                         focusNode: controller.inputFocus,
                         controller: controller.sendController,
                         decoration: InputDecoration(
-                          // 12 more after the last button's 48 target, so
-                          // the text starts 24 after its icon, as far as
-                          // the icons are apart.
-                          contentPadding: const EdgeInsets.only(
-                            left: 12.0,
-                            right: 6.0,
+                          // 4 more beside a 48 target leaves 16 between its
+                          // icon and the text, M3's gap between a text
+                          // field's icons and its text.
+                          contentPadding: EdgeInsets.only(
+                            left: 4.0,
+                            right: controller.emojiButtonShown ? 4.0 : 6.0,
                             bottom: 6.0,
                             top: 3.0,
                           ),
@@ -271,6 +274,20 @@ class ChatInputRow extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // A trailing icon, beside send as in Google Messages. The
+                  // row aligns to its end, so it stays on the last line.
+                  if (controller.emojiButtonShown)
+                    ComposerIconButton(
+                      buttonKey: const ValueKey('composer-emoji'),
+                      tooltip: L10n.of(context).emojis,
+                      icon: Icon(
+                        controller.showEmojiPicker
+                            ? Icons.keyboard
+                            : Icons.add_reaction_outlined,
+                        key: ValueKey(controller.showEmojiPicker),
+                      ),
+                      onPressed: controller.emojiButtonAction,
+                    ),
                   if (showSendButton)
                     Padding(
                       padding: const EdgeInsets.only(right: 4),
@@ -497,84 +514,48 @@ class ChatComposer extends StatelessWidget {
   }
 }
 
-/// The attach and emoji buttons at the start of the composer: icon buttons
-/// with Material's 48dp target, side by side from the composer's edge. Their
-/// 24dp icons sit 12dp in from the edge, as a text field pads a leading
-/// icon, and 24dp apart; the text starts 24dp after the last icon too (see
-/// [ChatInputRow]), so icons and text keep one rhythm.
-class ComposerLeadingButtons extends StatelessWidget {
-  final bool attachmentPanelOpen;
-  final void Function() onAttach;
+/// An icon button inside the composer's pill: the attach button leading
+/// the text, the emoji button trailing it. Material's 48dp target, as tall
+/// as one line of the composer, so in its row, aligned to the end, the icon
+/// stays level with the last line. The 24dp icon sits 12dp in from each
+/// side, so flush with the pill's edge it is padded as a text field pads a
+/// leading icon.
+class ComposerIconButton extends StatelessWidget {
+  /// The key of the [IconButton] itself.
+  final Key? buttonKey;
+  final String tooltip;
+  final Widget icon;
+  final void Function() onPressed;
 
-  /// Whether to show the emoji button: where the system has an emoji picker
-  /// to open, or the chat offers stickers (see ChatController.
-  /// emojiButtonShown).
-  final bool showEmojiButton;
-  final bool emojiPickerOpen;
-  final void Function() onEmoji;
+  /// The button's width and touch target.
+  static const double size = 48;
 
-  /// Each button's width and touch target.
-  static const double buttonSize = 48;
-
-  const ComposerLeadingButtons({
-    required this.attachmentPanelOpen,
-    required this.onAttach,
-    required this.showEmojiButton,
-    required this.emojiPickerOpen,
-    required this.onEmoji,
+  const ComposerIconButton({
+    this.buttonKey,
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
     super.key,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final l10n = L10n.of(context);
-    final style = IconButton.styleFrom(
-      fixedSize: const Size.square(buttonSize),
-      minimumSize: const Size.square(buttonSize),
-      padding: EdgeInsets.zero,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    );
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          height: ChatInputRow.height,
-          width: buttonSize,
-          child: Center(
-            child: IconButton(
-              key: const ValueKey('composer-attach'),
-              tooltip: l10n.addAttachment,
-              style: style,
-              icon: Icon(
-                attachmentPanelOpen ? Icons.close : Icons.add_circle_outline,
-              ),
-              color: theme.colorScheme.onPrimaryContainer,
-              onPressed: onAttach,
-            ),
-          ),
+  Widget build(BuildContext context) => SizedBox(
+    height: ChatInputRow.height,
+    width: size,
+    child: Center(
+      child: IconButton(
+        key: buttonKey,
+        tooltip: tooltip,
+        style: IconButton.styleFrom(
+          fixedSize: const Size.square(size),
+          minimumSize: const Size.square(size),
+          padding: EdgeInsets.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
-        if (showEmojiButton)
-          SizedBox(
-            height: ChatInputRow.height,
-            width: buttonSize,
-            child: Center(
-              child: IconButton(
-                key: const ValueKey('composer-emoji'),
-                tooltip: l10n.emojis,
-                style: style,
-                color: theme.colorScheme.onPrimaryContainer,
-                icon: Icon(
-                  emojiPickerOpen
-                      ? Icons.keyboard
-                      : Icons.add_reaction_outlined,
-                  key: ValueKey(emojiPickerOpen),
-                ),
-                onPressed: onEmoji,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
+        color: Theme.of(context).colorScheme.onPrimaryContainer,
+        icon: icon,
+        onPressed: onPressed,
+      ),
+    ),
+  );
 }
