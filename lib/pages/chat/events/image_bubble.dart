@@ -5,6 +5,7 @@
 
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
+import 'package:fluffychat/pages/chat/events/media_sending_indicator.dart';
 import 'package:fluffychat/utils/file_description.dart';
 import 'package:fluffychat/utils/url_launcher.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
@@ -112,6 +113,9 @@ class ImageBubble extends StatelessWidget {
                           fit: fit,
                         ),
                 ),
+                if (!event.status.isSynced &&
+                    event.messageType != MessageTypes.Sticker)
+                  MediaSendingIndicator(event: event),
               ],
             ),
           ),
