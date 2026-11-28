@@ -137,6 +137,38 @@ void main() {
       );
     });
 
+    test('a placeholder still waiting reads as the photo or video', () async {
+      await sync([
+        event(r'$photo', {
+          'msgtype': 'm.notice',
+          'body': 'Waiting for attachment PXL_1.jpg',
+          'fi.mau.gmessages.media_pending': true,
+        }, 0),
+        event(r'$video', {
+          'msgtype': 'm.notice',
+          'body': 'Waiting for attachment PXL_2.mp4',
+          'fi.mau.gmessages.media_pending': true,
+        }, 1),
+        event(r'$failed', {
+          'msgtype': 'm.notice',
+          'body': 'Failed to transfer attachment PXL_3.jpg',
+        }, 2),
+      ]);
+
+      final messages = await carRoomMessages(
+        client,
+        client.getRoomById(roomId)!,
+        locals,
+      );
+
+      // Newest first, as the database lists them.
+      expect(messages.map((m) => m.body), [
+        "Photo didn't arrive",
+        'Video',
+        'Photo',
+      ]);
+    });
+
     test('the newest edit wins and another sender cannot edit', () async {
       const message = r'$message';
       await sync([
