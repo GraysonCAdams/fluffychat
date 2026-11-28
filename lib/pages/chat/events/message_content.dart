@@ -3,14 +3,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:math';
-
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat/events/pending_media_tile.dart';
 import 'package:fluffychat/pages/chat/events/poll.dart';
 import 'package:fluffychat/pages/chat/events/video_player.dart';
 import 'package:fluffychat/pages/image_viewer/image_viewer.dart';
 import 'package:fluffychat/utils/message_effects.dart';
+import 'package:fluffychat/utils/pending_media.dart';
 import 'package:fluffychat/utils/plain_mentions.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -37,9 +37,15 @@ class MessageContent extends StatelessWidget {
   final bool selected;
   final Set<String> bigEmojis;
 
+  /// Whether the message began as a bridge's placeholder for an attachment
+  /// ([PendingMedia]), so the media its edit brings swaps in for the tile
+  /// with an animation ([PendingMediaSwitcher]).
+  final bool fromPendingMedia;
+
   const MessageContent(
     this.event, {
     this.onInfoTab,
+    this.fromPendingMedia = false,
     super.key,
     required this.timeline,
     required this.textColor,
@@ -51,6 +57,15 @@ class MessageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pending = PendingMedia.of(event);
+    final content = pending == null
+        ? _content(context)
+        : PendingMediaTile(media: pending, borderRadius: borderRadius);
+    if (!fromPendingMedia) return content;
+    return PendingMediaSwitcher(pending: pending != null, child: content);
+  }
+
+  Widget _content(BuildContext context) {
     const fontSize = AppConfig.messageFontSize;
     final buttonTextColor = textColor;
     switch (event.type) {
@@ -70,21 +85,16 @@ class MessageContent extends StatelessWidget {
             final h = event.content
                 .tryGetMap<String, Object?>('info')
                 ?.tryGet<int>('h');
-            var width = maxSize;
-            var height = maxSize;
-            var fit = event.messageType == MessageTypes.Sticker
+            final known = w != null && h != null && w > 0 && h > 0;
+            final size = imageBubbleSize(
+              known ? w / h : null,
+              maxSize: maxSize,
+            );
+            final width = size.width;
+            final height = size.height;
+            final fit = known || event.messageType == MessageTypes.Sticker
                 ? BoxFit.contain
                 : BoxFit.cover;
-            if (w != null && h != null) {
-              fit = BoxFit.contain;
-              if (w > h) {
-                width = maxSize;
-                height = max(32, maxSize * (h / w));
-              } else {
-                height = maxSize;
-                width = max(32, maxSize * (w / h));
-              }
-            }
             return ImageBubble(
               event,
               width: width,

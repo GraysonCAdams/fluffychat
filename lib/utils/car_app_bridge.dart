@@ -14,6 +14,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/notification_avatar_extension.dart';
+import 'package:fluffychat/utils/pending_media.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/group_avatar.dart';
@@ -131,13 +132,17 @@ Future<List<CarMessage>> carRoomMessages(
     final own = event.senderId == client.userID;
     messages.add((
       event: event,
-      body: shown.calcLocalizedBody(
-        locals,
-        plaintextBody: true,
-        hideReply: true,
-        hideEdit: true,
-        removeMarkdown: true,
-      ),
+      // A bridge's placeholder for an attachment reads as the photo or
+      // video it stands for, as in the chat list.
+      body:
+          PendingMedia.of(shown)?.previewText(locals.l10n) ??
+          shown.calcLocalizedBody(
+            locals,
+            plaintextBody: true,
+            hideReply: true,
+            hideEdit: true,
+            removeMarkdown: true,
+          ),
       read: own || unread <= 0,
     ));
     if (!own) unread--;

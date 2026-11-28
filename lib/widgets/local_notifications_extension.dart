@@ -15,8 +15,8 @@ import 'package:fluffychat/utils/group_members_collage.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
-import 'package:fluffychat/utils/message_effects.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
+import 'package:fluffychat/utils/notification_body.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/one_time_code.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -109,16 +109,7 @@ extension LocalNotificationsExtension on MatrixState {
           MatrixLocals(L10n.of(context)),
         ) ??
         event.room.chatDisplayname(MatrixLocals(L10n.of(context)));
-    // An effect that hides the message keeps it out of the notification.
-    var body =
-        effectPreviewOf(event, L10n.of(context)) ??
-        event.calcLocalizedBody(
-          MatrixLocals(L10n.of(context)),
-          plaintextBody: true,
-          hideReply: true,
-          hideEdit: true,
-          removeMarkdown: true,
-        );
+    var body = notificationBodyOf(event, l10n);
     if (!event.room.isOneToOne) {
       final sender =
           await event.fetchSenderUser() ?? event.senderFromMemoryOrFallback;

@@ -4,6 +4,8 @@
 
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/file_description.dart';
+import 'package:fluffychat/utils/notification_media.dart';
+import 'package:fluffychat/utils/pending_media.dart';
 import 'package:html/parser.dart' as html;
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -50,6 +52,23 @@ final _lonelyUrl = RegExp(r'^https?://\S+$', caseSensitive: false);
 /// Null for any other message, which shows as [body].
 MessagePreview? mediaPreviewOf(Event event, L10n l10n, String body) {
   if (event.redacted) return null;
+  // A bridge's placeholder for an attachment reads as the media it stands
+  // for, also when it reaches the list as an edit.
+  final pending = PendingMedia.of(effectiveEvent(event));
+  if (pending != null) {
+    final failed = pending.state == PendingMediaState.failed;
+    return MessagePreview(
+      pending.previewText(l10n),
+      icon: switch (pending.kind) {
+        PendingMediaKind.image =>
+          failed ? Icons.broken_image_outlined : Icons.photo_outlined,
+        PendingMediaKind.video =>
+          failed ? Icons.videocam_off_outlined : Icons.videocam_outlined,
+        PendingMediaKind.file =>
+          failed ? Icons.error_outline : Icons.attach_file,
+      },
+    );
+  }
   if (event.type == EventTypes.Sticker) {
     return MessagePreview(
       l10n.previewSticker,

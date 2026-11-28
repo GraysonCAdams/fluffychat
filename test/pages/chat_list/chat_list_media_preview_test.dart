@@ -319,6 +319,70 @@ void main() {
       expect(find.byIcon(Icons.location_on_outlined), findsOneWidget);
     });
 
+    testWidgets('a bridge placeholder reads as the photo it stands for', (
+      tester,
+    ) async {
+      await show(
+        tester,
+        chat('@gmessages_15551234567:x', {
+          'msgtype': MessageTypes.Notice,
+          'body': 'Waiting for attachment PXL_1.jpg',
+          'fi.mau.gmessages.media_pending': true,
+        }),
+      );
+      // The ghost is not the chat's partner here, so its name leads.
+      expect(texts(tester), contains('Gmessages 15551234567: ${_icon}Photo'));
+      expect(find.byIcon(Icons.photo_outlined), findsOneWidget);
+      expect(texts(tester).where((t) => t.contains('Waiting')), isEmpty);
+    });
+
+    testWidgets('a bridge placeholder for a video reads Video', (tester) async {
+      await show(
+        tester,
+        chat('@gmessages_15551234567:x', {
+          'msgtype': MessageTypes.Notice,
+          'body': 'Waiting for attachment PXL_2.mp4',
+          'fi.mau.gmessages.media_pending': true,
+        }),
+      );
+      expect(texts(tester), contains('Gmessages 15551234567: ${_icon}Video'));
+      expect(find.byIcon(Icons.videocam_outlined), findsOneWidget);
+    });
+
+    testWidgets('an attachment the bridge failed to fetch says so', (
+      tester,
+    ) async {
+      await show(
+        tester,
+        chat('@gmessages_15551234567:x', {
+          'msgtype': MessageTypes.Notice,
+          'body': 'Failed to transfer attachment PXL_3.jpg',
+        }),
+      );
+      expect(
+        texts(tester),
+        contains("Gmessages 15551234567: ${_icon}Photo didn't arrive"),
+      );
+      expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
+    });
+
+    testWidgets('the same notice from another sender stays text', (
+      tester,
+    ) async {
+      await show(
+        tester,
+        chat('@whatsappbot:x', {
+          'msgtype': MessageTypes.Notice,
+          'body': 'Waiting for attachment PXL_1.jpg',
+        }),
+      );
+      expect(
+        texts(tester),
+        contains('Whatsappbot: Waiting for attachment PXL_1.jpg'),
+      );
+      expect(find.byIcon(Icons.photo_outlined), findsNothing);
+    });
+
     testWidgets('a removed photo shows no media icon', (tester) async {
       await show(
         tester,
