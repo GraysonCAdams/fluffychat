@@ -47,6 +47,7 @@ import 'package:fluffychat/widgets/layouts/empty_page.dart';
 import 'package:fluffychat/widgets/layouts/two_column_layout.dart';
 import 'package:fluffychat/widgets/log_view.dart';
 import 'package:fluffychat/widgets/matrix.dart';
+import 'package:fluffychat/widgets/onboarding/shared_axis_page.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -82,27 +83,30 @@ abstract class AppRoutes {
     GoRoute(
       path: '/home',
       pageBuilder: (context, state) =>
-          defaultPageBuilder(context, state, const IntroPagePresenter()),
+          onboardingPageBuilder(context, state, const IntroPagePresenter()),
       redirect: loggedInRedirect,
       routes: [
         GoRoute(
           path: 'sign_in',
           pageBuilder: (context, state) =>
-              defaultPageBuilder(context, state, SignInPage(signUp: false)),
+              onboardingPageBuilder(context, state, SignInPage(signUp: false)),
           redirect: loggedInRedirect,
         ),
         GoRoute(
           path: 'sign_up',
           pageBuilder: (context, state) =>
-              defaultPageBuilder(context, state, SignInPage(signUp: true)),
+              onboardingPageBuilder(context, state, SignInPage(signUp: true)),
           redirect: loggedInRedirect,
         ),
         GoRoute(
           path: 'login',
-          pageBuilder: (context, state) => defaultPageBuilder(
+          pageBuilder: (context, state) => onboardingPageBuilder(
             context,
             state,
-            Login(client: state.extra as Client),
+            Login(
+              client: state.extra as Client,
+              initialUsername: state.uri.queryParameters['username'],
+            ),
           ),
           redirect: loggedInRedirect,
         ),
@@ -121,7 +125,7 @@ abstract class AppRoutes {
     GoRoute(
       path: '/backup',
       redirect: loggedOutRedirect,
-      pageBuilder: (context, state) => defaultPageBuilder(
+      pageBuilder: (context, state) => onboardingPageBuilder(
         context,
         state,
         BootstrapPage(reset: state.uri.queryParameters['reset'] == 'true'),
@@ -330,7 +334,7 @@ abstract class AppRoutes {
                     GoRoute(
                       path: 'addaccount',
                       redirect: loggedOutRedirect,
-                      pageBuilder: (context, state) => defaultPageBuilder(
+                      pageBuilder: (context, state) => onboardingPageBuilder(
                         context,
                         state,
                         const IntroPagePresenter(),
@@ -338,29 +342,36 @@ abstract class AppRoutes {
                       routes: [
                         GoRoute(
                           path: 'sign_in',
-                          pageBuilder: (context, state) => defaultPageBuilder(
-                            context,
-                            state,
-                            SignInPage(signUp: false),
-                          ),
+                          pageBuilder: (context, state) =>
+                              onboardingPageBuilder(
+                                context,
+                                state,
+                                SignInPage(signUp: false),
+                              ),
                           redirect: loggedOutRedirect,
                         ),
                         GoRoute(
                           path: 'sign_up',
-                          pageBuilder: (context, state) => defaultPageBuilder(
-                            context,
-                            state,
-                            SignInPage(signUp: true),
-                          ),
+                          pageBuilder: (context, state) =>
+                              onboardingPageBuilder(
+                                context,
+                                state,
+                                SignInPage(signUp: true),
+                              ),
                           redirect: loggedOutRedirect,
                         ),
                         GoRoute(
                           path: 'login',
-                          pageBuilder: (context, state) => defaultPageBuilder(
-                            context,
-                            state,
-                            Login(client: state.extra as Client),
-                          ),
+                          pageBuilder: (context, state) =>
+                              onboardingPageBuilder(
+                                context,
+                                state,
+                                Login(
+                                  client: state.extra as Client,
+                                  initialUsername:
+                                      state.uri.queryParameters['username'],
+                                ),
+                              ),
                           redirect: loggedOutRedirect,
                         ),
                       ],
@@ -641,6 +652,21 @@ abstract class AppRoutes {
   /// The page for [child]: without a transition beside the chat list, else
   /// a Material page. A chat's page ([handoff]) enters at once when a peek
   /// card grew into it, see [PageHandoff].
+  /// The sign-in and setup steps move with the shared axis X transition;
+  /// beside the chat list on a wide window they switch without one, as
+  /// [defaultPageBuilder]'s pages do.
+  static Page onboardingPageBuilder(
+    BuildContext context,
+    GoRouterState state,
+    Widget child,
+  ) => FluffyThemes.isColumnMode(context)
+      ? noTransitionPageBuilder(context, state, child)
+      : SharedAxisPage(
+          key: state.pageKey,
+          restorationId: state.pageKey.value,
+          child: child,
+        );
+
   static Page defaultPageBuilder(
     BuildContext context,
     GoRouterState state,

@@ -9,6 +9,7 @@ import 'package:fluffychat/pages/sign_in/view_model/model/public_homeserver_data
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/sign_in_flows/oidc_login.dart';
+import 'package:fluffychat/utils/sign_in_flows/sign_in_method.dart';
 import 'package:fluffychat/utils/sign_in_flows/sso_login.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/show_ok_cancel_alert_dialog.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -18,12 +19,16 @@ import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+/// Connects to the chosen server and goes on to its sign-in: the server's
+/// page in the browser (OIDC or SSO), or the password page, with [username]
+/// filled in when a Matrix ID was typed.
 Future<void> connectToHomeserverFlow(
   PublicHomeserverData homeserverData,
   BuildContext context,
   void Function(AsyncSnapshot<bool>) setState,
-  bool signUp,
-) async {
+  bool signUp, {
+  String? username,
+}) async {
   setState(AsyncSnapshot.waiting());
   try {
     final homeserverInput = homeserverData.name!;
@@ -39,10 +44,14 @@ Future<void> connectToHomeserverFlow(
     );
 
     final regLink = homeserverData.regLink;
-    final supportsSso = loginFlows.any((flow) => flow.type == 'm.login.sso');
+    final method = SignInMethod.of(
+      loginFlows,
+      authMetadata,
+      preferOidc: AppSettings.enableMatrixNativeOIDC.value,
+    );
 
     if ((kIsWeb || PlatformInfos.isLinux) &&
-        (supportsSso || authMetadata != null || (signUp && regLink != null))) {
+        (method.usesBrowser || (signUp && regLink != null))) {
       if (!context.mounted) return;
       final consent = await showOkCancelAlertDialog(
         context: context,
@@ -55,9 +64,9 @@ Future<void> connectToHomeserverFlow(
     }
     if (!context.mounted) return;
 
-    if (authMetadata != null && AppSettings.enableMatrixNativeOIDC.value) {
+    if (method == SignInMethod.oidc) {
       await oidcLoginFlow(client, context, signUp);
-    } else if (supportsSso) {
+    } else if (method == SignInMethod.sso) {
       await ssoLoginFlow(client, context, signUp, loginFlows);
     } else {
       if (signUp && regLink != null) {
@@ -69,7 +78,13 @@ Future<void> connectToHomeserverFlow(
       );
       if (pathSegments.last != 'home') pathSegments.removeLast();
       pathSegments.add('login');
-      context.push('/${pathSegments.join('/')}', extra: client);
+      context.push(
+        Uri(
+          path: '/${pathSegments.join('/')}',
+          queryParameters: username == null ? null : {'username': username},
+        ).toString(),
+        extra: client,
+      );
       setState(AsyncSnapshot.withData(ConnectionState.done, true));
       return;
     }

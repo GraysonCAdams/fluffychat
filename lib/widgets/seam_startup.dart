@@ -16,7 +16,8 @@ import 'package:material_ui/material_ui.dart';
 /// [loaderSize] dp, centred in the window. The loader begins on the logo
 /// pose, so taking over from the splash screen shows no change; then it
 /// sews. When the app is ready the loader finishes its pass, settles on the
-/// logo and the whole screen fades into the app.
+/// logo and the whole screen fades into the app, unless a page has asked
+/// to take over from it ([handOff]).
 class SeamStartup extends StatefulWidget {
   final Future<Widget> app;
 
@@ -39,6 +40,30 @@ class SeamStartup extends StatefulWidget {
     runApp(ready ?? SeamStartup(app: app));
   }
 
+  static bool _showing = false;
+  static VoidCallback? _takeOver;
+
+  /// For a page whose first frame matches the start screen's last one (the
+  /// welcome page, which begins as a full screen of cobalt with the mark at
+  /// the same size and place): calls [takeOver] once the start screen is
+  /// out of the way, at once if it was never shown or has gone. While a
+  /// page waits here, the start screen ends by vanishing instead of
+  /// fading, so the page can carry the motion on.
+  static void handOff(VoidCallback takeOver) {
+    if (!_showing) {
+      takeOver();
+      return;
+    }
+    _takeOver = takeOver;
+  }
+
+  static void _release() {
+    _showing = false;
+    final takeOver = _takeOver;
+    _takeOver = null;
+    takeOver?.call();
+  }
+
   @override
   State<SeamStartup> createState() => _SeamStartupState();
 }
@@ -51,6 +76,7 @@ class _SeamStartupState extends State<SeamStartup> {
   @override
   void initState() {
     super.initState();
+    SeamStartup._showing = true;
     widget.app.then(
       (app) {
         if (mounted) setState(() => _app = app);
@@ -75,7 +101,10 @@ class _SeamStartupState extends State<SeamStartup> {
               opacity: _landed ? 0 : 1,
               duration: const Duration(milliseconds: 500),
               curve: Curves.ease,
-              onEnd: () => setState(() => _gone = true),
+              onEnd: () {
+                setState(() => _gone = true);
+                SeamStartup._release();
+              },
               child: AnnotatedRegion<SystemUiOverlayStyle>(
                 value: const SystemUiOverlayStyle(
                   statusBarColor: Colors.transparent,
@@ -92,7 +121,14 @@ class _SeamStartupState extends State<SeamStartup> {
                       child: SeamStitchLoader(
                         size: SeamStartup.loaderSize,
                         loading: app == null,
-                        onLanded: () => setState(() => _landed = true),
+                        onLanded: () {
+                          if (SeamStartup._takeOver != null) {
+                            setState(() => _gone = true);
+                            SeamStartup._release();
+                            return;
+                          }
+                          setState(() => _landed = true);
+                        },
                       ),
                     ),
                   ),

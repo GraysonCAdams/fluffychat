@@ -20,14 +20,20 @@ import 'login_view.dart';
 
 class Login extends StatefulWidget {
   final Client client;
-  const Login({required this.client, super.key});
+
+  /// The localpart of a Matrix ID typed on the server step.
+  final String? initialUsername;
+
+  const Login({required this.client, this.initialUsername, super.key});
 
   @override
   LoginController createState() => LoginController();
 }
 
 class LoginController extends State<Login> {
-  final TextEditingController usernameController = TextEditingController();
+  late final TextEditingController usernameController = TextEditingController(
+    text: widget.initialUsername,
+  );
   final TextEditingController passwordController = TextEditingController();
   String? usernameError;
   String? passwordError;

@@ -123,6 +123,9 @@ class _IntroPagePresenterState extends State<IntroPagePresenter> {
           ? null
           : AppSettings.welcomeText.value,
       login: _login,
+      addingAccount: Matrix.of(
+        context,
+      ).widget.clients.any((client) => client.isLogged()),
     );
   }
 }

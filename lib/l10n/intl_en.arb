@@ -4171,5 +4171,131 @@
   "emojiSuggestionsSettingDescription": "Typing a colon and two letters, as in :smi, lists matching emoji",
   "@emojiSuggestionsSettingDescription": {
     "description": "Subtitle of the setting that lists emoji while a colon and letters are typed."
+  },
+  "welcomeTagline": "Where your threads meet.",
+  "@welcomeTagline": {
+    "description": "Tagline under the app name on the welcome page."
+  },
+  "welcomeBody": "One inbox for every network. Sign in to your own Matrix server and its bridges bring iMessage, WhatsApp and the rest here.",
+  "@welcomeBody": {
+    "description": "Body text on the welcome page."
+  },
+  "createAnAccount": "Create an account",
+  "@createAnAccount": {
+    "description": "Text button on the welcome page that starts sign-up."
+  },
+  "moreOptions": "More options",
+  "@moreOptions": {
+    "description": "Tooltip of the overflow menu button on the welcome page."
+  },
+  "serverStepTitle": "Where is your account?",
+  "@serverStepTitle": {
+    "description": "Headline of the server step when signing in."
+  },
+  "serverStepBody": "Enter your server address or your full Matrix ID. Your server (homeserver) is where your account and your bridges live.",
+  "@serverStepBody": {
+    "description": "Body of the server step when signing in. Glosses the term homeserver."
+  },
+  "serverStepSignUpTitle": "Where should your account live?",
+  "@serverStepSignUpTitle": {
+    "description": "Headline of the server step when creating an account."
+  },
+  "serverStepSignUpBody": "Enter the server you want to join. Your server (homeserver) keeps your account and runs your bridges.",
+  "@serverStepSignUpBody": {
+    "description": "Body of the server step when creating an account."
+  },
+  "addAnotherAccount": "Add another account",
+  "@addAnotherAccount": {
+    "description": "Headline of the server step when adding an account."
+  },
+  "addAccountBody": "You stay signed in as {userId}. The new account can be on any server.",
+  "@addAccountBody": {
+    "description": "Body of the server step when adding an account.",
+    "type": "String",
+    "placeholders": {
+      "userId": {
+        "type": "String"
+      }
+    }
+  },
+  "serverOrMatrixId": "Server or Matrix ID",
+  "@serverOrMatrixId": {
+    "description": "Label of the server field."
+  },
+  "serverFieldHint": "example.org or @you:example.org",
+  "@serverFieldHint": {
+    "description": "Hint inside the empty server field."
+  },
+  "serverFieldHelper": "Ask whoever runs your server if you are not sure.",
+  "@serverFieldHelper": {
+    "description": "Helper text under the empty server field."
+  },
+  "lookingForServer": "Looking for a Matrix server at {server}",
+  "@lookingForServer": {
+    "description": "Shown while the typed server is being checked.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "serverSignsInOnItsPage": "Signs in on its own page",
+  "@serverSignsInOnItsPage": {
+    "description": "How a found server signs in: OIDC or SSO in the browser."
+  },
+  "serverSignsInWithPassword": "Signs in with a password",
+  "@serverSignsInWithPassword": {
+    "description": "How a found server signs in: username and password."
+  },
+  "serverUnreachable": "Can't reach {server}. Check the spelling and your connection.",
+  "@serverUnreachable": {
+    "description": "Error under the server field when the server does not answer.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "serverNotMatrix": "{server} isn't a Matrix server. Try the address your server admin gave you.",
+  "@serverNotMatrix": {
+    "description": "Error under the server field when the address answers but is not a Matrix server.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "recentServers": "Recent",
+  "@recentServers": {
+    "description": "Heading over the chips of servers signed in to before."
+  },
+  "browsePublicServers": "No server yet? Browse public servers",
+  "@browsePublicServers": {
+    "description": "Text button on the server step that opens the list of public servers."
+  },
+  "publicServersDescription": "Public servers anyone can join. Bridges to other networks usually need your own server.",
+  "@publicServersDescription": {
+    "description": "Text at the top of the public server list."
+  },
+  "useServer": "Use {server}",
+  "@useServer": {
+    "description": "Button in the public server list.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "createAccountInstead": "Create a new account instead",
+  "@createAccountInstead": {
+    "description": "Text button on the add-account server step."
+  },
+  "signInInstead": "Sign in to an existing account instead",
+  "@signInInstead": {
+    "description": "Text button on the add-account server step when creating an account."
   }
 }
