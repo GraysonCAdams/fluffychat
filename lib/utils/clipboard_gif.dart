@@ -9,14 +9,14 @@ import 'package:matrix/matrix.dart';
 import 'package:mime/mime.dart';
 import 'package:pasteboard/pasteboard.dart';
 
-/// The animated GIF behind a clipboard that holds a single linked `<img>`,
-/// or null when the clipboard holds anything else.
+/// The link to the animated GIF in a clipboard that holds a single linked
+/// `<img>`, or null when the clipboard holds anything else.
 ///
 /// GIF pickers such as the Windows emoji panel (Win+.) and browsers put a
 /// GIF on the clipboard as HTML pointing at the file, alongside a bitmap of
 /// its first frame. Pasting the bitmap would send a still image, so the GIF
-/// itself is downloaded instead.
-Future<XFile?> clipboardLinkedGif() async {
+/// itself is fetched from this link with [downloadGif] instead.
+Future<Uri?> clipboardGifLink() async {
   try {
     final markup = await Pasteboard.html;
     if (markup == null) return null;
@@ -28,7 +28,17 @@ Future<XFile?> clipboardLinkedGif() async {
         !uri.path.toLowerCase().endsWith('.gif')) {
       return null;
     }
+    return uri;
+  } catch (e, s) {
+    Logs().w('Unable to read the clipboard for a GIF', e, s);
+    return null;
+  }
+}
 
+/// The animated GIF at [uri], or null when it cannot be fetched or is not a
+/// GIF.
+Future<XFile?> downloadGif(Uri uri) async {
+  try {
     final response = await http.get(uri).timeout(const Duration(seconds: 15));
     if (response.statusCode != 200) return null;
     final bytes = response.bodyBytes;

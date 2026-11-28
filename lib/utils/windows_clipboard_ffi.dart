@@ -6,6 +6,7 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart';
 
 /// Clipboard queries that Flutter has no API for, made through Win32 over
 /// FFI. Both getters are cheap enough to poll.
@@ -34,14 +35,21 @@ abstract final class WindowsClipboard {
     ),
   );
 
+  /// Stand in for the system clipboard, for tests.
+  @visibleForTesting
+  static int? debugSequenceNumber;
+  @visibleForTesting
+  static bool? debugHoldsEmojiPanelContent;
+
   /// Changes whenever anything writes to the clipboard; 0 off Windows.
   static int get sequenceNumber =>
-      Platform.isWindows ? _getClipboardSequenceNumber() : 0;
+      debugSequenceNumber ??
+      (Platform.isWindows ? _getClipboardSequenceNumber() : 0);
 
   /// Whether the clipboard was last written by the emoji panel (Win+.),
-  /// which copies a picked GIF there but never pastes it into a Flutter
-  /// window.
+  /// which copies a picked GIF there.
   static bool get holdsEmojiPanelContent =>
-      Platform.isWindows &&
-      _isClipboardFormatAvailable(_systemInputFormat) != 0;
+      debugHoldsEmojiPanelContent ??
+      (Platform.isWindows &&
+          _isClipboardFormatAvailable(_systemInputFormat) != 0);
 }
