@@ -17,8 +17,21 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // from the Start menu while the app sits in the tray, brings the running
   // window to the front instead. The name is AppConfig.seamApplicationId, so
   // it does not clash with an installed FluffyChat, which keeps its own data.
-  ::CreateMutexW(nullptr, TRUE, L"Local\\dev.threeonetwo.seam");
-  if (::GetLastError() == ERROR_ALREADY_EXISTS) {
+  //
+  // A debug build skips the lock when SEAM_SKIP_INSTANCE_LOCK is set, which
+  // lets `flutter test integration_test -d windows` run beside an installed
+  // Seam. Those tests pump their own widgets and never open the database;
+  // anything run this way that does would share it with the running app.
+  // Profile and release builds always take the lock.
+  bool skip_lock = false;
+#ifndef NDEBUG
+  skip_lock =
+      ::GetEnvironmentVariableW(L"SEAM_SKIP_INSTANCE_LOCK", nullptr, 0) > 0;
+#endif
+  if (!skip_lock) {
+    ::CreateMutexW(nullptr, TRUE, L"Local\\dev.threeonetwo.seam");
+  }
+  if (!skip_lock && ::GetLastError() == ERROR_ALREADY_EXISTS) {
     HWND running = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"Seam");
     if (running) {
       ::ShowWindow(running, ::IsIconic(running) ? SW_RESTORE : SW_SHOW);

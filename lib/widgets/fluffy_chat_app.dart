@@ -62,6 +62,7 @@ class FluffyChatApp extends StatelessWidget {
       if ({
         'content',
         'sharemedia-im.fluffychat.app',
+        'sharemedia-${AppConfig.seamApplicationId}',
       }.contains(state.uri.scheme)) {
         Logs().d('Ignore content sharing handling in go router', state.uri);
         return '/';

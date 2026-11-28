@@ -12,7 +12,26 @@ import Flutter
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    
+    ApnsTokenChannel.shared.attach(to: engineBridge.applicationRegistrar.messenger())
+    EffectHaptics.shared.attach(to: engineBridge.applicationRegistrar.messenger())
+
     // From https://pub.dev/packages/flutter_local_notifications#-ios-setup
-    UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate  }
+    UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+  ) {
+    ApnsTokenChannel.shared.didRegister(deviceToken: deviceToken)
+    super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didFailToRegisterForRemoteNotificationsWithError error: Error
+  ) {
+    ApnsTokenChannel.shared.didFail(error: error)
+    super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+  }
 }
