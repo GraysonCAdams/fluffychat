@@ -8,8 +8,16 @@ import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart'
-    show Container, FontWeight, Rect, ReorderableList, Text;
+    show
+        Container,
+        FontWeight,
+        Rect,
+        ReorderableList,
+        RichText,
+        Text,
+        TextStyle;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart' show Theme;
 
 import '../../utils/merged_contacts/fake_rooms.dart' show setMergedContacts;
 
@@ -371,6 +379,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1'), findsNothing);
     expect(tester.getTopRight(find.text('Pin9')).dx, lessThanOrEqualTo(800));
+    await finishFakeChatList(tester, client);
+  });
+  testWidgets('a read pin\'s name recedes, an unread one is bold', (
+    tester,
+  ) async {
+    chat('Ana', 2).pin(1);
+    chat('Bo', 1, unread: 3).pin(2);
+    await pumpFakeChatList(tester, client);
+    final scheme = Theme.of(tester.element(find.text('Ana'))).colorScheme;
+    TextStyle style(String name) => tester
+        .widgetList<RichText>(find.byType(RichText))
+        .firstWhere((t) => t.text.toPlainText() == name)
+        .text
+        .style!;
+    expect(style('Ana').color, scheme.onSurfaceVariant);
+    expect(style('Bo').color, scheme.onSurface);
+    expect(style('Bo').fontWeight, FontWeight.w700);
     await finishFakeChatList(tester, client);
   });
 }
