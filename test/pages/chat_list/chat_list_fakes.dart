@@ -12,6 +12,7 @@ import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/merged_contacts/suggestion_service.dart';
+import 'package:fluffychat/utils/shown_sync_status.dart';
 import 'package:fluffychat/utils/terms_acceptance.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter/services.dart';
@@ -272,6 +273,7 @@ void tearDownFakeChatList(Client client) {
   MergeSuggestionService.disposeFor(client);
   MergedContactsStore.disposeFor(client);
   MatrixFeatures.disposeFor(client);
+  ShownSyncStatus.disposeFor(client);
 }
 
 /// A space named [name] holding [children], as a bridge sets one up.

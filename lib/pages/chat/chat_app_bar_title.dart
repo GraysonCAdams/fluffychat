@@ -16,6 +16,7 @@ import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/room_kind.dart';
+import 'package:fluffychat/utils/shown_sync_status.dart';
 import 'package:fluffychat/utils/sync_status_localization.dart';
 import 'package:fluffychat/utils/verified_room_extension.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -118,12 +119,12 @@ class ChatAppBarTitle extends StatelessWidget {
                 else if (networkSpaces.isNotEmpty)
                   const SizedBox.shrink()
                 else
-                  StreamBuilder(
-                    stream: room.client.onSyncStatus.stream,
-                    builder: (context, snapshot) {
-                      final status =
-                          room.client.onSyncStatus.value ??
-                          const SyncStatusUpdate(SyncStatus.waitingForResponse);
+                  // The status as the app shows it, without a failure
+                  // from while the app was away (see ShownSyncStatus).
+                  ListenableBuilder(
+                    listenable: ShownSyncStatus.of(room.client),
+                    builder: (context, _) {
+                      final status = ShownSyncStatus.of(room.client).latest;
                       final hide =
                           FluffyThemes.isColumnMode(context) ||
                           (room.client.onSync.value != null &&
