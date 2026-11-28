@@ -131,4 +131,97 @@ void main() {
       );
     });
   });
+
+  group('the toast icon follows the Windows theme', () {
+    String query(int value) =>
+        '\r\nHKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize\r\n'
+        '    SystemUsesLightTheme    REG_DWORD    0x$value\r\n\r\n';
+
+    test('reads light and dark from the registry output', () {
+      expect(parseLightTheme(query(1)), isTrue);
+      expect(parseLightTheme(query(0)), isFalse);
+      expect(parseLightTheme(''), isNull);
+    });
+
+    test('is dark when the theme cannot be read', () {
+      expect(
+        systemUsesLightTheme(run: (_) => ProcessResult(0, 1, '', 'missing')),
+        isFalse,
+      );
+      expect(
+        systemUsesLightTheme(run: (_) => throw const ProcessException('reg', [])),
+        isFalse,
+      );
+      expect(systemUsesLightTheme(run: (_) => ProcessResult(0, 0, query(1), '')), isTrue);
+    });
+
+    test('has a glyph file per theme in the app assets', () {
+      final dark = File('assets/seam/${toastIconAsset(lightTheme: false)}');
+      final light = File('assets/seam/${toastIconAsset(lightTheme: true)}');
+      expect(dark.path, isNot(light.path));
+      for (final file in [dark, light]) {
+        expect(file.readAsBytesSync().sublist(1, 4), [0x50, 0x4e, 0x47]);
+      }
+      expect(dark.readAsBytesSync(), isNot(light.readAsBytes()));
+    });
+
+    test('is a copy named for its theme', () {
+      final dir = Directory.systemTemp.createTempSync('toast_theme');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final dark = windowsToastIcon(lightTheme: false, directory: dir);
+      final light = windowsToastIcon(lightTheme: true, directory: dir);
+      expect(dark, isNot(light));
+      expect(dark, contains('toast_icon_dark'));
+      expect(light, contains('toast_icon_light'));
+    });
+
+    group('when the theme changes', () {
+      late Directory dir;
+      late List<String> calls;
+      setUp(() {
+        dir = Directory.systemTemp.createTempSync('toast_theme');
+        calls = [];
+      });
+      tearDown(() => dir.deleteSync(recursive: true));
+      Future<ProcessResult> run(List<String> args) async {
+        calls.add(args.join(' '));
+        return ProcessResult(0, 0, '', '');
+      }
+
+      test('registers the glyph of the new theme', () async {
+        windowsToastIcon(lightTheme: false, directory: dir);
+        await refreshToastIcon(lightTheme: true, directory: dir, run: run);
+
+        expect(calls, hasLength(1));
+        expect(calls.single, startsWith('add '));
+        expect(calls.single, contains(AppConfig.seamApplicationId));
+        expect(calls.single, contains('/v IconUri'));
+        expect(calls.single, contains('toast_icon_light.png'));
+      });
+
+      test('leaves the registration alone when it did not', () async {
+        windowsToastIcon(lightTheme: true, directory: dir);
+        await refreshToastIcon(lightTheme: true, directory: dir, run: run);
+        expect(calls, isEmpty);
+      });
+
+      test('registers each switch once', () async {
+        windowsToastIcon(lightTheme: false, directory: dir);
+        await refreshToastIcon(lightTheme: true, directory: dir, run: run);
+        await refreshToastIcon(lightTheme: true, directory: dir, run: run);
+        await refreshToastIcon(lightTheme: false, directory: dir, run: run);
+        expect(calls, hasLength(2));
+        expect(calls.last, contains('toast_icon_dark.png'));
+      });
+
+      test('never throws', () async {
+        windowsToastIcon(lightTheme: false, directory: dir);
+        await refreshToastIcon(
+          lightTheme: true,
+          directory: dir,
+          run: (_) async => throw const ProcessException('reg', []),
+        );
+      });
+    });
+  });
 }

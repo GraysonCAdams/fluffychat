@@ -178,6 +178,9 @@ extension LocalNotificationsExtension on MatrixState {
       EventTypes.Sticker,
     }.contains(event.type);
 
+    // A switch between light and dark mode shows in this toast's icon.
+    if (PlatformInfos.isWindows) await refreshToastIcon();
+
     // A photo or video shows under the text. Its download starts now; the
     // toast waits a moment for it and otherwise goes out as text, to be
     // posted again with the picture under the same id once it arrives.
@@ -193,70 +196,72 @@ extension LocalNotificationsExtension on MatrixState {
       onTimeout: () => null,
     );
 
-    Future<void> post(Uri? toastMedia) async => await FlutterLocalNotificationsPlugin().show(
-      id: id,
-      title: title,
-      body: body,
-      notificationDetails: NotificationDetails(
-        linux: LinuxNotificationDetails(
-          sound: ThemeLinuxSound('message-new-instant'),
-          actions: switch (event.type) {
-            EventTypes.Message ||
-            EventTypes.Encrypted ||
-            EventTypes.Sticker => [
-              LinuxNotificationAction(
-                key: FluffyChatNotificationActions.markAsRead.name,
-                label: l10n.markAsRead,
-              ),
-              LinuxNotificationAction(
-                key: FluffyChatNotificationActions.mute.name,
-                label: l10n.mute,
-              ),
-            ],
-            _ => [],
-          },
-        ),
-        windows: WindowsNotificationDetails(
-          timestamp: event.originServerTs,
-          images: [
-            if (PlatformInfos.isWindows)
-              ...windowsToastImages(
-                avatar: windowsAvatar ?? _windowsAppLogo,
-                title: title,
-                // The collage is round faces on a clear square already.
-                roundAvatar: windowsAvatar != null && windowsCollage == null,
-                media: toastMedia,
-                mediaAltText: body,
-              ),
-          ],
-          inputs: [
-            if (isMessage)
-              WindowsTextInput(
-                id: windowsReplyInputId,
-                placeHolderContent: l10n.writeAMessage,
-              ),
-          ],
-          actions: windowsNotificationActions(event, l10n, payload),
-        ),
-        macOS: DarwinNotificationDetails(
-          badgeNumber: unreadRooms,
-          threadIdentifier: '${client.clientName}_$conversation',
-        ),
-        web: WebNotificationDetails(
-          renotify: true,
-          iconUrl: kIsWeb
-              ? await avatarUrl?.getThumbnailUri(
-                  client,
-                  width: size,
-                  height: size,
-                  method: thumbnailMethod,
-                )
-              : null,
-          timestamp: event.originServerTs,
-        ),
-      ),
-      payload: payload,
-    );
+    Future<void> post(Uri? toastMedia) async =>
+        await FlutterLocalNotificationsPlugin().show(
+          id: id,
+          title: title,
+          body: body,
+          notificationDetails: NotificationDetails(
+            linux: LinuxNotificationDetails(
+              sound: ThemeLinuxSound('message-new-instant'),
+              actions: switch (event.type) {
+                EventTypes.Message ||
+                EventTypes.Encrypted ||
+                EventTypes.Sticker => [
+                  LinuxNotificationAction(
+                    key: FluffyChatNotificationActions.markAsRead.name,
+                    label: l10n.markAsRead,
+                  ),
+                  LinuxNotificationAction(
+                    key: FluffyChatNotificationActions.mute.name,
+                    label: l10n.mute,
+                  ),
+                ],
+                _ => [],
+              },
+            ),
+            windows: WindowsNotificationDetails(
+              timestamp: event.originServerTs,
+              images: [
+                if (PlatformInfos.isWindows)
+                  ...windowsToastImages(
+                    avatar: windowsAvatar ?? _windowsAppLogo,
+                    title: title,
+                    // The collage is round faces on a clear square already.
+                    roundAvatar:
+                        windowsAvatar != null && windowsCollage == null,
+                    media: toastMedia,
+                    mediaAltText: body,
+                  ),
+              ],
+              inputs: [
+                if (isMessage)
+                  WindowsTextInput(
+                    id: windowsReplyInputId,
+                    placeHolderContent: l10n.writeAMessage,
+                  ),
+              ],
+              actions: windowsNotificationActions(event, l10n, payload),
+            ),
+            macOS: DarwinNotificationDetails(
+              badgeNumber: unreadRooms,
+              threadIdentifier: '${client.clientName}_$conversation',
+            ),
+            web: WebNotificationDetails(
+              renotify: true,
+              iconUrl: kIsWeb
+                  ? await avatarUrl?.getThumbnailUri(
+                      client,
+                      width: size,
+                      height: size,
+                      method: thumbnailMethod,
+                    )
+                  : null,
+              timestamp: event.originServerTs,
+            ),
+          ),
+          payload: payload,
+        );
 
     await post(windowsMedia);
     if (windowsMedia == null && windowsMediaFuture != null) {
