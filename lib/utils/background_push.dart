@@ -30,8 +30,45 @@ import '../config/setting_keys.dart';
 import '../widgets/matrix.dart';
 import 'platform_infos.dart';
 
+/// How an Android phone receives pushes while Seam is closed.
+enum AndroidPushRoute {
+  /// Through the UnifiedPush distributor the user installed.
+  unifiedPush,
+
+  /// Through Firebase Cloud Messaging and Seam's push gateway.
+  firebase,
+
+  /// Not at all: the build has no FCM and no distributor is installed.
+  none,
+}
+
 class BackgroundPush {
   static BackgroundPush? _instance;
+
+  /// A UnifiedPush distributor wins when one is installed, since the user
+  /// chose it. Otherwise a build that links FCM ([firebaseLinked]) and has a
+  /// gateway to send through uses FCM.
+  static AndroidPushRoute androidPushRoute({
+    required bool hasDistributor,
+    required bool firebaseLinked,
+    required String gatewayUrl,
+  }) {
+    if (hasDistributor) return AndroidPushRoute.unifiedPush;
+    if (firebaseLinked && gatewayUrl.isNotEmpty) {
+      return AndroidPushRoute.firebase;
+    }
+    return AndroidPushRoute.none;
+  }
+
+  /// Whether to tell the user that push is unavailable, unless they asked
+  /// not to be told again ([dismissed]). Only a build without FCM tells
+  /// them, as installing a distributor is their way to get push. A build
+  /// that links FCM stays quiet when FCM gives no token, on a phone without
+  /// Google Play services, and only logs it.
+  static bool warnsNoPush({
+    required bool firebaseLinked,
+    required bool dismissed,
+  }) => !firebaseLinked && !dismissed;
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
@@ -264,9 +301,19 @@ class BackgroundPush {
 
   static bool _wentToRoomOnStartup = false;
 
+  AndroidPushRoute _androidPushRoute({required bool hasDistributor}) =>
+      androidPushRoute(
+        hasDistributor: hasDistributor,
+        firebaseLinked: firebaseEnabled,
+        gatewayUrl: AppSettings.pushNotificationsGatewayUrl.value,
+      );
+
   Future<void> setupPush(BuildContext context) async {
     if (PlatformInfos.isAndroid &&
-        (await UnifiedPush.getDistributors()).isNotEmpty &&
+        _androidPushRoute(
+              hasDistributor: (await UnifiedPush.getDistributors()).isNotEmpty,
+            ) ==
+            AndroidPushRoute.unifiedPush &&
         context.mounted) {
       await UnifiedPushUi(
         context: context,
@@ -326,7 +373,11 @@ class BackgroundPush {
     if (matrix == null) {
       return;
     }
-    if (AppSettings.showNoGoogle.value) {
+    if (!warnsNoPush(
+      firebaseLinked: firebaseEnabled,
+      dismissed: AppSettings.showNoGoogle.value,
+    )) {
+      Logs().w('[Push] No push while Seam is closed');
       return;
     }
     await loadLocale();
@@ -364,8 +415,7 @@ class BackgroundPush {
     Logs().v('Setup firebase');
     // A build without Firebase, or without a gateway of its own to send FCM
     // pushes through, has only UnifiedPush.
-    if (!firebaseEnabled ||
-        AppSettings.pushNotificationsGatewayUrl.value.isEmpty) {
+    if (_androidPushRoute(hasDistributor: false) != AndroidPushRoute.firebase) {
       await _noFcmWarning();
       return;
     }

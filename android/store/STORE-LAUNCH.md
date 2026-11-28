@@ -14,8 +14,8 @@ These are the owner's calls, and two of them cannot be undone after the first up
 
 - **Free, for good.** Play's Developer Distribution Agreement (3.7): an app first offered free
   stays free. Seam is planned as free; confirm before the first upload.
-- **Push: UnifiedPush only (the default) or add Firebase.** See "Push" below. Changing it later
-  changes the privacy policy and the data safety form.
+- **Push: FCM through Seam's gateway, UnifiedPush preferred.** Decided; see "Push" below. The
+  privacy policy and the data safety form must cover it.
 - **Data safety posture and target audience.** `play-declarations.md` recommends "collected, not
   shared" and 18+, and gives the alternatives.
 - **Features Play may question** (see "Kept features that need a declaration" below). Each
@@ -91,7 +91,7 @@ as of this commit.
 3. The Play app is `dev.threeonetwo.seam` and installs beside the owner's everyday build
    (`chat.fluffy.fluffychat.fork`); neither replaces the other.
 4. Check on a test device: sign in with SSO on a homeserver (the redirect uses the release scheme
-   `dev.312.seam.auth`), push through a UnifiedPush distributor such as ntfy, attaching
+   `dev.312.seam.auth`), push with no distributor installed (FCM) and through a UnifiedPush distributor such as ntfy, attaching
    photos and videos from the composer's Gallery button (it opens the system Photo Picker, which
    asks for no permission), and contacts in New Chat.
 5. Then a closed test if the account needs one (step 1), then production.
@@ -129,27 +129,53 @@ full-screen intent and photo and video permission declarations do not apply to i
 
 ## Push
 
-The Play build is **UnifiedPush only**. Firebase Cloud Messaging is not compiled in
-(`scripts/add-firebase-messaging.sh` is not run), and the FCM gateway setting is empty by
-default, so the app never contacts upstream's `push.fluffychat.im`. A user installs a
-distributor app (ntfy or another), and the homeserver sends notifications through that
-distributor's gateway or the UnifiedPush project's public one at `matrix.gateway.unifiedpush.org`.
-This matches the privacy policy: the developer runs no server.
+Push works out of the box in the Play build, with UnifiedPush preferred. On Android:
 
-The trade-off: a user with no distributor gets no notifications while Seam is closed, and sees a
-notice saying push is unavailable. Most people on Play have Google services and expect push to
-just work.
+1. If a UnifiedPush distributor (ntfy or another) is installed, Seam registers with it, and the
+   homeserver sends through that distributor's gateway or the UnifiedPush project's public one at
+   `matrix.gateway.unifiedpush.org`.
+2. Otherwise the Play build uses Firebase Cloud Messaging: the pusher goes to Seam's own push
+   gateway (`$PlayPushGateway` in `tools/release/play-fcm.ps1`, passed as
+   `--dart-define=SEAM_PUSH_GATEWAY_URL`), which holds the credentials of the Firebase project
+   `seam-312dev` and accepts the app ids `dev.threeonetwo.seam.*` and `chat.fluffy.fluffychat.*`.
+   The pusher format is `event_id_only`, so the gateway sees room ids, event ids and unread
+   counts, never message content. Never point at upstream's `push.fluffychat.im`.
+3. The F-Droid build has no FCM. With no distributor it gets no push while Seam is closed, and says
+   so until the user taps "Do not show again". The Play build never shows that notice; when FCM
+   gives no token (a phone without Google Play services) it only logs it.
 
-To add FCM later (a human step, and a policy change):
+The tree in git stays free of Google code, as F-Droid requires (`fdroid/STATUS.md` in
+seam-store-launch): FCM is commented out exactly as upstream ships it, and
+`tools/release/seam-build.ps1` links it only for the length of a Play build, through
+`play-fcm.ps1` (upstream's `scripts/add-firebase-messaging.sh` from PowerShell, plus writing
+`android/app/google-services.json` from `op://Production/seam-push/GOOGLE_SERVICES_JSON`). The
+google-services Gradle plugin applies only when that file exists, so only to the Play build.
+A Gradle product flavour would not do: Flutter links every plugin in `pubspec.yaml` into every
+flavour, so `fcm_shared_isolate` and Firebase would be in the F-Droid APK and its pubspec.
 
-1. Create a Firebase project of your own and an Android app in it for `dev.threeonetwo.seam`;
-   put its `google-services.json` in `android/app/` (it is applied automatically when present).
-2. Run your own Matrix push gateway with that project's credentials (Sygnal, or upstream's
-   AGPL `fluffygate`). Never point at `push.fluffychat.im`.
-3. Build with `scripts/add-firebase-messaging.sh` applied and
-   `--dart-define=SEAM_PUSH_GATEWAY_URL=https://<your gateway>/_matrix/push/v1/notify`.
-4. Update the privacy policy (a server you run now sees room ids, event ids and unread counts,
-   and Google processes the token) and the data safety form before shipping that build.
+The privacy policy and the data safety form must say that Google processes the FCM token and
+that Seam's gateway sees the push metadata above. The Firebase artifacts the Play build links are
+in "SDKs in the Play build" below.
+
+## SDKs in the Play build
+
+Linked only while `play-fcm.ps1` has FCM in the tree, through `fcm_shared_isolate` 4.0.0, which
+pulls in the FlutterFire `firebase_core` plugin and `com.google.firebase:firebase-messaging` from
+the Firebase BoM. From the merged manifest of that build, the components it registers are
+Firebase Messaging, Firebase Installations, Firebase common (`FirebaseInitProvider`,
+`ComponentDiscoveryService`), Firebase's data transport (`firebase-datatransport`, the
+`com.google.android.datatransport` runtime) and Play services' cloud messaging and base
+(`gms.cloudmessaging`, `GoogleApiActivity`). No Analytics, measurement or Crashlytics.
+
+`firebase_core` 5.2.0 sets Firebase BoM 35.2.0, which picks `firebase-messaging` 26.0.2. Its own
+POM depends on `firebase-common` 23.0.0, `firebase-installations` 20.0.0,
+`firebase-datatransport` 21.0.0 with `transport-api`, `transport-backend-cct` and
+`transport-runtime` 5.0.0, `firebase-iid-interop`, `firebase-installations-interop`, the
+`firebase-encoders` libraries, `firebase-measurement-connector` 19.0.0 (an interface that reports
+notification events to Analytics only when Analytics is linked, which it is not), and
+`play-services-base`, `-basement` 18.9.0, `-tasks` 18.4.0, `-cloud-messaging` 17.4.0 and
+`-stats` 17.0.2. These are all direct dependencies of `firebase-messaging`, so none is excluded:
+its classes refer to them.
 
 ## Release identity
 
@@ -200,6 +226,10 @@ type other than `shortService`.
 | `RECEIVE_BOOT_COMPLETED` | plugins | Restoring scheduled notifications after a reboot | none |
 | `dev.threeonetwo.seam.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | androidx | Signature permission private to the app | none |
 | Launcher badge permissions (Samsung, HTC, Sony, Huawei, Oppo, Apex and others) | badge plugin | Unread count on the launcher icon | none |
+| `com.google.android.c2dm.permission.RECEIVE` | Firebase Messaging | Receiving FCM pushes; in the Play build with FCM only (see below) | none |
+
+The FCM row is from the merged manifest of the first Play build with FCM linked (a debug build,
+2026-11-28); everything else in that manifest matches the table.
 
 Removed from the manifest because nothing starts them: `light_compressor_v2`'s
 `CompressionForegroundService` with `FOREGROUND_SERVICE_DATA_SYNC` (the app never asks it for
@@ -221,7 +251,7 @@ From the legal report (sections 3.3, 4, 5 and 9). "Done" means done in this repo
 | Mascot and banner out of the binary | Done (not bundled; files remain in the GitHub fork's tree, which the report allows) |
 | Branded strings in every language | Done |
 | Upstream store metadata replaced | Done: `android/fastlane/metadata` removed, this kit added |
-| No upstream push gateway or Firebase project | Done for Android: UnifiedPush only, empty gateway default. iOS's `GoogleService-Info.plist` is upstream's; iOS is not published |
+| No upstream push gateway or Firebase project | Done for Android: Seam's own Firebase project `seam-312dev` and gateway, UnifiedPush preferred (see "Push"). iOS's `GoogleService-Info.plist` is upstream's; iOS is not published |
 | OIDC client metadata (site, logo, privacy, terms) | Done: seam.312.dev URLs. The logo URL `https://seam.312.dev/icon-512.png` must exist when the site goes up |
 | Issue tracker, update check, homeserver list | Done earlier: the fork's own repo. The release build fetches no homeserver list |
 | Donation and tutorial links | Done: ko-fi tutorials and their buttons removed; donation entry removed earlier |

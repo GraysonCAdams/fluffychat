@@ -28,10 +28,10 @@ enum AppSettings<T> {
   unifiedPushRegistered<bool>('chat.fluffy.unifiedpush.registered', false),
   unifiedPushEndpoint<String>('chat.fluffy.unifiedpush.endpoint', ''),
   // The Matrix push gateway for Firebase Cloud Messaging. Empty unless the
-  // build passes --dart-define=SEAM_PUSH_GATEWAY_URL=..., which only makes
-  // sense together with scripts/add-firebase-messaging.sh and a Firebase
-  // project of our own (android/store/STORE-LAUNCH.md, "Push"). Without one,
-  // push goes through UnifiedPush alone.
+  // build passes --dart-define=SEAM_PUSH_GATEWAY_URL=..., as the Play build
+  // does when tools/release/seam-build.ps1 links FCM into it
+  // (android/store/STORE-LAUNCH.md, "Push"). Without one, push goes through
+  // UnifiedPush alone.
   pushNotificationsGatewayUrl<String>(
     'pushNotificationsGatewayUrl',
     String.fromEnvironment('SEAM_PUSH_GATEWAY_URL'),
