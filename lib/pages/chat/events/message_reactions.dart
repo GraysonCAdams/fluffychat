@@ -384,24 +384,35 @@ const double reactionChipOverlap = 8;
 /// message into view does not animate it. The bubble keeps the same place
 /// in the tree either way, so it is never rebuilt from scratch when
 /// reactions come or go.
+///
+/// [assist] is the row of data detector assist chips, which hangs
+/// [assistGap] under the bubble on the bubble's own side, the corner the
+/// reaction chips leave free. When the bubble is too narrow for both side
+/// by side, it drops to its own line [assistGap] under the reaction chips.
+/// It opens and closes the way the reaction row does.
 class BubbleWithReactions extends StatefulWidget {
   final Widget bubble;
   final Widget? reactions;
   final bool reactionsAtEnd;
+  final Widget? assist;
 
   const BubbleWithReactions({
     required this.bubble,
     required this.reactions,
     required this.reactionsAtEnd,
+    this.assist,
     super.key,
   });
+
+  /// Space between the bubble, or the reaction chips, and the assist row.
+  static const double assistGap = 4;
 
   @override
   State<BubbleWithReactions> createState() => _BubbleWithReactionsState();
 }
 
 class _BubbleWithReactionsState extends State<BubbleWithReactions>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: _enterDuration,
@@ -423,8 +434,24 @@ class _BubbleWithReactionsState extends State<BubbleWithReactions>
     reverseCurve: _exitCurve,
   );
 
+  late final AnimationController _assistController = AnimationController(
+    vsync: this,
+    duration: _enterDuration,
+    reverseDuration: _exitDuration,
+    value: widget.assist == null ? 0 : 1,
+  )..addStatusListener(_onAssistStatus);
+
+  late final CurvedAnimation _assistReveal = CurvedAnimation(
+    parent: _assistController,
+    curve: Curves.easeInOutCubicEmphasized,
+    reverseCurve: _exitCurve,
+  );
+
   /// The chips on screen, kept while the row closes.
   late Widget? _reactions = widget.reactions;
+
+  /// The assist row on screen, kept while it closes.
+  late Widget? _assist = widget.assist;
 
   /// Read from the last build; didUpdateWidget runs before the next one.
   bool _reduceMotion = false;
@@ -432,6 +459,12 @@ class _BubbleWithReactionsState extends State<BubbleWithReactions>
   void _onStatus(AnimationStatus status) {
     if (status.isDismissed && widget.reactions == null && mounted) {
       setState(() => _reactions = null);
+    }
+  }
+
+  void _onAssistStatus(AnimationStatus status) {
+    if (status.isDismissed && widget.assist == null && mounted) {
+      setState(() => _assist = null);
     }
   }
 
@@ -454,6 +487,22 @@ class _BubbleWithReactionsState extends State<BubbleWithReactions>
         _controller.reverse();
       }
     }
+    final assist = widget.assist;
+    if (assist != null) {
+      _assist = assist;
+      if (_reduceMotion) {
+        _assistController.value = 1;
+      } else {
+        _assistController.forward();
+      }
+    } else if (oldWidget.assist != null) {
+      if (_reduceMotion) {
+        _assistController.value = 0;
+        _assist = null;
+      } else {
+        _assistController.reverse();
+      }
+    }
   }
 
   @override
@@ -461,6 +510,8 @@ class _BubbleWithReactionsState extends State<BubbleWithReactions>
     _reveal.dispose();
     _grow.dispose();
     _controller.dispose();
+    _assistReveal.dispose();
+    _assistController.dispose();
     super.dispose();
   }
 
@@ -468,9 +519,11 @@ class _BubbleWithReactionsState extends State<BubbleWithReactions>
   Widget build(BuildContext context) {
     _reduceMotion = MediaQuery.disableAnimationsOf(context);
     final reactions = _reactions;
+    final assist = _assist;
     return _BubbleWithReactionsLayout(
       reactionsAtEnd: widget.reactionsAtEnd,
       reveal: _reveal,
+      assistReveal: _assistReveal,
       children: [
         widget.bubble,
         reactions == null
@@ -479,6 +532,9 @@ class _BubbleWithReactionsState extends State<BubbleWithReactions>
                 scale: _grow,
                 child: FadeTransition(opacity: _grow, child: reactions),
               ),
+        assist == null
+            ? const SizedBox.shrink()
+            : FadeTransition(opacity: _assistReveal, child: assist),
       ],
     );
   }
@@ -487,16 +543,18 @@ class _BubbleWithReactionsState extends State<BubbleWithReactions>
 class _BubbleWithReactionsLayout extends MultiChildRenderObjectWidget {
   final bool reactionsAtEnd;
   final Animation<double> reveal;
+  final Animation<double> assistReveal;
 
   const _BubbleWithReactionsLayout({
     required this.reactionsAtEnd,
     required this.reveal,
+    required this.assistReveal,
     required super.children,
   });
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderBubbleWithReactions(reactionsAtEnd, reveal);
+      _RenderBubbleWithReactions(reactionsAtEnd, reveal, assistReveal);
 
   @override
   void updateRenderObject(
@@ -504,7 +562,8 @@ class _BubbleWithReactionsLayout extends MultiChildRenderObjectWidget {
     _RenderBubbleWithReactions renderObject,
   ) => renderObject
     ..reactionsAtEnd = reactionsAtEnd
-    ..reveal = reveal;
+    ..reveal = reveal
+    ..assistReveal = assistReveal;
 }
 
 class _BubbleWithReactionsParentData
@@ -517,7 +576,11 @@ class _RenderBubbleWithReactions extends RenderBox
           RenderBox,
           _BubbleWithReactionsParentData
         > {
-  _RenderBubbleWithReactions(this._reactionsAtEnd, this._reveal);
+  _RenderBubbleWithReactions(
+    this._reactionsAtEnd,
+    this._reveal,
+    this._assistReveal,
+  );
 
   bool _reactionsAtEnd;
   set reactionsAtEnd(bool value) {
@@ -539,17 +602,31 @@ class _RenderBubbleWithReactions extends RenderBox
     markNeedsLayout();
   }
 
+  /// How much of the space the assist row adds is open, from 0 to 1.
+  Animation<double> _assistReveal;
+  set assistReveal(Animation<double> value) {
+    if (value == _assistReveal) return;
+    if (attached) {
+      _assistReveal.removeListener(markNeedsLayout);
+      value.addListener(markNeedsLayout);
+    }
+    _assistReveal = value;
+    markNeedsLayout();
+  }
+
   final _clipLayer = LayerHandle<ClipRectLayer>();
 
   @override
   void attach(PipelineOwner owner) {
     super.attach(owner);
     _reveal.addListener(markNeedsLayout);
+    _assistReveal.addListener(markNeedsLayout);
   }
 
   @override
   void detach() {
     _reveal.removeListener(markNeedsLayout);
+    _assistReveal.removeListener(markNeedsLayout);
     super.detach();
   }
 
@@ -566,50 +643,92 @@ class _RenderBubbleWithReactions extends RenderBox
     }
   }
 
-  double _height(double bubbleHeight, double reactionsHeight) {
-    final overlap = min(reactionChipOverlap, bubbleHeight);
-    return bubbleHeight +
-        max(0.0, reactionsHeight - overlap) * _reveal.value.clamp(0.0, 1.0);
+  RenderBox get _bubble => firstChild!;
+  RenderBox get _reactions => childAfter(_bubble)!;
+  RenderBox get _assist => lastChild!;
+
+  /// Where the assist row's top edge goes, and whether it shares the band
+  /// under the bubble with the reaction chips.
+  static (double top, bool beside) _assistPlace(
+    Size bubble,
+    Size reactions,
+    Size assist,
+  ) {
+    const gap = BubbleWithReactions.assistGap;
+    if (reactions.height <= 0) return (bubble.height + gap, false);
+    final beside = assist.width + 2 * gap + reactions.width <= bubble.width;
+    if (beside) return (bubble.height + gap, true);
+    final overlap = min(reactionChipOverlap, bubble.height);
+    return (bubble.height - overlap + reactions.height + gap, false);
+  }
+
+  double _height(Size bubble, Size reactions, Size assist) {
+    final overlap = min(reactionChipOverlap, bubble.height);
+    final withReactions =
+        bubble.height +
+        max(0.0, reactions.height - overlap) * _reveal.value.clamp(0.0, 1.0);
+    if (assist.height <= 0) return withReactions;
+    final (top, _) = _assistPlace(bubble, reactions, assist);
+    final assistBottom = top + assist.height;
+    return withReactions +
+        max(0.0, assistBottom - withReactions) *
+            _assistReveal.value.clamp(0.0, 1.0);
   }
 
   @override
   double computeMinIntrinsicWidth(double height) => max(
-    firstChild!.getMinIntrinsicWidth(height),
-    lastChild!.getMinIntrinsicWidth(double.infinity),
+    _bubble.getMinIntrinsicWidth(height),
+    max(
+      _reactions.getMinIntrinsicWidth(double.infinity),
+      _assist.getMinIntrinsicWidth(double.infinity),
+    ),
   );
 
   @override
   double computeMaxIntrinsicWidth(double height) => max(
-    firstChild!.getMaxIntrinsicWidth(height),
-    lastChild!.getMaxIntrinsicWidth(double.infinity),
+    _bubble.getMaxIntrinsicWidth(height),
+    max(
+      _reactions.getMaxIntrinsicWidth(double.infinity),
+      _assist.getMaxIntrinsicWidth(double.infinity),
+    ),
   );
 
   @override
   double computeMinIntrinsicHeight(double width) => _height(
-    firstChild!.getMinIntrinsicHeight(width),
-    lastChild!.getMinIntrinsicHeight(width),
+    Size(width, _bubble.getMinIntrinsicHeight(width)),
+    Size(0, _reactions.getMinIntrinsicHeight(width)),
+    Size(0, _assist.getMinIntrinsicHeight(width)),
   );
 
   @override
   double computeMaxIntrinsicHeight(double width) => _height(
-    firstChild!.getMaxIntrinsicHeight(width),
-    lastChild!.getMaxIntrinsicHeight(width),
+    Size(width, _bubble.getMaxIntrinsicHeight(width)),
+    Size(0, _reactions.getMaxIntrinsicHeight(width)),
+    Size(0, _assist.getMaxIntrinsicHeight(width)),
   );
 
   @override
   void performLayout() {
-    final bubble = firstChild!;
-    final reactions = childAfter(bubble)!;
+    final bubble = _bubble;
+    final reactions = _reactions;
+    final assist = _assist;
     final loose = constraints.loosen();
     bubble.layout(loose, parentUsesSize: true);
     reactions.layout(
       BoxConstraints(maxWidth: constraints.maxWidth),
       parentUsesSize: true,
     );
-    final double width = max(bubble.size.width, reactions.size.width);
+    assist.layout(
+      BoxConstraints(maxWidth: constraints.maxWidth),
+      parentUsesSize: true,
+    );
+    final double width = max(
+      bubble.size.width,
+      max(reactions.size.width, assist.size.width),
+    );
     final overlap = min(reactionChipOverlap, bubble.size.height);
     size = constraints.constrain(
-      Size(width, _height(bubble.size.height, reactions.size.height)),
+      Size(width, _height(bubble.size, reactions.size, assist.size)),
     );
 
     // The bubble keeps the side it would have without reactions: another
@@ -618,6 +737,11 @@ class _RenderBubbleWithReactions extends RenderBox
     final reactionsX = _reactionsAtEnd
         ? max(0.0, bubbleX + bubble.size.width - reactions.size.width)
         : min(bubbleX, size.width - reactions.size.width);
+    // The assist row takes the bubble's own side, the corner the reaction
+    // chips leave free.
+    final assistX = _reactionsAtEnd
+        ? bubbleX
+        : max(0.0, bubbleX + bubble.size.width - assist.size.width);
     (bubble.parentData! as _BubbleWithReactionsParentData).offset = Offset(
       bubbleX,
       0,
@@ -625,6 +749,10 @@ class _RenderBubbleWithReactions extends RenderBox
     (reactions.parentData! as _BubbleWithReactionsParentData).offset = Offset(
       reactionsX,
       bubble.size.height - overlap,
+    );
+    (assist.parentData! as _BubbleWithReactionsParentData).offset = Offset(
+      assistX,
+      _assistPlace(bubble.size, reactions.size, assist.size).$1,
     );
   }
 
@@ -634,11 +762,15 @@ class _RenderBubbleWithReactions extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    final reactions = lastChild!;
-    final reactionsBottom =
-        (reactions.parentData! as _BubbleWithReactionsParentData).offset.dy +
-        reactions.size.height;
-    if (reactionsBottom <= size.height) {
+    var bottom = 0.0;
+    for (final child in [_reactions, _assist]) {
+      bottom = max(
+        bottom,
+        (child.parentData! as _BubbleWithReactionsParentData).offset.dy +
+            child.size.height,
+      );
+    }
+    if (bottom <= size.height) {
       _clipLayer.layer = null;
       defaultPaint(context, offset);
       return;

@@ -35,6 +35,7 @@ import '../../../config/app_config.dart';
 import '../read_status_mark.dart';
 import '../sticker_picker_dialog.dart';
 import 'message_content.dart';
+import 'message_detections.dart';
 import 'message_reactions.dart';
 import 'reply_content.dart';
 import 'sender_user_builder.dart';
@@ -573,269 +574,279 @@ class Message extends StatelessWidget {
                                       alignment: alignment,
                                       // Reactions sit on the bubble's bottom corner
                                       // away from the sender's side, as a chip that
-                                      // overlaps the bubble edge.
-                                      child: BubbleWithReactions(
-                                        reactionsAtEnd: !ownMessage,
-                                        reactions: hasReactions
-                                            ? MessageReactions(event, timeline)
-                                            : null,
-                                        bubble: GestureDetector(
-                                          onDoubleTap:
-                                              AppSettings
-                                                      .doubleTapToReact
-                                                      .value &&
-                                                  event
-                                                      .room
-                                                      .canSendDefaultMessages
-                                              ? () {
-                                                  HapticFeedback.lightImpact();
-                                                  final emoji = AppSettings
-                                                      .doubleTapReaction
-                                                      .value;
-                                                  final existingReaction = event
-                                                      .aggregatedEvents(
-                                                        timeline,
-                                                        RelationshipTypes
-                                                            .reaction,
-                                                      )
-                                                      .firstWhereOrNull(
-                                                        (e) =>
-                                                            e.senderId ==
-                                                                event
-                                                                    .room
-                                                                    .client
-                                                                    .userID &&
-                                                            e.content
-                                                                    .tryGetMap<
-                                                                      String,
-                                                                      Object?
-                                                                    >(
-                                                                      'm.relates_to',
-                                                                    )
-                                                                    ?.tryGet<
-                                                                      String
-                                                                    >('key') ==
-                                                                emoji,
-                                                      );
-                                                  if (existingReaction !=
-                                                      null) {
-                                                    existingReaction
-                                                        .redactEvent();
-                                                  } else {
-                                                    event
-                                                        .roomFor(
-                                                          SendAction.reaction,
-                                                        )
-                                                        .sendReaction(
-                                                          event.eventId,
-                                                          emoji,
-                                                        );
-                                                  }
-                                                }
-                                              : null,
-                                          onTap:
-                                              longPressSelect ||
-                                                  onToggleTime == null
-                                              ? null
-                                              : () => onToggleTime!(event),
-                                          onLongPress: longPressSelect
-                                              ? null
-                                              : () {
-                                                  HapticFeedback.heavyImpact();
-                                                  onSelect(event);
-                                                },
-                                          onSecondaryTapUp:
-                                              onContextMenu == null
-                                              ? null
-                                              : (details) => onContextMenu!(
+                                      // overlaps the bubble edge. The data
+                                      // detector chips hang under the sender's
+                                      // side (see MessageDetections).
+                                      child: MessageDetections(
+                                        event: event,
+                                        enabled: !longPressSelect,
+                                        builder: (context, wrapBubble, chips) => BubbleWithReactions(
+                                          assist: chips,
+                                          reactionsAtEnd: !ownMessage,
+                                          reactions: hasReactions
+                                              ? MessageReactions(
                                                   event,
-                                                  details.globalPosition,
+                                                  timeline,
+                                                )
+                                              : null,
+                                          bubble: wrapBubble(
+                                            GestureDetector(
+                                              onDoubleTap:
+                                                  AppSettings
+                                                          .doubleTapToReact
+                                                          .value &&
+                                                      event
+                                                          .room
+                                                          .canSendDefaultMessages
+                                                  ? () {
+                                                      HapticFeedback.lightImpact();
+                                                      final emoji = AppSettings
+                                                          .doubleTapReaction
+                                                          .value;
+                                                      final existingReaction = event
+                                                          .aggregatedEvents(
+                                                            timeline,
+                                                            RelationshipTypes
+                                                                .reaction,
+                                                          )
+                                                          .firstWhereOrNull(
+                                                            (e) =>
+                                                                e.senderId ==
+                                                                    event
+                                                                        .room
+                                                                        .client
+                                                                        .userID &&
+                                                                e.content
+                                                                        .tryGetMap<
+                                                                          String,
+                                                                          Object?
+                                                                        >(
+                                                                          'm.relates_to',
+                                                                        )
+                                                                        ?.tryGet<
+                                                                          String
+                                                                        >(
+                                                                          'key',
+                                                                        ) ==
+                                                                    emoji,
+                                                          );
+                                                      if (existingReaction !=
+                                                          null) {
+                                                        existingReaction
+                                                            .redactEvent();
+                                                      } else {
+                                                        event
+                                                            .roomFor(
+                                                              SendAction
+                                                                  .reaction,
+                                                            )
+                                                            .sendReaction(
+                                                              event.eventId,
+                                                              emoji,
+                                                            );
+                                                      }
+                                                    }
+                                                  : null,
+                                              onTap:
+                                                  longPressSelect ||
+                                                      onToggleTime == null
+                                                  ? null
+                                                  : () => onToggleTime!(event),
+                                              onLongPress: longPressSelect
+                                                  ? null
+                                                  : () {
+                                                      HapticFeedback.heavyImpact();
+                                                      onSelect(event);
+                                                    },
+                                              onSecondaryTapUp:
+                                                  onContextMenu == null
+                                                  ? null
+                                                  : (details) => onContextMenu!(
+                                                      event,
+                                                      details.globalPosition,
+                                                    ),
+                                              // A message sent with an effect
+                                              // performs it from here.
+                                              child: MessageEffectBubble(
+                                                key: ValueKey(
+                                                  'effect-${event.transactionId ?? event.eventId}',
                                                 ),
-                                          // A message sent with an effect
-                                          // performs it from here.
-                                          child: MessageEffectBubble(
-                                            key: ValueKey(
-                                              'effect-${event.transactionId ?? event.eventId}',
-                                            ),
-                                            event: event,
-                                            ownMessage: ownMessage,
-                                            bubbleColor: noBubble
-                                                ? Colors.transparent
-                                                : networkColor ?? color,
-                                            onBubbleColor: textColor,
-                                            borderRadius: borderRadius,
-                                            child: _AnimateIn(
-                                              key: ValueKey(
-                                                event.transactionId ??
-                                                    event.eventId,
-                                              ),
-                                              animateIn:
-                                                  animateIn &&
-                                                  !MessageEffectBubble.ownsEntrance(
-                                                    event,
+                                                event: event,
+                                                ownMessage: ownMessage,
+                                                bubbleColor: noBubble
+                                                    ? Colors.transparent
+                                                    : networkColor ?? color,
+                                                onBubbleColor: textColor,
+                                                borderRadius: borderRadius,
+                                                child: _AnimateIn(
+                                                  key: ValueKey(
+                                                    event.transactionId ??
+                                                        event.eventId,
                                                   ),
-                                              child: ValueListenableBuilder(
-                                                valueListenable: rowFocused,
-                                                builder:
-                                                    (
-                                                      context,
-                                                      focused,
-                                                      child,
-                                                    ) => DecoratedBox(
-                                                      key: const ValueKey(
-                                                        'message_focus_ring',
+                                                  animateIn:
+                                                      animateIn &&
+                                                      !MessageEffectBubble.ownsEntrance(
+                                                        event,
                                                       ),
-                                                      position:
-                                                          DecorationPosition
-                                                              .foreground,
+                                                  child: ValueListenableBuilder(
+                                                    valueListenable: rowFocused,
+                                                    builder:
+                                                        (
+                                                          context,
+                                                          focused,
+                                                          child,
+                                                        ) => DecoratedBox(
+                                                          key: const ValueKey(
+                                                            'message_focus_ring',
+                                                          ),
+                                                          position:
+                                                              DecorationPosition
+                                                                  .foreground,
+                                                          decoration: BoxDecoration(
+                                                            border: focused
+                                                                ? Border.all(
+                                                                    color: theme
+                                                                        .colorScheme
+                                                                        .primary,
+                                                                    width: 2,
+                                                                  )
+                                                                : null,
+                                                            borderRadius:
+                                                                borderRadius,
+                                                          ),
+                                                          child: child,
+                                                        ),
+                                                    child: Container(
                                                       decoration: BoxDecoration(
-                                                        border: focused
-                                                            ? Border.all(
-                                                                color: theme
-                                                                    .colorScheme
-                                                                    .primary,
-                                                                width: 2,
-                                                              )
-                                                            : null,
+                                                        color: noBubble
+                                                            ? Colors.transparent
+                                                            : color,
                                                         borderRadius:
                                                             borderRadius,
                                                       ),
-                                                      child: child,
-                                                    ),
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    color: noBubble
-                                                        ? Colors.transparent
-                                                        : color,
-                                                    borderRadius: borderRadius,
-                                                  ),
-                                                  clipBehavior: Clip.antiAlias,
-                                                  child: BubbleBackground(
-                                                    // One flat colour for a network bubble,
-                                                    // not the theme's gradient.
-                                                    colors: networkColor == null
-                                                        ? colors
-                                                        : [
-                                                            networkColor,
-                                                            networkColor,
-                                                          ],
-                                                    ignore:
-                                                        noBubble ||
-                                                        !ownMessage ||
-                                                        MediaQuery.highContrastOf(
-                                                          context,
-                                                        ),
-                                                    scrollController:
-                                                        scrollController,
-                                                    child: BubbleHighlight(
-                                                      active: highlightMarker,
-                                                      overContent: noBubble,
-                                                      child: Container(
-                                                        decoration: BoxDecoration(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                AppConfig
-                                                                    .borderRadius,
-                                                              ),
-                                                        ),
-                                                        constraints:
-                                                            const BoxConstraints(
-                                                              maxWidth: 325,
+                                                      clipBehavior:
+                                                          Clip.antiAlias,
+                                                      child: BubbleBackground(
+                                                        // One flat colour for a network bubble,
+                                                        // not the theme's gradient.
+                                                        colors:
+                                                            networkColor == null
+                                                            ? colors
+                                                            : [
+                                                                networkColor,
+                                                                networkColor,
+                                                              ],
+                                                        ignore:
+                                                            noBubble ||
+                                                            !ownMessage ||
+                                                            MediaQuery.highContrastOf(
+                                                              context,
                                                             ),
-                                                        child: Column(
-                                                          mainAxisSize: .min,
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: <Widget>[
-                                                            if (event.inReplyToEventId(
-                                                                  includingFallback:
-                                                                      false,
-                                                                ) !=
-                                                                null)
-                                                              ReplyEventBuilder(
-                                                                event: event,
-                                                                timeline:
-                                                                    timeline,
-                                                                builder: (context, foundReplyEvent) {
-                                                                  final replyEvent =
-                                                                      foundReplyEvent ??
-                                                                      Event(
-                                                                        eventId:
-                                                                            event.inReplyToEventId() ?? '\$fake_event_id',
-                                                                        content: {
-                                                                          'msgtype': 'm.text',
-                                                                          'body': '...',
-                                                                        },
-                                                                        senderId:
-                                                                            event.senderId,
-                                                                        type: 'm.room.message',
-                                                                        room: event
-                                                                            .room,
-                                                                        status:
-                                                                            EventStatus.sent,
-                                                                        originServerTs:
-                                                                            DateTime.now(),
-                                                                      );
-                                                                  return Padding(
-                                                                    padding:
-                                                                        const EdgeInsets.only(
-                                                                          left:
-                                                                              16,
-                                                                          right:
-                                                                              16,
-                                                                          top:
-                                                                              8,
-                                                                        ),
-                                                                    child: Material(
-                                                                      color: Colors
-                                                                          .transparent,
-                                                                      borderRadius:
-                                                                          ReplyContent
-                                                                              .borderRadius,
-                                                                      child: InkWell(
-                                                                        borderRadius:
-                                                                            ReplyContent.borderRadius,
-                                                                        onTap: () => scrollToEventId(
-                                                                          replyEvent
-                                                                              .eventId,
-                                                                        ),
-                                                                        child: AbsorbPointer(
-                                                                          child: ReplyContent(
-                                                                            replyEvent,
-                                                                            ownMessage:
-                                                                                ownMessage,
-                                                                            foregroundColor:
-                                                                                onNetworkColor,
-                                                                            timeline:
-                                                                                timeline,
-                                                                          ),
-                                                                        ),
-                                                                      ),
-                                                                    ),
-                                                                  );
-                                                                },
-                                                              ),
-                                                            MessageContent(
-                                                              displayEvent,
-                                                              fromPendingMedia:
-                                                                  fromPendingMedia,
-                                                              textColor:
-                                                                  textColor,
-                                                              linkColor:
-                                                                  linkColor,
-                                                              onInfoTab:
-                                                                  onInfoTab,
+                                                        scrollController:
+                                                            scrollController,
+                                                        child: BubbleHighlight(
+                                                          active:
+                                                              highlightMarker,
+                                                          overContent: noBubble,
+                                                          child: Container(
+                                                            decoration: BoxDecoration(
                                                               borderRadius:
-                                                                  borderRadius,
-                                                              timeline:
-                                                                  timeline,
-                                                              selected:
-                                                                  selected,
-                                                              bigEmojis:
-                                                                  bigEmojis,
+                                                                  BorderRadius.circular(
+                                                                    AppConfig
+                                                                        .borderRadius,
+                                                                  ),
                                                             ),
-                                                          ],
+                                                            constraints:
+                                                                const BoxConstraints(
+                                                                  maxWidth: 325,
+                                                                ),
+                                                            child: Column(
+                                                              mainAxisSize:
+                                                                  .min,
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: <Widget>[
+                                                                if (event.inReplyToEventId(
+                                                                      includingFallback:
+                                                                          false,
+                                                                    ) !=
+                                                                    null)
+                                                                  ReplyEventBuilder(
+                                                                    event:
+                                                                        event,
+                                                                    timeline:
+                                                                        timeline,
+                                                                    builder:
+                                                                        (
+                                                                          context,
+                                                                          foundReplyEvent,
+                                                                        ) {
+                                                                          final replyEvent =
+                                                                              foundReplyEvent ??
+                                                                              Event(
+                                                                                eventId:
+                                                                                    event.inReplyToEventId() ??
+                                                                                    '\$fake_event_id',
+                                                                                content: {
+                                                                                  'msgtype': 'm.text',
+                                                                                  'body': '...',
+                                                                                },
+                                                                                senderId: event.senderId,
+                                                                                type: 'm.room.message',
+                                                                                room: event.room,
+                                                                                status: EventStatus.sent,
+                                                                                originServerTs: DateTime.now(),
+                                                                              );
+                                                                          return Padding(
+                                                                            padding: const EdgeInsets.only(
+                                                                              left: 16,
+                                                                              right: 16,
+                                                                              top: 8,
+                                                                            ),
+                                                                            child: Material(
+                                                                              color: Colors.transparent,
+                                                                              borderRadius: ReplyContent.borderRadius,
+                                                                              child: InkWell(
+                                                                                borderRadius: ReplyContent.borderRadius,
+                                                                                onTap: () => scrollToEventId(
+                                                                                  replyEvent.eventId,
+                                                                                ),
+                                                                                child: AbsorbPointer(
+                                                                                  child: ReplyContent(
+                                                                                    replyEvent,
+                                                                                    ownMessage: ownMessage,
+                                                                                    foregroundColor: onNetworkColor,
+                                                                                    timeline: timeline,
+                                                                                  ),
+                                                                                ),
+                                                                              ),
+                                                                            ),
+                                                                          );
+                                                                        },
+                                                                  ),
+                                                                MessageContent(
+                                                                  displayEvent,
+                                                                  fromPendingMedia:
+                                                                      fromPendingMedia,
+                                                                  textColor:
+                                                                      textColor,
+                                                                  linkColor:
+                                                                      linkColor,
+                                                                  onInfoTab:
+                                                                      onInfoTab,
+                                                                  borderRadius:
+                                                                      borderRadius,
+                                                                  timeline:
+                                                                      timeline,
+                                                                  selected:
+                                                                      selected,
+                                                                  bigEmojis:
+                                                                      bigEmojis,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
                                                         ),
                                                       ),
                                                     ),
@@ -949,8 +960,9 @@ class Message extends StatelessWidget {
                                                         Icons
                                                             .add_reaction_outlined,
                                                       ),
-                                                      tooltip: L10n.of(context)
-                                                          .customReaction,
+                                                      tooltip: L10n.of(
+                                                        context,
+                                                      ).customReaction,
                                                       onPressed: () async {
                                                         final emoji = await showAdaptiveBottomSheet<String>(
                                                           context: context,
@@ -993,10 +1005,16 @@ class Message extends StatelessWidget {
                                                                       child: TabBarView(
                                                                         children: [
                                                                           EmojiPicker(
-                                                                            onEmojiSelected: (
-                                                                              _,
-                                                                              emoji,
-                                                                            ) => Navigator.of(context).pop(emoji.emoji),
+                                                                            onEmojiSelected:
+                                                                                (
+                                                                                  _,
+                                                                                  emoji,
+                                                                                ) =>
+                                                                                    Navigator.of(
+                                                                                      context,
+                                                                                    ).pop(
+                                                                                      emoji.emoji,
+                                                                                    ),
                                                                             config: Config(
                                                                               locale: Localizations.localeOf(
                                                                                 context,
@@ -1010,13 +1028,19 @@ class Message extends StatelessWidget {
                                                                               categoryViewConfig: CategoryViewConfig(
                                                                                 initCategory: Category.SMILEYS,
                                                                                 backspaceColor: theme.colorScheme.primary,
-                                                                                iconColor: theme.colorScheme.primary.withAlpha(128),
+                                                                                iconColor: theme.colorScheme.primary.withAlpha(
+                                                                                  128,
+                                                                                ),
                                                                                 iconColorSelected: theme.colorScheme.primary,
                                                                                 indicatorColor: theme.colorScheme.primary,
                                                                                 backgroundColor: theme.colorScheme.surface,
                                                                               ),
                                                                               skinToneConfig: SkinToneConfig(
-                                                                                dialogBackgroundColor: Color.lerp(theme.colorScheme.surface, theme.colorScheme.primaryContainer, 0.75)!,
+                                                                                dialogBackgroundColor: Color.lerp(
+                                                                                  theme.colorScheme.surface,
+                                                                                  theme.colorScheme.primaryContainer,
+                                                                                  0.75,
+                                                                                )!,
                                                                                 indicatorColor: theme.colorScheme.onSurface,
                                                                               ),
                                                                             ),
@@ -1026,9 +1050,15 @@ class Message extends StatelessWidget {
                                                                                 event.room,
                                                                             usage:
                                                                                 ImagePackUsage.emoticon,
-                                                                            onSelected: (sticker) => Navigator.of(
-                                                                              context,
-                                                                            ).pop(sticker.url.toString()),
+                                                                            onSelected:
+                                                                                (
+                                                                                  sticker,
+                                                                                ) =>
+                                                                                    Navigator.of(
+                                                                                      context,
+                                                                                    ).pop(
+                                                                                      sticker.url.toString(),
+                                                                                    ),
                                                                           ),
                                                                         ],
                                                                       ),

@@ -73,7 +73,7 @@ so). "Gate" is the Dart platform check that keeps the feature off Apple platform
 | Stay running, launch at login | Windows tray | n/a | quits with the last window | keep running after close, `SMAppService`, `NSStatusItem` |
 | Menu bar | n/a | n/a | **built**: `lib/widgets/mac_menu_bar.dart` (Settings, New chat, New group, Edit commands, Chats, Window); menu read back from the running app, items not yet exercised signed in; File/Edit/View/Window/Undo/Redo titles are English only | `PlatformMenuBar` |
 | Title bar with search | `WindowsChrome` | n/a | standard | unified `NSToolbar` title bar |
-| Data detectors | Android `TextClassifier` (not on integration2 yet) | none | none | `NSDataDetector`, native menus |
+| Data detectors | Android `TextClassifier`, Windows Seam's own (`lib/utils/data_detectors`, branch `feat/data-detectors-v3`) | none; `ChannelDataDetector` already calls `chat.fluffy.fluffychat/data_detectors` on iOS | Seam's own Dart detector | `NSDataDetector` behind that channel (contract in `data_detector_platform.dart`) |
 | Share-to | Android intents | upstream share extension | none | macOS share extension |
 | Push settings row | UnifiedPush distributors | hidden | hidden | APNs status row |
 

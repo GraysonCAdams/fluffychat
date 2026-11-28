@@ -8,12 +8,15 @@ import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat/events/message_detections.dart';
 import 'package:fluffychat/utils/code_highlight_theme.dart';
+import 'package:fluffychat/utils/data_detectors/detection.dart';
 import 'package:fluffychat/utils/event_checkbox_extension.dart';
 import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/future_loading_dialog.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:highlight/highlight.dart' show highlight;
 import 'package:html/dom.dart' as dom;
@@ -180,6 +183,91 @@ class _HtmlMessageState extends State<HtmlMessage> {
   /// [HtmlMessage.checkboxCheckedEvents] and the user's power level.
   bool _hasCheckboxes = false;
 
+  /// The message's data detections, from the [DetectionScope] around it.
+  DetectionScope? _scope;
+
+  /// Hands out the message's detections to its text runs while rendering.
+  _DetectionMatcher? _matcher;
+
+  /// How deep rendering is inside a link, where nothing is detected.
+  int _inLink = 0;
+
+  /// The tap handlers of the rendered detections, disposed when the text is
+  /// rendered again.
+  final List<TapGestureRecognizer> _recognizers = [];
+
+  @override
+  void dispose() {
+    for (final recognizer in _recognizers) {
+      recognizer.dispose();
+    }
+    super.dispose();
+  }
+
+  /// [text] as linkified runs, with the stretches the matcher finds in it
+  /// underlined in the text colour and tappable.
+  InlineSpan _detectedText(String text, BuildContext context) {
+    final matcher = _matcher;
+    final runs = matcher == null || _inLink > 0
+        ? [(text, null)]
+        : matcher.split(text);
+    if (runs.length == 1 && runs.single.$2 == null) {
+      return LinkifySpan(
+        text: text,
+        options: const LinkifyOptions(humanize: false),
+        linkStyle: linkStyle,
+        onOpen: onOpen,
+      );
+    }
+    return TextSpan(
+      children: [
+        for (final (run, detection) in runs)
+          if (detection == null)
+            LinkifySpan(
+              text: run,
+              options: const LinkifyOptions(humanize: false),
+              linkStyle: linkStyle,
+              onOpen: onOpen,
+            )
+          else
+            TextSpan(
+              text: run,
+              style: TextStyle(
+                decoration: TextDecoration.underline,
+                decorationColor: textColor,
+                backgroundColor: identical(_scope?.pressed, detection)
+                    ? textColor.withAlpha(46)
+                    : null,
+              ),
+              recognizer: _recognizerFor(detection, context),
+            ),
+      ],
+    );
+  }
+
+  TapGestureRecognizer? _recognizerFor(
+    Detection detection,
+    BuildContext context,
+  ) {
+    if (_scope?.onTap == null) return null;
+    void open(Offset global) {
+      final onTap = _scope?.onTap;
+      if (onTap == null || !context.mounted) return;
+      onTap(
+        detection,
+        detectionSpanRect(context, detection, global) ??
+            Rect.fromCenter(center: global, width: 1, height: 1),
+      );
+    }
+
+    final recognizer = TapGestureRecognizer()
+      ..onTapUp = ((details) => open(details.globalPosition))
+      // A right click on a desktop opens the same menu.
+      ..onSecondaryTapUp = ((details) => open(details.globalPosition));
+    _recognizers.add(recognizer);
+    return recognizer;
+  }
+
   /// Adding line breaks before block elements.
   List<InlineSpan> _renderWithLineBreaks(
     dom.NodeList nodes,
@@ -239,12 +327,7 @@ class _HtmlMessageState extends State<HtmlMessage> {
       // Single linebreak nodes between Elements are ignored:
       if (text == '\n') text = '';
 
-      return LinkifySpan(
-        text: text,
-        options: const LinkifyOptions(humanize: false),
-        linkStyle: linkStyle,
-        onOpen: onOpen,
-      );
+      return _detectedText(text, context);
     }
 
     switch (node.localName) {
@@ -303,6 +386,13 @@ class _HtmlMessageState extends State<HtmlMessage> {
             );
           }
         }
+        _inLink++;
+        final linkText = _renderWithLineBreaks(
+          node.nodes,
+          context,
+          depth: depth,
+        );
+        _inLink--;
         return WidgetSpan(
           child: Tooltip(
             message: href,
@@ -310,14 +400,7 @@ class _HtmlMessageState extends State<HtmlMessage> {
               splashColor: Colors.transparent,
               onTap: () => UrlLauncher(context, href, node.text).launchUrl(),
               child: Text.rich(
-                TextSpan(
-                  children: _renderWithLineBreaks(
-                    node.nodes,
-                    context,
-                    depth: depth,
-                  ),
-                  style: linkStyle,
-                ),
+                TextSpan(children: linkText, style: linkStyle),
                 style: const TextStyle(height: 1.25),
               ),
             ),
@@ -701,10 +784,14 @@ class _HtmlMessageState extends State<HtmlMessage> {
           ]
         : const [],
     canSendMessages: _hasCheckboxes && widget.room.canSendDefaultMessages,
+    detections: _scope?.detections,
+    detectionsTappable: _scope?.onTap != null,
+    pressed: _scope?.pressed,
   );
 
   @override
   Widget build(BuildContext context) {
+    _scope = DetectionScope.maybeOf(context, widget.eventId);
     final built = _built;
     if (built != null &&
         _builtFor == _currentInputs() &&
@@ -716,7 +803,17 @@ class _HtmlMessageState extends State<HtmlMessage> {
 
     _pillIds = [];
     _hasCheckboxes = false;
+    for (final recognizer in _recognizers) {
+      recognizer.dispose();
+    }
+    _recognizers.clear();
+    final detections = _scope?.detections;
+    _matcher = detections == null || detections.isEmpty
+        ? null
+        : _DetectionMatcher(detections);
+    _inLink = 0;
     final result = _build(context);
+    _matcher = null;
     _pillValues = _readPillValues(_pillIds);
     _built = result;
     // Taken after rendering, once it is known whether the message has
@@ -797,6 +894,9 @@ class _HtmlInputs {
   final int maxLinesSetting;
   final List<(String, String, int?)> checkboxes;
   final bool canSendMessages;
+  final List<Detection>? detections;
+  final bool detectionsTappable;
+  final Detection? pressed;
 
   const _HtmlInputs({
     required this.html,
@@ -808,6 +908,9 @@ class _HtmlInputs {
     required this.maxLinesSetting,
     required this.checkboxes,
     required this.canSendMessages,
+    required this.detections,
+    required this.detectionsTappable,
+    required this.pressed,
   });
 
   @override
@@ -821,6 +924,9 @@ class _HtmlInputs {
       other.eventId == eventId &&
       other.maxLinesSetting == maxLinesSetting &&
       other.canSendMessages == canSendMessages &&
+      identical(other.detections, detections) &&
+      other.detectionsTappable == detectionsTappable &&
+      identical(other.pressed, pressed) &&
       const ListEquality<(String, String, int?)>().equals(
         other.checkboxes,
         checkboxes,
@@ -1017,4 +1123,78 @@ extension on String {
 
 extension on dom.Element {
   dom.Element get rootElement => parent?.rootElement ?? this;
+}
+
+/// Hands out a message's data detections to its runs of text in reading
+/// order. A detection written over several lines, such as an address, is
+/// looked for line by line, since each line is its own run.
+///
+/// The detections were found in the message's plain body, while the runs
+/// come from its rendered HTML, which can differ (a reply quote, markup).
+/// A line not found in one run is looked for in the next; one never found
+/// is passed over once a later detection turns up first.
+class _DetectionMatcher {
+  _DetectionMatcher(List<Detection> detections)
+    : _pieces = [
+        for (final detection in detections)
+          for (final piece in detection.pieces) (detection, piece),
+      ];
+
+  final List<(Detection, String)> _pieces;
+  int _next = 0;
+
+  /// How many lines ahead a missing one may be passed over for.
+  static const _lookahead = 3;
+
+  /// [text] cut into runs, each with the detection it belongs to or null.
+  List<(String, Detection?)> split(String text) {
+    final runs = <(String, Detection?)>[];
+    var cursor = 0;
+    while (_next < _pieces.length) {
+      var found = -1;
+      var index = -1;
+      for (var k = _next; k < _pieces.length && k <= _next + _lookahead; k++) {
+        final at = _find(text, _pieces[k].$2, cursor);
+        if (at >= 0 && (found < 0 || at < found)) {
+          found = at;
+          index = k;
+        }
+        if (k == _next && at >= 0) break;
+      }
+      if (found < 0) break;
+      final (detection, piece) = _pieces[index];
+      if (found > cursor) runs.add((text.substring(cursor, found), null));
+      runs.add((piece, detection));
+      cursor = found + piece.length;
+      _next = index + 1;
+    }
+    if (cursor < text.length) runs.add((text.substring(cursor), null));
+    return runs;
+  }
+
+  /// Where [piece] is in [text] from [from], outside any link or email
+  /// address the run's linkifier will turn into a link.
+  static int _find(String text, String piece, int from) {
+    var at = text.indexOf(piece, from);
+    while (at >= 0) {
+      var start = at;
+      while (start > 0 && !_space.hasMatch(text[start - 1])) {
+        start--;
+      }
+      var end = at + piece.length;
+      while (end < text.length && !_space.hasMatch(text[end])) {
+        end++;
+      }
+      final word = text.substring(start, end);
+      if (!word.contains('://') &&
+          !word.contains('www.') &&
+          !word.contains('@')) {
+        return at;
+      }
+      at = text.indexOf(piece, at + 1);
+    }
+    return -1;
+  }
+
+  static final _space = RegExp(r'\s');
 }

@@ -4915,5 +4915,25 @@
   "attachmentDidNotArrive": "Attachment didn't arrive",
   "@attachmentDidNotArrive": {
     "description": "Under the tile of a file a bridge failed to transfer."
+  },
+  "messageInSeam": "Message in Seam",
+  "@messageInSeam": {
+    "description": "Menu item on a phone number found in a message: opens the chat with the contact who has that number."
+  },
+  "dataDetectorMap": "Map",
+  "@dataDetectorMap": {
+    "description": "Action on an address found in a message: shows it in the maps app. Short, it is an assist chip label."
+  },
+  "dataDetectorCall": "Call",
+  "@dataDetectorCall": {
+    "description": "Action on a phone number found in a message: calls it. Short, it is an assist chip label."
+  },
+  "dataDetectorAddToCalendar": "Add to calendar",
+  "@dataDetectorAddToCalendar": {
+    "description": "Action on a date or time found in a message: makes a calendar event for it."
+  },
+  "dataDetectorTrackFlight": "Track flight",
+  "@dataDetectorTrackFlight": {
+    "description": "Action on a flight number found in a message: looks up the flight's status."
   }
 }
