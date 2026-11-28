@@ -416,14 +416,15 @@ class _ChatListItemState extends State<ChatListItem> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       softWrap: false,
-                      // Unread chats stand out with heavier, brighter
-                      // text.
-                      style: isUnread
-                          ? TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: theme.colorScheme.onSurface,
-                            )
-                          : null,
+                      // Unread chats stand out in bold on surface; read
+                      // ones recede to the lower emphasis on surface
+                      // variant, as their preview and time do.
+                      style: TextStyle(
+                        fontWeight: isUnread ? FontWeight.w700 : null,
+                        color: isUnread
+                            ? theme.colorScheme.onSurface
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                   if (isMuted)
@@ -467,7 +468,7 @@ class _ChatListItemState extends State<ChatListItem> {
                               ? theme.colorScheme.error
                               : hasNewMessages
                               ? theme.colorScheme.primary
-                              : null,
+                              : theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -570,7 +571,7 @@ class _ChatListItemState extends State<ChatListItem> {
                                                 .calcDisplayname();
                                   final textColor = isUnread
                                       ? theme.colorScheme.onSurface
-                                      : null;
+                                      : theme.colorScheme.onSurfaceVariant;
                                   String plain(MessagePreview preview) {
                                     final text = preview.text.trim().replaceAll(
                                       '\n',

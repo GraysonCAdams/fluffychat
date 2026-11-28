@@ -1149,11 +1149,13 @@ class _PinnedChat extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
+                            // Bold on surface when unread; a read pin
+                            // recedes like a read row in the list.
                             style: theme.textTheme.bodySmall?.copyWith(
                               fontWeight: unread ? FontWeight.w700 : null,
                               color: unread
                                   ? theme.colorScheme.onSurface
-                                  : null,
+                                  : theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ),
