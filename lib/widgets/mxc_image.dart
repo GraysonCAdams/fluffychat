@@ -97,29 +97,41 @@ class _MxcImageState extends State<MxcImage> {
 
   Uint8List? _imageDataNoCache;
 
-  /// The bytes this image last drew from the cache, and their key. A chat
-  /// page empties its room's cache when it is disposed
+  /// The bytes this image last drew, and the cache key they were drawn
+  /// under. A chat page empties its room's cache when it is disposed
   /// ([MxcImage.clearCache]), which can happen while a new page for the
   /// same chat already shows this image, for one when the layout changes on
-  /// rotation. [_tryLoad] runs only once, so without this the image would
-  /// fall back to its placeholder on its next build and stay there.
+  /// rotation. [_tryLoad] runs only once per source, so without this the
+  /// image would fall back to its placeholder on its next build and stay
+  /// there.
   Uint8List? _shownData;
   String? _shownKey;
 
+  /// What the previous source drew, shown while a new one loads (see
+  /// [didUpdateWidget]): a bridge's edit that swaps a message's file keeps
+  /// its picture on screen until the new file is here.
+  Uint8List? _previousData;
+
+  /// The bytes loaded for the current source, if any.
+  Uint8List? get _storedData => widget.cacheKey == null
+      ? _imageDataNoCache
+      : _imageDataCache[widget.cacheKey];
+
   Uint8List? get _imageData {
     final cacheKey = widget.cacheKey;
-    if (cacheKey == null) return _imageDataNoCache;
-    final cached = _imageDataCache[cacheKey];
-    if (cached != null) {
-      _shownData = cached;
+    final stored = _storedData;
+    if (stored != null) {
+      _shownData = stored;
       _shownKey = cacheKey;
-      return cached;
+      return stored;
     }
-    return _shownKey == cacheKey ? _shownData : null;
+    if (cacheKey != null && _shownKey == cacheKey) return _shownData;
+    return _previousData;
   }
 
   set _imageData(Uint8List? data) {
     if (data == null) return;
+    _previousData = null;
     final cacheKey = widget.cacheKey;
     cacheKey == null
         ? _imageDataNoCache = data
@@ -179,7 +191,10 @@ class _MxcImageState extends State<MxcImage> {
   }
 
   Future<void> _tryLoad() async {
-    if (_imageData != null) {
+    // Loaded already, or shown before its cache was emptied.
+    final cacheKey = widget.cacheKey;
+    if (_storedData != null ||
+        (cacheKey != null && _shownKey == cacheKey && _shownData != null)) {
       return;
     }
     try {
@@ -233,6 +248,28 @@ class _MxcImageState extends State<MxcImage> {
     super.initState();
     final data = _imageData;
     _skipFade = data != null && data.isNotEmpty;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tryLoad());
+  }
+
+  /// What this image shows, to tell when it is given another picture: an
+  /// edited message's event (see Event.getDisplayEvent) has another ID and,
+  /// when the edit swaps the file, another URL.
+  static Object _sourceOf(MxcImage image) => (
+    image.cacheKey,
+    image.uri,
+    image.isThumbnail,
+    image.event?.eventId,
+    image.event?.attachmentMxcUrl,
+    image.event?.thumbnailMxcUrl,
+  );
+
+  @override
+  void didUpdateWidget(MxcImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_sourceOf(oldWidget) == _sourceOf(widget)) return;
+    // Keep the old picture until the new one is loaded.
+    _previousData = _shownData ?? _previousData;
+    _imageDataNoCache = null;
     WidgetsBinding.instance.addPostFrameCallback((_) => _tryLoad());
   }
 
