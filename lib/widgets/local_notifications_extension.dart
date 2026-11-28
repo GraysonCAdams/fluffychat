@@ -185,6 +185,8 @@ extension LocalNotificationsExtension on MatrixState {
       EventTypes.Sticker,
     }.contains(event.type);
 
+    // A switch between light and dark mode shows in this toast's icon.
+    if (PlatformInfos.isWindows) await refreshToastIcon();
     await FlutterLocalNotificationsPlugin().show(
       id: id,
       title: title,
