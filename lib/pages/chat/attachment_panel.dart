@@ -33,36 +33,37 @@ class AttachmentPanel extends StatelessWidget {
       _AttachmentItem(
         icon: Icons.photo_outlined,
         label: l10n.gallery,
-        onTap: controller.openGalleryAction,
+        onTap: () => controller.attachFromPanel(controller.openGalleryAction),
       ),
       if (PlatformInfos.isMobile)
         _AttachmentItem(
           icon: Icons.photo_camera_outlined,
           label: l10n.camera,
-          onTap: controller.openCameraAction,
+          onTap: () => controller.attachFromPanel(controller.openCameraAction),
         ),
       if (PlatformInfos.isMobile)
         _AttachmentItem(
           icon: Icons.videocam_outlined,
           label: l10n.videoCamera,
-          onTap: controller.openVideoCameraAction,
+          onTap: () =>
+              controller.attachFromPanel(controller.openVideoCameraAction),
         ),
       _AttachmentItem(
         icon: Icons.attach_file,
         label: l10n.files,
-        onTap: controller.pickFilesToComposer,
+        onTap: () => controller.attachFromPanel(controller.pickFilesToComposer),
       ),
       if (PlatformInfos.isMobile)
         _AttachmentItem(
           icon: Icons.location_on_outlined,
           label: l10n.location,
-          onTap: controller.sendLocationAction,
+          onTap: () =>
+              controller.attachFromPanel(controller.sendLocationAction),
         ),
       _AttachmentItem(
         icon: Icons.poll_outlined,
         label: l10n.poll,
-        onTap: () =>
-            controller.onAddPopupMenuButtonSelected(AddPopupMenuActions.poll),
+        onTap: () => controller.attachFromPanel(controller.startPollAction),
       ),
     ];
 

@@ -435,6 +435,27 @@ class ChatController extends State<ChatPageWithRoom>
     });
   }
 
+  /// Runs [pick], an entry of the attachment panel, then closes the panel
+  /// and gives the text field its focus back, whether the picker returned
+  /// files or was cancelled. What was picked is staged in the composer,
+  /// above the text, ready for a caption.
+  Future<void> attachFromPanel(Future<void> Function() pick) async {
+    try {
+      await pick();
+    } finally {
+      if (mounted) {
+        if (showAttachmentPanel) setState(() => showAttachmentPanel = false);
+        inputFocus.requestFocus();
+      }
+    }
+  }
+
+  /// Opens the sheet that starts a poll, completing when it closes.
+  Future<void> startPollAction() => showAdaptiveBottomSheet(
+    context: context,
+    builder: (context) => StartPollBottomSheet(room: composerRoom),
+  );
+
   void _onAttachmentError(Object error, StackTrace stackTrace) {
     if (!mounted) return;
     ScaffoldMessenger.of(
@@ -2442,10 +2463,7 @@ class ChatController extends State<ChatPageWithRoom>
         sendFileAction(type: FileType.video);
         return;
       case AddPopupMenuActions.poll:
-        showAdaptiveBottomSheet(
-          context: context,
-          builder: (context) => StartPollBottomSheet(room: composerRoom),
-        );
+        startPollAction();
         return;
       case AddPopupMenuActions.photoCamera:
         openCameraAction();
