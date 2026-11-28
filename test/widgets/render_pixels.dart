@@ -63,3 +63,47 @@ int maxDeviation(Uint8List rgba, Color color) {
   }
   return worst;
 }
+
+/// The colours painted along the top and bottom edges of the message
+/// bubble holding [text], inside its padding and clear of its round
+/// corners, read from the layer of the nearest repaint boundary above it.
+/// A bubble in one flat colour gives that colour at every point.
+Future<List<Color>> bubbleEdgeColors(WidgetTester tester, Finder text) async {
+  final bubble = find
+      .ancestor(
+        of: text,
+        matching: find.byWidgetPredicate(
+          (w) =>
+              w is Container &&
+              w.decoration is BoxDecoration &&
+              (w.decoration! as BoxDecoration).borderRadius is BorderRadius &&
+              w.clipBehavior == Clip.antiAlias,
+        ),
+      )
+      .first;
+  final box = tester.renderObject<RenderBox>(bubble);
+  RenderObject boundary = box;
+  while (!boundary.isRepaintBoundary) {
+    boundary = boundary.parent!;
+  }
+  final rect = box.localToGlobal(Offset.zero, ancestor: boundary) & box.size;
+  final layer = boundary.debugLayer! as OffsetLayer;
+  final bytes = await tester.runAsync(() async {
+    final image = await layer.toImage(boundary.paintBounds);
+    final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    return (data!.buffer.asUint8List(), image.width);
+  });
+  final (rgba, width) = bytes!;
+  final origin = boundary.paintBounds.topLeft;
+  Color at(double x, double y) {
+    final i = (((y - origin.dy).floor()) * width + (x - origin.dx).floor()) * 4;
+    return Color.fromARGB(rgba[i + 3], rgba[i], rgba[i + 1], rgba[i + 2]);
+  }
+
+  return [
+    for (var x = rect.left + 22; x < rect.right - 22; x += 4) ...[
+      at(x, rect.top + 2),
+      at(x, rect.bottom - 3),
+    ],
+  ];
+}

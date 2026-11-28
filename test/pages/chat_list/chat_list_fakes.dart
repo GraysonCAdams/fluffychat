@@ -5,6 +5,7 @@
 // ignore_for_file: depend_on_referenced_packages, deprecated_member_use
 
 import 'package:fluffychat/config/setting_keys.dart';
+import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
@@ -445,11 +446,13 @@ FakeChatListRoom addFakeChat(
 /// location from.
 ///
 /// [matrix] stands in for the app's account state, as several accounts do;
-/// a single account of [client] by default.
+/// a single account of [client] by default. With [brightness] the app's own
+/// theme in that brightness applies, else a plain light one.
 Future<GoRouter> pumpFakeChatList(
   WidgetTester tester,
   Client client, {
   MatrixState? matrix,
+  Brightness? brightness,
 }) async {
   final prefs = await SharedPreferences.getInstance();
   final router = GoRouter(
@@ -498,6 +501,12 @@ Future<GoRouter> pumpFakeChatList(
             systemOverlayStyle: SystemUiOverlayStyle.dark,
           ),
         ),
+        builder: brightness == null
+            ? null
+            : (context, child) => Theme(
+                data: FluffyThemes.buildTheme(context, brightness),
+                child: child!,
+              ),
         localizationsDelegates: L10n.localizationsDelegates,
         supportedLocales: L10n.supportedLocales,
         routerConfig: router,

@@ -4,13 +4,16 @@
 
 // ignore_for_file: depend_on_referenced_packages
 
+import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_selection.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../widgets/render_pixels.dart';
 import 'chat_list_fakes.dart';
 
 /// The gesture map of a chat list row outside selection mode: a finger's
@@ -120,6 +123,54 @@ void main() {
       ),
     );
     await finish(tester);
+  });
+
+  group('bubble colours', () {
+    /// An iMessage blue picked on the phone, as in the report.
+    const picked = Color(0xFF2196F3);
+
+    setUp(() => NetworkColors.pick('imessage', picked));
+    tearDown(() => NetworkColors.pick('imessage', null));
+
+    Finder inCard(String text) => find.descendant(
+      of: card,
+      matching: find.text(text, findRichText: true),
+    );
+
+    testWidgets('the user\'s bubbles take the network colour, as in the '
+        'chat', (tester) async {
+      await pump(tester);
+      await peek(tester, 'Harrison Young');
+      final theme = Theme.of(tester.element(card));
+      final own = await bubbleEdgeColors(
+        tester,
+        inCard('Yes! 7 at the usual place'),
+      );
+      expect(own, isNotEmpty);
+      expect(own.toSet(), {picked});
+      // The other side keeps its own colour.
+      final other = await bubbleEdgeColors(
+        tester,
+        inCard('Are we still on for Friday?'),
+      );
+      expect(other.toSet(), {theme.colorScheme.surfaceContainerHigh});
+      await finish(tester);
+    });
+
+    testWidgets('a plain Matrix chat\'s bubbles are the theme\'s one flat '
+        'colour', (tester) async {
+      squad.setMessages(['Who is in for Saturday?', 'Count me in for that']);
+      await pump(tester);
+      await peek(tester, 'Squad Goals');
+      final theme = Theme.of(tester.element(card));
+      final own = await bubbleEdgeColors(
+        tester,
+        inCard('Count me in for that'),
+      );
+      expect(own, isNotEmpty);
+      expect(own.toSet(), {theme.bubbleColor});
+      await finish(tester);
+    });
   });
 
   testWidgets('peeking marks nothing read and a tap beside it closes it', (

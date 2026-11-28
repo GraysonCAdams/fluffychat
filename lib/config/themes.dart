@@ -5,6 +5,7 @@
 
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
+import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:material_color_utilities/material_color_utilities.dart';
 import 'package:material_ui/material_ui.dart';
@@ -286,11 +287,13 @@ extension BubbleColorTheme on ThemeData {
       ? colorScheme.onPrimary
       : colorScheme.onPrimaryContainer;
 
-  Color get secondaryBubbleColor => HSLColor.fromColor(
-    brightness == Brightness.light
-        ? colorScheme.tertiary
-        : colorScheme.tertiaryContainer,
-  ).withSaturation(0.5).toColor();
+  /// The background and foreground of the user's own bubbles, one flat
+  /// colour each: [networkColor], the colour of the network the message
+  /// goes out on (see `NetworkColors.bubbleColorOf`), else the theme's
+  /// own bubble colours.
+  (Color, Color) ownBubbleColors(Color? networkColor) => networkColor == null
+      ? (bubbleColor, onBubbleColor)
+      : (networkColor, NetworkColors.foregroundOn(networkColor));
 }
 
 /// Slides a page in from the right and back out again without ever changing

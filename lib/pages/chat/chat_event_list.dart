@@ -101,8 +101,6 @@ class ChatEventList extends StatelessWidget {
       return const Center(child: CupertinoActivityIndicator());
     }
 
-    final colors = [theme.secondaryBubbleColor, theme.bubbleColor];
-
     final horizontalPadding = FluffyThemes.isColumnMode(context) ? 8.0 : 0.0;
 
     final events = timeline.events.filterByVisibleInGui(
@@ -373,8 +371,6 @@ class ChatEventList extends StatelessWidget {
                               nextEvent: nextEvent,
                               previousEvent: previousEvent,
                               wallpaperMode: hasWallpaper,
-                              scrollController: controller.scrollController,
-                              colors: colors,
                               // The bubble's color already names the network
                               // when colors by network are on.
                               networkBadge:

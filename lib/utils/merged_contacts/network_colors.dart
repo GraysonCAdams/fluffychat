@@ -104,6 +104,16 @@ abstract class NetworkColors {
   static Color? colorFor(String? bridgeId) =>
       bridgeId == null ? null : pickedFor(bridgeId) ?? defaults[bridgeId];
 
+  /// The colour of the user's own bubbles in [room] while bubbles are
+  /// coloured by network: that of the network the room is bridged to. Null
+  /// for a plain Matrix room, a network without a colour, and with network
+  /// colours off, where the theme's bubble colour applies. The chat, its
+  /// peek and the compose screen all ask this, so their bubbles agree.
+  static Color? bubbleColorOf(Room room) =>
+      AppSettings.networkBubbleColors.value
+      ? colorFor(bridgeIdOfRoom(room))
+      : null;
+
   /// Stores [color] as the pick for [bridgeId]; null goes back to the
   /// default. With [client], the account's data gets the new picks too, for
   /// the account's other devices.

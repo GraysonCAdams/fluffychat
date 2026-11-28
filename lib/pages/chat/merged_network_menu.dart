@@ -5,7 +5,6 @@
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
-import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/networks.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:material_ui/material_ui.dart';
@@ -31,13 +30,6 @@ class MergedNetwork {
         ),
     ];
   }
-
-  /// The bubble colour for this network: the user's pick, else the main
-  /// colour of the network's logo, else null for a network with neither.
-  /// The bridge is found as for any chat, so a merged group's rooms, which
-  /// have no ghost to read it from, have their network's colour too.
-  Color? get bubbleColor =>
-      NetworkColors.colorFor(NetworkColors.bridgeIdOfRoom(room));
 
   Widget icon({double size = 20}) => Avatar(
     mxContent: space?.avatar,

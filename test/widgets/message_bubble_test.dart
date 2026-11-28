@@ -5,6 +5,7 @@
 // ignore_for_file: implementation_imports, depend_on_referenced_packages
 
 import 'package:fluffychat/config/setting_keys.dart';
+import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
 import 'package:fluffychat/pages/chat/events/message_reactions.dart';
@@ -18,6 +19,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../utils/message_search/search_test_client.dart';
+import 'render_pixels.dart';
 
 /// Stands in for the app's Matrix widget, which widgets only ask for its
 /// client.
@@ -82,6 +84,7 @@ void main() {
     List<Event> others = const [],
     Event? below,
     bool deliveryStatus = false,
+    Brightness brightness = Brightness.light,
   }) async {
     final timeline = Timeline(
       room: room,
@@ -95,6 +98,7 @@ void main() {
       Provider<MatrixState>.value(
         value: _FakeMatrix(client),
         child: MaterialApp(
+          theme: ThemeData(brightness: brightness),
           localizationsDelegates: L10n.localizationsDelegates,
           supportedLocales: L10n.supportedLocales,
           home: Scaffold(
@@ -128,8 +132,6 @@ void main() {
                       singleSelected: false,
                       hideReactionPicker: true,
                       timeline: timeline,
-                      scrollController: scrollController,
-                      colors: const [Colors.blue, Colors.blue],
                     );
                 return ListView(
                   controller: scrollController,
@@ -162,6 +164,30 @@ void main() {
         )
         .first,
   );
+
+  group('bubble colour', () {
+    for (final brightness in Brightness.values) {
+      testWidgets('an own bubble in a plain Matrix room is the theme\'s '
+          'bubble colour throughout, ${brightness.name}', (tester) async {
+        await pumpMessage(
+          tester,
+          textEvent('\$own', 'A message of my own, long enough'),
+          brightness: brightness,
+        );
+        final theme = Theme.of(tester.element(find.byType(Message)));
+        final colors = await bubbleEdgeColors(
+          tester,
+          find.text('A message of my own, long enough', findRichText: true),
+        );
+        expect(colors, isNotEmpty);
+        expect(colors.toSet(), {theme.bubbleColor});
+        // Reading the pixels runs real time, in which the bubble may ask for
+        // its sender; let that request's timer run out.
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(minutes: 1));
+      });
+    }
+  });
 
   group('reactions', () {
     for (final own in [false, true]) {
