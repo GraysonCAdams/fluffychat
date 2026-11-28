@@ -426,6 +426,24 @@ void main() {
     find.ancestor(of: find.text(name), matching: find.byType(ListTile)).first,
   );
 
+  testWidgets('the page is in the semantics tree, To field and all', (
+    tester,
+  ) async {
+    // Flutter builds the tree only while something asks for it, as a
+    // screen reader or this handle does.
+    final handle = tester.ensureSemantics();
+    await pump(tester);
+    final field = find.bySemanticsLabel(
+      RegExp('Name, phone number or username'),
+    );
+    expect(field, findsOneWidget);
+    final data = tester.getSemantics(field).getSemanticsData();
+    expect(data.flagsCollection.isTextField, isTrue);
+    expect(find.bySemanticsLabel('To:'), findsOneWidget);
+    expect(find.bySemanticsLabel('New chat'), findsWidgets);
+    handle.dispose();
+  });
+
   testWidgets('a tap makes a chip; backspace on the empty field removes it', (
     tester,
   ) async {
