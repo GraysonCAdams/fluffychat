@@ -4405,5 +4405,216 @@
         "type": "String"
       }
     }
+  },
+  "protectMessagesTitle": "Protect your messages",
+  "@protectMessagesTitle": {
+    "description": "Headline of the step that sets up recovery for a new account."
+  },
+  "protectMessagesBody": "Your chats are end-to-end encrypted: only your devices can read them. A recovery key unlocks them if you ever lose this device.",
+  "@protectMessagesBody": {
+    "description": "Body of the recovery setup step."
+  },
+  "protectBenefitHistory": "Read your message history on a new phone or computer.",
+  "@protectBenefitHistory": {
+    "description": "Benefit line on the recovery setup step."
+  },
+  "protectBenefitSignIns": "Approve new sign-ins as yours. (This is called cross-signing.)",
+  "@protectBenefitSignIns": {
+    "description": "Benefit line on the recovery setup step; glosses cross-signing once."
+  },
+  "protectBenefitServer": "Your server stores only an encrypted backup it cannot read.",
+  "@protectBenefitServer": {
+    "description": "Benefit line on the recovery setup step."
+  },
+  "createRecoveryKey": "Create recovery key",
+  "@createRecoveryKey": {
+    "description": "Primary button on the recovery setup step."
+  },
+  "usePassphraseInstead": "Use a passphrase instead",
+  "@usePassphraseInstead": {
+    "description": "Text button on the recovery setup step that leads to choosing a passphrase."
+  },
+  "skipRecoveryTitle": "Skip recovery for now?",
+  "@skipRecoveryTitle": {
+    "description": "Title of the sheet shown on Not now."
+  },
+  "skipRecoveryBody": "If you lose this device without a recovery key, you cannot read your encrypted messages anywhere. You can set it up later from Chat backup in Settings.",
+  "@skipRecoveryBody": {
+    "description": "Body of the sheet shown on Not now."
+  },
+  "setItUpNow": "Set it up now",
+  "@setItUpNow": {
+    "description": "Button in the skip sheet that keeps setting up recovery."
+  },
+  "skipForNow": "Skip for now",
+  "@skipForNow": {
+    "description": "Button in the skip sheet that skips recovery."
+  },
+  "choosePassphraseTitle": "Choose a passphrase",
+  "@choosePassphraseTitle": {
+    "description": "Headline of the optional passphrase step."
+  },
+  "choosePassphraseBody": "A passphrase you can remember works like the recovery key. Seam still makes a key as well.",
+  "@choosePassphraseBody": {
+    "description": "Body of the optional passphrase step."
+  },
+  "saveRecoveryKeyTitle": "Save your recovery key",
+  "@saveRecoveryKeyTitle": {
+    "description": "Headline of the step that shows the new recovery key."
+  },
+  "saveRecoveryKeyBody": "Keep it somewhere only you can get to, like a password manager. Seam cannot show it again or reset it for you.",
+  "@saveRecoveryKeyBody": {
+    "description": "Body of the step that shows the new recovery key."
+  },
+  "copied": "Copied",
+  "@copied": {
+    "description": "Copy button after copying."
+  },
+  "keepInKeystore": "Also keep it in this device's secure storage",
+  "@keepInKeystore": {
+    "description": "Switch that stores the recovery key in the Android KeyStore, Apple Keychain or Windows credential store."
+  },
+  "keepInKeystoreSubtitle": "Unlocks this device without typing it",
+  "@keepInKeystoreSubtitle": {
+    "description": "Subtitle of the secure storage switch."
+  },
+  "iveSavedIt": "I've saved it",
+  "@iveSavedIt": {
+    "description": "Primary button after saving the recovery key."
+  },
+  "checkYouHaveItTitle": "Check you have it",
+  "@checkYouHaveItTitle": {
+    "description": "Headline of the step that asks for one group of the recovery key."
+  },
+  "checkYouHaveItBody": "Type the highlighted group from your saved key. This makes sure the copy you kept is complete.",
+  "@checkYouHaveItBody": {
+    "description": "Body of the recovery key check step."
+  },
+  "groupNOfM": "Group {n} of {total}",
+  "@groupNOfM": {
+    "description": "Under the recovery key check: which group is asked for.",
+    "type": "String",
+    "placeholders": {
+      "n": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "groupDoesNotMatch": "That group doesn't match. Look at your saved key again.",
+  "@groupDoesNotMatch": {
+    "description": "Error when the typed group is wrong."
+  },
+  "confirm": "Confirm",
+  "@confirm": {
+    "description": "Primary button of the recovery key check."
+  },
+  "showMyKeyAgain": "Show my key again",
+  "@showMyKeyAgain": {
+    "description": "Text button that goes back to the recovery key."
+  },
+  "allSetTitle": "You're all set",
+  "@allSetTitle": {
+    "description": "Headline when recovery is set up."
+  },
+  "allSetBody": "Your messages are backed up and new sign-ins need your approval. Chat backup in Settings manages it from now on.",
+  "@allSetBody": {
+    "description": "Body when recovery is set up."
+  },
+  "startChatting": "Start chatting",
+  "@startChatting": {
+    "description": "Primary button that opens the chat list after setup."
+  },
+  "confirmItsYouTitle": "Confirm it's you",
+  "@confirmItsYouTitle": {
+    "description": "Headline when an existing account signs in on a new device."
+  },
+  "confirmItsYouBody": "Your messages are locked to your devices. Unlock them here by approving this sign-in from another device, or with your recovery key.",
+  "@confirmItsYouBody": {
+    "description": "Body of the confirm-it's-you step."
+  },
+  "useAnotherDevice": "Use another device",
+  "@useAnotherDevice": {
+    "description": "Option on the confirm-it's-you step."
+  },
+  "useRecoveryKey": "Use recovery key",
+  "@useRecoveryKey": {
+    "description": "Option on the confirm-it's-you step."
+  },
+  "useRecoveryKeySubtitle": "The key you saved when you set up Seam",
+  "@useRecoveryKeySubtitle": {
+    "description": "Subtitle of the Use recovery key option."
+  },
+  "cantConfirmReset": "Can't confirm? Reset your digital identity",
+  "@cantConfirmReset": {
+    "description": "Text button that leads to resetting the cryptographic identity."
+  },
+  "resetIdentityTitle": "Reset your digital identity?",
+  "@resetIdentityTitle": {
+    "description": "Title of the reset confirmation."
+  },
+  "resetIdentityBody": "Only do this if you have no other signed-in device and no recovery key.\n\n- Your account, contacts and chats stay.\n- Encrypted history kept only on the server is lost.\n- People you chat with see that you reset.\n- Your other devices must be confirmed again.",
+  "@resetIdentityBody": {
+    "description": "Body of the reset confirmation, listing what a reset does."
+  },
+  "enterRecoveryKeyTitle": "Enter your recovery key",
+  "@enterRecoveryKeyTitle": {
+    "description": "Headline of the step that unlocks with the recovery key."
+  },
+  "enterRecoveryKeyBody": "Paste it, type it, or open the file you saved. Spaces don't matter.",
+  "@enterRecoveryKeyBody": {
+    "description": "Body of the recovery key entry step."
+  },
+  "recoveryKeyOrPassphrase": "Recovery key or passphrase",
+  "@recoveryKeyOrPassphrase": {
+    "description": "Label of the recovery key field."
+  },
+  "savedKeyFound": "A recovery key is saved on this device.",
+  "@savedKeyFound": {
+    "description": "Notice when secure storage holds the recovery key."
+  },
+  "useIt": "Use it",
+  "@useIt": {
+    "description": "Action of the saved-key notice."
+  },
+  "paste": "Paste",
+  "@paste": {
+    "description": "Chip that pastes from the clipboard."
+  },
+  "openSeamOnOtherDevice": "Open Seam on your other device",
+  "@openSeamOnOtherDevice": {
+    "description": "Headline while waiting for another device to accept verification."
+  },
+  "requestSentTo": "We sent a request to {devices}. Accept it on any of them.",
+  "@requestSentTo": {
+    "description": "Body while waiting for another device; devices is a list of device names.",
+    "type": "String",
+    "placeholders": {
+      "devices": {
+        "type": "String"
+      }
+    }
+  },
+  "waitingForReply": "Waiting for a reply",
+  "@waitingForReply": {
+    "description": "Next to a spinner while waiting for another device."
+  },
+  "useRecoveryKeyInstead": "Use recovery key instead",
+  "@useRecoveryKeyInstead": {
+    "description": "Text button while waiting for another device."
+  },
+  "deviceConfirmedTitle": "This device is confirmed",
+  "@deviceConfirmedTitle": {
+    "description": "Headline after this device was confirmed."
+  },
+  "deviceConfirmedBody": "Your messages are unlocking now. Older ones can take a moment to appear.",
+  "@deviceConfirmedBody": {
+    "description": "Body after this device was confirmed."
+  },
+  "recoveryKeyMismatch": "That key doesn't match this account. Check it for typos.",
+  "@recoveryKeyMismatch": {
+    "description": "Error under the recovery key field when the key or passphrase is wrong."
   }
 }

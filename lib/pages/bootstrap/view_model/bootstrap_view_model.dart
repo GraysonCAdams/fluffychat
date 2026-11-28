@@ -3,7 +3,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:math';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:fluffychat/pages/bootstrap/widgets/recovery_key_grid.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -16,9 +19,62 @@ import 'package:matrix/matrix.dart';
 
 import 'bootstrap_state.dart';
 
+/// The steps of encryption setup after sign-in, in the order a new
+/// account (protect to setupDone) or a new device of an existing one
+/// (confirmIdentity to confirmed) meets them.
+enum BootstrapStep {
+  loading,
+  protect,
+  passphrase,
+  saveKey,
+  checkKey,
+  setupDone,
+  confirmIdentity,
+  waitingForDevice,
+  enterKey,
+  confirmed,
+
+  /// Already set up on this device: straight on to the chats.
+  leave,
+}
+
+/// What the setup steps ask of the account's encryption, apart so tests can
+/// answer for an account whose crypto identity is set up elsewhere.
+class BootstrapCrypto {
+  final Client client;
+  const BootstrapCrypto(this.client);
+
+  Future<CryptoIdentityState> state() => client.getCryptoIdentityState();
+
+  /// This account's other devices that are confirmed through its master
+  /// key, so they can vouch for this one.
+  Future<List<DeviceKeys>> confirmedDevices() async {
+    await client.updateUserDeviceKeys();
+    return client.userDeviceKeys[client.userID!]?.deviceKeys.values
+            .where(
+              (device) =>
+                  device.hasValidSignatureChain(verifiedByTheirMasterKey: true),
+            )
+            .toList() ??
+        [];
+  }
+
+  /// Asks the account's other devices to confirm this one.
+  Future<KeyVerification?> requestVerification() =>
+      client.userDeviceKeys[client.userID!]!.startVerification();
+}
+
+typedef CryptoIdentityState = ({
+  bool connected,
+  bool crossSigningEnabled,
+  bool initialized,
+  bool keyBackupEnabled,
+});
+
 class BootstrapViewModel extends ValueNotifier<BootstrapViewModelState> {
   final Client client;
   final bool reset;
+  final BootstrapCrypto crypto;
 
   final TextEditingController enterPassphraseOrRecovController =
       TextEditingController();
@@ -27,14 +83,19 @@ class BootstrapViewModel extends ValueNotifier<BootstrapViewModelState> {
       TextEditingController();
   final ScrollController devicesScrollController = ScrollController();
 
-  BootstrapViewModel({required this.client, required this.reset})
-    : super(BootstrapViewModelState()..reset = reset) {
+  BootstrapViewModel({
+    required this.client,
+    required this.reset,
+    BootstrapCrypto? crypto,
+  }) : crypto = crypto ?? BootstrapCrypto(client),
+       super(BootstrapViewModelState()..reset = reset) {
     _init();
   }
 
   @override
   void dispose() {
     _cancelKeyVerification();
+    checkGroupController.dispose();
     enterPassphraseOrRecovController.dispose();
     newPassphraseController.dispose();
     repeatPassphraseController.dispose();
@@ -57,17 +118,121 @@ class BootstrapViewModel extends ValueNotifier<BootstrapViewModelState> {
     notifyListeners();
   }
 
-  Future<void> retryKeyVerification() async {
+  /// "Use another device": asks the account's confirmed devices to
+  /// confirm this one. Nothing is sent before this is chosen.
+  Future<void> useAnotherDevice() async {
+    value.enteringKey = false;
     value.noSecretsreceived = false;
-    value.keyVerification = await client.userDeviceKeys[client.userID!]!
-        .startVerification();
+    value.keyVerification = await crypto.requestVerification();
     value.keyVerification?.onUpdate = _onKeyVerificationUpdate;
     notifyListeners();
   }
 
+  Future<void> retryKeyVerification() => useAnotherDevice();
+
+  /// Which step to show.
+  BootstrapStep get step {
+    final state = value;
+    final identity = state.cryptoIdentityState;
+    if (identity == null) return BootstrapStep.loading;
+    if (!identity.initialized || state.reset) {
+      if (state.recoveryKey == null) {
+        return state.choosingPassphrase
+            ? BootstrapStep.passphrase
+            : BootstrapStep.protect;
+      }
+      if (state.setupFinished) return BootstrapStep.setupDone;
+      return state.checkingKey ? BootstrapStep.checkKey : BootstrapStep.saveKey;
+    }
+    if (identity.connected) {
+      return state.justConfirmed
+          ? BootstrapStep.confirmed
+          : BootstrapStep.leave;
+    }
+    if (state.enteringKey) return BootstrapStep.enterKey;
+    if (state.keyVerification != null) return BootstrapStep.waitingForDevice;
+    return BootstrapStep.confirmIdentity;
+  }
+
+  void choosePassphrase(bool choosing) {
+    value.choosingPassphrase = choosing;
+    notifyListeners();
+  }
+
+  void markKeyCopied() {
+    value.recoveryKeyCopied = true;
+    notifyListeners();
+  }
+
+  final TextEditingController checkGroupController = TextEditingController();
+
+  /// Asks for one group of the key back, never the first, which people
+  /// remember best.
+  void startKeyCheck() {
+    final groups = RecoveryKeyGrid.groupsOf(value.recoveryKey!).length;
+    value.askedGroup = groups < 2 ? 0 : 1 + Random().nextInt(groups - 1);
+    value.checkingKey = true;
+    value.groupMismatch = false;
+    checkGroupController.clear();
+    notifyListeners();
+  }
+
+  void checkGroup() {
+    final groups = RecoveryKeyGrid.groupsOf(value.recoveryKey!);
+    final asked = groups[value.askedGroup!];
+    if (checkGroupController.text.trim() == asked) {
+      value.setupFinished = true;
+    } else {
+      value.groupMismatch = true;
+    }
+    notifyListeners();
+  }
+
+  void backToKey() {
+    value.checkingKey = false;
+    notifyListeners();
+  }
+
+  void enterRecoveryKey(bool entering) {
+    _cancelKeyVerification();
+    value.keyVerification = null;
+    value.enteringKey = entering;
+    value.unlockWithError = null;
+    notifyListeners();
+  }
+
+  Future<void> useSavedKey(BuildContext context) async {
+    final key = value.savedRecoveryKey;
+    if (key == null) return;
+    enterPassphraseOrRecovController.text = key;
+    await unlock(context);
+  }
+
+  Future<void> pasteKey() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text;
+    if (text == null || text.isEmpty) return;
+    enterPassphraseOrRecovController.text = text.trim();
+  }
+
+  KeyVerification? _sasPromptShownFor;
+
+  /// True once per verification request, when its emoji are ready to
+  /// compare, so the comparison opens a single time.
+  bool takeSasPrompt() {
+    final request = value.keyVerification;
+    if (request == null || identical(request, _sasPromptShownFor)) {
+      return false;
+    }
+    _sasPromptShownFor = request;
+    return true;
+  }
+
+  /// Leaves the steps for the chat list without finishing them.
+  void leave(BuildContext context) => context.go('/rooms');
+
   Future<void> _init() async {
-    final state = value.cryptoIdentityState = await client
-        .getCryptoIdentityState();
+    final state = value.cryptoIdentityState = await crypto.state();
     newPassphraseController.addListener(_checkCanCreatePassphrase);
     repeatPassphraseController.addListener(_checkCanCreatePassphrase);
     enterPassphraseOrRecovController.addListener(
@@ -76,30 +241,15 @@ class BootstrapViewModel extends ValueNotifier<BootstrapViewModelState> {
     if (state.initialized) {
       if (state.connected) return notifyListeners();
 
-      await client.updateUserDeviceKeys();
-
-      final devices = value.connectedDevices =
-          client.userDeviceKeys[client.userID!]?.deviceKeys.values
-              .where(
-                (device) => device.hasValidSignatureChain(
-                  verifiedByTheirMasterKey: true,
-                ),
-              )
-              .toList() ??
-          [];
-      if (devices.isNotEmpty) {
-        value.keyVerification = await client.userDeviceKeys[client.userID!]!
-            .startVerification();
-        value.keyVerification?.onUpdate = _onKeyVerificationUpdate;
-      }
+      // The devices are offered on the confirm step; a request goes out
+      // only when "Use another device" is chosen (useAnotherDevice).
+      value.connectedDevices = await crypto.confirmedDevices();
       if (supportsSecureStorage) {
         try {
           final keyFromSecureStorage = await FlutterSecureStorage().read(
             key: _secureStorageKey,
           );
-          if (keyFromSecureStorage != null) {
-            enterPassphraseOrRecovController.text = keyFromSecureStorage;
-          }
+          value.savedRecoveryKey = keyFromSecureStorage;
         } catch (e, s) {
           Logs().e('Unable to read key from secure storage', e, s);
         }
@@ -123,20 +273,22 @@ class BootstrapViewModel extends ValueNotifier<BootstrapViewModelState> {
       value.waitingForSecrets = true;
       value.noSecretsreceived = false;
       notifyListeners();
-      value.cryptoIdentityState = await client.getCryptoIdentityState();
+      value.cryptoIdentityState = await crypto.state();
       var tries = 0;
       const max = 10;
       while (value.cryptoIdentityState?.connected != true) {
         Logs().d('Waiting for secrets... [$tries/$max]');
         if (tries >= max) return;
         await Future.delayed(const Duration(seconds: 1));
-        value.cryptoIdentityState = await client.getCryptoIdentityState();
+        value.cryptoIdentityState = await crypto.state();
         tries++;
       }
 
       if (value.cryptoIdentityState?.connected != true) {
         value.waitingForSecrets = false;
         value.noSecretsreceived = true;
+      } else {
+        value.justConfirmed = true;
       }
     }
     notifyListeners();
@@ -149,7 +301,7 @@ class BootstrapViewModel extends ValueNotifier<BootstrapViewModelState> {
     value.isLoading = true;
     notifyListeners();
     try {
-      final state = await client.getCryptoIdentityState();
+      final state = await crypto.state();
       if (state.connected) {
         Logs().i('Download the key backup...');
         await client.encryption!.keyManager.loadAllKeys();
@@ -202,7 +354,8 @@ class BootstrapViewModel extends ValueNotifier<BootstrapViewModelState> {
     try {
       await client.restoreCryptoIdentity(key);
       value.isLoading = false;
-      value.cryptoIdentityState = await client.getCryptoIdentityState();
+      final state = value.cryptoIdentityState = await crypto.state();
+      value.justConfirmed = state.connected;
       notifyListeners();
       return;
     } catch (e, s) {
@@ -283,8 +436,7 @@ class BootstrapViewModel extends ValueNotifier<BootstrapViewModelState> {
     BuildContext context,
   ) async {
     final path = await FilePicker.saveFile(
-      fileName:
-          'Seam-Recovery-Key-${DateTime.now().toIso8601String()}.txt',
+      fileName: 'Seam-Recovery-Key-${DateTime.now().toIso8601String()}.txt',
       bytes: Uint8List.fromList(value.recoveryKey!.codeUnits),
     );
     if (path == null) return;
