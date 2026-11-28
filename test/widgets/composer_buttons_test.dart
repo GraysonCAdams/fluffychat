@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 void main() {
-  testWidgets('the attach and emoji icons sit 24dp apart, 48dp targets', (
+  testWidgets('a composer icon button is a 48dp target, its icon 12dp in', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -18,12 +18,11 @@ void main() {
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,
-            child: ComposerLeadingButtons(
-              attachmentPanelOpen: false,
-              onAttach: () {},
-              showEmojiButton: true,
-              emojiPickerOpen: false,
-              onEmoji: () {},
+            child: ComposerIconButton(
+              key: const ValueKey('button'),
+              tooltip: 'Emojis',
+              icon: const Icon(Icons.add_reaction_outlined),
+              onPressed: () {},
             ),
           ),
         ),
@@ -31,19 +30,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final attach = find.byKey(const ValueKey('composer-attach'));
-    final emoji = find.byKey(const ValueKey('composer-emoji'));
-    Rect icon(Finder button) => tester.getRect(
-      find.descendant(of: button, matching: find.byType(Icon)),
-    );
-    expect(
-      icon(emoji).left - icon(attach).right,
-      moreOrLessEquals(24, epsilon: 1),
-    );
-    for (final button in [attach, emoji]) {
-      final size = tester.getSize(button);
-      expect(size.width, greaterThanOrEqualTo(48));
-      expect(size.height, greaterThanOrEqualTo(48));
-    }
+    final slot = tester.getRect(find.byKey(const ValueKey('button')));
+    final button = tester.getRect(find.byType(IconButton));
+    final icon = tester.getRect(find.byType(Icon));
+    expect(button.size, const Size.square(48));
+    // As tall as one line of the composer, so in a row aligned to its end
+    // the icon sits level with the last line.
+    expect(slot.size, const Size(48, ChatInputRow.height));
+    expect(icon.left - slot.left, 12);
+    expect(slot.right - icon.right, 12);
+    expect(icon.center.dy, slot.center.dy);
   });
 }

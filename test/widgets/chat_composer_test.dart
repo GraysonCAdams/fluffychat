@@ -30,7 +30,8 @@ class _Matrix extends FakeMatrix {
 }
 
 /// The composer keeps its attach button whatever is typed or replied to,
-/// spaces its buttons evenly, and sends a staged file as part of the reply.
+/// leads with it and trails with the emoji button as a text field pads its
+/// icons, and sends a staged file as part of the reply.
 void main() {
   late FakeChatListClient client;
   late FakeChatListRoom room;
@@ -168,24 +169,38 @@ void main() {
     expect(attach.hitTestable(), findsOneWidget, reason: 'replying');
   });
 
-  for (final width in [1000.0, 400.0]) {
-    testWidgets('the buttons and the text are spaced evenly, '
+  // A desktop with a system emoji picker, and a phone without one.
+  for (final (width, native) in [(1000.0, true), (400.0, false)]) {
+    testWidgets('attach leads and emoji trails, spaced as a text field, '
         '${width.toInt()} wide', (tester) async {
+      NativeEmojiPicker.debugSupported = native;
+      addTearDown(() => NativeEmojiPicker.debugSupported = null);
       final chat = await open(tester, width: width);
+      final send = find.byKey(const Key('send_button'));
       void expectSpacing(String state) {
         final edge = pill(tester).left;
         final plus = iconOf(tester, attach);
-        // 12 from the pill's edge to the first icon, as a text field with a
-        // leading icon pads it, then 24 between icons and 24 to the text,
-        // the space a 48 target leaves either side of a 24 icon.
+        final text = tester.getRect(
+          find.descendant(
+            of: find.byType(ChatComposer),
+            matching: find.byType(EditableText),
+          ),
+        );
+        // A text field with icons: 12 from the edge to the leading icon and
+        // 16 between an icon and the text.
         expect(plus.left - edge, 12, reason: state);
-        if (emoji.evaluate().isNotEmpty) {
-          final smiley = iconOf(tester, emoji);
-          expect(smiley.left - plus.right, 24, reason: state);
-          expect(textStart(tester) - smiley.right, 24, reason: state);
-        } else {
-          expect(textStart(tester) - plus.right, 24, reason: state);
+        expect(text.left - plus.right, 16, reason: state);
+        if (!native) {
+          expect(emoji, findsNothing, reason: state);
+          return;
         }
+        // The emoji button is a trailing icon, after the text and before
+        // send, level with send whatever the number of lines.
+        final smiley = iconOf(tester, emoji);
+        final arrow = iconOf(tester, send);
+        expect(smiley.left - text.right, 16, reason: state);
+        expect(smiley.right, lessThan(arrow.left), reason: state);
+        expect(smiley.bottom, arrow.bottom, reason: state);
       }
 
       expectSpacing('empty');
@@ -193,6 +208,16 @@ void main() {
       chat.inputTextIsEmpty.value = false;
       await settle(tester);
       expectSpacing('typing');
+
+      chat.replyAction(replyTo: drewsMessage(chat));
+      await settle(tester);
+      expectSpacing('replying');
+
+      final oneLine = pill(tester).height;
+      chat.sendController.text = 'Waffle House?\nAt 9\nBring cash';
+      await settle(tester);
+      expect(pill(tester).height, greaterThan(oneLine), reason: 'lines');
+      expectSpacing('three lines');
     });
   }
 
@@ -248,8 +273,8 @@ void main() {
       expect(emoji, native ? findsOneWidget : findsNothing);
       expect(attach, findsOneWidget);
       if (!native) {
-        // The text then starts 24 after the attach icon.
-        expect(textStart(tester) - iconOf(tester, attach).right, 24);
+        // The text still starts 16 after the attach icon.
+        expect(textStart(tester) - iconOf(tester, attach).right, 16);
       }
     });
   }
