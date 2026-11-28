@@ -330,7 +330,14 @@ class Message extends StatelessWidget {
           ),
         ),
       ],
-      if (event.status == EventStatus.sending) ...[
+      // A photo or video says it is sending with its ring over the media
+      // (MediaSendingIndicator) and the mark alone here, as Google Messages
+      // shows only its clock; other messages spell it out.
+      if (event.status == EventStatus.sending &&
+          !const {
+            MessageTypes.Image,
+            MessageTypes.Video,
+          }.contains(event.messageType)) ...[
         Text(
           switch (event.fileSendingStatus) {
             null => L10n.of(context).sending,
