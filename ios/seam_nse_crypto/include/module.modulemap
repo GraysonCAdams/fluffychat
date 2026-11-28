@@ -1,0 +1,4 @@
+module SeamNseCrypto {
+    header "seam_nse_crypto.h"
+    export *
+}

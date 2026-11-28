@@ -121,6 +121,12 @@ local.properties
 **/ios/Flutter/flutter_export_environment.sh
 **/ios/ServiceDefinitions.json
 **/ios/Runner/GeneratedPluginRegistrant.*
+# The extension's Megolm library: cargo output and the xcframework that
+# ios/seam_nse_crypto/build_xcframework.sh builds from it.
+/ios/seam_nse_crypto/target/
+/ios/seam_nse_crypto/SeamNseCrypto.xcframework/
+# The build script runs cargo with --locked, so the lockfile is tracked.
+!/ios/seam_nse_crypto/Cargo.lock
 
 # macOS
 **/Flutter/ephemeral/
