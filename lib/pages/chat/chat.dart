@@ -851,7 +851,7 @@ class ChatController extends State<ChatPageWithRoom>
     scrollController.addListener(_updateScrollController);
     inputFocus.addListener(_inputFocusListener);
     _ownSends = widget.room.client.onTimelineEvent.stream
-        .where(_isOwnLocalEcho)
+        .where(_isOwnNewMessage)
         .listen((_) => _revealOwnSend());
 
     _loadDraft();
@@ -2175,8 +2175,19 @@ class ChatController extends State<ChatPageWithRoom>
   /// leave the reading position alone.
   StreamSubscription<Event>? _ownSends;
 
-  bool _isOwnLocalEcho(Event event) =>
+  /// The events that add a message to the chat. A reaction, an edit or a
+  /// redaction is sent too, but changes a message already there, so it
+  /// leaves the reading position alone.
+  static const _newMessageTypes = {
+    EventTypes.Message,
+    EventTypes.Sticker,
+    PollEventContent.startType,
+  };
+
+  bool _isOwnNewMessage(Event event) =>
       event.status.isSending &&
+      _newMessageTypes.contains(event.type) &&
+      event.relationshipType != RelationshipTypes.edit &&
       event.senderId == widget.room.client.userID &&
       (event.roomId == widget.room.id ||
           (mergedContact?.rooms.any((room) => room.id == event.roomId) ??
