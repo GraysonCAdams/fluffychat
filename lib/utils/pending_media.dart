@@ -110,11 +110,14 @@ class PendingMedia {
 
   /// How a preview of the message reads, in the chat list and in a
   /// notification: as a photo or video message reads ("Photo", "Video"),
-  /// a file by its name, and a failed transfer as such.
+  /// a file by its name, and a failed transfer as such. Google Messages
+  /// often names an attachment by a number with no extension, which says
+  /// nothing about it, so such a file reads "Attachment".
   String previewText(L10n l10n) => switch ((state, kind)) {
     (PendingMediaState.pending, PendingMediaKind.image) => l10n.photo,
     (PendingMediaState.pending, PendingMediaKind.video) => l10n.video,
-    (PendingMediaState.pending, PendingMediaKind.file) => fileName,
+    (PendingMediaState.pending, PendingMediaKind.file) =>
+      _hasExtension ? fileName : l10n.attachment,
     (PendingMediaState.failed, PendingMediaKind.image) =>
       l10n.photoDidNotArrive,
     (PendingMediaState.failed, PendingMediaKind.video) =>
@@ -122,6 +125,11 @@ class PendingMedia {
     (PendingMediaState.failed, PendingMediaKind.file) =>
       l10n.attachmentDidNotArrive,
   };
+
+  bool get _hasExtension {
+    final dot = fileName.lastIndexOf('.');
+    return dot > 0 && dot < fileName.length - 1;
+  }
 
   static PendingMediaKind _kindOf(String fileName, String? mimeType) {
     final type = lookupMimeType(fileName) ?? mimeType ?? '';

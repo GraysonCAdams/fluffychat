@@ -4915,5 +4915,9 @@
   "attachmentDidNotArrive": "Attachment didn't arrive",
   "@attachmentDidNotArrive": {
     "description": "Under the tile of a file a bridge failed to transfer."
+  },
+  "attachment": "Attachment",
+  "@attachment": {
+    "description": "Preview of an attachment a bridge has announced whose name says nothing about it."
   }
 }
