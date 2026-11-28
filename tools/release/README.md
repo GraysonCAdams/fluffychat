@@ -24,15 +24,28 @@ a build that is given both keys or a bundle given the app signing key.
 The key reaches the script only as environment variables of a sandbroker call, which the script
 decodes into a temporary folder and deletes when the build ends (the log says `keydir removed`).
 From WSL, inside a `sandbroker-production` `run` call that maps `SEAM_KS_B64` and
-`SEAM_KS_PASSWORD` to the fields of the mode:
+`SEAM_KS_PASSWORD` to the fields of the mode, and `SEAM_GOOGLE_SERVICES_JSON` to
+`op://Production/seam-push/GOOGLE_SERVICES_JSON`:
 
-    export SEAM_KS_B64 SEAM_KS_PASSWORD
-    WSLENV=SEAM_KS_B64/w:SEAM_KS_PASSWORD/w setsid nohup powershell.exe -NoProfile \
-      -ExecutionPolicy Bypass -File 'C:\src\<worktree>\tools\release\seam-build.ps1' \
+    export SEAM_KS_B64 SEAM_KS_PASSWORD SEAM_GOOGLE_SERVICES_JSON
+    WSLENV=SEAM_KS_B64/w:SEAM_KS_PASSWORD/w:SEAM_GOOGLE_SERVICES_JSON/w setsid nohup \
+      powershell.exe -NoProfile -ExecutionPolicy Bypass \
+      -File 'C:\src\<worktree>\tools\release\seam-build.ps1' \
       -Mode phone -VersionCode <n> > /dev/null 2>&1 &
 
 The build runs detached and writes to `%TEMP%\seam-build.log` (`-Log` to change it), which ends
 with `flutter rc=`, the keydir line and `DONE`. Install a phone APK with `adb install -r`.
+
+## Push
+
+Both modes are the Play build: `play-fcm.ps1` links Firebase Cloud Messaging for the length of the
+build and takes it out again in the end, so the tree in git never holds it, as the F-Droid build
+requires. In between, `pubspec.yaml`, `pubspec.lock`, `lib/utils/background_push.dart` and
+`FcmPushService.kt` are edited and `android/app/google-services.json` exists (the log says `FCM
+linked` and `FCM taken out again`); a build that is killed before its `finally` block runs
+leaves them so, and `git checkout` of those files plus deleting the JSON file undoes it. The build
+passes `--dart-define=SEAM_PUSH_GATEWAY_URL=` with `-PushGateway`, by default the
+`$PlayPushGateway` in `play-fcm.ps1`. `-NoFcm` builds as F-Droid does, without FCM or a gateway.
 
 ## versionCode
 

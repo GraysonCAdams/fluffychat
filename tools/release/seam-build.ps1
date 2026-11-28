@@ -18,21 +18,37 @@
 # the sandbroker call that passes them in. -VersionCode is Seam's one
 # versionCode counter and must be higher than any build already uploaded or
 # installed.
+#
+# Both modes are the Play build, so they link Firebase Cloud Messaging for
+# the duration of the build (play-fcm.ps1) and send pushes through
+# -PushGateway. That needs SEAM_GOOGLE_SERVICES_JSON, the contents of
+# op://Production/seam-push/GOOGLE_SERVICES_JSON. -NoFcm builds without FCM
+# or a gateway, as F-Droid does.
 param(
     [Parameter(Mandatory = $true)][ValidateSet('bundle', 'phone')][string]$Mode,
     [Parameter(Mandatory = $true)][ValidateRange(3582, 2100000000)][int]$VersionCode,
     [string]$Repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
     [string]$Flutter = 'C:\src\flutter\bin\flutter.bat',
-    [string]$Log = (Join-Path $env:TEMP 'seam-build.log')
+    [string]$Log = (Join-Path $env:TEMP 'seam-build.log'),
+    # Empty takes $PlayPushGateway from play-fcm.ps1.
+    [string]$PushGateway = '',
+    [switch]$NoFcm
 )
 
+. (Join-Path $PSScriptRoot 'play-fcm.ps1')
+if (-not $PushGateway) { $PushGateway = $PlayPushGateway }
+$fcmBackup = $null
+
 $d = Join-Path $env:TEMP ('seam-ks-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
-"start $(Get-Date -Format o) mode $Mode versionCode $VersionCode repo $Repo keydir $d" |
+"start $(Get-Date -Format o) mode $Mode versionCode $VersionCode fcm $(-not $NoFcm) repo $Repo keydir $d" |
     Out-File -Append -Encoding ascii $Log
 $rc = 1
 try {
     if (-not $env:SEAM_KS_B64 -or -not $env:SEAM_KS_PASSWORD) {
         throw 'SEAM_KS_B64 and SEAM_KS_PASSWORD must be set (see tools/release/README.md)'
+    }
+    if (-not $NoFcm -and -not $env:SEAM_GOOGLE_SERVICES_JSON) {
+        throw 'SEAM_GOOGLE_SERVICES_JSON must be set, or pass -NoFcm (see tools/release/README.md)'
     }
     New-Item -ItemType Directory $d | Out-Null
     $ks = Join-Path $d 'key.keystore'
@@ -59,6 +75,12 @@ try {
             "--build-number=$VersionCode")
     }
     $password = $null
+    if (-not $NoFcm) {
+        $fcmBackup = Enable-PlayFcm -Repo $Repo -Flutter $Flutter `
+            -GoogleServicesJson $env:SEAM_GOOGLE_SERVICES_JSON -Log $Log
+        $build += "--dart-define=SEAM_PUSH_GATEWAY_URL=$PushGateway"
+    }
+    $env:SEAM_GOOGLE_SERVICES_JSON = $null
     Set-Location $Repo
     & $Flutter @build 2>&1 | Out-File -Append -Encoding ascii $Log
     $rc = $LASTEXITCODE
@@ -66,9 +88,12 @@ try {
 } catch {
     "error: $($_.Exception.Message)" | Out-File -Append -Encoding ascii $Log
 } finally {
+    if (-not $NoFcm) {
+        Disable-PlayFcm -Repo $Repo -Backup $fcmBackup -Log $Log
+    }
     foreach ($v in 'SEAM_APP_SIGNING_KEYSTORE', 'SEAM_APP_SIGNING_PASSWORD',
         'SEAM_UPLOAD_STORE_FILE', 'SEAM_UPLOAD_STORE_PASSWORD', 'SEAM_UPLOAD_KEY_ALIAS',
-        'SEAM_UPLOAD_KEY_PASSWORD') {
+        'SEAM_UPLOAD_KEY_PASSWORD', 'SEAM_GOOGLE_SERVICES_JSON') {
         Remove-Item "env:$v" -ErrorAction SilentlyContinue
     }
     Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue
