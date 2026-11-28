@@ -4297,5 +4297,113 @@
   "signInInstead": "Sign in to an existing account instead",
   "@signInInstead": {
     "description": "Text button on the add-account server step when creating an account."
+  },
+  "signInOnServerPageTitle": "Sign in on your server's page",
+  "@signInOnServerPageTitle": {
+    "description": "Headline of the step before the browser opens for OIDC or SSO sign-in."
+  },
+  "signInOnServerPageBody": "{server} has its own sign-in page. Seam opens it in your browser, then brings you straight back.",
+  "@signInOnServerPageBody": {
+    "description": "Body of the step before the browser opens for sign-in.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeysWorkThere": "Passkeys and your password manager work there.",
+  "@passkeysWorkThere": {
+    "description": "Benefit line on the browser sign-in step."
+  },
+  "seamNeverSeesPassword": "Seam never sees your password.",
+  "@seamNeverSeesPassword": {
+    "description": "Benefit line on the browser sign-in step."
+  },
+  "continueToSignInPage": "Continue to sign-in page",
+  "@continueToSignInPage": {
+    "description": "Button that opens the server's sign-in page in the browser."
+  },
+  "chooseHowToSignIn": "Choose how to sign in",
+  "@chooseHowToSignIn": {
+    "description": "Headline when the server offers several single sign-on providers."
+  },
+  "serverOffersTheseOptions": "{server} offers these sign-in options.",
+  "@serverOffersTheseOptions": {
+    "description": "Body when the server offers several single sign-on providers.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "continueWithProvider": "Continue with {provider}",
+  "@continueWithProvider": {
+    "description": "Button for one single sign-on provider, such as GitHub.",
+    "type": "String",
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "finishSigningInBrowser": "Finish signing in in your browser",
+  "@finishSigningInBrowser": {
+    "description": "Headline while waiting for the browser sign-in to come back."
+  },
+  "waitingForServerBody": "Seam is waiting for {server}. Come back here when the page says you are done.",
+  "@waitingForServerBody": {
+    "description": "Body while waiting for the browser sign-in.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "openSignInPageAgain": "Open the sign-in page again",
+  "@openSignInPageAgain": {
+    "description": "Button that reopens the browser sign-in."
+  },
+  "changeServer": "Change server",
+  "@changeServer": {
+    "description": "Tooltip of the server chip on the sign-in steps."
+  },
+  "usernameLabel": "Username",
+  "@usernameLabel": {
+    "description": "Label of the username field on the password step."
+  },
+  "forgotPasswordQuestion": "Forgot password?",
+  "@forgotPasswordQuestion": {
+    "description": "Text button on the password step."
+  },
+  "wrongUsernameOrPassword": "Wrong username or password. Check both, or reset your password.",
+  "@wrongUsernameOrPassword": {
+    "description": "Error under the password field when the server rejects the sign-in."
+  },
+  "tooManyTries": "Too many tries. Wait a moment before signing in again.",
+  "@tooManyTries": {
+    "description": "Notice when the server rate-limits sign-in."
+  },
+  "tryAgainIn": "Try again in {time}",
+  "@tryAgainIn": {
+    "description": "Sign-in button label while rate-limited; time is like 0:28.",
+    "type": "String",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "cantReachServerNow": "Can't reach {server} right now.",
+  "@cantReachServerNow": {
+    "description": "Notice when the server does not answer during sign-in.",
+    "type": "String",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
   }
 }

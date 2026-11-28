@@ -16,6 +16,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
 import '../../utils/platform_infos.dart';
+import 'login_error.dart';
 import 'login_view.dart';
 
 class Login extends StatefulWidget {
@@ -40,10 +41,41 @@ class LoginController extends State<Login> {
   bool loading = false;
   bool showPassword = false;
 
+  /// A problem that is not about what was typed: too many tries, or no
+  /// answer from the server. Shown as a notice above the fields.
+  LoginError? notice;
+
+  /// Until when the server asked for no more tries; the sign-in button
+  /// counts down to it.
+  DateTime? rateLimitedUntil;
+  Timer? _rateLimitTicker;
+
+  Duration? get rateLimitRemaining {
+    final until = rateLimitedUntil;
+    if (until == null) return null;
+    final remaining = until.difference(DateTime.now());
+    return remaining.isNegative ? null : remaining;
+  }
+
+  void _waitOut(Duration wait) {
+    rateLimitedUntil = DateTime.now().add(wait);
+    _rateLimitTicker?.cancel();
+    _rateLimitTicker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return timer.cancel();
+      if (rateLimitRemaining == null) {
+        timer.cancel();
+        rateLimitedUntil = null;
+        notice = null;
+      }
+      setState(() {});
+    });
+  }
+
   void toggleShowPassword() =>
       setState(() => showPassword = !loading && !showPassword);
 
   Future<void> login() async {
+    if (rateLimitRemaining != null) return;
     final matrix = Matrix.of(context);
     if (usernameController.text.isEmpty) {
       setState(() => usernameError = L10n.of(context).pleaseEnterYourUsername);
@@ -60,7 +92,10 @@ class LoginController extends State<Login> {
       return;
     }
 
-    setState(() => loading = true);
+    setState(() {
+      loading = true;
+      notice = null;
+    });
 
     _coolDown?.cancel();
 
@@ -95,12 +130,27 @@ class LoginController extends State<Login> {
       if (mounted) {
         context.go('/backup');
       }
-    } on MatrixException catch (exception) {
-      setState(() => passwordError = exception.errorMessage);
-      return setState(() => loading = false);
-    } catch (exception) {
-      setState(() => passwordError = exception.toString());
-      return setState(() => loading = false);
+    } catch (exception, s) {
+      Logs().d('Password sign-in failed', exception, s);
+      if (!mounted) return;
+      final error = LoginError.of(exception);
+      final l10n = L10n.of(context);
+      setState(() {
+        loading = false;
+        switch (error.kind) {
+          case LoginErrorKind.wrongCredentials:
+            passwordError = l10n.wrongUsernameOrPassword;
+          case LoginErrorKind.rateLimited:
+            notice = error;
+            final wait = error.retryAfter;
+            if (wait != null) _waitOut(wait);
+          case LoginErrorKind.unreachable:
+            notice = error;
+          case LoginErrorKind.other:
+            passwordError = error.message;
+        }
+      });
+      return;
     }
 
     if (mounted) setState(() => loading = false);
@@ -263,6 +313,8 @@ class LoginController extends State<Login> {
 
   @override
   void dispose() {
+    _rateLimitTicker?.cancel();
+    _coolDown?.cancel();
     usernameController.dispose();
     passwordController.dispose();
     super.dispose();
