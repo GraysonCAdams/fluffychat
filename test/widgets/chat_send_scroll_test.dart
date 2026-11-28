@@ -4,7 +4,6 @@
 
 // ignore_for_file: depend_on_referenced_packages
 
-
 import 'package:cross_file/cross_file.dart';
 
 import 'package:fluffychat/l10n/l10n.dart';
@@ -28,7 +27,8 @@ class _Matrix extends FakeMatrix {
 }
 
 /// Sending from this device brings the chat down to the new message;
-/// a message from someone else leaves the reading position alone.
+/// a message from someone else, or a reaction, edit or deletion from this
+/// device, leaves the reading position alone.
 void main() {
   late FakeChatListClient client;
   late FakeChatListRoom room;
@@ -171,6 +171,34 @@ void main() {
     expect(chat.scrollController.position.pixels, greaterThan(0));
     expect(chat.showScrollDownButton, isTrue);
   });
+
+  // Reacting to, editing or deleting an older message sends an event too,
+  // but no new message, so the view stays where the user is reading.
+  final actions = <String, Future<void> Function(Room room, String eventId)>{
+    'reacting to': (room, id) => room.sendReaction(id, '👍'),
+    'editing': (room, id) =>
+        room.sendTextEvent('Message, edited', editEventId: id),
+    'deleting': (room, id) => room.redactEvent(id),
+  };
+  for (final MapEntry(key: name, value: action) in actions.entries) {
+    testWidgets('$name an older message keeps the reading position', (
+      tester,
+    ) async {
+      final chat = await open(tester);
+      final before = chat.scrollController.position.pixels;
+      final target = chat.timeline!.events
+          .firstWhere((e) => e.type == EventTypes.Message)
+          .eventId;
+      await tester.runAsync(() async {
+        // The request goes nowhere here; the local echo is what counts.
+        action(room, target).ignore();
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      await settle(tester);
+      expect(chat.scrollController.position.pixels, before);
+      expect(chat.showScrollDownButton, isTrue);
+    });
+  }
 
   group('the jump-to-bottom button', () {
     /// The button's bottom edge against the top of the area the composer
