@@ -83,7 +83,8 @@ abstract class AppConfig {
   /// otherwise. Debug and profile builds take their own scheme, so they and
   /// the release app on one device do not both claim the redirect. On Android
   /// these must match the appSsoUrlScheme manifest placeholders in
-  /// android/app/build.gradle.kts.
+  /// android/app/build.gradle.kts; on iOS both are listed in the
+  /// CFBundleURLSchemes of ios/Runner/Info.plist.
   static const String releaseSsoUrlScheme = 'dev.312.seam.auth';
   static const String developmentSsoUrlScheme = 'dev.312.seam.dev.auth';
   static String get appSsoUrlScheme =>

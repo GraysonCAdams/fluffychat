@@ -37,7 +37,8 @@
 			<array>
 				<string>ShareMedia-$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 				<string>dev.threeonetwo.seam</string>
-				<string>dev.threeonetwo.seam.auth</string>
+				<string>dev.312.seam.auth</string>
+				<string>dev.312.seam.dev.auth</string>
 				<string>matrix</string>
 			</array>
 		</dict>
