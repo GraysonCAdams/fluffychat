@@ -14,6 +14,7 @@ Android and Windows, then kept there as features land.
 | Signing | no identities on the Mac yet. iOS: simulator only. macOS: `FLUTTER_XCODE_CODE_SIGN_IDENTITY=- FLUTTER_XCODE_DEVELOPMENT_TEAM= FLUTTER_XCODE_CODE_SIGN_ENTITLEMENTS=<copy of DebugProfile.entitlements without keychain-access-groups>` in front of `fvm flutter build macos --debug` (that entitlement needs a development certificate) |
 | Native tools | `brew install cmake ninja` (webcrypto's build hook); `rustup target add aarch64-apple-ios aarch64-apple-ios-sim` (vodozemac) |
 | One build at a time | iOS and macOS builds share `.dart_tool` and the Swift package state; running both at once fails with unrelated errors |
+| Test account | a throwaway Synapse in a container on the Mac, `seam-test-synapse`, listening on `127.0.0.1:8008` only, data and the two test users' fixture passwords in `~/.cache/seam-apple/synapse` (`alice`, `bob`; `seed.py` has bob open a chat with alice and send messages). Sign in on the simulator with server `http://localhost:8008`. No bridges, so merged contacts and network colours are not covered |
 | Driving the app | build with `--dart-define=SEAM_DEV_CONTROL=true` and use `tools/devctl/devctl.py` with `DEVCTL_FILE` pointing at the app's `devctl.json` (docs/dev-control.md). The simulator is headless and `screencapture` has no Screen Recording permission over ssh, so this is also how macOS screenshots are taken |
 | Git | the Mac has no GitHub credentials: commit here, fetch from the laptop over ssh, push there |
 
@@ -73,8 +74,8 @@ so). "Gate" is the Dart platform check that keeps the feature off Apple platform
 | Stay running, launch at login | Windows tray | n/a | quits with the last window | keep running after close, `SMAppService`, `NSStatusItem` |
 | Menu bar | n/a | n/a | **built**: `lib/widgets/mac_menu_bar.dart` (Settings, New chat, New group, Edit commands, Chats, Window); menu read back from the running app, items not yet exercised signed in; File/Edit/View/Window/Undo/Redo titles are English only | `PlatformMenuBar` |
 | Title bar with search | `WindowsChrome` | n/a | standard | unified `NSToolbar` title bar |
-| Data detectors | Android `TextClassifier`, Windows Seam's own (`lib/utils/data_detectors`, branch `feat/data-detectors-v3`) | **built**: `ios/Runner/DataDetectors.swift` answers `chat.fluffy.fluffychat/data_detectors` with `NSDataDetector` (Maps, Call, FaceTime, Create Event, Show in Calendar); compiles, not yet seen in a chat; relative dates resolve from today, titles are English, no icons | Seam's own Dart detector | `NSDataDetector` behind that channel (contract in `data_detector_platform.dart`) |
-| Share-to | Android intents (`SEND`, `SEND_MULTIPLE`, any type) | **built**: Seam's own `ShareViewController` copies every attachment as a file into the app group's `SharedItems` folder and a `SUBQUERY` activation rule takes any number of data, link or text items. Seen on the simulator: 12 photos from Photos list Seam and arrive as 12 files and 12 entries. Not yet seen: the items staged inside Seam (needs an account), a contact card or pass, slow-motion video, a physical device | none: no share extension, no `CFBundleDocumentTypes`, so Seam is absent from the Share menu and Open With | macOS: share extension plus document types |
+| Data detectors | Android `TextClassifier`, Windows Seam's own (`lib/utils/data_detectors`, branch `feat/data-detectors-v3`) | **built**: `ios/Runner/DataDetectors.swift` answers `chat.fluffy.fluffychat/data_detectors` with `NSDataDetector` (Maps, Call, FaceTime, Create Event, Show in Calendar); seen in a chat on the simulator: address, date, phone and flight are underlined, the tap menu lists Create Event and Show in Calendar before Seam's Copy, and Create Event opens the system sheet on the right day and hour. Call, FaceTime and Maps not exercised (the simulator has no phone). Relative dates resolve from today, titles are English, no icons | Seam's own Dart detector | `NSDataDetector` behind that channel (contract in `data_detector_platform.dart`) |
+| Share-to | Android intents (`SEND`, `SEND_MULTIPLE`, any type) | **built**: Seam's own `ShareViewController` copies every attachment as a file into the app group's `SharedItems` folder and a `SUBQUERY` activation rule takes any number of data, link or text items. Seen on the simulator against the local test server: 12 photos from Photos list Seam, are staged on the New chat screen, and arrive on the server as 12 `m.image` messages. Not yet seen: a contact card or pass, slow-motion video, a physical device | none: no share extension, no `CFBundleDocumentTypes`, so Seam is absent from the Share menu and Open With | macOS: share extension plus document types |
 | Push settings row | UnifiedPush distributors | hidden | hidden | APNs status row |
 
 ### Present through a fallback, below parity
@@ -121,6 +122,12 @@ typing indicators, read status, app lock, one-time-code detection.
   `ios/Seam Share/PrivacyInfo.xcprivacy`: no tracking, no collected data types, `UserDefaults`
   reasons CA92.1 (the app's own) and 1C8F.1 (the app group). The collected data answer must match
   the App Store privacy labels (stores session to confirm). macOS has none yet.
+
+- 2026-11-28 (overnight): signed in on the simulator against a local test homeserver, which
+  unblocked in-app checks without the store reviewer's account. Seen working there: sign-in with a
+  password, chat list with unread count, data detectors and Create Event, 12 shared photos sent.
+  Found on the way: the New chat screen's recent conversation rows carry no accessibility label
+  (the driver could not find "Group with bob" by name; VoiceOver users likely cannot either).
 
 ## Needs Grayson
 
