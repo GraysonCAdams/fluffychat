@@ -188,3 +188,13 @@ dependency_overrides:
   # third_party/window_manager/FLUFFYCHAT.md).
   window_manager:
     path: third_party/window_manager
+  # Local forks: keep opus.xcframework inside the Swift package so the iOS
+  # and macOS builds can resolve it (see third_party/opus_codec_ios/FLUFFYCHAT.md).
+  opus_codec_ios:
+    path: third_party/opus_codec_ios
+  opus_codec_macos:
+    path: third_party/opus_codec_macos
+  # Local fork: Android only, so the iOS and macOS apps do not link FFmpeg
+  # (see third_party/ffmpeg_kit_flutter_new_min/FLUFFYCHAT.md).
+  ffmpeg_kit_flutter_new_min:
+    path: third_party/ffmpeg_kit_flutter_new_min

@@ -11,6 +11,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/chat/encryption_info.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
+import 'package:fluffychat/pages/chat/events/state_event_group.dart';
 import 'package:fluffychat/pages/chat/merged_network_menu.dart';
 import 'package:fluffychat/pages/chat/message_context_menu.dart';
 import 'package:fluffychat/pages/chat/typing_indicators.dart';
@@ -19,6 +20,7 @@ import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extensi
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/room_kind.dart';
+import 'package:fluffychat/utils/state_event_summary.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/mxc_image_viewer.dart';
 import 'package:material_ui/material_ui.dart';
@@ -241,33 +243,46 @@ class ChatEventList extends StatelessWidget {
                         : null;
                     final previousEvent = i > 0 ? events[i - 1] : null;
 
-                    // Collapsed state event
-                    final canExpand =
-                        event.isCollapsedState &&
-                        nextEvent?.isCollapsedState == true &&
-                        previousEvent?.isCollapsedState != true;
-                    final isCollapsed =
-                        event.isCollapsedState &&
-                        previousEvent?.isCollapsedState == true &&
-                        !controller.expandedEventIds.contains(event.eventId);
+                    // Two or more system events in a row fold into one
+                    // group, drawn at the run's newest event; the run's
+                    // other events draw nothing.
+                    final stateRun = StateEventSummary.runAt(events, i);
+                    final groupAnchor =
+                        stateRun != null && identical(stateRun.last, event);
+                    if (stateRun != null && !groupAnchor) {
+                      return AutoScrollTag(
+                        key: ValueKey(event.transactionId ?? event.eventId),
+                        index: i,
+                        controller: controller.scrollController,
+                        child: const SizedBox.shrink(),
+                      );
+                    }
+                    // A group's separator compares its oldest event with
+                    // the event before the group.
+                    final separatorEvent = stateRun?.first ?? event;
+                    final olderIndex = i + (stateRun?.length ?? 1);
+                    final olderEvent = olderIndex < events.length
+                        ? events[olderIndex]
+                        : null;
 
                     // A separator names the time wherever the
                     // conversation paused for an hour or crossed midnight.
                     final displayDate =
-                        event.type == EventTypes.RoomCreate ||
-                        nextEvent == null ||
-                        !event.originServerTs.sameDay(
-                          nextEvent.originServerTs,
+                        separatorEvent.type == EventTypes.RoomCreate ||
+                        olderEvent == null ||
+                        !separatorEvent.originServerTs.sameDay(
+                          olderEvent.originServerTs,
                         ) ||
-                        event.originServerTs
-                                .difference(nextEvent.originServerTs)
+                        separatorEvent.originServerTs
+                                .difference(olderEvent.originServerTs)
                                 .abs() >=
                             const Duration(hours: 1);
                     final now = DateTime.now();
-                    final separatorText = event.originServerTs.sameDay(now)
-                        ? event.originServerTs.localizedTimeOfDay(context)
-                        : '${event.originServerTs.localizedDate(context)} \u2022 '
-                              '${event.originServerTs.localizedTimeOfDay(context)}';
+                    final separatorTime = separatorEvent.originServerTs;
+                    final separatorText = separatorTime.sameDay(now)
+                        ? separatorTime.localizedTimeOfDay(context)
+                        : '${separatorTime.localizedDate(context)} \u2022 '
+                              '${separatorTime.localizedTimeOfDay(context)}';
 
                     return AutoScrollTag(
                       key: ValueKey(event.transactionId ?? event.eventId),
@@ -276,7 +291,7 @@ class ChatEventList extends StatelessWidget {
                       child: Column(
                         mainAxisSize: .min,
                         children: [
-                          if (!isCollapsed && displayDate)
+                          if (displayDate)
                             Padding(
                               padding: const EdgeInsets.only(
                                 top: 22.0,
@@ -292,79 +307,89 @@ class ChatEventList extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          Message(
-                            event,
-                            bigEmojis: controller.bigEmojis,
-                            animateIn: animateIn,
-                            onSwipe: () =>
-                                controller.replyAction(replyTo: event),
-                            onInfoTab: controller.showEventInfo,
-                            onMention: () => controller.sendController.text +=
-                                '${event.senderFromMemoryOrFallback.mention} ',
-                            highlightMarker:
-                                controller.scrollToEventIdMarker ==
-                                event.eventId,
-                            onSelect: controller.onSelectMessage,
-                            onToggleTime: controller.toggleMessageTime,
-                            showDeliveryStatus: identical(
-                              event,
-                              newestOwnEvent,
-                            ),
-                            timeRevealed:
-                                controller.timeRevealedEventId == event.eventId,
-                            onContextMenu: (event, position) =>
-                                showMessageContextMenu(
-                                  controller,
-                                  event,
-                                  position,
-                                ),
-                            scrollToEventId: controller.scrollToEventId,
-                            longPressSelect:
-                                controller.selectedEvents.isNotEmpty,
-                            selected: controller.selectedEvents.any(
-                              (e) => e.eventId == event.eventId,
-                            ),
-                            singleSelected:
-                                controller
-                                    .selectedEvents
-                                    .singleOrNull
-                                    ?.eventId ==
-                                event.eventId,
-                            hideReactionPicker: controller.messageMenuOpen,
-                            onEdit: controller.editSelectedEventAction,
-                            timeline: timeline,
-                            displayReadMarker:
-                                i > 0 &&
-                                controller.readMarkerEventId == event.eventId,
-                            nextEvent: nextEvent,
-                            previousEvent: previousEvent,
-                            wallpaperMode: hasWallpaper,
-                            scrollController: controller.scrollController,
-                            colors: colors,
-                            isCollapsed: isCollapsed,
-                            // The bubble's color already names the network
-                            // when colors by network are on.
-                            networkBadge:
-                                networks.isEmpty ||
-                                    colorByNetwork ||
-                                    nextEvent?.roomId == event.roomId
-                                ? null
-                                : _NetworkBadge(networks[event.roomId]),
-                            networkColor: controller.networkColorFor(
-                              event.room.id,
-                            ),
-                            enterThread: controller.activeThreadId == null
-                                ? controller.enterThread
-                                : null,
-                            onExpand: canExpand
-                                ? () => controller.expandEventsFrom(
-                                    event,
-                                    !controller.expandedEventIds.contains(
-                                      event.eventId,
+                          if (stateRun != null)
+                            StateEventGroup(
+                              key: ValueKey(
+                                'state-group-${stateRun.first.eventId}',
+                              ),
+                              run: stateRun,
+                              expanded: controller.expandedStateGroups.contains(
+                                stateRun.first.eventId,
+                              ),
+                              onExpandedChanged: (expanded) => expanded
+                                  ? controller.expandedStateGroups.add(
+                                      stateRun.first.eventId,
+                                    )
+                                  : controller.expandedStateGroups.remove(
+                                      stateRun.first.eventId,
                                     ),
-                                  )
-                                : null,
-                          ),
+                            )
+                          else
+                            Message(
+                              event,
+                              bigEmojis: controller.bigEmojis,
+                              animateIn: animateIn,
+                              onSwipe: () =>
+                                  controller.replyAction(replyTo: event),
+                              onInfoTab: controller.showEventInfo,
+                              onMention: () => controller.sendController.text +=
+                                  '${event.senderFromMemoryOrFallback.mention} ',
+                              highlightMarker:
+                                  controller.scrollToEventIdMarker ==
+                                  event.eventId,
+                              onSelect: controller.onSelectMessage,
+                              onToggleTime: controller.toggleMessageTime,
+                              showDeliveryStatus: identical(
+                                event,
+                                newestOwnEvent,
+                              ),
+                              timeRevealed:
+                                  controller.timeRevealedEventId ==
+                                  event.eventId,
+                              onContextMenu: (event, position) =>
+                                  showMessageContextMenu(
+                                    controller,
+                                    event,
+                                    position,
+                                  ),
+                              scrollToEventId: controller.scrollToEventId,
+                              longPressSelect:
+                                  controller.selectedEvents.isNotEmpty,
+                              selected: controller.selectedEvents.any(
+                                (e) => e.eventId == event.eventId,
+                              ),
+                              singleSelected:
+                                  controller
+                                      .selectedEvents
+                                      .singleOrNull
+                                      ?.eventId ==
+                                  event.eventId,
+                              hideReactionPicker: controller.messageMenuOpen,
+                              onEdit: controller.editSelectedEventAction,
+                              timeline: timeline,
+                              displayReadMarker:
+                                  i > 0 &&
+                                  controller.readMarkerEventId == event.eventId,
+                              nextEvent: nextEvent,
+                              previousEvent: previousEvent,
+                              wallpaperMode: hasWallpaper,
+                              scrollController: controller.scrollController,
+                              colors: colors,
+                              // The bubble's color already names the network
+                              // when colors by network are on.
+                              networkBadge:
+                                  networks.isEmpty ||
+                                      colorByNetwork ||
+                                      nextEvent?.roomId == event.roomId
+                                  ? null
+                                  : _NetworkBadge(networks[event.roomId]),
+                              networkColor: controller.networkColorFor(
+                                event.room.id,
+                              ),
+                              enterThread: controller.activeThreadId == null
+                                  ? controller.enterThread
+                                  : null,
+                            ),
                         ],
                       ),
                     );

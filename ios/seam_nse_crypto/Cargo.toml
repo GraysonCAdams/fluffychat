@@ -1,0 +1,28 @@
+[package]
+name = "seam_nse_crypto"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Megolm decryption for Seam's iOS Notification Service Extension"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+# Same vodozemac release as flutter_vodozemac 0.9.0 (rust/Cargo.lock), so the
+# pickles the Dart SDK writes are read by the same code that wrote them.
+vodozemac = { version = "=0.10.0", default-features = false, features = ["libolm-compat"] }
+zeroize = "1"
+
+[dev-dependencies]
+# The hazmat cipher builds legacy libolm pickles for the fallback tests.
+vodozemac = { version = "=0.10.0", default-features = false, features = ["libolm-compat", "low-level-api"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+# Unwinding stays on: the FFI entry points catch panics with catch_unwind.
+panic = "unwind"

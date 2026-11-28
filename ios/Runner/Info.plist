@@ -4,14 +4,14 @@
 <dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>im.fluffychat.app</string>
+		<string>dev.threeonetwo.seam</string>
 	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>FluffyChat</string>
+	<string>Seam</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -19,7 +19,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>fluffychat</string>
+	<string>Seam</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -32,11 +32,13 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>im.fluffychat.app.uris</string>
+			<string>dev.threeonetwo.seam.uris</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>ShareMedia-$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-				<string>im.fluffychat</string>
+				<string>dev.threeonetwo.seam</string>
+				<string>dev.312.seam.auth</string>
+				<string>dev.312.seam.dev.auth</string>
 				<string>matrix</string>
 			</array>
 		</dict>
@@ -44,7 +46,7 @@
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
+	<true/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
@@ -53,31 +55,27 @@
 		<true/>
 	</dict>
 	<key>NSAppleMusicUsageDescription</key>
-	<string>Play audio and voice messages in the app.</string>
+	<string>Play audio and voice messages in Seam.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Play audio and voice messages via bluetooth devices.</string>
+	<string>Play audio and voice messages through Bluetooth devices.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Play audio and voice messages on bluetooth devices</string>
-	<key>NSCalendarsUsageDescription</key>
-	<string>Share calendar dates with your contacts in FluffyChat.</string>
+	<string>Play audio and voice messages through Bluetooth devices.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Open the camera and take a picture to share them with your contacts on FluffyChat.</string>
+	<string>Take photos and videos to send in a chat.</string>
 	<key>NSContactsUsageDescription</key>
-	<string>Share contacts with your contacts in FluffyChat.</string>
+	<string>Match your contacts to the people you chat with. Your contacts stay on this device.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>FluffyChat uses an app lock for an additional security level</string>
+	<string>Unlock Seam with Face ID when the app lock is on.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Share your location with your contacts in FluffyChat.</string>
+	<string>Share your location in a chat when you choose to.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Share your location with your contacts in FluffyChat.</string>
+	<string>Share your location in a chat when you choose to.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Share your location with your contacts in FluffyChat.</string>
+	<string>Share your location in a chat when you choose to.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Record voice message and share them with your contacts on FluffyChat.</string>
-	<key>NSMotionUsageDescription</key>
-	<string>Share motions with your contacts in FluffyChat.</string>
+	<string>Record voice messages to send in a chat.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Share data with your contacts in FluffyChat.</string>
+	<string>Transcribe voice messages on this device.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

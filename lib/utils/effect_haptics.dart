@@ -10,7 +10,8 @@ import 'package:flutter/widgets.dart';
 import 'package:matrix/matrix.dart';
 
 /// The kinds of haptic a message effect is felt with, each one of Android's
-/// composition primitives (`VibrationEffect.Composition`).
+/// composition primitives (`VibrationEffect.Composition`). On iOS each is a
+/// Core Haptics tap or ramp of the same character.
 enum HapticPrimitive {
   thud,
   click,
@@ -211,14 +212,14 @@ class HapticCapabilities {
   );
 }
 
-/// Plays message effects' haptics on Android through the
-/// `chat.fluffy.fluffychat/haptics` channel (`EffectHaptics.kt`). It asks
-/// the vibrator once what it can do, then turns each pattern into one
-/// vibration it can play, so the beats keep time with the animation: a
-/// composition of primitives, a waveform whose strength follows the
-/// pattern, a run of plain ticks, or a predefined click. The phone's touch
-/// feedback setting decides whether anything is felt. Everywhere but
-/// Android it does nothing.
+/// Plays message effects' haptics on Android and iOS through the
+/// `chat.fluffy.fluffychat/haptics` channel (`EffectHaptics.kt`,
+/// `ios/Runner/EffectHaptics.swift`). It asks the vibrator once what it can
+/// do, then turns each pattern into one vibration it can play, so the beats
+/// keep time with the animation: a composition of primitives, a waveform
+/// whose strength follows the pattern, a run of plain ticks, or a
+/// predefined click. On Android the phone's touch feedback setting decides
+/// whether anything is felt. On every other platform it does nothing.
 class EffectHaptics {
   static const channel = MethodChannel('chat.fluffy.fluffychat/haptics');
 
@@ -229,7 +230,9 @@ class EffectHaptics {
 
   /// Whether this platform has effect haptics at all.
   bool get supported =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   Future<HapticCapabilities?> _loadCapabilities() async {
     try {

@@ -3,122 +3,79 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat/events/optical_line.dart';
+import 'package:fluffychat/pages/chat/events/state_event_group.dart';
 import 'package:fluffychat/pages/chat/utd_dialog.dart';
-import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
+import 'package:fluffychat/utils/state_event_summary.dart';
 import 'package:fluffychat/widgets/avatar.dart';
-import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
-import '../../../config/app_config.dart';
-
+/// A system event on its own in the timeline (one not folded into a
+/// [StateEventGroup]): one centred line of small grey text. A message that
+/// could not be decrypted shows its sender and a button that explains why.
 class StateMessage extends StatelessWidget {
   final Event event;
-  final void Function()? onExpand;
-  final bool isCollapsed;
-  const StateMessage(
-    this.event, {
-    this.onExpand,
-    this.isCollapsed = false,
-    super.key,
-  });
+  const StateMessage(this.event, {super.key});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return AnimatedSize(
-      duration: FluffyThemes.animationDuration,
-      curve: FluffyThemes.animationCurve,
-      child: isCollapsed
-          ? const SizedBox.shrink()
-          : Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Material(
-                    color: theme.colorScheme.surface.withAlpha(128),
-                    borderRadius: BorderRadius.circular(
-                      AppConfig.borderRadius / 3,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8.0,
-                        vertical: 4.0,
-                      ),
-                      child: Text.rich(
-                        TextSpan(
-                          children: [
-                            if (event.type != EventTypes.Encrypted ||
-                                event.redacted)
-                              TextSpan(
-                                text: event.calcLocalizedBody(
-                                  MatrixLocals(L10n.of(context)),
-                                ),
-                              )
-                            else ...[
-                              WidgetSpan(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(right: 4.0),
-                                  child: Avatar(
-                                    name: event.senderFromMemoryOrFallback
-                                        .calcDisplayname(),
-                                    size: 14,
-                                    mxContent: event
-                                        .senderFromMemoryOrFallback
-                                        .avatarUrl,
-                                  ),
-                                ),
-                              ),
-                              TextSpan(
-                                text: L10n.of(context).messageNotDecryptable,
-                              ),
-                              if (!event.redacted)
-                                WidgetSpan(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(left: 4.0),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(7),
-                                      onTap: () =>
-                                          UtdDialog.show(context, event),
-                                      child: Icon(
-                                        Icons.info_outlined,
-                                        size: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                            if (onExpand != null) ...[
-                              const TextSpan(text: '\n'),
-                              TextSpan(
-                                style: TextStyle(
-                                  color: theme.colorScheme.primary,
-                                  decoration: TextDecoration.underline,
-                                  decorationColor: theme.colorScheme.primary,
-                                ),
-                                recognizer: TapGestureRecognizer()
-                                  ..onTap = onExpand,
-                                text: L10n.of(context).moreEvents,
-                              ),
-                            ],
-                          ],
-                        ),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 11,
-                          decoration: event.redacted
-                              ? TextDecoration.lineThrough
-                              : null,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+    final l10n = L10n.of(context);
+    final style = theme.textTheme.bodySmall!.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+      decoration: event.redacted ? TextDecoration.lineThrough : null,
+    );
+    final Widget line;
+    if (event.type != EventTypes.Encrypted || event.redacted) {
+      line = LayoutBuilder(
+        builder: (context, box) => OpticalLine(
+          StateEventSummary.line(event, l10n),
+          style: style,
+          maxWidth: box.maxWidth >= 600
+              ? StateEventGroup.wideMaxWidth
+              : box.maxWidth,
+        ),
+      );
+    } else {
+      final sender = event.senderFromMemoryOrFallback;
+      line = Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 4.0),
+            child: Avatar(
+              name: sender.calcDisplayname(),
+              size: 14,
+              mxContent: sender.avatarUrl,
             ),
+          ),
+          Flexible(
+            child: Text(
+              l10n.messageNotDecryptable,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 4.0),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(7),
+              onTap: () => UtdDialog.show(context, event),
+              child: Icon(Icons.info_outlined, size: 14, color: style.color),
+            ),
+          ),
+        ],
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: StateEventGroup.rhythm,
+      ),
+      child: Center(child: line),
     );
   }
 }

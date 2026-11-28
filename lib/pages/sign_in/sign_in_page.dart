@@ -84,10 +84,13 @@ class ServerStepView extends StatelessWidget {
         input?.matrixId != null && signedInUserIds.contains(input!.matrixId);
     final found = lookup.status == ServerLookupStatus.found && !alreadySignedIn;
     // The server signed in to last; the default server until then,
-    // except in the Play build, which recommends none.
+    // except in builds with Seam's identity (AppConfig.usesSeamIdentity),
+    // which recommend none.
     final remembered =
         AppSettings.store.getString(AppSettings.defaultHomeserver.key) ??
-        (AppConfig.isPlayRelease ? null : AppSettings.defaultHomeserver.value);
+        (AppConfig.usesSeamIdentity
+            ? null
+            : AppSettings.defaultHomeserver.value);
 
     void submit() {
       if (!found || loading || input == null) return;
@@ -241,7 +244,7 @@ class ServerStepView extends StatelessWidget {
             icon: const Icon(Icons.refresh),
             label: Text(l10n.tryAgain),
           )
-        else if (!AppConfig.isPlayRelease)
+        else if (!AppConfig.usesSeamIdentity)
           TextButton(
             onPressed: loading
                 ? null

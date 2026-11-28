@@ -5,6 +5,7 @@
 
 import 'dart:io';
 
+import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/client_manager.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -54,7 +55,7 @@ Future<Directory?> getFileStorageLocation() async {
     late final Directory temporaryDirectory;
     if (PlatformInfos.isIOS) {
       final containerPath = await PathProviderFoundation().getContainerPath(
-        appGroupIdentifier: 'group.im.fluffychat.app',
+        appGroupIdentifier: AppConfig.seamAppGroupId,
       );
       temporaryDirectory = Directory(containerPath!);
     } else if (PlatformInfos.isLinux) {
@@ -153,7 +154,7 @@ Future<MatrixSdkDatabase> _constructDatabase(String clientName) async {
 Future<String> _getDatabaseDirectory() async {
   if (PlatformInfos.isIOS) {
     final containerPath = await PathProviderFoundation().getContainerPath(
-      appGroupIdentifier: 'group.im.fluffychat.app',
+      appGroupIdentifier: AppConfig.seamAppGroupId,
     );
     if (containerPath == null) {
       Logs().w('No container path found for iOS app!');

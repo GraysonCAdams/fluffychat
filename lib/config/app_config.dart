@@ -44,14 +44,37 @@ abstract class AppConfig {
       !kIsWeb &&
       defaultTargetPlatform == TargetPlatform.android;
 
+  /// The app group the iOS app shares with its notification service and
+  /// share extensions: the database directory and the keychain item holding
+  /// the database key live there. Must match the three entitlements files in
+  /// ios/ and NotificationService.swift.
+  static const String seamAppGroupId = 'group.$seamApplicationId';
+
+  /// Whether this build carries Seam's own identifiers and store defaults:
+  /// the Play release, and every iOS and macOS build, which are bundled as
+  /// [seamApplicationId] in all build modes (ios/ and macos/ Xcode projects).
+  static bool get usesSeamIdentity =>
+      isPlayRelease ||
+      (!kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.iOS ||
+              defaultTargetPlatform == TargetPlatform.macOS));
+
+  /// The Matrix push gateway that relays to APNs for the iOS app, set at
+  /// build time with `--dart-define=SEAM_PUSH_GATEWAY_URL=...`. Empty means
+  /// the build registers no pusher on iOS.
+  static const String applePushGatewayUrl = String.fromEnvironment(
+    'SEAM_PUSH_GATEWAY_URL',
+  );
+
   /// The pusher app id the push gateway sees, before the device id is added.
   static String get pushNotificationsAppId =>
-      isPlayRelease ? seamApplicationId : 'chat.fluffy.fluffychat';
+      usesSeamIdentity ? seamApplicationId : 'chat.fluffy.fluffychat';
 
   /// URL scheme for deep links. On Android it must match the appUrlScheme
-  /// manifest placeholder.
+  /// manifest placeholder, on iOS the CFBundleURLSchemes in
+  /// ios/Runner/Info.plist.
   static String get appOpenUrlScheme =>
-      isPlayRelease ? seamApplicationId : 'im.fluffychat';
+      usesSeamIdentity ? seamApplicationId : 'im.fluffychat';
 
   /// SSO redirect schemes (Android, iOS and macOS; desktop redirects to
   /// localhost). OIDC requires a native client's private-use scheme to start
@@ -60,7 +83,8 @@ abstract class AppConfig {
   /// otherwise. Debug and profile builds take their own scheme, so they and
   /// the release app on one device do not both claim the redirect. On Android
   /// these must match the appSsoUrlScheme manifest placeholders in
-  /// android/app/build.gradle.kts.
+  /// android/app/build.gradle.kts; on iOS both are listed in the
+  /// CFBundleURLSchemes of ios/Runner/Info.plist.
   static const String releaseSsoUrlScheme = 'dev.312.seam.auth';
   static const String developmentSsoUrlScheme = 'dev.312.seam.dev.auth';
   static String get appSsoUrlScheme =>

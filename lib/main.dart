@@ -14,6 +14,8 @@ import 'package:fluffychat/utils/car_app_bridge.dart';
 import 'package:fluffychat/utils/chat_windows/backend.dart';
 import 'package:fluffychat/utils/chat_windows/chat_windows.dart';
 import 'package:fluffychat/utils/client_manager.dart';
+import 'package:fluffychat/utils/dev_control/dev_control.dart';
+import 'package:fluffychat/utils/dev_control/dev_control_flag.dart';
 import 'package:fluffychat/utils/dynamic_primary_color.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/logcat_mirror.dart';
@@ -159,6 +161,22 @@ Future<void> startGui(
 }) async {
   // Started first so the platform round trip overlaps the awaits below.
   final dynamicPrimaryColorFuture = loadDynamicPrimaryColor();
+
+  // A constant, so builds without the flag drop the server entirely.
+  if (kDevControlEnabled) {
+    unawaited(
+      startDevControl(
+        port: kDevControlPort,
+        go: FluffyChatApp.router.go,
+        location: () => FluffyChatApp
+            .router
+            .routerDelegate
+            .currentConfiguration
+            .uri
+            .toString(),
+      ),
+    );
+  }
 
   if (PlatformInfos.isLinux || PlatformInfos.isWindows) {
     JustAudioMediaKit.ensureInitialized();

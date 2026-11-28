@@ -26,8 +26,8 @@ class NotificationService: UNNotificationServiceExtension {
         guard let bestAttemptContent = bestAttemptContent else { return }
 
         // Uncomment to read the push message payload:
-        // os_log("[FluffyChatPushHelper] New message received: %{public}@", log: .default, type: .error, bestAttemptContent.userInfo)
-        os_log("[FluffyChatPushHelper] New message received")
+        // os_log("[SeamPush] New message received: %{public}@", log: .default, type: .error, bestAttemptContent.userInfo)
+        os_log("[SeamPush] New message received")
 
 
         var unread: Int?
@@ -47,7 +47,7 @@ class NotificationService: UNNotificationServiceExtension {
         guard let roomId = bestAttemptContent.userInfo["room_id"] as? String,
             let eventId = bestAttemptContent.userInfo["event_id"] as? String
         else {
-            os_log("[FluffyChatPushHelper] Room ID or Event ID is missing!")
+            os_log("[SeamPush] Room ID or Event ID is missing!")
             let emptyContent = UNMutableNotificationContent()
             emptyContent.badge = bestAttemptContent.badge
             contentHandler(emptyContent)
@@ -84,9 +84,9 @@ class NotificationService: UNNotificationServiceExtension {
 
         // Create database path:
         guard let containerPath = FileManager.default.containerURL(
-                forSecurityApplicationGroupIdentifier: "group.im.fluffychat.app"
+                forSecurityApplicationGroupIdentifier: "group.dev.threeonetwo.seam"
             ) else {
-                os_log("[FluffyChatPushHelper] Unable to get container path!")
+                os_log("[SeamPush] Unable to get container path!")
                 contentHandler(bestAttemptContent)
                 return
         }
@@ -97,7 +97,7 @@ class NotificationService: UNNotificationServiceExtension {
         do {
             database = try getDatabase(path: databasePath)
         } catch {
-            os_log("[FluffyChatPushHelper] Unable to open database: %{public}@", type: .error, String(describing: error))
+            os_log("[SeamPush] Unable to open database: %{public}@", type: .error, String(describing: error))
             bestAttemptContent.userInfo["error"] = String(describing: error)
             contentHandler(bestAttemptContent)
             return
@@ -121,7 +121,7 @@ class NotificationService: UNNotificationServiceExtension {
                         roomName
                         ?? heroes.map { hero in
                             hero.content.displayname
-                                ?? String(localized: "FluffyChat User")
+                                ?? String(localized: "Someone")
                         }.joined(separator: ", ")
                     roomAvatarUrl = roomAvatarUrl ?? heroes.first?.content.avatar_url
                 } else {
@@ -143,11 +143,33 @@ class NotificationService: UNNotificationServiceExtension {
                 let attachment = try downloadAttachment(url: roomAvatarUrl, containerPath: containerPath)
                 bestAttemptContent.attachments = [attachment]
             } catch {
-                os_log("[FluffyChatPushHelper] Unable to download avatar!")
+                os_log("[SeamPush] Unable to download avatar!")
             }
         }
 
-        contentHandler(bestAttemptContent)
+        // The push carries only ids. Fetch the event and decrypt it here so
+        // the banner shows who wrote and what; when that fails the banner
+        // keeps the placeholder body set above.
+        Task {
+            do {
+                let event = try await EventDecryptor(database: database)
+                    .event(roomId: roomId, eventId: eventId)
+                let sender =
+                    getUserFromDatabase(database: database, userId: event.senderId, roomId: roomId)?
+                    .content.displayname ?? event.senderId
+                let text =
+                    event.isReaction
+                    ? event.relation?.key
+                    : (event.isEdit ? event.newContentBody : nil) ?? event.body
+                if let text {
+                    bestAttemptContent.subtitle = sender
+                    bestAttemptContent.body = text
+                }
+            } catch {
+                os_log("[SeamPush] Unable to load event: %{public}@", type: .error, String(describing: error))
+            }
+            contentHandler(bestAttemptContent)
+        }
     }
 
     override func serviceExtensionTimeWillExpire() {
@@ -167,7 +189,7 @@ class NotificationService: UNNotificationServiceExtension {
             kSecAttrService as String: "flutter_secure_storage_service",
             kSecAttrAccount as String: "database_password",
             kSecReturnData as String: true,
-            kSecAttrAccessGroup as String: "group.im.fluffychat.app",
+            kSecAttrAccessGroup as String: "group.dev.threeonetwo.seam",
         ]
 
         var item: CFTypeRef?

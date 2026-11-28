@@ -51,7 +51,7 @@ class MapBubble extends StatelessWidget {
                   minZoom: 0,
                   urlTemplate:
                       'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: AppConfig.isPlayRelease
+                  userAgentPackageName: AppConfig.usesSeamIdentity
                       ? AppConfig.seamApplicationId
                       : AppConfig.appId,
                   subdomains: const ['a', 'b', 'c'],

@@ -9,21 +9,23 @@
 /* Begin PBXBuildFile section */
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
+		4D7E64029D4FD28C49195440 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A10C8CDB1851C88CB4252CE /* Pods_Runner.framework */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
+		5EA4A9050000000000000001 /* ApnsTokenChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EA4A9050000000000000002 /* ApnsTokenChannel.swift */; };
+		5EA4A9050000000000000003 /* EffectHaptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EA4A9050000000000000004 /* EffectHaptics.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		C1005C45261071B5002F4F32 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1005C44261071B5002F4F32 /* ShareViewController.swift */; };
 		C1005C48261071B5002F4F32 /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = C1005C46261071B5002F4F32 /* MainInterface.storyboard */; };
-		C1005C4C261071B5002F4F32 /* FluffyChat Share.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = C1005C42261071B5002F4F32 /* FluffyChat Share.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C1005C4C261071B5002F4F32 /* Seam Share.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = C1005C42261071B5002F4F32 /* Seam Share.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C11184F53072567E00575032 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = C11184F43072567E00575032 /* FlutterGeneratedPluginSwiftPackage */; };
 		C137635E2AD1446100A8F905 /* notification.caf in Resources */ = {isa = PBXBuildFile; fileRef = C137635D2AD1446100A8F905 /* notification.caf */; };
 		C14695592E642D400075F2F7 /* Notification Service Extension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = C14695522E642D400075F2F7 /* Notification Service Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C14695662E642E450075F2F7 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C14695652E642E450075F2F7 /* Localizable.xcstrings */; };
 		C14695672E642E450075F2F7 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C14695652E642E450075F2F7 /* Localizable.xcstrings */; };
 		C14695682E642E450075F2F7 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C14695652E642E450075F2F7 /* Localizable.xcstrings */; };
-		C149567C25C7274F00A16396 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = C149567B25C7274F00A16396 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,7 +34,7 @@
 			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = C1005C41261071B5002F4F32;
-			remoteInfo = "FluffyChat Share";
+			remoteInfo = "Seam Share";
 		};
 		C14695572E642D400075F2F7 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -60,7 +62,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				C1005C4C261071B5002F4F32 /* FluffyChat Share.appex in Embed App Extensions */,
+				C1005C4C261071B5002F4F32 /* Seam Share.appex in Embed App Extensions */,
 				C14695592E642D400075F2F7 /* Notification Service Extension.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
@@ -69,13 +71,19 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0A10C8CDB1851C88CB4252CE /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
+		31DEAD0BF815BA328BE3B13B /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
+		42D05523BB7967681C38166F /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		5EA4A9050000000000000002 /* ApnsTokenChannel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ApnsTokenChannel.swift; sourceTree = "<group>"; };
+		5EA4A9050000000000000004 /* EffectHaptics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EffectHaptics.swift; sourceTree = "<group>"; };
 		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
+		81C73161D2DD911FC87FC495 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
 		97C146EE1CF9000F007C117D /* Runner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Runner.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -83,15 +91,14 @@
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		C1005C42261071B5002F4F32 /* FluffyChat Share.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "FluffyChat Share.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		C1005C42261071B5002F4F32 /* Seam Share.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Seam Share.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C1005C44261071B5002F4F32 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		C1005C47261071B5002F4F32 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/MainInterface.storyboard; sourceTree = "<group>"; };
 		C1005C49261071B5002F4F32 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		C1005C53261072D4002F4F32 /* FluffyChat Share.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "FluffyChat Share.entitlements"; sourceTree = "<group>"; };
+		C1005C53261072D4002F4F32 /* Seam Share.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Seam Share.entitlements"; sourceTree = "<group>"; };
 		C137635D2AD1446100A8F905 /* notification.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = notification.caf; sourceTree = "<group>"; };
 		C14695522E642D400075F2F7 /* Notification Service Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Notification Service Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C14695652E642E450075F2F7 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
-		C149567B25C7274F00A16396 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		C149567D25C7276200A16396 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -122,6 +129,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */,
+				4D7E64029D4FD28C49195440 /* Pods_Runner.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -161,10 +169,11 @@
 				C14695652E642E450075F2F7 /* Localizable.xcstrings */,
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
-				C1005C43261071B5002F4F32 /* FluffyChat Share */,
+				C1005C43261071B5002F4F32 /* Seam Share */,
 				C14695532E642D400075F2F7 /* Notification Service Extension */,
 				97C146EF1CF9000F007C117D /* Products */,
 				C107717D3075192600D0BA63 /* Frameworks */,
+				9C1920033C7C6B8AF68A8E7F /* Pods */,
 			);
 			sourceTree = "<group>";
 		};
@@ -172,7 +181,7 @@
 			isa = PBXGroup;
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
-				C1005C42261071B5002F4F32 /* FluffyChat Share.appex */,
+				C1005C42261071B5002F4F32 /* Seam Share.appex */,
 				C14695522E642D400075F2F7 /* Notification Service Extension.appex */,
 			);
 			name = Products;
@@ -187,29 +196,42 @@
 				97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */,
 				97C147021CF9000F007C117D /* Info.plist */,
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
-				C149567B25C7274F00A16396 /* GoogleService-Info.plist */,
 				C137635D2AD1446100A8F905 /* notification.caf */,
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
+				5EA4A9050000000000000002 /* ApnsTokenChannel.swift */,
+				5EA4A9050000000000000004 /* EffectHaptics.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
 		};
-		C1005C43261071B5002F4F32 /* FluffyChat Share */ = {
+		9C1920033C7C6B8AF68A8E7F /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				C1005C53261072D4002F4F32 /* FluffyChat Share.entitlements */,
+				81C73161D2DD911FC87FC495 /* Pods-Runner.debug.xcconfig */,
+				42D05523BB7967681C38166F /* Pods-Runner.release.xcconfig */,
+				31DEAD0BF815BA328BE3B13B /* Pods-Runner.profile.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		C1005C43261071B5002F4F32 /* Seam Share */ = {
+			isa = PBXGroup;
+			children = (
+				C1005C53261072D4002F4F32 /* Seam Share.entitlements */,
 				C1005C44261071B5002F4F32 /* ShareViewController.swift */,
 				C1005C46261071B5002F4F32 /* MainInterface.storyboard */,
 				C1005C49261071B5002F4F32 /* Info.plist */,
 			);
-			path = "FluffyChat Share";
+			path = "Seam Share";
 			sourceTree = "<group>";
 		};
 		C107717D3075192600D0BA63 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				0A10C8CDB1851C88CB4252CE /* Pods_Runner.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -221,6 +243,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
+				D665FCB58C9F4851938FF942 /* [CP] Check Pods Manifest.lock */,
 				9740EEB61CF901F6004384FC /* Run Script */,
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
@@ -228,6 +251,7 @@
 				C1005C4D261071B5002F4F32 /* Embed App Extensions */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
+				6AE8DBDC6FB70F636FDFE441 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -243,9 +267,9 @@
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
 		};
-		C1005C41261071B5002F4F32 /* FluffyChat Share */ = {
+		C1005C41261071B5002F4F32 /* Seam Share */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C1005C51261071B5002F4F32 /* Build configuration list for PBXNativeTarget "FluffyChat Share" */;
+			buildConfigurationList = C1005C51261071B5002F4F32 /* Build configuration list for PBXNativeTarget "Seam Share" */;
 			buildPhases = (
 				C1005C3E261071B5002F4F32 /* Sources */,
 				C1005C3F261071B5002F4F32 /* Frameworks */,
@@ -255,18 +279,19 @@
 			);
 			dependencies = (
 			);
-			name = "FluffyChat Share";
+			name = "Seam Share";
 			packageProductDependencies = (
 				C11184F43072567E00575032 /* FlutterGeneratedPluginSwiftPackage */,
 			);
-			productName = "FluffyChat Share";
-			productReference = C1005C42261071B5002F4F32 /* FluffyChat Share.appex */;
+			productName = "Seam Share";
+			productReference = C1005C42261071B5002F4F32 /* Seam Share.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		C14695512E642D400075F2F7 /* Notification Service Extension */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = C146955E2E642D400075F2F7 /* Build configuration list for PBXNativeTarget "Notification Service Extension" */;
 			buildPhases = (
+				5EA4A9050000000000000012 /* Build SeamNseCrypto */,
 				C146954E2E642D400075F2F7 /* Sources */,
 				C146954F2E642D400075F2F7 /* Frameworks */,
 				C14695502E642D400075F2F7 /* Resources */,
@@ -279,8 +304,6 @@
 				C14695532E642D400075F2F7 /* Notification Service Extension */,
 			);
 			name = "Notification Service Extension";
-			packageProductDependencies = (
-			);
 			productName = "Notification Service Extension";
 			productReference = C14695522E642D400075F2F7 /* Notification Service Extension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -317,7 +340,7 @@
 			);
 			mainGroup = 97C146E51CF9000F007C117D;
 			packageReferences = (
-				781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage" */,
+				781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "FlutterGeneratedPluginSwiftPackage" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 97C146EF1CF9000F007C117D /* Products */;
@@ -325,7 +348,7 @@
 			projectRoot = "";
 			targets = (
 				97C146ED1CF9000F007C117D /* Runner */,
-				C1005C41261071B5002F4F32 /* FluffyChat Share */,
+				C1005C41261071B5002F4F32 /* Seam Share */,
 				C14695512E642D400075F2F7 /* Notification Service Extension */,
 			);
 		};
@@ -338,7 +361,6 @@
 			files = (
 				97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */,
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
-				C149567C25C7274F00A16396 /* GoogleService-Info.plist in Resources */,
 				C137635E2AD1446100A8F905 /* notification.caf in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				C14695672E642E450075F2F7 /* Localizable.xcstrings in Resources */,
@@ -382,6 +404,23 @@
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin\n";
 		};
+		6AE8DBDC6FB70F636FDFE441 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 		9740EEB61CF901F6004384FC /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -397,6 +436,49 @@
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build\n";
 		};
+		D665FCB58C9F4851938FF942 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-Runner-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		5EA4A9050000000000000012 /* Build SeamNseCrypto */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/seam_nse_crypto/Cargo.toml",
+				"$(SRCROOT)/seam_nse_crypto/Cargo.lock",
+				"$(SRCROOT)/seam_nse_crypto/src/lib.rs",
+				"$(SRCROOT)/seam_nse_crypto/include/seam_nse_crypto.h",
+				"$(SRCROOT)/seam_nse_crypto/build_xcframework.sh",
+			);
+			name = "Build SeamNseCrypto";
+			outputPaths = (
+				"$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64/libseam_nse_crypto.a",
+				"$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64-simulator/libseam_nse_crypto.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$SRCROOT/seam_nse_crypto/build_xcframework.sh\"\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -405,6 +487,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
+				5EA4A9050000000000000001 /* ApnsTokenChannel.swift in Sources */,
+				5EA4A9050000000000000003 /* EffectHaptics.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -429,7 +513,7 @@
 /* Begin PBXTargetDependency section */
 		C1005C4B261071B5002F4F32 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = C1005C41261071B5002F4F32 /* FluffyChat Share */;
+			target = C1005C41261071B5002F4F32 /* Seam Share */;
 			targetProxy = C1005C4A261071B5002F4F32 /* PBXContainerItemProxy */;
 		};
 		C14695582E642D400075F2F7 /* PBXTargetDependency */ = {
@@ -508,7 +592,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -529,14 +613,14 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4HV29TJN3A;
+				DEVELOPMENT_TEAM = 8MRX27GBLK;
 				ENABLE_BITCODE = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/Flutter",
 				);
 				INFOPLIST_FILE = Runner/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -546,7 +630,7 @@
 					"$(PROJECT_DIR)/Flutter",
 				);
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
-				PRODUCT_BUNDLE_IDENTIFIER = im.fluffychat.app;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.threeonetwo.seam;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -602,7 +686,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -652,7 +736,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -675,14 +759,14 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4HV29TJN3A;
+				DEVELOPMENT_TEAM = 8MRX27GBLK;
 				ENABLE_BITCODE = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/Flutter",
 				);
 				INFOPLIST_FILE = Runner/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -692,7 +776,7 @@
 					"$(PROJECT_DIR)/Flutter",
 				);
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
-				PRODUCT_BUNDLE_IDENTIFIER = im.fluffychat.app;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.threeonetwo.seam;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -713,14 +797,14 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4HV29TJN3A;
+				DEVELOPMENT_TEAM = 8MRX27GBLK;
 				ENABLE_BITCODE = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/Flutter",
 				);
 				INFOPLIST_FILE = Runner/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -730,7 +814,7 @@
 					"$(PROJECT_DIR)/Flutter",
 				);
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
-				PRODUCT_BUNDLE_IDENTIFIER = im.fluffychat.app;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.threeonetwo.seam;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -749,13 +833,13 @@
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_ENTITLEMENTS = "FluffyChat Share/FluffyChat Share.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Seam Share/Seam Share.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4HV29TJN3A;
+				DEVELOPMENT_TEAM = 8MRX27GBLK;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
-				INFOPLIST_FILE = "FluffyChat Share/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = "Seam Share/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -764,7 +848,7 @@
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "im.fluffychat.app.FluffyChat-Share";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.threeonetwo.seam.share;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -785,13 +869,13 @@
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_ENTITLEMENTS = "FluffyChat Share/FluffyChat Share.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Seam Share/Seam Share.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4HV29TJN3A;
+				DEVELOPMENT_TEAM = 8MRX27GBLK;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
-				INFOPLIST_FILE = "FluffyChat Share/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = "Seam Share/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -799,7 +883,7 @@
 				);
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "im.fluffychat.app.FluffyChat-Share";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.threeonetwo.seam.share;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
@@ -818,13 +902,13 @@
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_ENTITLEMENTS = "FluffyChat Share/FluffyChat Share.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Seam Share/Seam Share.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4HV29TJN3A;
+				DEVELOPMENT_TEAM = 8MRX27GBLK;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
-				INFOPLIST_FILE = "FluffyChat Share/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				INFOPLIST_FILE = "Seam Share/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -832,7 +916,7 @@
 				);
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "im.fluffychat.app.FluffyChat-Share";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.threeonetwo.seam.share;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
@@ -856,14 +940,14 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4HV29TJN3A;
+				DEVELOPMENT_TEAM = 8MRX27GBLK;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Notification Service Extension/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Notification Service Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -873,7 +957,14 @@
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "im.fluffychat.app.Notification-Service-Extension";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.threeonetwo.seam.nse;
+				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = "$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64";
+				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64-simulator";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lseam_nse_crypto",
+				);
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/seam_nse_crypto/include";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
@@ -899,14 +990,14 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4HV29TJN3A;
+				DEVELOPMENT_TEAM = 8MRX27GBLK;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Notification Service Extension/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Notification Service Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -915,7 +1006,14 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "im.fluffychat.app.Notification-Service-Extension";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.threeonetwo.seam.nse;
+				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = "$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64";
+				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64-simulator";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lseam_nse_crypto",
+				);
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/seam_nse_crypto/include";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -939,14 +1037,14 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4HV29TJN3A;
+				DEVELOPMENT_TEAM = 8MRX27GBLK;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Notification Service Extension/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Notification Service Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -955,7 +1053,14 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "im.fluffychat.app.Notification-Service-Extension";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.threeonetwo.seam.nse;
+				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = "$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64";
+				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(SRCROOT)/seam_nse_crypto/SeamNseCrypto.xcframework/ios-arm64-simulator";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lseam_nse_crypto",
+				);
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/seam_nse_crypto/include";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -987,7 +1092,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		C1005C51261071B5002F4F32 /* Build configuration list for PBXNativeTarget "FluffyChat Share" */ = {
+		C1005C51261071B5002F4F32 /* Build configuration list for PBXNativeTarget "Seam Share" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C1005C4E261071B5002F4F32 /* Debug */,
@@ -1010,7 +1115,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage" */ = {
+		781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "FlutterGeneratedPluginSwiftPackage" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage;
 		};

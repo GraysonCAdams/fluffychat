@@ -6,6 +6,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/utils/client_manager.dart';
@@ -18,7 +19,7 @@ import 'package:matrix/matrix.dart';
 const _passwordStorageKey = 'database_password';
 
 const iosOptions = IOSOptions(
-  groupId: 'group.im.fluffychat.app',
+  groupId: AppConfig.seamAppGroupId,
   accessibility: .first_unlock,
 );
 
