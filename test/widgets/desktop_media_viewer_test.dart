@@ -16,6 +16,7 @@ import 'package:fluffychat/pages/image_viewer/video_player.dart';
 import 'package:fluffychat/utils/windows_shell_ffi.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -299,12 +300,51 @@ void main() {
           ),
         );
         expect(glyphs, findsNWidgets(3));
+        // At the window's right edge, where Windows puts them.
+        expect(tester.getRect(glyphs.last).center.dx, size.width - 23);
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await settle(tester);
         expect(find.byType(ImageViewer), findsNothing);
         await finish(tester);
       });
     }
+  });
+
+  testWidgets('the keyboard and the wheel zoom a photo in steps', (
+    tester,
+  ) async {
+    await open(tester, const Size(1280, 800), video: false);
+    expect(find.text('Fit'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+    await settle(tester);
+    expect(find.text('125%'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
+    await settle(tester);
+    expect(find.text('Fit'), findsOneWidget);
+    // One notch of the wheel is one step, not a leap.
+    tester.binding.handlePointerEvent(
+      const PointerScrollEvent(
+        kind: PointerDeviceKind.mouse,
+        position: Offset(640, 400),
+        scrollDelta: Offset(0, -120),
+      ),
+    );
+    await settle(tester);
+    final label = find.textContaining('%').evaluate().single.widget as Text;
+    final percent = int.parse(label.data!.replaceAll('%', ''));
+    expect(percent, inInclusiveRange(110, 130));
+    await finish(tester);
+  });
+
+  testWidgets('the keys zoom a photo paged to from a video', (tester) async {
+    await open(tester, const Size(1280, 800));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await settle(tester);
+    expect(find.text('Fit'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+    await settle(tester);
+    expect(find.text('125%'), findsOneWidget);
+    await finish(tester);
   });
 
   group('the bottom bar is centred in the window', () {

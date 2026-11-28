@@ -616,6 +616,8 @@ class ZoomableMediaState extends State<ZoomableMedia>
       transformationController: transform,
       minScale: 1.0,
       maxScale: ZoomableMedia.maxScale,
+      // One notch of a mouse wheel (120) zooms about 1.2 times.
+      scaleFactor: 600,
       panEnabled: _zoomed,
       onInteractionEnd: widget.onInteractionEnd,
       child: Center(child: widget.child),

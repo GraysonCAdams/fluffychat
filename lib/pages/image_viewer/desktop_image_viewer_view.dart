@@ -284,7 +284,12 @@ class _TopBar extends StatelessWidget {
           const SizedBox(width: 4),
           Avatar(mxContent: sender.avatarUrl, name: name, size: 28),
           const SizedBox(width: 10),
-          Flexible(
+          // Capped, not flexible, so the move area alone takes the free
+          // space and the actions sit at the right edge.
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: (MediaQuery.sizeOf(context).width - 760).clamp(80, 320),
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
