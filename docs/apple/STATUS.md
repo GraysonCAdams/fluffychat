@@ -108,6 +108,15 @@ typing indicators, read status, app lock, one-time-code detection.
 - 2026-11-27 (night): macOS menu bar and Dock badge wiring; macOS debug build green. `dart analyze`
   cannot run here: the `dart_code_linter` analyzer plugin fails to resolve (`version "latest"`).
 
+- 2026-11-28 (overnight): iOS data detectors (`NSDataDetector` behind the shared channel), Seam's own
+  share extension (12 photos from Photos arrive as 12 files), pusher app ids per APNs environment
+  (`dev.threeonetwo.seam.ios` and `.ios-sandbox`), and the layered icon `ios/Runner/AppIcon.icon`
+  (Icon Composer format: `brand/apple/icon-composer` layers at scale 1024/432 on a cobalt fill,
+  dark and tinted left to the system). The iOS 27 simulator Home Screen shows the layered icon; the
+  flat `AppIcon.appiconset` stays as the icon for iOS 17 and 18. Simulator taps and screenshots of
+  other apps come from a scripted XCUITest driver kept outside the repo
+  (`~/.cache/seam-apple/uidriver`).
+
 ## Needs Grayson
 
 1. Push gateway decision (asked).
