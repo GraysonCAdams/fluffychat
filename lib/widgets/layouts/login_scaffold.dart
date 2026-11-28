@@ -12,7 +12,7 @@ import 'package:fluffychat/widgets/seam_mark.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-/// The frame of every sign-in and setup page.
+/// The frame of the sign-in and setup pages that follow the welcome page.
 ///
 /// On a phone it is a plain [Scaffold]. On a wide window the page sits in a
 /// card [cardWidth] dp wide, centred on Seam Cobalt (a deep navy in dark

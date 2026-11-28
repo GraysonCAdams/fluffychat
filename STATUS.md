@@ -3,10 +3,10 @@
 Base: feat/integration2 at febcfc877.
 
 - Task 1 (done): no "inbox" wording; slogan is "Where all your threads meet." (source: seam-site src/copy.ts).
-- Task 2 (waiting on Grayson's choice): welcome page and terms acceptance redesign. Three prototypes
-  (A hero band, B full cobalt + sheet, C editorial) live in test/mockups/ as review-only widgets;
-  `flutter test test/mockups/splash_mockups_test.dart` renders them to build/mockups/, and the
-  contact sheets are /tmp/review/splash/contact_{light,dark}.png. Nothing in lib/ is changed yet.
-  When a variant is chosen: build it in lib/pages/intro/intro_page.dart and
-  lib/widgets/terms_acceptance_views.dart, keep the launch morph (SeamStartup.loaderSize 192),
-  extend test/onboarding/welcome_test.dart, then delete test/mockups/.
+- Task 2 (done): the welcome page is variant B, full cobalt with a sheet
+  (lib/pages/intro/intro_page.dart, lib/widgets/terms_acceptance_views.dart). Stacked in portrait and
+  narrow windows, two panes from 600 dp wide in landscape and from 841 dp in any shape. The launch
+  morph keeps the mark at 192 dp. Tests: test/onboarding/welcome_test.dart. After-screens:
+  /tmp/review/splash/final_*.png.
+- Play feature graphic and alt text carry the new slogan (android/store/make-graphics.py).
+  android/store/icon-512.png was left as it was; the duotone branch owns the brand kit.

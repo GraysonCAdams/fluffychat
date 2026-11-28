@@ -58,7 +58,7 @@ def feature_graphic():
 </style></head>
 <body>
   <div class="mark">{mark}</div>
-  <div><div class="name">Seam</div><div class="tagline">Where your threads meet.</div></div>
+  <div><div class="name">Seam</div><div class="tagline">Where all your threads meet.</div></div>
 </body></html>'''
     work = tempfile.mkdtemp()
     try:

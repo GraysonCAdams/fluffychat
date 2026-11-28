@@ -5,17 +5,29 @@
 import 'package:fluffychat/widgets/seam_stitch_loader.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// The Seam mark, still, drawn in one [color] on the stitch loader's logo
+/// The Seam mark, still, drawn in [color] on the stitch loader's logo
 /// pose, so it lines up exactly with [SeamStitchLoader] at the same [size].
+/// [pale], when given, fills the bubble above the seam: the brand duotone
+/// is white with [SeamStitchPainter.periwinkle].
 class SeamMark extends StatelessWidget {
   final double size;
   final Color color;
+  final Color? pale;
 
-  const SeamMark({super.key, this.size = 96, this.color = Colors.white});
+  const SeamMark({
+    super.key,
+    this.size = 96,
+    this.color = Colors.white,
+    this.pale,
+  });
 
   @override
   Widget build(BuildContext context) => CustomPaint(
     size: Size.square(size),
-    painter: SeamStitchPainter(motion: SeamStitchMotion()..land(), ink: color),
+    painter: SeamStitchPainter(
+      motion: SeamStitchMotion()..land(),
+      ink: color,
+      pale: pale,
+    ),
   );
 }
