@@ -123,6 +123,24 @@ enum AppSettings<T> {
     'https://seam.312.dev/privacy',
   ),
   tos<String>('chat.fluffy.tos_url', 'https://seam.312.dev/terms'),
+
+  /// Seam's own Terms of use and Privacy policy, linked from the sign-in
+  /// page and the terms dialog. Kept apart from [tos] and [privacyPolicy]
+  /// because those go into the OIDC registration, which rejects links off
+  /// the host of [website].
+  termsOfUseUrl<String>(
+    'dev.threeonetwo.seam.terms_url',
+    'https://seam.312.dev/terms',
+  ),
+  privacyPolicyPageUrl<String>(
+    'dev.threeonetwo.seam.privacy_url',
+    'https://seam.312.dev/privacy',
+  ),
+
+  /// The newest Terms of use version agreed to on this device, and when, in
+  /// milliseconds since epoch (see TermsAcceptance).
+  termsAcceptedVersion<String>('dev.threeonetwo.seam.terms_version', ''),
+  termsAcceptedAt<int>('dev.threeonetwo.seam.terms_accepted_at', 0),
   sendTimelineEventTimeout<int>('chat.fluffy.send_timeline_event_timeout', 15),
   webNotificationSound<bool>('chat.fluffy.web_notification_sound', true),
   chatFilter<String>('chat.fluffy.chat_filter', 'allChats'),

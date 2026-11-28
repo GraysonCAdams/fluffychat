@@ -8,6 +8,7 @@ import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/events/message.dart';
 import 'package:fluffychat/pages/chat/events/message_reactions.dart';
+import 'package:fluffychat/pages/chat/status_mark.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -296,7 +297,9 @@ void main() {
   });
 
   group('delivery status', () {
-    Finder sentMark() => find.byIcon(Icons.check_circle_outline);
+    Finder sentMark() => find.byWidgetPredicate(
+      (widget) => widget is StatusMark && widget.state == StatusMarkState.sent,
+    );
 
     testWidgets('the newest own message shows it was sent', (tester) async {
       await pumpMessage(
@@ -331,6 +334,10 @@ void main() {
       expect(sentMark(), findsNothing);
       expect(find.text('Could not be sent'), findsOneWidget);
       expect(find.byIcon(Icons.error_outlined), findsOneWidget);
+      expect(
+        tester.widget<StatusMark>(find.byType(StatusMark)).state,
+        StatusMarkState.failed,
+      );
     });
   });
 }

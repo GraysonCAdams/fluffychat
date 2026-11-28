@@ -5,7 +5,9 @@
 // ignore_for_file: depend_on_referenced_packages
 
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat/status_mark.dart';
 import 'package:fluffychat/pages/chat_list/chat_list_item.dart';
+import 'package:fluffychat/pages/chat_list/own_message_status.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -113,14 +115,22 @@ void main() {
   Finder spoken(String label) =>
       find.bySemanticsLabel(RegExp('(^|\\n)${RegExp.escape(label)}(\\n|\$)'));
 
-  Finder outlinedChecks() => find.byIcon(Icons.check_circle_outline);
-  Finder filledChecks() => find.byIcon(Icons.check_circle);
+  /// The state the row's status mark shows, or null without one.
+  StatusMarkState? markState(WidgetTester tester) {
+    final marks = find.byType(StatusMark);
+    if (marks.evaluate().isEmpty) return null;
+    return tester.widget<StatusMark>(marks).state;
+  }
 
   testWidgets('a message on its way shows a clock', (tester) async {
     final semantics = tester.ensureSemantics();
     await show(tester, chat(status: EventStatus.sending));
-    expect(find.byIcon(Icons.schedule), findsOneWidget);
+    expect(markState(tester), StatusMarkState.sending);
     // The clock takes the place of a spinner.
+    expect(
+      tester.widget<StatusMark>(find.byType(StatusMark)).sending,
+      StatusMarkSending.clock,
+    );
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(spoken('Sending'), findsOneWidget);
     semantics.dispose();
@@ -131,8 +141,7 @@ void main() {
   ) async {
     final semantics = tester.ensureSemantics();
     await show(tester, chat());
-    expect(outlinedChecks(), findsOneWidget);
-    expect(filledChecks(), findsNothing);
+    expect(markState(tester), StatusMarkState.sent);
     expect(spoken('Sent'), findsOneWidget);
     semantics.dispose();
   });
@@ -144,13 +153,21 @@ void main() {
     final room = chat(bridged: true);
     read(room, '@khai:x');
     await show(tester, room);
-    expect(filledChecks(), findsNWidgets(2));
-    expect(outlinedChecks(), findsNothing);
+    expect(markState(tester), StatusMarkState.read);
     expect(spoken('Read'), findsOneWidget);
-    final check = tester.widget<Icon>(filledChecks().first);
+    // Read is told by shape, in the preview text's own colour.
+    final mark = tester.widget<StatusMark>(find.byType(StatusMark));
     expect(
-      check.color,
-      Theme.of(tester.element(filledChecks().first)).colorScheme.primary,
+      mark.color,
+      isNot(
+        Theme.of(tester.element(find.byType(StatusMark))).colorScheme.primary,
+      ),
+    );
+    expect(
+      mark.color,
+      DefaultTextStyle.of(
+        tester.element(find.byType(OwnMessageStatusIcon)),
+      ).style.color,
     );
     semantics.dispose();
   });
@@ -161,7 +178,7 @@ void main() {
     read(room, _bot);
     await show(tester, room);
     expect(spoken('Sent'), findsOneWidget);
-    expect(filledChecks(), findsNothing);
+    expect(markState(tester), StatusMarkState.sent);
     semantics.dispose();
   });
 
@@ -187,8 +204,7 @@ void main() {
     read(room, '@a:x');
     read(room, '@b:x');
     await show(tester, room);
-    expect(outlinedChecks(), findsNWidgets(2));
-    expect(filledChecks(), findsNothing);
+    expect(markState(tester), StatusMarkState.readBySome);
     expect(spoken('Read by 2 of 3'), findsOneWidget);
     semantics.dispose();
   });
@@ -202,7 +218,7 @@ void main() {
       read(room, user);
     }
     await show(tester, room);
-    expect(filledChecks(), findsNWidgets(2));
+    expect(markState(tester), StatusMarkState.read);
     expect(spoken('Read'), findsOneWidget);
     semantics.dispose();
   });
@@ -225,9 +241,7 @@ void main() {
 
   testWidgets('someone else\'s message shows no status', (tester) async {
     await show(tester, chat(sender: '@khai:x'));
-    expect(outlinedChecks(), findsNothing);
-    expect(filledChecks(), findsNothing);
-    expect(find.byIcon(Icons.schedule), findsNothing);
+    expect(find.byType(StatusMark), findsNothing);
   });
 
   testWidgets('a read receipt that arrives turns the check filled', (
@@ -255,7 +269,7 @@ void main() {
     );
     await tester.pump();
     expect(spoken('Read'), findsOneWidget);
-    expect(filledChecks(), findsNWidgets(2));
+    expect(markState(tester), StatusMarkState.read);
     // Lets the timers the sync started run out.
     await tester.pump(const Duration(seconds: 2));
     semantics.dispose();

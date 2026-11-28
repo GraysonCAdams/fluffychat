@@ -22,6 +22,7 @@ enum _MessageAction {
   delete,
   info,
   report,
+  block,
   resendViaFallback,
   replayEffect,
 }
@@ -163,6 +164,13 @@ Future<void> showMessageContextMenu(
           l10n.reportMessage,
           color: Colors.red,
         ),
+      if (controller.canBlockSelectedSender)
+        item(
+          _MessageAction.block,
+          Icons.block_outlined,
+          l10n.blockUser,
+          color: Colors.red,
+        ),
     ],
   );
 
@@ -195,6 +203,8 @@ Future<void> showMessageContextMenu(
       controller.showEventInfo(event);
     case _MessageAction.report:
       await controller.reportEventAction();
+    case _MessageAction.block:
+      await controller.blockSenderAction();
     case _MessageAction.resendViaFallback:
       await controller.resendViaFallback(event);
     case _MessageAction.replayEffect:

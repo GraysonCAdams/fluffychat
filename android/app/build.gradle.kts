@@ -108,26 +108,29 @@ android {
         manifestPlaceholders["appLabel"] = "Seam"
         // URL schemes for deep links and the SSO redirect. They must match
         // AppConfig.appOpenUrlScheme and appSsoUrlScheme in Dart, which pick
-        // the same values by build mode.
+        // the same values by build mode. The SSO scheme starts with the
+        // client_uri host, seam.312.dev, in reverse, as OIDC requires.
         manifestPlaceholders["appUrlScheme"] = "dev.threeonetwo.seam"
-        manifestPlaceholders["appSsoUrlScheme"] = "dev.threeonetwo.seam.auth"
+        manifestPlaceholders["appSsoUrlScheme"] = "dev.312.seam.auth"
         ndk { // Workaround for https://github.com/flutter/flutter/issues/162153#issuecomment-2612443642
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64", "x86")
         }
     }
 
     buildTypes {
-        // Debug and profile builds keep the URL schemes of the owner's
-        // long-lived install, which was set up under them.
+        // Debug and profile builds keep the deep link scheme of the owner's
+        // long-lived install, which was set up under it, and take an SSO
+        // scheme of their own, so they and the release app on one device do
+        // not both claim the redirect.
         debug {
             manifestPlaceholders["appUrlScheme"] = "im.fluffychat"
-            manifestPlaceholders["appSsoUrlScheme"] = "im.fluffychat.auth"
+            manifestPlaceholders["appSsoUrlScheme"] = "dev.312.seam.dev.auth"
         }
         // Flutter's profile build type is copied from debug before the block
         // above applies, so it needs the same values set again.
         getByName("profile") {
             manifestPlaceholders["appUrlScheme"] = "im.fluffychat"
-            manifestPlaceholders["appSsoUrlScheme"] = "im.fluffychat.auth"
+            manifestPlaceholders["appSsoUrlScheme"] = "dev.312.seam.dev.auth"
         }
         release {
             signingConfig = signingConfigs.findByName("release")

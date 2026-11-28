@@ -127,7 +127,7 @@ class Avatar extends StatelessWidget {
                       decoration: BoxDecoration(
                         color:
                             backgroundColor ??
-                            fallbackLetters.colorScheme.primaryContainer,
+                            fallbackLetters.avatarColors.fill,
                       ),
                       alignment: Alignment.center,
                       child: numberIcon != null
@@ -135,9 +135,7 @@ class Avatar extends StatelessWidget {
                               numberIcon,
                               color:
                                   textColor ??
-                                  fallbackLetters
-                                      .colorScheme
-                                      .onPrimaryContainer,
+                                  fallbackLetters.avatarColors.onFill,
                               size: (size / 2).roundToDouble(),
                             )
                           : Text(
@@ -147,9 +145,7 @@ class Avatar extends StatelessWidget {
                               style: TextStyle(
                                 color:
                                     textColor ??
-                                    fallbackLetters
-                                        .colorScheme
-                                        .onPrimaryContainer,
+                                    fallbackLetters.avatarColors.onFill,
                                 fontWeight: FontWeight.bold,
                                 fontSize: (size / 2.5).roundToDouble(),
                               ),

@@ -884,25 +884,10 @@ class ChatController extends State<ChatPageWithRoom>
     _tryLoadTimeline();
   }
 
-  final Set<String> expandedEventIds = {};
-
-  void expandEventsFrom(Event event, bool expand) {
-    final events = timeline!.events.filterByVisibleInGui(
-      threadId: activeThreadId,
-    );
-    final start = events.indexOf(event);
-    setState(() {
-      for (var i = start; i < events.length; i++) {
-        final event = events[i];
-        if (!event.isCollapsedState) return;
-        if (expand) {
-          expandedEventIds.add(event.eventId);
-        } else {
-          expandedEventIds.remove(event.eventId);
-        }
-      }
-    });
-  }
+  /// Runs of system events the user has unfolded, by the event ID of each
+  /// run's oldest event (which stays put as newer events arrive), so a run
+  /// scrolled away and back comes back as it was left.
+  final Set<String> expandedStateGroups = {};
 
   Future<void> _tryLoadTimeline() async {
     if (room.membership == .invite) return;
@@ -1827,6 +1812,40 @@ class ChatController extends State<ChatPageWithRoom>
     scaffoldMessenger.showSnackBar(
       SnackBar(content: Text(l10n.contentHasBeenReported)),
     );
+  }
+
+  /// Whether the single selected message came from someone this account
+  /// can still block.
+  bool get canBlockSelectedSender {
+    if (selectedEvents.length != 1) return false;
+    final senderId = selectedEvents.single.senderId;
+    final client = room.client;
+    return senderId != client.userID &&
+        senderId.sigil == '@' &&
+        !client.ignoredUsers.contains(senderId);
+  }
+
+  /// Blocks the selected message's sender after a confirmation: the same
+  /// ignore list as Settings > Security > Blocked users.
+  Future<void> blockSenderAction() async {
+    final event = selectedEvents.single;
+    final l10n = L10n.of(context);
+    final sender = event.senderFromMemoryOrFallback;
+    final consent = await showOkCancelAlertDialog(
+      context: context,
+      title: l10n.blockUserQuestion(sender.calcDisplayname()),
+      message: l10n.blockListDescription,
+      okLabel: l10n.block,
+      cancelLabel: l10n.cancel,
+      isDestructive: true,
+    );
+    if (consent != OkCancelResult.ok || !mounted) return;
+    final result = await showFutureLoadingDialog(
+      context: context,
+      future: () => room.client.ignoreUser(event.senderId),
+    );
+    if (result.error != null || !mounted) return;
+    clearSelectedEvents();
   }
 
   Future<void> deleteErrorEventsAction() async {

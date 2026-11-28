@@ -42,7 +42,9 @@ import '../pages/key_verification/key_verification_dialog.dart';
 import '../utils/account_bundles.dart';
 import '../utils/android_conversation_notifications.dart';
 import '../utils/background_push.dart';
+import '../utils/terms_acceptance.dart';
 import 'local_notifications_extension.dart';
+import 'terms_acceptance_views.dart';
 
 class Matrix extends StatefulWidget {
   final Widget? child;
@@ -286,6 +288,7 @@ class MatrixState extends State<Matrix> {
           MergeSuggestionService.disposeFor(c);
           MergedContactsStore.disposeFor(c);
           MatrixFeatures.disposeFor(c);
+          TermsAcceptance.disposeFor(c);
           widget.clients.remove(c);
           ClientManager.removeClientNameFromStore(c.clientName, store);
           InitWithRestoreExtension.deleteSessionBackup(name);
@@ -309,6 +312,12 @@ class MatrixState extends State<Matrix> {
           FluffyChatApp.router.go('/');
         });
     onUiaRequest[name] ??= c.onUiaRequest.stream.listen(uiaRequestHandler);
+    promptForTermsIfNeeded(
+      c,
+      () =>
+          FluffyChatApp.router.routerDelegate.navigatorKey.currentContext ??
+          context,
+    );
     final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
     if (PlatformInfos.isWeb || PlatformInfos.isDesktop) {
       c.onSync.stream.first.then((s) {
