@@ -204,8 +204,14 @@ class _WelcomeBody extends StatelessWidget {
                             SizedBox.square(
                               dimension: mark,
                               child: page.isLoading
-                                  ? SeamStitchLoader(size: mark)
-                                  : SeamMark(size: mark),
+                                  ? SeamStitchLoader(
+                                      size: mark,
+                                      pale: SeamStitchPainter.periwinkle,
+                                    )
+                                  : SeamMark(
+                                      size: mark,
+                                      pale: SeamStitchPainter.periwinkle,
+                                    ),
                             ),
                             ClipRect(
                               child: Align(

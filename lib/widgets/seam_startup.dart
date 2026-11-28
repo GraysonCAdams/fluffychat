@@ -120,6 +120,7 @@ class _SeamStartupState extends State<SeamStartup> {
                     child: Center(
                       child: SeamStitchLoader(
                         size: SeamStartup.loaderSize,
+                        pale: SeamStitchPainter.periwinkle,
                         loading: app == null,
                         onLanded: () {
                           if (SeamStartup._takeOver != null) {
