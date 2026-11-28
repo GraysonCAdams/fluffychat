@@ -3,7 +3,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
@@ -14,6 +13,7 @@ import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_list/client_chooser_button.dart';
 import 'package:fluffychat/pages/chat_list/search_scope.dart';
 import 'package:fluffychat/utils/matrix_features.dart';
+import 'package:fluffychat/utils/shown_sync_status.dart';
 import 'package:fluffychat/utils/sync_status_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
@@ -579,28 +579,18 @@ class _SyncStatusBuilder extends StatefulWidget {
 }
 
 class _SyncStatusBuilderState extends State<_SyncStatusBuilder> {
-  StreamSubscription<SyncStatusUpdate>? _subscription;
+  ShownSyncStatus? _source;
   Object? _shown;
 
-  SyncStatusUpdate get _status =>
-      _failure ??
-      widget.client.onSyncStatus.value ??
-      const SyncStatusUpdate(SyncStatus.waitingForResponse);
+  /// The status as the app shows it (see [ShownSyncStatus]), which leaves
+  /// out a failure from while the app was away.
+  ShownSyncStatus get _sync => _source!;
 
-  /// The latest failure, set by a failed sync and cleared only by one that
-  /// succeeds. Each retry first reports that it is waiting for a response,
-  /// which is no error, so going by the latest status alone would hide the
-  /// status between retries and show it again when the retry fails.
-  SyncStatusUpdate? _failure;
-
-  void _track(SyncStatusUpdate? status) {
-    if (status?.status == SyncStatus.error) _failure = status;
-    if (status?.status == SyncStatus.finished) _failure = null;
-  }
+  SyncStatusUpdate get _status => _sync.failure ?? _sync.latest;
 
   bool _hide(SyncStatusUpdate status) {
     final client = widget.client;
-    return _failure == null &&
+    return _sync.failure == null &&
         client.onSync.value != null &&
         status.status != SyncStatus.error &&
         client.prevBatch != null;
@@ -618,17 +608,17 @@ class _SyncStatusBuilderState extends State<_SyncStatusBuilder> {
     );
   }
 
+  void _onStatus() {
+    if (!mounted) return;
+    final state = _displayedState();
+    if (state == _shown) return;
+    setState(() => _shown = state);
+  }
+
   void _subscribe() {
-    _subscription?.cancel();
-    _track(widget.client.onSyncStatus.value);
+    _source?.removeListener(_onStatus);
+    _source = ShownSyncStatus.of(widget.client)..addListener(_onStatus);
     _shown = _displayedState();
-    _subscription = widget.client.onSyncStatus.stream.listen((status) {
-      _track(status);
-      if (!mounted) return;
-      final state = _displayedState();
-      if (state == _shown) return;
-      setState(() => _shown = state);
-    });
   }
 
   @override
@@ -645,7 +635,7 @@ class _SyncStatusBuilderState extends State<_SyncStatusBuilder> {
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    _source?.removeListener(_onStatus);
     super.dispose();
   }
 
