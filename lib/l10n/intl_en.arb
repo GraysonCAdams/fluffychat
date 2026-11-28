@@ -4182,11 +4182,11 @@
       }
     }
   },
-  "welcomeTagline": "Where your threads meet.",
+  "welcomeTagline": "Where all your threads meet.",
   "@welcomeTagline": {
     "description": "Tagline under the app name on the welcome page."
   },
-  "welcomeBody": "One inbox for every network. Sign in to your own Matrix server and its bridges bring iMessage, WhatsApp and the rest here.",
+  "welcomeBody": "All your chats in one place. Sign in to your own Matrix account, and the bridges on your homeserver bring your other networks here.",
   "@welcomeBody": {
     "description": "Body text on the welcome page."
   },
