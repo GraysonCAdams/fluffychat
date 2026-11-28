@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:typed_data';
+
 import 'package:async/async.dart' show Result;
 import 'package:cross_file/cross_file.dart';
 import 'package:fluffychat/l10n/l10n.dart';
@@ -14,9 +16,17 @@ import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/utils/resize_video.dart';
 import 'package:fluffychat/utils/room_features.dart';
 import 'package:fluffychat/utils/start_push_foreground_service.dart';
+import 'package:fluffychat/utils/video_poster.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart' hide Result;
 import 'package:mime/mime.dart';
+
+/// A video's first frame on the desktop, where the mobile path's
+/// thumbnail maker is not available.
+Future<Uint8List?> _desktopVideoPoster(String path) =>
+    PlatformInfos.isMobile || !VideoPoster.isSupported
+    ? Future.value(null)
+    : VideoPoster.forFile(path);
 
 /// Upload limit assumed when the homeserver does not report `m.upload.size`.
 const int _fallbackMaxUploadSize = 100 * 1000 * 1000;
@@ -26,8 +36,10 @@ const int _fallbackMaxUploadSize = 100 * 1000 * 1000;
 /// This is the upload path shared by the composer and the gallery picker, and
 /// it produces the same events as `SendFileDialog`: the mime type comes from
 /// the picker or the file path, images and videos are sent as the original
-/// (videos on mobile also get a thumbnail), and anything over the
-/// homeserver's upload limit is refused before it is uploaded.
+/// (a video with its first frame as thumbnail: from the mobile thumbnail
+/// maker, or elsewhere from [videoPoster], [VideoPoster.forFile] by
+/// default), and anything over the homeserver's upload limit is refused
+/// before it is uploaded.
 ///
 /// Each file is then fitted to what [room]'s bridge accepts, from its
 /// `com.beeper.room_features` state (see [adaptMediaForRoom]): an image type
@@ -78,6 +90,7 @@ Future<void> sendAttachments({
   ScaffoldMessengerState? scaffoldMessenger,
   L10n? l10n,
   void Function(Object error, StackTrace stackTrace)? onError,
+  Future<Uint8List?> Function(String path)? videoPoster = _desktopVideoPoster,
 }) async {
   if (files.isEmpty) return;
 
@@ -142,6 +155,7 @@ Future<void> sendAttachments({
               snackbars.l10n.compressingVideo,
             );
           },
+          videoPoster: videoPoster,
           onCompressEnd: () {
             snackbars?.messenger.clearSnackBars();
             showSendingSnackBar();
@@ -199,6 +213,7 @@ Future<({bool caption})> _sendOne({
   required String? threadLastEventId,
   required void Function() onCompressStart,
   required void Function() onCompressEnd,
+  required Future<Uint8List?> Function(String path)? videoPoster,
 }) async {
   final mimeType = xfile.mimeType ?? lookupMimeType(xfile.path);
   final isMobileVideo =
@@ -217,6 +232,15 @@ Future<({bool caption})> _sendOne({
       name: xfile.name,
       mimeType: mimeType,
     ).detectFileType;
+    // Elsewhere a video's first frame, which the composer already made for
+    // its preview, goes as its thumbnail: without one its bubble, here and
+    // in every other client, has only a blur hash to show.
+    if (file is MatrixVideoFile && videoPoster != null) {
+      final frame = await videoPoster(xfile.path);
+      if (frame != null) {
+        thumbnail = await videoThumbnailFile(frame, xfile.name);
+      }
+    }
   }
 
   final adapted = await adaptMediaForRoom(
