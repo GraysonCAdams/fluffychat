@@ -1569,11 +1569,38 @@ class ChatController extends State<ChatPageWithRoom>
     addPendingAttachments(xFiles);
   }
 
-  /// Offers the GIF linked from the clipboard for sending, returning false
-  /// when the clipboard holds no such GIF.
+  /// The emoji panel GIF staged last, and when. One pick in the panel can
+  /// reach the composer twice within moments: as the clipboard write
+  /// [_watchEmojiPanel] sees and as a paste, or as two writes the watcher
+  /// sees one after the other.
+  ({Uri link, DateTime at})? _panelGif;
+
+  /// How soon the same emoji panel GIF counts as the same pick.
+  static const _panelGifRepeat = Duration(seconds: 2);
+
+  /// Stages the GIF linked from the clipboard, returning false when the
+  /// clipboard holds no such GIF. A GIF from the emoji panel that was just
+  /// staged is not staged again.
   Future<bool> _pasteClipboardGif() async {
-    final gif = await clipboardLinkedGif();
-    if (gif == null) return false;
+    final link = await clipboardGifLink();
+    if (link == null) return false;
+    final fromPanel = WindowsClipboard.holdsEmojiPanelContent;
+    if (fromPanel) {
+      final now = DateTime.now();
+      final last = _panelGif;
+      if (last != null &&
+          last.link == link &&
+          now.difference(last.at) < _panelGifRepeat) {
+        return true;
+      }
+      // Claimed before the download, which the other path may race.
+      _panelGif = (link: link, at: now);
+    }
+    final gif = await downloadGif(link);
+    if (gif == null) {
+      if (fromPanel) _panelGif = null;
+      return false;
+    }
     if (!mounted) return true;
     addPendingAttachments([gif]);
     return true;
@@ -1749,10 +1776,10 @@ class ChatController extends State<ChatPageWithRoom>
 
   Timer? _emojiPanelWatcher;
 
-  /// The Windows emoji panel (Win+.) only copies a picked GIF to the
-  /// clipboard, since Flutter's text field cannot take it directly. While the
-  /// composer has focus, a GIF the panel copies is offered for sending as if
-  /// the user had pasted it.
+  /// The Windows emoji panel (Win+.) copies a picked GIF to the clipboard,
+  /// since Flutter's text field cannot take it directly. While the composer
+  /// has focus, a GIF the panel copies is staged as if the user had pasted
+  /// it; should a paste follow, [_pasteClipboardGif] does not stage it twice.
   void _watchEmojiPanel(bool composerFocused) {
     _emojiPanelWatcher?.cancel();
     _emojiPanelWatcher = null;
