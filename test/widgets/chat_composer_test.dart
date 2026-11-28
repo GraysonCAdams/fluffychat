@@ -253,4 +253,41 @@ void main() {
       }
     });
   }
+  for (final focusedBefore in [true, false]) {
+    testWidgets('the system emoji picker opens with the composer focused, '
+        '${focusedBefore ? 'as it was' : 'though it was not'}', (tester) async {
+      var opened = 0;
+      bool? focusedAtOpen;
+      bool? connectedAtOpen;
+      NativeEmojiPicker.debugSupported = true;
+      late ChatController chat;
+      NativeEmojiPicker.debugOpen = () async {
+        opened++;
+        focusedAtOpen = chat.inputFocus.hasFocus;
+        connectedAtOpen = tester.testTextInput.hasAnyClients;
+      };
+      addTearDown(() {
+        NativeEmojiPicker.debugSupported = null;
+        NativeEmojiPicker.debugOpen = null;
+      });
+      chat = await open(tester);
+      if (focusedBefore) {
+        chat.inputFocus.requestFocus();
+      } else {
+        chat.inputFocus.unfocus();
+      }
+      await tester.pump();
+      expect(chat.inputFocus.hasFocus, focusedBefore);
+
+      await tester.tap(emoji);
+      await tester.pump();
+      await tester.pump();
+      expect(opened, 1);
+      // The picker types into what has focus: the composer's text field,
+      // with its text input connection open.
+      expect(focusedAtOpen, isTrue);
+      expect(connectedAtOpen, isTrue);
+      expect(chat.inputFocus.hasFocus, isTrue);
+    });
+  }
 }

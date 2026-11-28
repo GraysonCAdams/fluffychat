@@ -12,5 +12,8 @@ abstract final class NativeEmojiPicker {
 
   static bool get supported => debugSupported ?? false;
 
-  static Future<void> open() async {}
+  @visibleForTesting
+  static Future<void> Function()? debugOpen;
+
+  static Future<void> open() async => debugOpen?.call();
 }

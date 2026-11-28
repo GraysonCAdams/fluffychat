@@ -30,9 +30,16 @@ abstract final class NativeEmojiPicker {
     'chat.fluffy.fluffychat/emoji_palette',
   );
 
+  /// Stands in for opening the picker, for tests, which must not open the
+  /// real one on the machine running them.
+  @visibleForTesting
+  static Future<void> Function()? debugOpen;
+
   /// Opens the picker. The caller gives the text field focus first, since
   /// the picker types where focus is.
   static Future<void> open() async {
+    final debugOpen = NativeEmojiPicker.debugOpen;
+    if (debugOpen != null) return debugOpen();
     try {
       if (Platform.isWindows) {
         _pressWinPeriod();
