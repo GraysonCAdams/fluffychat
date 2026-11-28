@@ -64,7 +64,7 @@ so). "Gate" is the Dart platform check that keeps the feature off Apple platform
 | Photos in notifications | Android | none | none | `UNNotificationAttachment` from the extension |
 | Group collage icon | Android shortcut icon, Windows toast | room avatar only | none | collage rendered for the intent's `INImage` |
 | Conversation shortcuts, direct share | Android | none | none | `INInteraction` donation, share suggestions |
-| Unread badge | Windows taskbar | extension sets it | **built**: the Dock icon shows the unread chat count on every sync (`_updateTaskbarBadge` in `lib/widgets/matrix.dart`); not yet seen with an account | `NSApp.dockTile.badgeLabel` from sync |
+| Unread badge | Windows taskbar | extension sets it | **seen**: against the local test server the Dock badge read `1` with one unread chat and cleared when the chat was read from another session (`_updateTaskbarBadge` in `lib/widgets/matrix.dart`) | `NSApp.dockTile.badgeLabel` from sync |
 | Effect haptics | `effect_haptics.dart` (Android channel) | **built**: `ios/Runner/EffectHaptics.swift` answers the same channel; not yet felt on a device | n/a | Core Haptics patterns behind the same channel |
 | Voice transcripts | whisper (`isAndroid \|\| isWindows`) | hidden | hidden | Speech framework, on device |
 | Contacts import | Android | hidden | hidden | `flutter_contacts` gate plus purpose string |
@@ -72,7 +72,7 @@ so). "Gate" is the Dart platform check that keeps the feature off Apple platform
 | Context menus | Windows native menu | Flutter menu | Flutter menu | `SystemContextMenu` on iOS, `NSMenu` on macOS |
 | Chat windows | Windows | n/a | hidden | one `NSWindow` per chat |
 | Stay running, launch at login | Windows tray | n/a | quits with the last window | keep running after close, `SMAppService`, `NSStatusItem` |
-| Menu bar | n/a | n/a | **built**: `lib/widgets/mac_menu_bar.dart` (Settings, New chat, New group, Edit commands, Chats, Window); menu read back from the running app, items not yet exercised signed in; File/Edit/View/Window/Undo/Redo titles are English only | `PlatformMenuBar` |
+| Menu bar | n/a | n/a | **built**: `lib/widgets/mac_menu_bar.dart` (Settings, New chat, New group, Edit commands, Chats, Window); signed in, Settings, New chat, New group and Chats each went to their route when clicked through accessibility; File/Edit/View/Window/Undo/Redo titles are English only | `PlatformMenuBar` |
 | Title bar with search | `WindowsChrome` | n/a | standard | unified `NSToolbar` title bar |
 | Data detectors | Android `TextClassifier`, Windows Seam's own (`lib/utils/data_detectors`, branch `feat/data-detectors-v3`) | **built**: `ios/Runner/DataDetectors.swift` answers `chat.fluffy.fluffychat/data_detectors` with `NSDataDetector` (Maps, Call, FaceTime, Create Event, Show in Calendar); seen in a chat on the simulator: address, date, phone and flight are underlined, the tap menu lists Create Event and Show in Calendar before Seam's Copy, and Create Event opens the system sheet on the right day and hour. Call, FaceTime and Maps not exercised (the simulator has no phone). Relative dates resolve from today, titles are English, no icons | Seam's own Dart detector | `NSDataDetector` behind that channel (contract in `data_detector_platform.dart`) |
 | Share-to | Android intents (`SEND`, `SEND_MULTIPLE`, any type) | **built**: Seam's own `ShareViewController` copies every attachment as a file into the app group's `SharedItems` folder and a `SUBQUERY` activation rule takes any number of data, link or text items. Seen on the simulator against the local test server: 12 photos from Photos list Seam, are staged on the New chat screen, and arrive on the server as 12 `m.image` messages. Not yet seen: a contact card or pass, slow-motion video, a physical device | none: no share extension, no `CFBundleDocumentTypes`, so Seam is absent from the Share menu and Open With | macOS: share extension plus document types |
@@ -128,6 +128,13 @@ typing indicators, read status, app lock, one-time-code detection.
   password, chat list with unread count, data detectors and Create Event, 12 shared photos sent.
   Found on the way: the New chat screen's recent conversation rows carry no accessibility label
   (the driver could not find "Group with bob" by name; VoiceOver users likely cannot either).
+
+- 2026-11-28 (overnight): Mac app signed in to the local test server as the second user (ad hoc
+  signed, no keychain group). Menu items and Dock badge seen working. Emoji button: it reaches
+  `TSMLaunchCharacterPalette`, which answers `okToLaunch: 0`; the system's own Edit > Emoji &
+  Symbols gets the same refusal in this session, where another app (a KVM viewer) holds the front
+  and Seam cannot be made frontmost over ssh. So the Character Viewer and the emoji landing in
+  the composer still need a look at the Mac in person.
 
 ## Needs Grayson
 
