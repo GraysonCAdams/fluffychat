@@ -88,6 +88,9 @@ class MatrixState extends State<Matrix> {
 
   bool get isMultiAccount => widget.clients.length > 1;
 
+  /// Whether any account is signed in, or being signed in to.
+  bool get hasClients => widget.clients.isNotEmpty;
+
   int getClientIndexByMatrixId(String matrixId) =>
       widget.clients.indexWhere((client) => client.userID == matrixId);
 

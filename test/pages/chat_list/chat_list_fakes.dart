@@ -268,6 +268,9 @@ class FakeMatrix extends MatrixState {
   bool get hasComplexBundles => false;
 
   @override
+  bool get hasClients => true;
+
+  @override
   // Keyed by the user ID, as a lone account's bundle is, so the account
   // menu shows no bundle heading.
   Map<String?, List<Client?>> get accountBundles => {
@@ -440,7 +443,14 @@ FakeChatListRoom addFakeChat(
 /// Shows the chat list of [client] at `/rooms`, with chat and merged contact
 /// routes that name what they opened. Returns the router to read the
 /// location from.
-Future<GoRouter> pumpFakeChatList(WidgetTester tester, Client client) async {
+///
+/// [matrix] stands in for the app's account state, as several accounts do;
+/// a single account of [client] by default.
+Future<GoRouter> pumpFakeChatList(
+  WidgetTester tester,
+  Client client, {
+  MatrixState? matrix,
+}) async {
   final prefs = await SharedPreferences.getInstance();
   final router = GoRouter(
     initialLocation: '/rooms',
@@ -481,7 +491,7 @@ Future<GoRouter> pumpFakeChatList(WidgetTester tester, Client client) async {
   );
   await tester.pumpWidget(
     Provider<MatrixState>.value(
-      value: FakeMatrix(client, prefs),
+      value: matrix ?? FakeMatrix(client, prefs),
       child: MaterialApp.router(
         theme: ThemeData(
           appBarTheme: const AppBarTheme(

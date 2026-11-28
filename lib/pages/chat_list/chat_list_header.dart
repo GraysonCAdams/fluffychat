@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
@@ -512,7 +513,6 @@ class SyncStatusToast extends StatelessWidget {
     final theme = Theme.of(context);
     final foreground = theme.colorScheme.onInverseSurface;
     return _SyncStatusBuilder(
-      client: Matrix.of(context).client,
       builder: (context, status, hide) => AnimatedSwitcher(
         duration: FluffyThemes.animationDuration,
         child: hide
@@ -560,9 +560,11 @@ class SyncStatusToast extends StatelessWidget {
 /// The client reports several status updates per sync loop, and most leave
 /// the display as it was once the first sync is done. Each update is reduced
 /// to the inputs the parts read, and only a different result rebuilds them.
+///
+/// The status is the active account's. [Matrix] tells no one when the active
+/// account changes, so each build reads it again, and the bound account
+/// signing out rebuilds the parts, which then show the account that is left.
 class _SyncStatusBuilder extends StatefulWidget {
-  final Client client;
-
   /// Gets the current status and whether it is hidden, which it is once the
   /// client has synced and while no error is reported.
   final Widget Function(
@@ -572,14 +574,16 @@ class _SyncStatusBuilder extends StatefulWidget {
   )
   builder;
 
-  const _SyncStatusBuilder({required this.client, required this.builder});
+  const _SyncStatusBuilder({required this.builder});
 
   @override
   State<_SyncStatusBuilder> createState() => _SyncStatusBuilderState();
 }
 
 class _SyncStatusBuilderState extends State<_SyncStatusBuilder> {
+  Client? _client;
   ShownSyncStatus? _source;
+  StreamSubscription<LoginState>? _signOut;
   Object? _shown;
 
   /// The status as the app shows it (see [ShownSyncStatus]), which leaves
@@ -589,7 +593,7 @@ class _SyncStatusBuilderState extends State<_SyncStatusBuilder> {
   SyncStatusUpdate get _status => _sync.failure ?? _sync.latest;
 
   bool _hide(SyncStatusUpdate status) {
-    final client = widget.client;
+    final client = _client!;
     return _sync.failure == null &&
         client.onSync.value != null &&
         status.status != SyncStatus.error &&
@@ -615,32 +619,43 @@ class _SyncStatusBuilderState extends State<_SyncStatusBuilder> {
     setState(() => _shown = state);
   }
 
-  void _subscribe() {
+  /// Rebuilds once [Matrix] has dropped the signed-out account, which it
+  /// does from its own listener, so the next build reads the account left.
+  /// Nothing is left to show after the last account signs out.
+  void _onSignOut(LoginState _) => Future.microtask(() {
+    if (!mounted || !Matrix.of(context).hasClients) return;
+    setState(() {});
+  });
+
+  /// Watches [client] when it is not the account watched already.
+  void _bind(Client client) {
+    if (client == _client) return;
     _source?.removeListener(_onStatus);
-    _source = ShownSyncStatus.of(widget.client)..addListener(_onStatus);
-    _shown = _displayedState();
+    _signOut?.cancel();
+    _client = client;
+    _source = ShownSyncStatus.of(client)..addListener(_onStatus);
+    _signOut = client.onLoginStateChanged.stream
+        .where((state) => state == LoginState.loggedOut)
+        .listen(_onSignOut);
   }
 
   @override
   void initState() {
     super.initState();
-    _subscribe();
-  }
-
-  @override
-  void didUpdateWidget(covariant _SyncStatusBuilder oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.client != widget.client) _subscribe();
+    _bind(Matrix.of(context).client);
+    _shown = _displayedState();
   }
 
   @override
   void dispose() {
     _source?.removeListener(_onStatus);
+    _signOut?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    _bind(Matrix.of(context).client);
     // A rebuild from the parent can follow changes no status update
     // reported, so start comparing from what is about to be shown.
     _shown = _displayedState();
