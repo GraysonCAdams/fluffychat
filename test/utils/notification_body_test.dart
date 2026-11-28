@@ -100,4 +100,43 @@ void main() {
       'Waiting for attachment PXL_1.jpg',
     );
   });
+  test('a bridge placeholder does not make its sender a bot', () {
+    expect(
+      notificationSenderIsBot(
+        event({
+          'msgtype': MessageTypes.Notice,
+          'body': 'Waiting for attachment PXL_1.jpg',
+          'fi.mau.gmessages.media_pending': true,
+        }),
+      ),
+      isFalse,
+    );
+    expect(
+      notificationSenderIsBot(
+        event({
+          'msgtype': MessageTypes.Notice,
+          'body': 'Failed to transfer attachment PXL_1.jpg',
+        }),
+      ),
+      isFalse,
+    );
+  });
+
+  test('any other notice still comes from a bot', () {
+    expect(
+      notificationSenderIsBot(
+        event({
+          'msgtype': MessageTypes.Notice,
+          'body': 'Your verification code is 123456',
+        }, sender: '@whatsappbot:example.com'),
+      ),
+      isTrue,
+    );
+    expect(
+      notificationSenderIsBot(
+        event({'msgtype': MessageTypes.Text, 'body': 'hi'}),
+      ),
+      isFalse,
+    );
+  });
 }

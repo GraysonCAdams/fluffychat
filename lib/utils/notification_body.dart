@@ -29,6 +29,9 @@ String notificationBodyOf(Event event, L10n l10n) =>
         );
 
 /// Whether a notification shows [event]'s sender as a bot: a notice (an
-/// `m.notice`), the message type bots send.
+/// `m.notice`), the message type bots send. A bridge's placeholder for an
+/// attachment ([PendingMedia]) is a notice too, but its sender is a person
+/// whose photo or video is on its way.
 bool notificationSenderIsBot(Event event) =>
-    event.messageType == MessageTypes.Notice;
+    event.messageType == MessageTypes.Notice &&
+    PendingMedia.of(effectiveEvent(event)) == null;
