@@ -48,6 +48,22 @@ class MxcImage extends StatefulWidget {
   static void clearCache(String cacheName) =>
       _MxcImageState._imageDataCaches.remove(cacheName);
 
+  /// Puts [bytes] in the cache under [cacheName] and [cacheKey], so an
+  /// [MxcImage] with that key draws them from its first frame instead of
+  /// its placeholder. A file being sent is primed this way under its
+  /// transaction ID, which the event keeps once the server has it.
+  static void prime({
+    required String cacheName,
+    required String cacheKey,
+    required Uint8List bytes,
+  }) => (_MxcImageState._imageDataCaches[cacheName] ??= {})[cacheKey] = bytes;
+
+  /// Whether [prime] or an earlier load left bytes under [cacheName] and
+  /// [cacheKey].
+  static bool isCached(String cacheName, String cacheKey) =>
+      _MxcImageState._imageDataCaches[cacheName]?.containsKey(cacheKey) ??
+      false;
+
   const MxcImage({
     this.uri,
     this.event,
@@ -81,9 +97,26 @@ class _MxcImageState extends State<MxcImage> {
 
   Uint8List? _imageDataNoCache;
 
-  Uint8List? get _imageData => widget.cacheKey == null
-      ? _imageDataNoCache
-      : _imageDataCache[widget.cacheKey];
+  /// The bytes this image last drew from the cache, and their key. A chat
+  /// page empties its room's cache when it is disposed
+  /// ([MxcImage.clearCache]), which can happen while a new page for the
+  /// same chat already shows this image, for one when the layout changes on
+  /// rotation. [_tryLoad] runs only once, so without this the image would
+  /// fall back to its placeholder on its next build and stay there.
+  Uint8List? _shownData;
+  String? _shownKey;
+
+  Uint8List? get _imageData {
+    final cacheKey = widget.cacheKey;
+    if (cacheKey == null) return _imageDataNoCache;
+    final cached = _imageDataCache[cacheKey];
+    if (cached != null) {
+      _shownData = cached;
+      _shownKey = cacheKey;
+      return cached;
+    }
+    return _shownKey == cacheKey ? _shownData : null;
+  }
 
   set _imageData(Uint8List? data) {
     if (data == null) return;

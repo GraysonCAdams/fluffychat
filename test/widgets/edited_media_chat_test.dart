@@ -171,6 +171,9 @@ void main() {
       ),
     ]);
     expect(find.byType(ImageBubble), findsNWidgets(2));
+    // The bridge flags its edits com.beeper.dont_render_edited: they fill
+    // in a placeholder, so no message reads as edited.
+    expect(find.text('(edited)'), findsNothing);
 
     // The newer picture is the lower one.
     final bubbles = find.byType(ImageBubble).evaluate().toList()

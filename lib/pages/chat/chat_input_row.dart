@@ -19,7 +19,6 @@ import 'package:fluffychat/widgets/matrix.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
-import '../../config/themes.dart';
 import 'chat.dart';
 import 'composer_attachments.dart';
 import 'input_bar.dart';
@@ -205,24 +204,14 @@ class ChatInputRow extends StatelessWidget {
                       : const SizedBox.shrink(),
                 ]
               : <Widget>[
-                  const SizedBox(width: 2),
-                  // The attach button hides once there is text, which the
-                  // chat does not rebuild for (see
-                  // ChatController.inputTextIsEmpty).
-                  ValueListenableBuilder(
-                    valueListenable: controller.inputTextIsEmpty,
-                    builder: (context, _, _) => ComposerLeadingButtons(
-                      textMessageOnly:
-                          controller.sendController.text.isNotEmpty ||
-                          controller.replyEvent != null ||
-                          controller.editEvent != null,
-                      attachmentPanelOpen: controller.showAttachmentPanel,
-                      onAttach: controller.toggleAttachmentPanel,
-                      // Android keyboards carry their own emoji picker.
-                      showEmojiButton: !PlatformInfos.isAndroid,
-                      emojiPickerOpen: controller.showEmojiPicker,
-                      onEmoji: controller.emojiPickerAction,
-                    ),
+                  // Files attach to whatever is being written, a reply or
+                  // an edit included, so the attach button always shows.
+                  ComposerLeadingButtons(
+                    attachmentPanelOpen: controller.showAttachmentPanel,
+                    onAttach: controller.toggleAttachmentPanel,
+                    showEmojiButton: controller.emojiButtonShown,
+                    emojiPickerOpen: controller.showEmojiPicker,
+                    onEmoji: controller.emojiButtonAction,
                   ),
                   if (Matrix.of(context).isMultiAccount &&
                       Matrix.of(context).hasComplexBundles &&
@@ -254,8 +243,11 @@ class ChatInputRow extends StatelessWidget {
                         focusNode: controller.inputFocus,
                         controller: controller.sendController,
                         decoration: InputDecoration(
+                          // 12 more after the last button's 48 target, so
+                          // the text starts 24 after its icon, as far as
+                          // the icons are apart.
                           contentPadding: const EdgeInsets.only(
-                            left: 2.0,
+                            left: 12.0,
                             right: 6.0,
                             bottom: 6.0,
                             top: 3.0,
@@ -505,23 +497,26 @@ class ChatComposer extends StatelessWidget {
   }
 }
 
-/// The attach and emoji buttons at the start of the composer, 40dp wide
-/// each and side by side, so their icons sit 16dp apart. Once the message
-/// has text ([textMessageOnly]) the attach button folds away, leaving its
-/// slot as the text's inset from the composer's rounded edge.
+/// The attach and emoji buttons at the start of the composer: icon buttons
+/// with Material's 48dp target, side by side from the composer's edge. Their
+/// 24dp icons sit 12dp in from the edge, as a text field pads a leading
+/// icon, and 24dp apart; the text starts 24dp after the last icon too (see
+/// [ChatInputRow]), so icons and text keep one rhythm.
 class ComposerLeadingButtons extends StatelessWidget {
-  final bool textMessageOnly;
   final bool attachmentPanelOpen;
   final void Function() onAttach;
+
+  /// Whether to show the emoji button: where the system has an emoji picker
+  /// to open, or the chat offers stickers (see ChatController.
+  /// emojiButtonShown).
   final bool showEmojiButton;
   final bool emojiPickerOpen;
   final void Function() onEmoji;
 
   /// Each button's width and touch target.
-  static const double buttonSize = 40;
+  static const double buttonSize = 48;
 
   const ComposerLeadingButtons({
-    required this.textMessageOnly,
     required this.attachmentPanelOpen,
     required this.onAttach,
     required this.showEmojiButton,
@@ -543,28 +538,21 @@ class ComposerLeadingButtons extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        AnimatedContainer(
-          duration: FluffyThemes.animationDuration,
-          curve: FluffyThemes.animationCurve,
-          width: textMessageOnly ? 16 : buttonSize,
+        SizedBox(
           height: ChatInputRow.height,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(),
-          clipBehavior: Clip.hardEdge,
-          child: textMessageOnly
-              ? null
-              : IconButton(
-                  key: const ValueKey('composer-attach'),
-                  tooltip: l10n.addAttachment,
-                  style: style,
-                  icon: Icon(
-                    attachmentPanelOpen
-                        ? Icons.close
-                        : Icons.add_circle_outline,
-                  ),
-                  color: theme.colorScheme.onPrimaryContainer,
-                  onPressed: onAttach,
-                ),
+          width: buttonSize,
+          child: Center(
+            child: IconButton(
+              key: const ValueKey('composer-attach'),
+              tooltip: l10n.addAttachment,
+              style: style,
+              icon: Icon(
+                attachmentPanelOpen ? Icons.close : Icons.add_circle_outline,
+              ),
+              color: theme.colorScheme.onPrimaryContainer,
+              onPressed: onAttach,
+            ),
+          ),
         ),
         if (showEmojiButton)
           SizedBox(

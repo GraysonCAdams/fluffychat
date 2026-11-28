@@ -15,6 +15,7 @@ import 'package:fluffychat/pages/chat/effects/message_effect_bubble.dart';
 import 'package:fluffychat/pages/chat/effects/message_effect_replay_link.dart';
 import 'package:fluffychat/utils/adaptive_bottom_sheet.dart';
 import 'package:fluffychat/utils/date_time_extension.dart';
+import 'package:fluffychat/utils/edited_mark.dart';
 import 'package:fluffychat/utils/file_description.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
 import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
@@ -250,10 +251,9 @@ class Message extends StatelessWidget {
       timeline,
       RelationshipTypes.thread,
     );
-    final isEdited = event.hasAggregatedEvents(
-      timeline,
-      RelationshipTypes.edit,
-    );
+    // An edit flagged com.beeper.dont_render_edited (a bridge filling in a
+    // placeholder) does not count; see showsEditedMark.
+    final isEdited = event.showsEditedMarkIn(timeline);
 
     final showReactionPicker =
         singleSelected &&
@@ -330,7 +330,14 @@ class Message extends StatelessWidget {
           ),
         ),
       ],
-      if (event.status == EventStatus.sending) ...[
+      // A photo or video says it is sending with its ring over the media
+      // (MediaSendingIndicator) and the mark alone here, as Google Messages
+      // shows only its clock; other messages spell it out.
+      if (event.status == EventStatus.sending &&
+          !const {
+            MessageTypes.Image,
+            MessageTypes.Video,
+          }.contains(event.messageType)) ...[
         Text(
           switch (event.fileSendingStatus) {
             null => L10n.of(context).sending,

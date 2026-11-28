@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/chat/events/media_sending_indicator.dart';
 import 'package:fluffychat/utils/encoded_image_size.dart';
 import 'package:fluffychat/utils/file_description.dart';
 import 'package:fluffychat/utils/localized_exception_extension.dart';
@@ -334,6 +335,8 @@ class _EventVideoPlayerState extends State<EventVideoPlayer> {
                   if (_controller case final controller?)
                     _VideoFrame(controller: controller),
                   _buildControls(context),
+                  if (!event.status.isSynced)
+                    MediaSendingIndicator(event: event),
                 ],
               ),
             ),
@@ -479,7 +482,8 @@ class _EventVideoPlayerState extends State<EventVideoPlayer> {
   }
 }
 
-/// The still shown until the video plays: the sent thumbnail, a frame taken
+/// The still shown until the video plays: the sent thumbnail (or, while
+/// this device sends the video, the poster frame it primed), a frame taken
 /// from the file where the platform can, or the blur hash.
 class _VideoPoster extends StatelessWidget {
   final Event event;
@@ -499,10 +503,14 @@ class _VideoPoster extends StatelessWidget {
       fit: BoxFit.cover,
     );
     if (!AppSettings.showThumbnailsInTimeline.value) return placeholder;
-    if (event.hasThumbnail) {
+    final cacheKey = event.transactionId ?? event.eventId;
+    // A video this device is sending has its poster frame primed under the
+    // transaction ID (see primeLocalMediaPreview), so it shows from the
+    // first frame and stays put when the uploaded thumbnail is added.
+    if (event.hasThumbnail || MxcImage.isCached(event.room.id, cacheKey)) {
       return MxcImage(
         event: event,
-        cacheKey: event.transactionId ?? event.eventId,
+        cacheKey: cacheKey,
         cacheName: event.room.id,
         isThumbnail: true,
         width: size.width,

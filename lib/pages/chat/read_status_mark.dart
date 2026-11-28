@@ -17,7 +17,8 @@ import 'package:matrix/matrix.dart';
 /// where the network reports read receipts, who has read it.
 ///
 /// One [StatusMark] in the status line's own colour follows the message
-/// from sending (beside the "Sending" label) to sent, or to failed (beside
+/// from sending (beside the "Sending" label, which a photo or video leaves
+/// out) to sent, or to failed (beside
 /// "Could not be sent"). In a direct chat it turns read, two filled rings,
 /// once the other person's m.read receipt reaches the message, and a tap on
 /// it says when it was read. In a group the readers' faces stack left of

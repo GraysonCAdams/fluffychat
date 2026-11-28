@@ -16,33 +16,52 @@ void _openInBrowser(String url) =>
     launchUrlString(url, mode: LaunchMode.externalApplication);
 
 /// The Terms of use and Privacy policy as two text buttons, each opening
-/// the page in the browser.
+/// the page in the browser. With [showIcon] each carries an "open in new"
+/// icon after its label.
 class TermsLinks extends StatelessWidget {
   final WrapAlignment alignment;
+  final bool showIcon;
 
-  const TermsLinks({this.alignment = WrapAlignment.center, super.key});
+  const TermsLinks({
+    this.alignment = WrapAlignment.center,
+    this.showIcon = false,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
+    Widget link(String label, String url) => Semantics(
+      link: true,
+      label: l10n.opensInBrowser(label),
+      excludeSemantics: true,
+      onTap: () => _openInBrowser(url),
+      child: showIcon
+          ? TextButton.icon(
+              onPressed: () => _openInBrowser(url),
+              iconAlignment: IconAlignment.end,
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: Text(label),
+            )
+          : TextButton(
+              onPressed: () => _openInBrowser(url),
+              child: Text(label),
+            ),
+    );
     return Wrap(
       alignment: alignment,
       children: [
-        TextButton(
-          onPressed: () => _openInBrowser(AppSettings.termsOfUseUrl.value),
-          child: Text(l10n.termsOfUse),
-        ),
-        TextButton(
-          onPressed: () =>
-              _openInBrowser(AppSettings.privacyPolicyPageUrl.value),
-          child: Text(l10n.privacyPolicy),
-        ),
+        link(l10n.termsOfUse, AppSettings.termsOfUseUrl.value),
+        link(l10n.privacyPolicy, AppSettings.privacyPolicyPageUrl.value),
       ],
     );
   }
 }
 
-/// The "I agree to the Terms of use" checkbox above the sign-in buttons.
+/// The Terms of use card above the sign-in buttons: an outlined card with
+/// the "I agree to the Terms of use" checkbox as a two-line list item and,
+/// under a divider, the Terms of use and Privacy policy links. The outline
+/// turns to the primary colour once the box is ticked.
 ///
 /// [builder] gets a `gate` function to wrap each button's callback in: it
 /// returns null (a disabled button) until the box is ticked, and afterwards
@@ -76,15 +95,21 @@ class _SignInTermsGateState extends State<SignInTermsGate> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Column(
       mainAxisSize: .min,
       crossAxisAlignment: .stretch,
       children: [
         Material(
-          color: colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(16),
-          clipBehavior: Clip.hardEdge,
+          color: colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: _agreed ? colorScheme.primary : colorScheme.outlineVariant,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
           child: Column(
             mainAxisSize: .min,
             crossAxisAlignment: .stretch,
@@ -94,12 +119,31 @@ class _SignInTermsGateState extends State<SignInTermsGate> {
                 value: _agreed,
                 onChanged: (value) => setState(() => _agreed = value ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: const EdgeInsetsDirectional.only(start: 4),
-                title: Text(l10n.agreeToTermsOfUse),
+                contentPadding: const EdgeInsetsDirectional.only(
+                  start: 4,
+                  end: 16,
+                ),
+                horizontalTitleGap: 4,
+                title: Text(
+                  l10n.agreeToTermsOfUse,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                subtitle: Text(
+                  l10n.agreeToTermsOfUseHint,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
+              Divider(height: 1, color: colorScheme.outlineVariant),
               const Padding(
-                padding: EdgeInsetsDirectional.only(start: 48, bottom: 4),
-                child: TermsLinks(alignment: WrapAlignment.start),
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: TermsLinks(
+                  alignment: WrapAlignment.start,
+                  showIcon: true,
+                ),
               ),
             ],
           ),
@@ -112,10 +156,24 @@ class _SignInTermsGateState extends State<SignInTermsGate> {
 
 /// Asks an account that has not agreed to the current terms to do so, once
 /// its account data is known. Shown over whatever screen is open.
+///
+/// A signed-out client, such as the one behind the welcome screen, has no
+/// account to ask for: it is asked once it signs in, by which time ticking
+/// the box on the sign-in page has recorded the agreement on this device.
 Future<void> promptForTermsIfNeeded(
   Client client,
   BuildContext Function() context,
 ) async {
+  if (!client.isLogged()) {
+    try {
+      await client.onLoginStateChanged.stream.firstWhere(
+        (state) => state == LoginState.loggedIn,
+      );
+    } on StateError {
+      // The client went away without signing in.
+      return;
+    }
+  }
   final terms = TermsAcceptance.of(client);
   if (await terms.settle()) return;
   await WidgetsBinding.instance.endOfFrame;

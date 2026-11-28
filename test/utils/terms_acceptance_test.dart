@@ -16,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'message_search/search_test_client.dart';
 
@@ -292,5 +293,99 @@ void main() {
       expect(find.byType(TermsUpdateDialog), findsNothing);
       expect(find.text('composer'), findsOneWidget);
     });
+  });
+
+  group('signed-out client', () {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    late Client signedOut;
+
+    setUp(() async {
+      signedOut = Client(
+        'Signed Out Test',
+        httpClient: FakeMatrixApi(),
+        database: await MatrixSdkDatabase.init(
+          'Signed Out Test',
+          database: await databaseFactoryFfi.openDatabase(
+            inMemoryDatabasePath,
+            options: OpenDatabaseOptions(singleInstance: false),
+          ),
+          sqfliteFactory: databaseFactoryFfi,
+        ),
+      );
+      // No stored session: the client is signed out, as on the welcome
+      // screen of a fresh install.
+      await signedOut.init(waitForFirstSync: false);
+      expect(signedOut.isLogged(), isFalse);
+    });
+
+    tearDown(() => signedOut.dispose(closeDatabase: true));
+
+    testWidgets('is not asked, however long the welcome screen waits', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigatorKey,
+          localizationsDelegates: L10n.localizationsDelegates,
+          supportedLocales: L10n.supportedLocales,
+          home: const Scaffold(body: Text('welcome')),
+        ),
+      );
+      unawaited(
+        promptForTermsIfNeeded(signedOut, () => navigatorKey.currentContext!),
+      );
+      // Past the 30 seconds the check waits for a first sync.
+      for (var i = 0; i < 10; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump(const Duration(seconds: 5));
+      }
+      await tester.pumpAndSettle();
+      expect(find.byType(TermsUpdateDialog), findsNothing);
+      expect(find.text('welcome'), findsOneWidget);
+      // Nothing was agreed to on the user's behalf.
+      expect(AppSettings.termsAcceptedVersion.value, isNot(version));
+    });
+
+    for (final ticked in [false, true]) {
+      testWidgets('is asked on signing in, '
+          '${ticked ? 'unless the box was ticked' : 'with no box ticked'}', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            navigatorKey: navigatorKey,
+            localizationsDelegates: L10n.localizationsDelegates,
+            supportedLocales: L10n.supportedLocales,
+            home: const Scaffold(body: Text('welcome')),
+          ),
+        );
+        var finished = false;
+        unawaited(
+          promptForTermsIfNeeded(
+            signedOut,
+            () => navigatorKey.currentContext!,
+          ).whenComplete(() => finished = true),
+        );
+        await pumpUntil(tester, () => false);
+        expect(find.byType(TermsUpdateDialog), findsNothing);
+
+        // Ticking the box on the sign-in page records the agreement, then
+        // the client signs in.
+        if (ticked) await tester.runAsync(TermsAcceptance.recordOnDevice);
+        signedOut.onLoginStateChanged.add(LoginState.loggedIn);
+        await pumpUntil(
+          tester,
+          () =>
+              finished || find.byType(TermsUpdateDialog).evaluate().isNotEmpty,
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(TermsUpdateDialog),
+          ticked ? findsNothing : findsOneWidget,
+        );
+      });
+    }
   });
 }

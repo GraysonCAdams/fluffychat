@@ -5,6 +5,7 @@
 import 'package:async/async.dart' show Result;
 import 'package:cross_file/cross_file.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/utils/local_media_preview.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_file_extension.dart';
 import 'package:fluffychat/utils/media_adaptation.dart';
 import 'package:fluffychat/utils/message_effects.dart';
@@ -34,6 +35,11 @@ const int _fallbackMaxUploadSize = 100 * 1000 * 1000;
 /// platform can transcode (the only time a video is transcoded), else either goes as `m.file` when the room takes
 /// that, and one the bridge would refuse or that is over the room's size
 /// limit is not sent. Rooms without that state are unaffected.
+///
+/// An image or video shows in the timeline from its own bytes while it
+/// uploads (see [primeLocalMediaPreview]): an image at its own size and
+/// shape, which [fillImageSize] reads from its header, and a video by its
+/// poster frame.
 ///
 /// A failure in one file is logged and the remaining files are still sent, so
 /// this never throws for a single bad file. The failures are handed to
@@ -233,6 +239,7 @@ Future<({bool caption})> _sendOne({
   if (adapted.file.bytes.length > maxUploadSize) {
     throw FileTooBigMatrixException(adapted.file.bytes.length, maxUploadSize);
   }
+  await fillImageSize(adapted.file);
 
   final captioned = caption != null && !adapted.captionSeparately;
   final content = adapted.mergeExtraContent({
@@ -242,14 +249,24 @@ Future<({bool caption})> _sendOne({
     },
     if (effect != null) messageEffectKey: effect.id,
   });
-  Future<void> send() => room.sendFileEvent(
-    adapted.file,
-    thumbnail: adapted.thumbnail,
-    inReplyTo: inReplyTo,
-    extraContent: content == null || content.isEmpty ? null : content,
-    threadRootEventId: threadRootEventId,
-    threadLastEventId: threadLastEventId,
-  );
+  Future<void> send() {
+    final txid = room.client.generateUniqueTransactionId();
+    primeLocalMediaPreview(
+      room: room,
+      txid: txid,
+      file: adapted.file,
+      thumbnail: adapted.thumbnail,
+    );
+    return room.sendFileEvent(
+      adapted.file,
+      txid: txid,
+      thumbnail: adapted.thumbnail,
+      inReplyTo: inReplyTo,
+      extraContent: content == null || content.isEmpty ? null : content,
+      threadRootEventId: threadRootEventId,
+      threadLastEventId: threadLastEventId,
+    );
+  }
 
   try {
     await send();

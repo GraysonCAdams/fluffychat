@@ -33,6 +33,7 @@ import 'package:fluffychat/utils/clipboard_gif.dart';
 import 'package:fluffychat/utils/emoticons.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
 import 'package:fluffychat/utils/file_selector.dart';
+import 'package:fluffychat/utils/matrix_features.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/event_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/filtered_timeline_extension.dart';
 import 'package:fluffychat/utils/matrix_sdk_extensions/matrix_locals.dart';
@@ -43,6 +44,7 @@ import 'package:fluffychat/utils/merged_contacts/network_colors.dart';
 import 'package:fluffychat/utils/merged_contacts/send_router.dart';
 import 'package:fluffychat/utils/merged_contacts/store.dart';
 import 'package:fluffychat/utils/message_effects.dart';
+import 'package:fluffychat/utils/native_emoji_picker.dart';
 import 'package:fluffychat/utils/ogg_opus_remuxer.dart';
 import 'package:fluffychat/utils/other_party_can_receive.dart';
 import 'package:fluffychat/utils/pasted_file_type.dart';
@@ -1397,7 +1399,9 @@ class ChatController extends State<ChatPageWithRoom>
       final caption = editEvent == null && sendController.text.trim().isNotEmpty
           ? sendController.text
           : null;
-      final inReplyTo = caption == null ? null : replyEvent;
+      // A reply with files sends them as the reply, the caption with the
+      // last of them.
+      final inReplyTo = editEvent == null ? replyEvent : null;
       setState(() {
         pendingAttachments.clear();
         showAttachmentPanel = false;
@@ -1406,6 +1410,8 @@ class ChatController extends State<ChatPageWithRoom>
         _storeInputTimeoutTimer?.cancel();
         if (!_holdsShare) Matrix.of(context).store.remove(_draftKey);
         _clearComposerAfterSend();
+      } else if (inReplyTo != null) {
+        setState(() => replyEvent = null);
       }
       await sendAttachments(
         room: target,
@@ -1693,6 +1699,30 @@ class ChatController extends State<ChatPageWithRoom>
 
   void hideEmojiPicker() {
     setState(() => showEmojiPicker = false);
+  }
+
+  /// Whether the composer shows an emoji button: where the system has an
+  /// emoji picker the app can open (see [NativeEmojiPicker]), or where the
+  /// chat offers stickers, which only the app's own picker lists.
+  bool get emojiButtonShown => NativeEmojiPicker.supported || _stickersOffered;
+
+  bool get _stickersOffered => MatrixFeatures.forClient(
+    room.client,
+  ).isRelevant(MatrixFeature.customEmotes, room: room);
+
+  /// The composer's emoji button: the app's own picker while the chat offers
+  /// stickers, which it lists beside the emoji, else the system's picker,
+  /// opened over the composer.
+  void emojiButtonAction() {
+    if (_stickersOffered || !NativeEmojiPicker.supported) {
+      emojiPickerAction();
+      return;
+    }
+    inputFocus.requestFocus();
+    // The picker types where focus is, so it opens once the composer has it.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => NativeEmojiPicker.open(),
+    );
   }
 
   void emojiPickerAction() {
