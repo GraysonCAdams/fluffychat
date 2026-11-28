@@ -72,6 +72,10 @@
 	<string>Share your location in a chat when you choose to.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Share your location in a chat when you choose to.</string>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>INSendMessageIntent</string>
+	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Record voice messages to send in a chat.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

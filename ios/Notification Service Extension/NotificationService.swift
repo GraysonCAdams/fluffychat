@@ -5,6 +5,8 @@
 //  Created by Christian Pauly on 26.08.25.
 //
 
+import Intents
+import UIKit
 import Foundation
 import UserNotifications
 import os
@@ -127,6 +129,10 @@ class NotificationService: UNNotificationServiceExtension {
             roomId: roomId
         )
         var roomAvatarUrl = getRoomAvatarFromDatabase(database: database, roomId: roomId)
+        // A chat with a name of its own, or with more than one other person,
+        // is shown as a group: the banner then names the group and the
+        // sender. Any other chat is shown as the sender alone.
+        var isGroup = roomName != nil
 
         // Fall back to room heroes if no explicit room name
         if roomName == nil || roomAvatarUrl == nil {
@@ -134,6 +140,7 @@ class NotificationService: UNNotificationServiceExtension {
                 database: database,
                 roomId: roomId
             ) {
+                if heroes.count > 1 { isGroup = true }
                 if !heroes.isEmpty {
                     roomName =
                         roomName
@@ -155,15 +162,16 @@ class NotificationService: UNNotificationServiceExtension {
             bestAttemptContent.userInfo["room_name"] = roomName
         }
         
+        var roomAvatarFile: URL?
         if let roomAvatarUrl = roomAvatarUrl {
             bestAttemptContent.userInfo["room_avatar"] = roomAvatarUrl
             do {
-                let attachment = try downloadAttachment(url: roomAvatarUrl, containerPath: containerPath)
-                bestAttemptContent.attachments = [attachment]
+                roomAvatarFile = try downloadAttachment(url: roomAvatarUrl, containerPath: containerPath).url
             } catch {
                 os_log("[SeamPush] Unable to download avatar!")
             }
         }
+        let groupFlag = isGroup
 
         // The push carries only ids. Fetch the event and decrypt it here so
         // the banner shows who wrote and what; when that fails the banner
@@ -172,9 +180,9 @@ class NotificationService: UNNotificationServiceExtension {
             do {
                 let event = try await EventDecryptor(database: database)
                     .event(roomId: roomId, eventId: eventId)
-                let sender =
-                    getUserFromDatabase(database: database, userId: event.senderId, roomId: roomId)?
-                    .content.displayname ?? event.senderId
+                let senderProfile = getUserFromDatabase(
+                    database: database, userId: event.senderId, roomId: roomId)?.content
+                let sender = senderProfile?.displayname ?? event.senderId
                 let text =
                     event.isReaction
                     ? event.relation?.key
@@ -186,12 +194,111 @@ class NotificationService: UNNotificationServiceExtension {
                         bestAttemptContent.subtitle = sender
                     }
                     bestAttemptContent.body = text
+
+                    // As a communication notification the banner carries the
+                    // sender's picture where the app icon would be, and in
+                    // a group the group's picture and name with it.
+                    var senderAvatarFile: URL?
+                    if let avatarUrl = senderProfile?.avatar_url {
+                        senderAvatarFile = try? self.downloadAttachment(
+                            url: avatarUrl, containerPath: containerPath
+                        ).url
+                    }
+                    if let communication = Self.communicationContent(
+                        from: bestAttemptContent,
+                        roomId: roomId,
+                        roomName: bestAttemptContent.title,
+                        isGroup: groupFlag,
+                        groupAvatar: roomAvatarFile,
+                        senderId: event.senderId,
+                        senderName: sender,
+                        senderAvatar: senderAvatarFile ?? (groupFlag ? nil : roomAvatarFile),
+                        text: text)
+                    {
+                        contentHandler(communication)
+                        return
+                    }
                 }
             } catch {
                 os_log("[SeamPush] Unable to load event: %{public}@", type: .error, String(describing: error))
             }
             contentHandler(bestAttemptContent)
         }
+    }
+
+    /// `content` restyled as a message from `senderName`, or nil when the
+    /// system refuses, which it does without the communication notifications
+    /// entitlement.
+    private static func communicationContent(
+        from content: UNMutableNotificationContent,
+        roomId: String,
+        roomName: String,
+        isGroup: Bool,
+        groupAvatar: URL?,
+        senderId: String,
+        senderName: String,
+        senderAvatar: URL?,
+        text: String
+    ) -> UNNotificationContent? {
+        let senderImage =
+            senderAvatar.flatMap { try? Data(contentsOf: $0) }.map { INImage(imageData: $0) }
+            ?? initialsImage(for: senderName, seed: senderId)
+        let person = INPerson(
+            personHandle: INPersonHandle(value: senderId, type: .unknown),
+            nameComponents: nil,
+            displayName: senderName,
+            image: senderImage,
+            contactIdentifier: nil,
+            customIdentifier: senderId
+        )
+        let intent = INSendMessageIntent(
+            recipients: nil,
+            outgoingMessageType: .outgoingMessageText,
+            content: text,
+            speakableGroupName: isGroup ? INSpeakableString(spokenPhrase: roomName) : nil,
+            conversationIdentifier: roomId,
+            serviceName: nil,
+            sender: person,
+            attachments: nil
+        )
+        if isGroup {
+            let groupImage =
+                groupAvatar.flatMap { try? Data(contentsOf: $0) }.map { INImage(imageData: $0) }
+                ?? initialsImage(for: roomName, seed: roomId)
+            intent.setImage(groupImage, forParameterNamed: \.speakableGroupName)
+        }
+        let interaction = INInteraction(intent: intent, response: nil)
+        interaction.direction = .incoming
+        interaction.donate(completion: nil)
+        // The system writes the title and subtitle from the intent.
+        content.subtitle = ""
+        do {
+            return try content.updating(from: intent)
+        } catch {
+            os_log("[SeamPush] Not a communication notification: %{public}@", type: .error, String(describing: error))
+            return nil
+        }
+    }
+
+    /// A round picture with the first letter of `name`, for someone or some
+    /// chat without a picture, in a colour that stays the same for `seed`.
+    private static func initialsImage(for name: String, seed: String) -> INImage {
+        let size = CGSize(width: 192, height: 192)
+        let hue = CGFloat(seed.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) % 360 }) / 360
+        let letter = String(name.drop(while: { !$0.isLetter && !$0.isNumber }).prefix(1)).uppercased()
+        let image = UIGraphicsImageRenderer(size: size).image { context in
+            UIColor(hue: hue, saturation: 0.45, brightness: 0.75, alpha: 1).setFill()
+            context.cgContext.fillEllipse(in: CGRect(origin: .zero, size: size))
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 88, weight: .semibold),
+                .foregroundColor: UIColor.white,
+            ]
+            let bounds = (letter as NSString).size(withAttributes: attributes)
+            (letter as NSString).draw(
+                at: CGPoint(x: (size.width - bounds.width) / 2, y: (size.height - bounds.height) / 2),
+                withAttributes: attributes)
+        }
+        return INImage(imageData: image.pngData() ?? Data())
     }
 
     override func serviceExtensionTimeWillExpire() {
