@@ -12,7 +12,6 @@ import 'package:fluffychat/utils/sign_in_flows/sign_in_method.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:matrix/matrix.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../utils/message_search/search_test_client.dart';

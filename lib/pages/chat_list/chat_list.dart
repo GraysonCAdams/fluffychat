@@ -604,7 +604,7 @@ class ChatListController extends State<ChatList>
 
   Stream<Client> get clientStream => _clientStream.stream;
 
-  void addAccountAction() => context.go('/rooms/settings/account');
+  void addAccountAction() => context.go('/rooms/settings/addaccount');
 
   void _onScroll() {
     final newScrolledToTop = scrollController.position.pixels <= 0;
