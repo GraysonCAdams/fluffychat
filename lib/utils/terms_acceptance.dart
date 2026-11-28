@@ -118,10 +118,16 @@ class TermsAcceptance extends ValueNotifier<bool> {
   /// Waits until the account's data is known (the stored copy, and the
   /// first sync for an account new to this device), copies the device's
   /// agreement to the account if it is missing there, and returns whether
-  /// the account has agreed.
+  /// the account has agreed. For a signed-out client it returns at once,
+  /// going by this device's record alone.
   Future<bool> settle({
     Duration firstSyncTimeout = const Duration(seconds: 30),
   }) async {
+    // A signed-out client has no account data to wait for or write to.
+    if (!client.isLogged()) {
+      _refresh();
+      return value;
+    }
     await client.accountDataLoading;
     if (client.prevBatch == null) {
       try {

@@ -156,10 +156,24 @@ class _SignInTermsGateState extends State<SignInTermsGate> {
 
 /// Asks an account that has not agreed to the current terms to do so, once
 /// its account data is known. Shown over whatever screen is open.
+///
+/// A signed-out client, such as the one behind the welcome screen, has no
+/// account to ask for: it is asked once it signs in, by which time ticking
+/// the box on the sign-in page has recorded the agreement on this device.
 Future<void> promptForTermsIfNeeded(
   Client client,
   BuildContext Function() context,
 ) async {
+  if (!client.isLogged()) {
+    try {
+      await client.onLoginStateChanged.stream.firstWhere(
+        (state) => state == LoginState.loggedIn,
+      );
+    } on StateError {
+      // The client went away without signing in.
+      return;
+    }
+  }
   final terms = TermsAcceptance.of(client);
   if (await terms.settle()) return;
   await WidgetsBinding.instance.endOfFrame;
