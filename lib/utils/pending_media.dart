@@ -5,6 +5,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:fluffychat/l10n/l10n.dart';
 import 'package:matrix/matrix.dart';
 import 'package:mime/mime.dart';
 
@@ -106,6 +107,21 @@ class PendingMedia {
       preview: state == PendingMediaState.pending ? media?.preview : null,
     );
   }
+
+  /// How a preview of the message reads, in the chat list and in a
+  /// notification: as a photo or video message reads ("Photo", "Video"),
+  /// a file by its name, and a failed transfer as such.
+  String previewText(L10n l10n) => switch ((state, kind)) {
+    (PendingMediaState.pending, PendingMediaKind.image) => l10n.photo,
+    (PendingMediaState.pending, PendingMediaKind.video) => l10n.video,
+    (PendingMediaState.pending, PendingMediaKind.file) => fileName,
+    (PendingMediaState.failed, PendingMediaKind.image) =>
+      l10n.photoDidNotArrive,
+    (PendingMediaState.failed, PendingMediaKind.video) =>
+      l10n.videoDidNotArrive,
+    (PendingMediaState.failed, PendingMediaKind.file) =>
+      l10n.attachmentDidNotArrive,
+  };
 
   static PendingMediaKind _kindOf(String fileName, String? mimeType) {
     final type = lookupMimeType(fileName) ?? mimeType ?? '';
