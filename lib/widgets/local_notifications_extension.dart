@@ -17,6 +17,7 @@ import 'package:fluffychat/utils/merged_contacts/conversation.dart';
 import 'package:fluffychat/utils/merged_contacts/merged_contact.dart';
 import 'package:fluffychat/utils/notification_background_handler.dart';
 import 'package:fluffychat/utils/notification_body.dart';
+import 'package:fluffychat/utils/notification_media.dart';
 import 'package:fluffychat/utils/notification_snooze.dart';
 import 'package:fluffychat/utils/one_time_code.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -24,6 +25,7 @@ import 'package:fluffychat/utils/push_helper.dart';
 import 'package:fluffychat/utils/room_kind.dart';
 import 'package:fluffychat/utils/string_color.dart';
 import 'package:fluffychat/utils/windows_toast_identity.dart';
+import 'package:fluffychat/utils/windows_toast_images.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/group_avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
@@ -176,7 +178,22 @@ extension LocalNotificationsExtension on MatrixState {
       EventTypes.Sticker,
     }.contains(event.type);
 
-    await FlutterLocalNotificationsPlugin().show(
+    // A photo or video shows under the text. Its download starts now; the
+    // toast waits a moment for it and otherwise goes out as text, to be
+    // posted again with the picture under the same id once it arrives.
+    final windowsMediaFuture = PlatformInfos.isWindows
+        ? notificationMediaFileOf(
+            event,
+            directory: _windowsMediaDirectory,
+            timeout: _windowsMediaTimeout,
+          )
+        : null;
+    final windowsMedia = await windowsMediaFuture?.timeout(
+      _windowsMediaWait,
+      onTimeout: () => null,
+    );
+
+    Future<void> post(Uri? toastMedia) async => await FlutterLocalNotificationsPlugin().show(
       id: id,
       title: title,
       body: body,
@@ -203,14 +220,13 @@ extension LocalNotificationsExtension on MatrixState {
           timestamp: event.originServerTs,
           images: [
             if (PlatformInfos.isWindows)
-              WindowsImage(
-                windowsAvatar ?? _windowsAppLogo,
-                altText: title,
-                placement: WindowsImagePlacement.appLogoOverride,
+              ...windowsToastImages(
+                avatar: windowsAvatar ?? _windowsAppLogo,
+                title: title,
                 // The collage is round faces on a clear square already.
-                crop: windowsAvatar == null || windowsCollage != null
-                    ? null
-                    : WindowsImageCrop.circle,
+                roundAvatar: windowsAvatar != null && windowsCollage == null,
+                media: toastMedia,
+                mediaAltText: body,
               ),
           ],
           inputs: [
@@ -241,7 +257,27 @@ extension LocalNotificationsExtension on MatrixState {
       ),
       payload: payload,
     );
+
+    await post(windowsMedia);
+    if (windowsMedia == null && windowsMediaFuture != null) {
+      // Too slow for the toast: it is posted again with the picture.
+      final arrived = await windowsMediaFuture;
+      if (arrived != null) await post(arrived);
+    }
   }
+
+  /// How long a toast waits for its picture before going out as text.
+  static const _windowsMediaWait = Duration(seconds: 2);
+
+  /// How long the picture of a toast may take at most.
+  static const _windowsMediaTimeout = Duration(seconds: 15);
+
+  /// Where the pictures of toasts are kept, next to the icon of the toast
+  /// identity.
+  static Future<Directory> _windowsMediaDirectory() async => Directory(
+    '${Platform.environment['LOCALAPPDATA'] ?? (await getTemporaryDirectory()).path}'
+    '${Platform.pathSeparator}Seam${Platform.pathSeparator}toast_media',
+  );
 
   /// Draws the same fallback avatar the app shows for a chat without one:
   /// initials, or an icon for number-named chats, in the name's colours.
